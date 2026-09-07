@@ -83,9 +83,9 @@ describe('B2 Prepare (2026-09-02) now DOES link to MoneyPenny — the prior "no 
   // real MoneyPenny financial-profile tab — see tests/moneypenny-b2-prepare.test.ts
   // for the full coverage of that rebuild. This block only re-asserts the one
   // fact this file's own continuity narrative depends on: the link is now real.
-  it('FinancialSovereigntyPrepareCrossStage.tsx embeds the real MoneyPenny My Money tab (whose own default panel is financial-profile) in place (2026-09-03: MoneyPennyBridgeEmbed, no longer a navigate-away)', () => {
+  it('FinancialSovereigntyPrepareCrossStage.tsx mounts the real canonical FinancialProfilePanel directly in place (2026-09-03: no longer a navigate-away; 2026-09-06: no longer a cross-frame iframe either)', () => {
     const src = stripComments(readSource('components/journey/FinancialSovereigntyPrepareCrossStage.tsx'));
-    expect(src).toMatch(/<MoneyPennyBridgeEmbed tab="my-money" personaId=\{personaId\}/);
+    expect(src).toMatch(/<FinancialProfilePanel \/>/);
   });
 });
 

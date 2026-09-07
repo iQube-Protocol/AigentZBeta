@@ -54,16 +54,16 @@ describe('Prepare shows the review evidence and its limitations, honestly', () =
   });
 });
 
-describe('Prepare opens the REAL canonical financial-profile panel IN PLACE, not a bridge-local reimplementation and not a navigate-away (2026-09-03 experience-coherence correction)', () => {
+describe('Prepare opens the REAL canonical financial-profile panel IN PLACE, not a bridge-local reimplementation and not a navigate-away (2026-09-03 experience-coherence correction; 2026-09-06 direct-mount pass)', () => {
   const src = stripComments(readSource(STAGE_SRC));
 
-  it('embeds MoneyPennyBridgeEmbed rather than navigating away with window.location.assign', () => {
-    expect(src).toMatch(/import \{ MoneyPennyBridgeEmbed \} from '@\/components\/journey\/MoneyPennyBridgeEmbed'/);
+  it('mounts FinancialProfilePanel directly (no cross-frame iframe) rather than navigating away with window.location.assign', () => {
+    expect(src).toMatch(/import \{ FinancialProfilePanel \} from '@\/app\/\(shell\)\/moneypenny\/components\/FinancialProfilePanel'/);
     expect(src).not.toMatch(/window\.location\.assign/);
   });
 
-  it('the embed targets the My Money native tab (whose own default panel is financial-profile), threading personaId through', () => {
-    expect(src).toMatch(/<MoneyPennyBridgeEmbed tab="my-money" personaId=\{personaId\}/);
+  it('the panel mounts bare — it resolves its own persona via personaFetch/the spine, no personaId prop threaded through', () => {
+    expect(src).toMatch(/<FinancialProfilePanel \/>/);
   });
 
   it('opening the embed is a local state toggle, not a page navigation — "Continue to Operate" and a back affordance both stay reachable while it is open', () => {

@@ -455,6 +455,18 @@ export function FinancialProfilePanel() {
             {envelope.strategyConstraints.map((c, i) => (
               <div key={i} className="text-[11px] text-amber-300/80">· {c}</div>
             ))}
+            {/* Stub only (2026-09-06, CFS-051 backlog) — no real console/
+                strategy-activation binding exists yet for this candidate
+                envelope; disabled so it can never be mistaken for a live
+                action. See the backlog entry for what "real" requires. */}
+            <button
+              type="button"
+              disabled
+              title="Not yet wired — tracked in the CFS-051 backlog"
+              className="mt-1 w-full cursor-not-allowed rounded border border-amber-800/40 bg-amber-500/5 px-3 py-1.5 text-xs font-semibold text-amber-300/50"
+            >
+              Apply to Console (coming soon)
+            </button>
           </CardContent>
         </Card>
       )}

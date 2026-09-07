@@ -252,10 +252,12 @@ describe('FinancialSovereigntyIntroStage.tsx (Discover/Learn/Explore) — CFS co
 describe('FinancialSovereigntyPrepareCrossStage.tsx (Prepare/Cross) — profile review + handoff mechanism untouched', () => {
   const src = stripComments(readSource('components/journey/FinancialSovereigntyPrepareCrossStage.tsx'));
 
-  it('PrepareFinancialProfileReview still reuses fetchFinancialProfileSummary/markFinancialProfileReviewed and the MoneyPennyBridgeEmbed toggle — no parallel profile store', () => {
+  it('PrepareFinancialProfileReview still reuses fetchFinancialProfileSummary/markFinancialProfileReviewed, and mounts the canonical FinancialProfilePanel directly (2026-09-06 — no more MoneyPennyBridgeEmbed iframe here, no parallel profile store)', () => {
     expect(src).toMatch(/fetchFinancialProfileSummary/);
     expect(src).toMatch(/markFinancialProfileReviewed/);
-    expect(src).toMatch(/<MoneyPennyBridgeEmbed tab="my-money" personaId=\{personaId\}/);
+    expect(src).toMatch(/import \{ FinancialProfilePanel \} from '@\/app\/\(shell\)\/moneypenny\/components\/FinancialProfilePanel';/);
+    expect(src).toMatch(/<FinancialProfilePanel \/>/);
+    expect(src).not.toMatch(/<MoneyPennyBridgeEmbed tab="my-money"/);
   });
 
   it('Cross still builds a real ExperienceHandoff and navigates to /bridge/fs — never replaced with an assessment', () => {
@@ -445,10 +447,10 @@ describe('FsStructuredContentPanel — the native admin editor for topics/checks
 });
 
 describe('Prepare/Cross section ordering matches content/step-composition.json v1.2 (cross-automation before cross-readiness)', () => {
-  it("the cross-automation activity group (groups={crossGroups}, rendered inside FsBridgeCapsuleSection's companion capsule) appears in source BEFORE the 'Cross to Financial Services' button (cross-readiness, rendered via renderFooter)", () => {
+  it("the cross-automation activity group (groups={crossGroups}, rendered inside FsBridgeCapsuleSection's companion capsule) appears in source BEFORE the 'Cross to Advanced Financial Services' button (cross-readiness, rendered via renderFooter)", () => {
     const src = readSource('components/journey/FinancialSovereigntyPrepareCrossStage.tsx');
     const railIdx = src.indexOf('groups={crossGroups}');
-    const buttonIdx = src.indexOf('Cross to Financial Services');
+    const buttonIdx = src.indexOf('Cross to Advanced Financial Services');
     expect(railIdx).toBeGreaterThan(0);
     expect(buttonIdx).toBeGreaterThan(0);
     expect(railIdx).toBeLessThan(buttonIdx);
