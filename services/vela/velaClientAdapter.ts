@@ -254,7 +254,8 @@ export class VelaClientAdapter implements VelaTransport {
     // `stateUpdate` transaction that finalised this request — it is not
     // emitted as an event, so it is recovered by decoding the tx input.
     let teeSignatureHex = '';
-    const tx = await this.provider.getTransaction(completed[0].transactionHash);
+    const stateUpdateTxHash = completed[0].transactionHash;
+    const tx = await this.provider.getTransaction(stateUpdateTxHash);
     if (tx) {
       try {
         const decoded = this.processor.interface.parseTransaction({ data: tx.data });
@@ -295,6 +296,7 @@ export class VelaClientAdapter implements VelaTransport {
       applicationId,
       stateRootHex,
       teeSignatureHex,
+      stateUpdateTxHash,
       teeSignerAddress: await this.readRegisteredTeeSigner(),
       submittedPayload: Buffer.from(
         (await this.submittedPayloadHex(requestId)).replace(/^0x/, ''),

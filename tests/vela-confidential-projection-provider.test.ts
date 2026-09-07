@@ -263,6 +263,41 @@ describe('Fail-closed paths', () => {
   });
 });
 
+describe('Vela pre-Early-Access hardening — chain evidence retention (item 3)', () => {
+  it('evidence retains a reference to the on-chain stateUpdate transaction', async () => {
+    const { provider } = makeProvider();
+    const { evidence } = await runLifecycle(provider, { proposedSpend: 1 });
+    const txRef = evidence.executionProofRefs.find((r) => r.startsWith('stateUpdateTx:'));
+    expect(txRef).toBeDefined();
+    expect(txRef).toMatch(/^stateUpdateTx:0x[0-9a-f]{64}$/);
+  });
+
+  it('distinct requests carry distinct stateUpdateTx references', async () => {
+    const { provider } = makeProvider();
+    const a = await runLifecycle(provider, { proposedSpend: 1 });
+    const b = await runLifecycle(provider, { proposedSpend: 2 });
+    const txRefOf = (evidence: typeof a.evidence) =>
+      evidence.executionProofRefs.find((r) => r.startsWith('stateUpdateTx:'));
+    expect(txRefOf(a.evidence)).not.toBe(txRefOf(b.evidence));
+  });
+
+  it('the chain tx reference is public chain data, not a confidential value — carrying it introduces no new leak', async () => {
+    const { provider } = makeProvider();
+    const SECRETS = {
+      currentExposure: 4_800,
+      proposedSpend: 500,
+      privateSpendLimit: 1_000,
+      privateRiskLimit: 5_000,
+    };
+    const { evidence } = await runLifecycle(provider, SECRETS);
+    const serialised = JSON.stringify(evidence);
+    for (const [label, value] of Object.entries(SECRETS)) {
+      expect(serialised).not.toContain(String(value));
+      expect(serialised).not.toContain(label);
+    }
+  });
+});
+
 describe('Ruling 2 — bounded confidentiality: no confidential value ever leaks outward', () => {
   const SECRETS = {
     currentBalance: 987_654,
