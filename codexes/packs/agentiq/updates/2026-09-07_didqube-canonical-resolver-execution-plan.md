@@ -752,6 +752,40 @@ have NO `kybe_identity` at all, so every non-citizen credential's subject was si
   cross-class fallback), and that a class with no anchor at all produces `undefined` rather than
   silently reading the wrong field.
 
+#### Phase 3 item 3 — implementation record (2026-09-07)
+
+**Successor-credential reconciliation, WITHOUT MUTATION — the mechanism IMPLEMENTED.**
+
+`services/passport/issuanceService.ts`'s new `issueSuccessorPassport` is the "design successor
+credential issuance" deliverable (brief §6): when a Passport's subject anchors need to change as a
+result of reconciliation (e.g. the class-sensitive subject fix above would now resolve a different
+value than what was originally issued), it issues a NEW `polity_passport_records` row carrying
+`renewal_of_passport_id` back to the prior one — **the schema's existing renewal/supersession column**
+(`renewed_at`/`renewal_of_passport_id`, present since the original migration but never previously
+implemented in TypeScript), reused rather than inventing a parallel "superseded by" concept
+(inv.engineering.036/037). The prior row is READ ONLY — no `UPDATE` is ever issued against it; every
+field not explicitly reconciled is carried forward unchanged. A `passport_status_transitions` audit
+row records the supersession with `evidence_type: 'successor_credential_reconciliation'` and the
+caller-supplied reason.
+
+- Refuses to issue a successor to an already-revoked passport, and errors (rather than silently
+  orphaning a row) when the prior passport does not exist.
+- Verified against the live 'Aigent Z' Supabase project in a self-rolling-back transaction: the exact
+  INSERT shape the TypeScript function uses is schema-valid (no FK on `renewal_of_passport_id` —
+  confirmed via `pg_constraint`), and the prior row's `root_did_public_ref` is provably unchanged
+  after the successor insert.
+- `tests/passport-successor-credential.test.ts` (6 tests): successor creation with
+  `renewal_of_passport_id` set, zero `UPDATE` calls against `polity_passport_records`, unreconciled
+  fields carried forward, the audit-row shape, revoked-prior refusal, and missing-prior refusal.
+- **Not done in this pass**: the actual backfill of the 3 known-resolvable-but-unbound live
+  applications from Phase 0's original inventory — that dry-run report and its named row IDs were not
+  re-derived or re-verified in this pass (a live report this agent has not independently re-confirmed
+  should not be acted on from memory); the mechanism built here is what that backfill would use once
+  the operator confirms the specific rows. This is intentionally the same discipline the Phase 2.5
+  root-did-elimination pass already applied to its own 2 known-unanchored `agent_persona` rows — the
+  MECHANISM ships, the live write against specific named rows is a deliberate, separate operator-
+  confirmed act.
+
 ### Phase 4 — Consumer migration, one subsystem at a time (brief §9-§11, §"Registry and Horizen")
 *Each subsystem migrates independently; none blocks the others. This is where "CTP, DCIR, Factor,
 Aegis, Standing and DVN consume the same resolver" actually happens — but sequenced, not simultaneous.*

@@ -416,6 +416,128 @@ async function creditPassportCapabilityStanding(
   });
 }
 
+export interface IssueSuccessorPassportInput {
+  /** The existing, historically-issued passport this successor supersedes. */
+  priorPassportId: string;
+  /**
+   * The recomputed subject anchors, e.g. from a fresh
+   * resolveAgentRootIdentityForCard / DiDQube resolution. Only the fields
+   * that actually change need be supplied — everything else is carried
+   * forward unchanged from the prior record.
+   */
+  updates?: Partial<
+    Pick<
+      IssueSuccessorPassportRow,
+      'kybe_did_public_ref' | 'root_did_public_ref' | 'persona_public_ref' | 'passport_grade'
+    >
+  >;
+  reason: string;
+  stewardPersonaId: string;
+}
+
+interface IssueSuccessorPassportRow {
+  passport_id: string;
+  passport_class: string;
+  citizen_status: string | null;
+  participant_status: string | null;
+  passport_grade: string | null;
+  persona_id: string | null;
+  did_persona_id: string | null;
+  kybe_identity_id: string | null;
+  root_identity_id: string | null;
+  persona_public_ref: string | null;
+  kybe_did_public_ref: string | null;
+  root_did_public_ref: string | null;
+  vault_content_id: string | null;
+  vault_content_hash: string | null;
+  application_id: string | null;
+  revoked: boolean;
+}
+
+export type IssueSuccessorPassportResult =
+  | { ok: true; passportId: string; passportRecordId: string; priorPassportId: string }
+  | { ok: false; error: string };
+
+/**
+ * SUCCESSOR-CREDENTIAL RECONCILIATION, WITHOUT MUTATION (DiDQube Phase 3
+ * item 3, brief §6 — "design successor credential issuance ... never mutate
+ * the historically-issued credential object"). When a Passport's subject
+ * anchors need to change as a result of reconciliation (e.g. the
+ * class-sensitive subject fix in `passportCredential.ts` would now resolve a
+ * different value than what was originally issued), this issues a NEW
+ * `polity_passport_records` row carrying `renewal_of_passport_id` back to
+ * the prior one — the SAME supersession column the schema already carries
+ * for ordinary renewals (`renewed_at`/`renewal_of_passport_id`), reused here
+ * rather than inventing a parallel "superseded by" concept
+ * (inv.engineering.036/037).
+ *
+ * The prior row is READ ONLY — this function issues no UPDATE against it at
+ * all. History is preserved exactly as it was originally issued; only a NEW
+ * row, referencing the old one, carries the reconciled values. A
+ * `passport_status_transitions` audit row records the supersession with its
+ * own reason, exactly like every other status change.
+ */
+export async function issueSuccessorPassport(
+  input: IssueSuccessorPassportInput,
+): Promise<IssueSuccessorPassportResult> {
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false, error: 'Supabase configuration missing' };
+
+  const { data: prior, error: priorError } = await admin
+    .from('polity_passport_records')
+    .select(
+      'passport_id, passport_class, citizen_status, participant_status, passport_grade, persona_id, did_persona_id, kybe_identity_id, root_identity_id, persona_public_ref, kybe_did_public_ref, root_did_public_ref, vault_content_id, vault_content_hash, application_id, revoked',
+    )
+    .eq('passport_id', input.priorPassportId)
+    .maybeSingle();
+  if (priorError) return { ok: false, error: priorError.message };
+  if (!prior) return { ok: false, error: `prior passport "${input.priorPassportId}" not found` };
+  const priorRow = prior as IssueSuccessorPassportRow;
+  if (priorRow.revoked) {
+    return { ok: false, error: `prior passport "${input.priorPassportId}" is revoked — cannot issue a successor to a revoked passport` };
+  }
+
+  const passportId = mintPassportId(priorRow.passport_class);
+  const { data: record, error: recordError } = await admin
+    .from('polity_passport_records')
+    .insert({
+      passport_id: passportId,
+      passport_class: priorRow.passport_class,
+      citizen_status: priorRow.citizen_status,
+      participant_status: priorRow.participant_status,
+      passport_grade: input.updates?.passport_grade ?? priorRow.passport_grade,
+      persona_id: priorRow.persona_id,
+      did_persona_id: priorRow.did_persona_id,
+      kybe_identity_id: priorRow.kybe_identity_id,
+      root_identity_id: priorRow.root_identity_id,
+      persona_public_ref: input.updates?.persona_public_ref ?? priorRow.persona_public_ref,
+      kybe_did_public_ref: input.updates?.kybe_did_public_ref ?? priorRow.kybe_did_public_ref,
+      root_did_public_ref: input.updates?.root_did_public_ref ?? priorRow.root_did_public_ref,
+      vault_content_id: priorRow.vault_content_id,
+      vault_content_hash: priorRow.vault_content_hash,
+      application_id: priorRow.application_id,
+      renewal_of_passport_id: input.priorPassportId,
+      issued_at: new Date().toISOString(),
+    })
+    .select('id')
+    .single();
+  if (recordError) return { ok: false, error: recordError.message };
+
+  await admin.from('passport_status_transitions').insert({
+    passport_record_id: record.id,
+    from_status: priorRow.citizen_status ?? priorRow.participant_status ?? 'unknown',
+    to_status: priorRow.citizen_status ?? priorRow.participant_status ?? 'unknown',
+    passport_class: priorRow.passport_class,
+    actor_type: 'steward',
+    actor_id: input.stewardPersonaId,
+    reason: input.reason,
+    evidence_type: 'successor_credential_reconciliation',
+    receipt_action: 'passport_status_changed',
+  });
+
+  return { ok: true, passportId, passportRecordId: String(record.id), priorPassportId: input.priorPassportId };
+}
+
 /**
  * The agent refs an agent-class Passport receipt should be attributed to.
  *
