@@ -80,6 +80,37 @@ function fakeSupabase(responders: Record<string, (calls: { method: string; args:
   };
 }
 
+/**
+ * A subtype-table (`human_didqubes`/`agent_didqubes`) responder that serves BOTH
+ * shapes didQubeResolver.ts queries against these tables: the initial
+ * `.eq(anchorColumn, anchorId).limit(2)` binding lookup (array), and the
+ * per-hop `.eq('didqube_id', X).maybeSingle()` anchor-continuity check
+ * (single row keyed by didqube_id) `verifyBoundToAnchor` runs on every
+ * successor reached via supersession.
+ */
+function subtypeResponder(opts: {
+  anchorColumn: 'kybe_identity_id' | 'agent_root_identity_id';
+  bindingAnchorId: string;
+  bindingDidqubeId: string;
+  /** didqube_id -> the anchor id it is ACTUALLY bound to (for the per-hop check). */
+  anchorByDidqube: Record<string, string>;
+}) {
+  return (calls: { method: string; args: any[] }[]) => {
+    const eqCall = calls.find((c) => c.method === 'eq');
+    if (!eqCall) return { data: null, error: null };
+    const [col, val] = eqCall.args;
+    if (col === opts.anchorColumn && val === opts.bindingAnchorId) {
+      return { data: [{ didqube_id: opts.bindingDidqubeId }], error: null };
+    }
+    if (col === 'didqube_id') {
+      const anchorId = opts.anchorByDidqube[val];
+      if (anchorId === undefined) return { data: null, error: null };
+      return { data: { [opts.anchorColumn]: anchorId }, error: null };
+    }
+    return { data: null, error: null };
+  };
+}
+
 describe('resolveDiDQube — entry gating', () => {
   it('returns unsupported_subject_class immediately for a robot hint, no DB call', async () => {
     const result = await resolveDiDQube({ kind: 'subject_class_hint', subjectClass: 'robot' });
@@ -180,7 +211,7 @@ describe('resolveDiDQube — cross-class binding (conflicted)', () => {
     );
     const result = await resolveDiDQube({ kind: 'kybe_identity_id', kybeIdentityId: KYBE_ID });
     expect(result.state).toBe('conflicted');
-    expect((result as any).detail).toContain("not 'natural_person'");
+    expect((result as any).detail).toContain("not the expected 'natural_person'");
   });
 
   it('an agent_didqubes row pointing at a didqubes row with subject_class=natural_person is conflicted', async () => {
@@ -192,7 +223,7 @@ describe('resolveDiDQube — cross-class binding (conflicted)', () => {
     );
     const result = await resolveDiDQube({ kind: 'agent_root_identity_id', agentRootIdentityId: AGENT_ROOT_ID });
     expect(result.state).toBe('conflicted');
-    expect((result as any).detail).toContain("not 'agent'");
+    expect((result as any).detail).toContain("not the expected 'agent'");
   });
 });
 
@@ -211,15 +242,20 @@ describe('resolveDiDQube — dual-subtype binding (conflicted)', () => {
   });
 });
 
-describe('resolveDiDQube — superseded chains', () => {
-  it('follows a single supersession hop to the active didqube and resolves', async () => {
+describe('resolveDiDQube — supersession (stable-container model: anchor-verified continuity only)', () => {
+  it('follows a single supersession hop ONLY because the successor is verified bound to the SAME anchor, and resolves', async () => {
     const didqubesData: Record<string, any> = {
       [DIDQUBE_HUMAN]: { subject_class: 'natural_person', lifecycle_state: 'superseded', superseded_by: 'didqube-successor' },
       'didqube-successor': { subject_class: 'natural_person', lifecycle_state: 'active', superseded_by: null },
     };
     mockGetSupabaseServer.mockReturnValue(
       fakeSupabase({
-        human_didqubes: () => ({ data: [{ didqube_id: DIDQUBE_HUMAN }], error: null }),
+        human_didqubes: subtypeResponder({
+          anchorColumn: 'kybe_identity_id',
+          bindingAnchorId: KYBE_ID,
+          bindingDidqubeId: DIDQUBE_HUMAN,
+          anchorByDidqube: { [DIDQUBE_HUMAN]: KYBE_ID, 'didqube-successor': KYBE_ID },
+        }),
         didqubes: (calls) => {
           const eqCall = calls.find((c) => c.method === 'eq');
           const id = eqCall?.args[1];
@@ -236,14 +272,76 @@ describe('resolveDiDQube — superseded chains', () => {
     expect((result as any).primitive.didqubeId).toBe('didqube-successor');
   });
 
-  it('a supersession cycle is conflicted, not an infinite loop', async () => {
+  it('a successor with NO anchor binding at all is conflicted — never silently resolved (stable-container model)', async () => {
+    const didqubesData: Record<string, any> = {
+      [DIDQUBE_HUMAN]: { subject_class: 'natural_person', lifecycle_state: 'superseded', superseded_by: 'didqube-orphan-successor' },
+      'didqube-orphan-successor': { subject_class: 'natural_person', lifecycle_state: 'active', superseded_by: null },
+    };
+    mockGetSupabaseServer.mockReturnValue(
+      fakeSupabase({
+        human_didqubes: subtypeResponder({
+          anchorColumn: 'kybe_identity_id',
+          bindingAnchorId: KYBE_ID,
+          bindingDidqubeId: DIDQUBE_HUMAN,
+          // 'didqube-orphan-successor' deliberately absent — no binding at all.
+          anchorByDidqube: { [DIDQUBE_HUMAN]: KYBE_ID },
+        }),
+        didqubes: (calls) => {
+          const eqCall = calls.find((c) => c.method === 'eq');
+          const id = eqCall?.args[1];
+          return { data: didqubesData[id] ?? null, error: null };
+        },
+      }),
+    );
+    const result = await resolveDiDQube({ kind: 'kybe_identity_id', kybeIdentityId: KYBE_ID });
+    expect(result.state).toBe('conflicted');
+    expect((result as any).detail).toContain('has no human_didqubes binding');
+    expect((result as any).detail).toContain('cannot verify constitutional-anchor continuity');
+  });
+
+  it('a successor bound to a DIFFERENT anchor is conflicted, even though subject_class matches (subject-class continuity alone is insufficient)', async () => {
+    const OTHER_KYBE_ID = 'kybe-9999-9999-9999-999999999999';
+    const didqubesData: Record<string, any> = {
+      [DIDQUBE_HUMAN]: { subject_class: 'natural_person', lifecycle_state: 'superseded', superseded_by: 'didqube-other-subject' },
+      // Same subject_class as the predecessor — proves matching subject_class alone is not enough.
+      'didqube-other-subject': { subject_class: 'natural_person', lifecycle_state: 'active', superseded_by: null },
+    };
+    mockGetSupabaseServer.mockReturnValue(
+      fakeSupabase({
+        human_didqubes: subtypeResponder({
+          anchorColumn: 'kybe_identity_id',
+          bindingAnchorId: KYBE_ID,
+          bindingDidqubeId: DIDQUBE_HUMAN,
+          // The successor is bound to a DIFFERENT kybe — a different constitutional subject.
+          anchorByDidqube: { [DIDQUBE_HUMAN]: KYBE_ID, 'didqube-other-subject': OTHER_KYBE_ID },
+        }),
+        didqubes: (calls) => {
+          const eqCall = calls.find((c) => c.method === 'eq');
+          const id = eqCall?.args[1];
+          return { data: didqubesData[id] ?? null, error: null };
+        },
+      }),
+    );
+    const result = await resolveDiDQube({ kind: 'kybe_identity_id', kybeIdentityId: KYBE_ID });
+    expect(result.state).toBe('conflicted');
+    expect((result as any).detail).toContain('bound to a DIFFERENT kybe_identity_id');
+    // No returned primitive ever combines a successor DiDQube with an unproven predecessor anchor.
+    expect((result as any).primitive).toBeUndefined();
+  });
+
+  it('a supersession cycle is conflicted, not an infinite loop (anchor checks pass throughout, isolating the cycle guard)', async () => {
     const didqubesData: Record<string, any> = {
       a: { subject_class: 'natural_person', lifecycle_state: 'superseded', superseded_by: 'b' },
       b: { subject_class: 'natural_person', lifecycle_state: 'superseded', superseded_by: 'a' },
     };
     mockGetSupabaseServer.mockReturnValue(
       fakeSupabase({
-        human_didqubes: () => ({ data: [{ didqube_id: 'a' }], error: null }),
+        human_didqubes: subtypeResponder({
+          anchorColumn: 'kybe_identity_id',
+          bindingAnchorId: KYBE_ID,
+          bindingDidqubeId: 'a',
+          anchorByDidqube: { a: KYBE_ID, b: KYBE_ID },
+        }),
         didqubes: (calls) => {
           const eqCall = calls.find((c) => c.method === 'eq');
           const id = eqCall?.args[1];
@@ -253,6 +351,39 @@ describe('resolveDiDQube — superseded chains', () => {
     );
     const result = await resolveDiDQube({ kind: 'kybe_identity_id', kybeIdentityId: KYBE_ID });
     expect(result).toEqual({ state: 'conflicted', detail: 'supersession cycle detected at didqube_id a' });
+  });
+
+  it('a chain exceeding the maximum hop count is conflicted, not an infinite loop (anchor checks pass throughout, isolating the depth guard)', async () => {
+    const CHAIN_LENGTH = 15; // > MAX_SUPERSESSION_HOPS (10), never cycling
+    const ids = Array.from({ length: CHAIN_LENGTH }, (_, i) => `didqube-depth-${i}`);
+    const didqubesData: Record<string, any> = {};
+    ids.forEach((id, i) => {
+      didqubesData[id] = {
+        subject_class: 'natural_person',
+        lifecycle_state: 'superseded',
+        superseded_by: ids[i + 1] ?? 'didqube-depth-unreachable',
+      };
+    });
+    const anchorByDidqube: Record<string, string> = Object.fromEntries(ids.map((id) => [id, KYBE_ID]));
+    mockGetSupabaseServer.mockReturnValue(
+      fakeSupabase({
+        human_didqubes: subtypeResponder({
+          anchorColumn: 'kybe_identity_id',
+          bindingAnchorId: KYBE_ID,
+          bindingDidqubeId: ids[0],
+          anchorByDidqube,
+        }),
+        didqubes: (calls) => {
+          const eqCall = calls.find((c) => c.method === 'eq');
+          const id = eqCall?.args[1];
+          return { data: didqubesData[id] ?? null, error: null };
+        },
+      }),
+    );
+    const result = await resolveDiDQube({ kind: 'kybe_identity_id', kybeIdentityId: KYBE_ID });
+    expect(result.state).toBe('conflicted');
+    expect((result as any).detail).toContain('exceeds');
+    expect((result as any).detail).toContain('hops');
   });
 
   it('a didqube marked superseded with no successor recorded is conflicted (malformed)', async () => {

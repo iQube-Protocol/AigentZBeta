@@ -403,7 +403,46 @@ behavior change; zero DVN payload change.
 Entry point `resolveDiDQube(input: DiDQubeResolverInput): Promise<DiDQubeResolution>`. Never imports or
 references `personas`.
 
-**Tests:** `tests/didqube-resolver.test.ts` — 27 tests, all passing. Every real dependency is mocked
+**Disclosed issue and correction, same day (2026-09-07):** the original implementation of
+`resolveActiveDiDQubeChain` traversed `lifecycle_state = 'superseded'` → `superseded_by` unconditionally
+— any successor with a matching `subject_class` was trusted and resolved, with no check that it was
+bound to the SAME constitutional anchor as the predecessor. The operator caught this on review: *"A
+superseded DiDQube may resolve to its successor only when the successor is demonstrably bound to the
+same constitutional anchor and subject class. Never carry the original anchor across `superseded_by`
+merely because the successor exists."* Concretely, the original code would have resolved a chain like
+predecessor (bound to kybe A, superseded) → successor (bound to kybe B, active, also `natural_person`)
+as `resolved`, silently carrying kybe A's identity resolution onto a DiDQube that actually belongs to a
+different person — exactly the "subject re-identification via correlated commitments" failure class
+CLAUDE.md's HMS Identifier Isolation section exists to prevent, here via a code defect rather than a
+data leak.
+
+**Resolution — the stable-container model (operator's option 1, preferred over option 2):** a DiDQube
+is now treated as a permanent constitutional container that is never superseded merely because a
+RootDID, VC, or public commitment rotates beneath it. `resolveActiveDiDQubeChain` no longer trusts
+`superseded_by` on the strength of the DB row alone: every hop beyond the starting didqube is
+independently re-verified (`verifyBoundToAnchor`) to be bound, in the SAME subtype table, to the
+IDENTICAL anchor id the caller is resolving — matching `subject_class` alone is explicitly insufficient
+(a different subject can share a subject_class). A successor with no anchor binding, or one bound to a
+different anchor, is `conflicted` — the traversal is refused, not silently accepted. The rejected
+alternative (option 2, container-successor: an atomic DB operation that re-establishes the anchor
+binding on the successor) was not built — it would require new migration/DDL and an explicit
+"transfer the anchor" write path, out of scope for a resolver-only correction and not preferred by the
+operator absent an explicit constitutional reason to replace a container. No schema or migration change
+was needed for this fix; it is resolver-code-only. See the module header of
+`services/identity/didQubeResolver.ts` for the full rationale, preserved as living documentation.
+
+Five new/corrected tests in `tests/didqube-resolver.test.ts` prove the corrected behavior: a successor
+with no anchor binding is `conflicted`; a successor bound to a different anchor is `conflicted` even
+when `subject_class` matches (proving subject-class continuity alone is insufficient); the single-hop
+"resolves" test now asserts the successor is *verified* bound to the same anchor, not merely present;
+the cycle test and a new depth-exceeded test (15 non-cycling hops, over the 10-hop cap) both hold
+anchor-verification constant across every hop to isolate the cycle/depth guards specifically, proving
+neither guard was accidentally weakened by the anchor check; and the different-anchor test additionally
+asserts the returned object carries no `primitive` field at all — no returned primitive ever combines a
+successor DiDQube with an unproven predecessor anchor.
+
+**Tests:** `tests/didqube-resolver.test.ts` — 30 tests (27 original + 3 added for this correction), all
+passing. Every real dependency is mocked
 (`getSupabaseServer`, `resolveRootPrincipalForAuthUser`, `resolvePassportPrincipal` — the latter two via
 `vi.mock(..., { importOriginal })` so `isPassportUsable` stays the REAL implementation, not stubbed).
 Coverage against the operator's 7 named scenarios:
@@ -415,7 +454,7 @@ Coverage against the operator's 7 named scenarios:
 | **ambiguous** | same two tests above | `ambiguous` with `candidateCount` |
 | **cross-class** | a `human_didqubes`→`didqubes` row whose `subject_class` is `'agent'` (and the agent-side mirror) | `conflicted` — the `didqube_enforce_subject_class` trigger fires only on subtype-table writes, never on a later out-of-band `didqubes.subject_class` update, so this is a real gap the resolver closes at read time, not a contrived case |
 | **conflicted** | a `didqube_id` bound in both `human_didqubes` and `agent_didqubes` | `conflicted` |
-| **superseded** | a single supersession hop resolves to the successor; a supersession cycle is `conflicted` not an infinite loop; a `superseded` row with no `superseded_by` is `conflicted` | `resolved` (successor's id) / `conflicted` (cycle, bounded at 10 hops) / `conflicted` (malformed) |
+| **superseded** | a single supersession hop resolves ONLY once the successor is anchor-verified; a successor with no anchor binding, or bound to a different anchor (even with matching subject_class), is refused; a supersession cycle and a >10-hop chain are both `conflicted` (anchor checks held constant to isolate the guards); a `superseded` row with no `superseded_by` is `conflicted` | `resolved` (anchor-verified successor's id) / `conflicted` (no binding, different anchor, cycle, excess depth, malformed) — see the disclosed correction above |
 | **malformed** | a subtype row referencing a nonexistent `didqubes` row; a constitutional anchor with null `kybe_did`/`did_uri` | `conflicted` in every case |
 
 Additional coverage beyond the 7 named scenarios: `subject_class_hint` for `robot`/`organization` →
@@ -428,15 +467,14 @@ never contains the raw `kybe_did`/`did_uri` string), and `trustClass` is tagged 
 `passport_gate_unmet`/`anchor_absent` failure-mapping for `proven_wallet` and a dedicated assertion that
 a `.from('personas')` call would throw and is never reached on the `auth_user_id` path.
 
-**Regression check:** full suite run (`npx vitest run`) after implementation — 19 failed files / 67
-failed tests, 638 passed files / 10575 passed tests. None of the 19 failing files reference
-`didQubeResolver`/`didqube-resolver`; the new test file (`tests/didqube-resolver.test.ts`) is not among
-them and passes 27/27. `npx tsc --noEmit` on the whole project reports pre-existing errors unrelated to
-either new file (confirmed by grep — zero matches for `didQubeResolver`/`didqube-resolver` in the tsc
-output). The failing-file list is a pre-existing baseline (drifted slightly from the count recorded in
-the Phase 1 record — a handful of unrelated tests, e.g. `resolution-records.test.ts` and
-`repo-weight.test.ts`, appear to have started failing independently of this session's Phase 2 work); not
-investigated further as explicitly out of scope for this round.
+**Regression check:** full suite run (`npx vitest run`) immediately after the initial implementation —
+19 failed files / 67 failed tests. After the supersession correction above, re-run — **17 failed files /
+65 failed tests, 640 passed files / 10580 passed tests**, exactly matching the baseline recorded at the
+close of Phase 1 (the earlier 19/67 reading was transient, not a regression from either round — none of
+the failing files in either run reference `didQubeResolver`/`didqube-resolver`, and the new test file is
+never among them). `tests/didqube-resolver.test.ts` passes 30/30. `npx tsc --noEmit` on the whole project
+reports pre-existing errors unrelated to either new file (confirmed by grep — zero matches for
+`didQubeResolver`/`didqube-resolver` in the tsc output).
 
 **What Phase 2 deliberately did not do (per requirements #6/#7/#8):** no Passport/Factor/Aegis/CTP/
 DCIR/Standing/Registry-Horizen/DVN code calls the resolver; `services/dvn/activityReceiptDvnPipeline.ts`
@@ -644,7 +682,12 @@ registration is done.
 3. The disclosed gaps from earlier rounds remain open, flagged, not silently resolved: (a) the
    `didqube.*` (agentiq-wallet) RLS policies still need replacing with explicitly role-scoped ones
    before any grant is added (§0.2 correction #2 — a fix to the OTHER schema, not the new one); (b) no
-   CI-integrated real-Postgres test harness exists yet (Phase 1 implementation record); (c) the full
-   test-suite baseline drifted slightly during this round (19 failed files / 67 failed tests, up from
-   17/65) in files unrelated to either new file (Phase 2 implementation record) — not investigated
-   further as out of scope for this round.
+   CI-integrated real-Postgres test harness exists yet (Phase 1 implementation record). (The earlier
+   19/67 full-suite reading was transient, not a real drift — the corrected re-run matches the Phase 1
+   baseline exactly at 17/65; see the Phase 2 implementation record.)
+4. A real defect in the initial Phase 2 supersession traversal (resolving through `superseded_by`
+   without verifying the successor's constitutional anchor) was caught on operator review and corrected
+   the same day — see the "Disclosed issue and correction" subsection of the Phase 2 implementation
+   record above. `resolveActiveDiDQubeChain` now implements the stable-container model: a successor is
+   honored only when independently verified to bind the identical anchor, never on subject_class match
+   alone.

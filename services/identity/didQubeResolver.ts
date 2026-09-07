@@ -94,9 +94,24 @@
  * table it was originally bound through. This resolver does not trust the
  * DDL alone: it re-checks subject-class agreement and single-subtype
  * exclusivity at READ time and reports `conflicted` (not a guess, not a
- * silent pick) if they disagree. It also follows `lifecycle_state =
- * 'superseded'` chains via `superseded_by` to the current active DiDQube
- * (bounded depth, cycle-detected) rather than resolving a stale one.
+ * silent pick) if they disagree.
+ *
+ * ── Stable-container model for supersession (operator correction, 2026-09-07) ─
+ *
+ * A DiDQube is the permanent constitutional container — it is NOT superseded
+ * merely because a RootDID, VC, or public commitment rotates beneath it. This
+ * resolver does not follow `lifecycle_state = 'superseded'` chains on the
+ * strength of the `superseded_by` column alone: a successor is honored only
+ * when it is independently verified to bind the SAME constitutional anchor
+ * (the identical `kybe_identity`/`agent_root_identity` row), never merely a
+ * matching `subject_class` (a different subject can share a subject_class).
+ * An earlier version of this module traversed `superseded_by` unconditionally
+ * and could in principle have carried one subject's identity onto an
+ * unrelated successor container that merely happened to exist — corrected
+ * before Phase 2.5, see the Phase 2 completion record's disclosed-issue
+ * section. Depth is still bounded and cycles still fail closed, but bounded
+ * depth alone is not the safety property here — anchor-verified continuity
+ * is. See `resolveActiveDiDQubeChain`/`verifyBoundToAnchor` below.
  */
 
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
@@ -280,7 +295,22 @@ function mapWalletFailureReason(reason: PrincipalFailure): UnresolvedReason {
   }
 }
 
-// ── Shared chain resolution (supersession-aware, defensively cross-checked) ──
+// ── Shared chain resolution (stable-container model, defensively cross-checked) ──
+//
+// STABLE-CONTAINER MODEL (operator ruling, 2026-09-07 correction): a DiDQube is the
+// permanent constitutional container. It is never superseded merely because a
+// RootDID, VC, or public commitment rotates beneath it — this resolver does not
+// traverse `superseded_by` on the strength of the DB row alone. A `superseded`
+// didqube may resolve to its successor ONLY when the successor is demonstrably
+// bound to the SAME constitutional anchor (the same `kybe_identity`/
+// `agent_root_identity` row) as the one the caller is resolving — the narrow
+// "the constitutional subject itself is being reconciled" exception, never a
+// silent identity transfer to a different subject that happens to share a
+// subject_class. Matching `subject_class` alone is explicitly NOT sufficient
+// (a different human's DiDQube is also 'natural_person'); the anchor id itself
+// must match. No atomic "transfer the anchor to the successor" DB operation
+// exists (the container-successor model, rejected here) — this resolver only
+// verifies an already-consistent anchor binding, it never establishes one.
 
 interface ActiveChainResult {
   didqubeId: string;
@@ -292,9 +322,34 @@ type ChainOutcome =
   | { ok: false; state: 'conflicted'; detail: string }
   | { ok: false; state: 'unresolved'; reason: UnresolvedReason };
 
+interface AnchorContext {
+  subtypeTable: 'human_didqubes' | 'agent_didqubes';
+  anchorColumn: 'kybe_identity_id' | 'agent_root_identity_id';
+  anchorId: string;
+  expectedSubjectClass: DiDQubeSubjectClass;
+}
+
 const MAX_SUPERSESSION_HOPS = 10;
 
-async function resolveActiveDiDQubeChain(supabase: SupabaseLike, startDidqubeId: string): Promise<ChainOutcome> {
+/** 'ok' only when the didqube is bound, in the given subtype table, to EXACTLY the expected anchor id. */
+async function verifyBoundToAnchor(
+  supabase: SupabaseLike,
+  anchor: AnchorContext,
+  didqubeId: string,
+): Promise<'ok' | 'absent' | 'different_anchor' | 'unavailable'> {
+  const { data, error } = await supabase
+    .from(anchor.subtypeTable)
+    .select(anchor.anchorColumn)
+    .eq('didqube_id', didqubeId)
+    .maybeSingle();
+  if (error) return 'unavailable';
+  if (!data) return 'absent';
+  const boundAnchorId = (data as Record<string, string | null>)[anchor.anchorColumn];
+  if (boundAnchorId !== anchor.anchorId) return 'different_anchor';
+  return 'ok';
+}
+
+async function resolveActiveDiDQubeChain(supabase: SupabaseLike, startDidqubeId: string, anchor: AnchorContext): Promise<ChainOutcome> {
   const visited = new Set<string>();
   let current = startDidqubeId;
 
@@ -303,6 +358,29 @@ async function resolveActiveDiDQubeChain(supabase: SupabaseLike, startDidqubeId:
       return { ok: false, state: 'conflicted', detail: `supersession cycle detected at didqube_id ${current}` };
     }
     visited.add(current);
+
+    // Every hop beyond the starting didqube is a claimed successor, reached only
+    // via `superseded_by` — never trusted until it is shown to bind the SAME
+    // anchor the caller is resolving. The starting didqube needs no such check:
+    // the caller already found it by querying the anchor's own subtype binding.
+    if (current !== startDidqubeId) {
+      const bound = await verifyBoundToAnchor(supabase, anchor, current);
+      if (bound === 'unavailable') return { ok: false, state: 'unresolved', reason: 'unavailable' };
+      if (bound === 'absent') {
+        return {
+          ok: false,
+          state: 'conflicted',
+          detail: `successor didqube_id ${current} (reached via supersession from ${startDidqubeId}) has no ${anchor.subtypeTable} binding — cannot verify constitutional-anchor continuity, so the supersession is not honored (stable-container model)`,
+        };
+      }
+      if (bound === 'different_anchor') {
+        return {
+          ok: false,
+          state: 'conflicted',
+          detail: `successor didqube_id ${current} (reached via supersession from ${startDidqubeId}) is bound to a DIFFERENT ${anchor.anchorColumn}, not ${anchor.anchorId} — a superseded DiDQube's identity never transfers to a container bound to a different constitutional anchor, even when subject_class matches`,
+        };
+      }
+    }
 
     const { data, error } = await supabase
       .from('didqubes')
@@ -319,12 +397,15 @@ async function resolveActiveDiDQubeChain(supabase: SupabaseLike, startDidqubeId:
     }
 
     const row = data as { subject_class: string; lifecycle_state: string; superseded_by: string | null };
+    if (row.subject_class !== anchor.expectedSubjectClass) {
+      return {
+        ok: false,
+        state: 'conflicted',
+        detail: `didqube_id ${current} has subject_class '${row.subject_class}', not the expected '${anchor.expectedSubjectClass}'`,
+      };
+    }
     if (row.lifecycle_state === 'active') {
-      const subjectClass = row.subject_class as DiDQubeSubjectClass;
-      if (subjectClass !== 'natural_person' && subjectClass !== 'agent') {
-        return { ok: false, state: 'conflicted', detail: `didqube_id ${current} has an unrecognised subject_class '${row.subject_class}'` };
-      }
-      return { ok: true, chain: { didqubeId: current, subjectClass } };
+      return { ok: true, chain: { didqubeId: current, subjectClass: anchor.expectedSubjectClass } };
     }
     if (row.lifecycle_state === 'superseded') {
       if (!row.superseded_by) {
@@ -377,17 +458,16 @@ async function buildHumanPrimitive(supabase: SupabaseLike, kybeIdentityId: strin
   if (bindings.length === 0) return { state: 'unresolved', reason: 'anchor_absent' };
   if (bindings.length > 1) return { state: 'ambiguous', candidateCount: bindings.length };
 
-  const chainResult = await resolveActiveDiDQubeChain(supabase, bindings[0].didqube_id);
+  const chainResult = await resolveActiveDiDQubeChain(supabase, bindings[0].didqube_id, {
+    subtypeTable: 'human_didqubes',
+    anchorColumn: 'kybe_identity_id',
+    anchorId: kybeIdentityId,
+    expectedSubjectClass: 'natural_person',
+  });
   if (!chainResult.ok) {
     return chainResult.state === 'conflicted'
       ? { state: 'conflicted', detail: chainResult.detail }
       : { state: 'unresolved', reason: chainResult.reason };
-  }
-  if (chainResult.chain.subjectClass !== 'natural_person') {
-    return {
-      state: 'conflicted',
-      detail: `kybe_identity_id ${kybeIdentityId} is bound to didqube_id ${chainResult.chain.didqubeId} whose subject_class is '${chainResult.chain.subjectClass}', not 'natural_person'`,
-    };
   }
   const crossCheck = await crossCheckNotBoundInOtherSubtype(supabase, chainResult.chain.didqubeId, 'agent_didqubes');
   if (!crossCheck.ok) return { state: 'conflicted', detail: crossCheck.detail };
@@ -498,17 +578,16 @@ async function buildAgentPrimitive(supabase: SupabaseLike, agentRootIdentityId: 
   if (bindings.length === 0) return { state: 'unresolved', reason: 'anchor_absent' };
   if (bindings.length > 1) return { state: 'ambiguous', candidateCount: bindings.length };
 
-  const chainResult = await resolveActiveDiDQubeChain(supabase, bindings[0].didqube_id);
+  const chainResult = await resolveActiveDiDQubeChain(supabase, bindings[0].didqube_id, {
+    subtypeTable: 'agent_didqubes',
+    anchorColumn: 'agent_root_identity_id',
+    anchorId: agentRootIdentityId,
+    expectedSubjectClass: 'agent',
+  });
   if (!chainResult.ok) {
     return chainResult.state === 'conflicted'
       ? { state: 'conflicted', detail: chainResult.detail }
       : { state: 'unresolved', reason: chainResult.reason };
-  }
-  if (chainResult.chain.subjectClass !== 'agent') {
-    return {
-      state: 'conflicted',
-      detail: `agent_root_identity_id ${agentRootIdentityId} is bound to didqube_id ${chainResult.chain.didqubeId} whose subject_class is '${chainResult.chain.subjectClass}', not 'agent'`,
-    };
   }
   const crossCheck = await crossCheckNotBoundInOtherSubtype(supabase, chainResult.chain.didqubeId, 'human_didqubes');
   if (!crossCheck.ok) return { state: 'conflicted', detail: crossCheck.detail };
