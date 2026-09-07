@@ -30,10 +30,16 @@ vi.mock('@/services/research/artifacts', () => ({
 const mockRehearsalEligibility = vi.fn();
 const mockRunExpP1Rehearsal = vi.fn();
 const mockSummarizeRehearsalRun = vi.fn();
+const { FAKE_V1_TASK_SET, FAKE_V2_TASK_SET } = vi.hoisted(() => ({
+  FAKE_V1_TASK_SET: { id: 'EXP-P1/rehearsal-task-set-provisional-v1', provenance: 'provisional', tasks: [{}, {}] },
+  FAKE_V2_TASK_SET: { id: 'EXP-P1/rehearsal-task-set-provisional-v2', provenance: 'provisional', tasks: new Array(16).fill({}) },
+}));
 vi.mock('@/services/research/expP1Rehearsal', () => ({
   rehearsalEligibility: (...args: any[]) => mockRehearsalEligibility(...args),
   runExpP1Rehearsal: (...args: any[]) => mockRunExpP1Rehearsal(...args),
   summarizeRehearsalRun: (...args: any[]) => mockSummarizeRehearsalRun(...args),
+  PROVISIONAL_REHEARSAL_TASK_SET: FAKE_V1_TASK_SET,
+  LARGER_REHEARSAL_TASK_SET: FAKE_V2_TASK_SET,
 }));
 
 import { GET, POST } from '@/app/api/research/crystal/[experimentId]/rehearsal/route';
@@ -150,7 +156,7 @@ describe('POST /rehearsal — launches a run', () => {
     mockGetActivePersona.mockResolvedValue({ personaId: 'persona-1', cartridgeFlags: { isAdmin: true } });
   });
 
-  it('calls runExpP1Rehearsal with the caller persona + experimentId, ignoring any request body', async () => {
+  it('calls runExpP1Rehearsal with the caller persona + experimentId + the default (v1) task set, ignoring runExecutionDesignation/confirmatoryEligible in the body', async () => {
     mockRunExpP1Rehearsal.mockResolvedValue({ ok: true, runId: 'run-1', receiptId: 'receipt-1', taskResults: [{}, {}] });
     const res = await POST(
       makePostRequest({ runExecutionDesignation: 'confirmatory', confirmatoryEligible: true }),
@@ -161,10 +167,22 @@ describe('POST /rehearsal — launches a run', () => {
     expect(body.requestSucceeded).toBe(true);
     expect(body.runId).toBe('run-1');
     expect(body.note).toMatch(/NON-CONFIRMATORY/);
-    expect(mockRunExpP1Rehearsal).toHaveBeenCalledWith({ personaId: 'persona-1', experimentId: 'EXP-P1' });
+    expect(mockRunExpP1Rehearsal).toHaveBeenCalledWith({ personaId: 'persona-1', experimentId: 'EXP-P1', taskSet: FAKE_V1_TASK_SET });
     // No `run` in the runner's result -> no summary computed.
     expect(body.summary).toBeNull();
     expect(mockSummarizeRehearsalRun).not.toHaveBeenCalled();
+  });
+
+  it('selects the v2 (16-task) fixture when the body requests taskSetVersion: "v2"', async () => {
+    mockRunExpP1Rehearsal.mockResolvedValue({ ok: true, runId: 'run-2', receiptId: 'receipt-2', taskResults: new Array(16).fill({}) });
+    await POST(makePostRequest({ taskSetVersion: 'v2' }), { params: params() });
+    expect(mockRunExpP1Rehearsal).toHaveBeenCalledWith({ personaId: 'persona-1', experimentId: 'EXP-P1', taskSet: FAKE_V2_TASK_SET });
+  });
+
+  it('falls back to v1 for an unrecognized taskSetVersion — never a silent crash or an arbitrary caller-supplied task set', async () => {
+    mockRunExpP1Rehearsal.mockResolvedValue({ ok: true, runId: 'run-3', receiptId: 'receipt-3', taskResults: [{}, {}] });
+    await POST(makePostRequest({ taskSetVersion: 'v99-does-not-exist' }), { params: params() });
+    expect(mockRunExpP1Rehearsal).toHaveBeenCalledWith({ personaId: 'persona-1', experimentId: 'EXP-P1', taskSet: FAKE_V1_TASK_SET });
   });
 
   it('computes the proper rehearsal summary from the runner\'s returned `run` when present', async () => {

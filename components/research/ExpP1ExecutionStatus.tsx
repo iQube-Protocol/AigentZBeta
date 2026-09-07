@@ -308,7 +308,7 @@ export function ExpP1ExecutionStatus({
     void load();
   }, [load]);
 
-  const runRehearsal = useCallback(async () => {
+  const runRehearsal = useCallback(async (taskSetVersion: "v1" | "v2") => {
     setBusy(true);
     setRunErr(null);
     setLastRunNote(null);
@@ -316,7 +316,7 @@ export function ExpP1ExecutionStatus({
       const res = await personaFetch(`/api/research/crystal/${encodeURIComponent(experimentId)}/rehearsal`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ taskSetVersion }),
         ...personaHintOpt,
       });
       const body = await res.json().catch(() => null);
@@ -455,14 +455,25 @@ export function ExpP1ExecutionStatus({
               </div>
             )}
             {copyErr && <div className="mt-1 text-rose-300">{copyErr}</div>}
-            <button
-              onClick={() => void runRehearsal()}
-              disabled={busy}
-              className="mt-1.5 flex items-center gap-1 rounded border border-sky-800 bg-sky-900/30 px-2.5 py-1 text-sky-200 disabled:opacity-50"
-            >
-              {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />} Run EXP-P1
-              internal rehearsal
-            </button>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              <button
+                onClick={() => void runRehearsal("v1")}
+                disabled={busy}
+                className="flex items-center gap-1 rounded border border-sky-800 bg-sky-900/30 px-2.5 py-1 text-sky-200 disabled:opacity-50"
+              >
+                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />} Run EXP-P1
+                internal rehearsal (6 tasks)
+              </button>
+              <button
+                onClick={() => void runRehearsal("v2")}
+                disabled={busy}
+                title="Larger, balanced recall/derivation set — every keyword pre-verified to hit the frozen crystal (2026-09-07)"
+                className="flex items-center gap-1 rounded border border-sky-800 bg-sky-900/30 px-2.5 py-1 text-sky-200 disabled:opacity-50"
+              >
+                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />} Run larger
+                rehearsal (16 tasks)
+              </button>
+            </div>
             {data.pastRehearsalRuns.length > 0 && (
               <div className="mt-2 space-y-1.5 border-t border-slate-800 pt-1.5 text-slate-500">
                 {data.pastRehearsalRuns.slice(0, 3).map((r) => (

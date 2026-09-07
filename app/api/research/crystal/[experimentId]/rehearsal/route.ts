@@ -24,17 +24,41 @@
  *        supplied `runExecutionDesignation` or `confirmatoryEligible` — both
  *        are fixed by the runner itself, unconditionally, so this route can
  *        never be used to launch (or mislabel) a confirmatory execution.
+ *
+ *        The ONE body field this route reads: `taskSetVersion` (`'v1'` |
+ *        `'v2'`, default `'v1'`) — a lookup key into a fixed, checked-in
+ *        allowlist of PROVISIONAL task-set fixtures
+ *        (`services/research/expP1Rehearsal.ts`'s own exports), never an
+ *        arbitrary caller-supplied task set. Any other/missing value falls
+ *        back to `'v1'` — never a caller-controlled task-set CONTENT
+ *        injection, only a selection between two names this codebase
+ *        already ships.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { deriveProtocolRatified, getExecutionRun } from '@/services/research/artifacts';
 import { listExecutionRuns } from '@/services/research/artifacts';
-import { rehearsalEligibility, runExpP1Rehearsal, summarizeRehearsalRun } from '@/services/research/expP1Rehearsal';
+import {
+  LARGER_REHEARSAL_TASK_SET,
+  PROVISIONAL_REHEARSAL_TASK_SET,
+  rehearsalEligibility,
+  runExpP1Rehearsal,
+  summarizeRehearsalRun,
+  type ProvisionalTaskSet,
+} from '@/services/research/expP1Rehearsal';
 import type { FrozenArtifactKind } from '@/types/research';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
+
+/** Fixed, checked-in allowlist — the ONLY task sets this route can ever
+ *  launch. Adding a version means adding a fixture export + a line here,
+ *  never accepting caller-supplied task content. */
+const TASK_SET_ALLOWLIST: Record<string, ProvisionalTaskSet> = {
+  v1: PROVISIONAL_REHEARSAL_TASK_SET,
+  v2: LARGER_REHEARSAL_TASK_SET,
+};
 
 const CRYSTAL_VERSION_ID_PATTERN = /\/crystal-vP(\d+)$/;
 
@@ -125,7 +149,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ exp
   }
   const { experimentId } = await params;
 
-  const result = await runExpP1Rehearsal({ personaId: persona.personaId, experimentId });
+  const body = await req.json().catch(() => ({}));
+  const requestedVersion = typeof body?.taskSetVersion === 'string' ? body.taskSetVersion : 'v1';
+  const taskSet = TASK_SET_ALLOWLIST[requestedVersion] ?? TASK_SET_ALLOWLIST.v1;
+
+  const result = await runExpP1Rehearsal({ personaId: persona.personaId, experimentId, taskSet });
   if (!result.ok) {
     return NextResponse.json({ requestSucceeded: false, error: result.error }, { status: 409 });
   }
