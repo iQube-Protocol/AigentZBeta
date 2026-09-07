@@ -23,9 +23,10 @@
  *      override.
  *   7. The frozen crystal artifact is only ever READ (`latestFrozenCrystalArtifact`)
  *      — never mutated (no freeze/upsert call is made).
- *   8. Arm B's SELECTED set (what grounds its score) is a genuinely BOUNDED
- *      selection — `buildInvariantSlice` is called WITHOUT a `limit`
- *      override — distinct from its AVAILABLE set, which may be larger.
+ *   8. Arm B is computed ONCE PER TASK via `selectTaskScopedInvariants`,
+ *      passing `intentText: task.prompt` — NEVER `task.keywords` — and
+ *      `restrictToIds` scoped to the frozen snapshot's member ids (2026-09-07
+ *      Arm B selection-fidelity fix; see `taskScopedSelection.ts`).
  *   9. A task with no keyword match anywhere in the frozen population is
  *      `scorable: false` with a non-null `unscorableReason`; a task with a
  *      match is `scorable: true` with `unscorableReason: null`.
@@ -52,12 +53,34 @@ vi.mock('@/services/research/artifacts', () => ({
   }),
 }));
 
-const mockBuildInvariantSlice = vi.fn();
-vi.mock('@/services/invariants/grounding', () => ({
-  buildInvariantSlice: (...args: unknown[]) => mockBuildInvariantSlice(...args),
+const mockSelectTaskScopedInvariants = vi.fn();
+vi.mock('@/services/invariants/taskScopedSelection', () => ({
+  selectTaskScopedInvariants: (...args: unknown[]) => mockSelectTaskScopedInvariants(...args),
+  TASK_SCOPED_SELECTOR_VERSION: 'task-scoped-v1',
 }));
 
-import { rehearsalEligibility, runExpP1Rehearsal, PROVISIONAL_REHEARSAL_TASK_SET, LARGER_REHEARSAL_TASK_SET } from '@/services/research/expP1Rehearsal';
+import {
+  rehearsalEligibility,
+  runExpP1Rehearsal,
+  PROVISIONAL_REHEARSAL_TASK_SET,
+  LARGER_REHEARSAL_TASK_SET,
+  UNSEEN_REHEARSAL_TASK_SET,
+} from '@/services/research/expP1Rehearsal';
+
+function taskScopedSelectionFixture(overrides: Record<string, unknown> = {}) {
+  return {
+    selectorVersion: 'task-scoped-v1',
+    intentTokens: [],
+    availableIds: [],
+    relevantIds: [],
+    expandedIds: [],
+    selectedIds: [],
+    items: [],
+    usedRelevanceFallback: false,
+    selectionRationale: 'test fixture',
+    ...overrides,
+  };
+}
 
 function member(id: string, statement: string): HashCoveredMember {
   return { id, statement, namespace: 'finance', semanticType: null, status: 'validated', evidenceProvenance: null, provenance: null };
@@ -89,9 +112,9 @@ function frozenArtifact(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   mockLatestFrozenCrystalArtifact.mockReset();
   mockRecordExecutionRun.mockReset();
-  mockBuildInvariantSlice.mockReset();
+  mockSelectTaskScopedInvariants.mockReset();
   mockRecordExecutionRun.mockResolvedValue({ ok: true, receiptId: 'receipt-run-1', artifact: { id: 'EXP-P1/execution-run/internal-rehearsal/x' } });
-  mockBuildInvariantSlice.mockResolvedValue({ generatedAt: null, context: {}, items: [], citedIds: [] });
+  mockSelectTaskScopedInvariants.mockResolvedValue(taskScopedSelectionFixture());
 });
 
 describe('rehearsalEligibility', () => {
@@ -158,12 +181,9 @@ describe('runExpP1Rehearsal', () => {
 
   it('runs the four-arm harness and persists an internal-rehearsal, non-confirmatory-eligible run', async () => {
     mockLatestFrozenCrystalArtifact.mockResolvedValue(frozenArtifact());
-    mockBuildInvariantSlice.mockResolvedValue({
-      generatedAt: null,
-      context: {},
-      items: [{ id: 'inv-0', seedId: null, statement: MEMBERS[0].statement, namespace: 'finance', semanticType: null, status: 'validated', confidence: 1, standing: 1, reach: 1 }],
-      citedIds: ['inv-0'],
-    });
+    mockSelectTaskScopedInvariants.mockResolvedValue(
+      taskScopedSelectionFixture({ availableIds: ['inv-0'], selectedIds: ['inv-0'] }),
+    );
 
     const result = await runExpP1Rehearsal({ personaId: 'persona-1', experimentId: 'EXP-P1' });
     expect(result.ok).toBe(true);
@@ -214,65 +234,65 @@ describe('runExpP1Rehearsal', () => {
     expect(call.scoringConfiguration['keyword-substring-coverage']).toMatch(/not comparable/i);
   });
 
-  it("Arm B's SELECTED grounding is constrained to the FROZEN snapshot — a live-only id never leaks in", async () => {
+  it("Arm B passes restrictToIds scoped to the frozen snapshot's own member ids — a live-only id never leaks in (2026-09-07 selection-fidelity fix)", async () => {
     mockLatestFrozenCrystalArtifact.mockResolvedValue(frozenArtifact());
-    mockBuildInvariantSlice.mockResolvedValue({
-      generatedAt: null,
-      context: {},
-      items: [
-        { id: 'inv-0', seedId: null, statement: MEMBERS[0].statement, namespace: 'finance', semanticType: null, status: 'validated', confidence: 1, standing: 1, reach: 1 },
-        // A live-table id that is NOT part of the frozen snapshot (e.g. a
-        // successor generation's member, added after the freeze this run is
-        // scoped to) — must never appear in Arm B's grounding.
-        { id: 'inv-999-live-only', seedId: null, statement: 'a live-only member not in the frozen snapshot', namespace: 'finance', semanticType: null, status: 'validated', confidence: 1, standing: 1, reach: 1 },
-      ],
-      citedIds: ['inv-0', 'inv-999-live-only'],
-    });
+    // The selector itself is mocked here — this test proves the HARNESS
+    // passes restrictToIds correctly, not the selector's own internal
+    // filtering (that is `tests/task-scoped-selection.test.ts`'s job).
+    mockSelectTaskScopedInvariants.mockResolvedValue(
+      taskScopedSelectionFixture({ availableIds: ['inv-0'], selectedIds: ['inv-0'] }),
+    );
 
     await runExpP1Rehearsal({ personaId: 'persona-1', experimentId: 'EXP-P1' });
+    const restrictArg = mockSelectTaskScopedInvariants.mock.calls[0][0].restrictToIds as string[];
+    expect(new Set(restrictArg)).toEqual(new Set(MEMBERS.map((m) => m.id)));
+    expect(restrictArg).not.toContain('inv-999-live-only');
+
     const call = mockRecordExecutionRun.mock.calls[0][0];
     const armB = call.taskResults[0].armResults.find((a: { armId: string }) => a.armId === 'B');
-    expect(armB.selectedInvariantIds).toContain('inv-0');
-    expect(armB.selectedInvariantIds).not.toContain('inv-999-live-only');
-    expect(armB.availableInvariantIds).toContain('inv-0');
-    expect(armB.availableInvariantIds).not.toContain('inv-999-live-only');
     expect(armB.actuallyGroundedInvariantIds).toBeNull();
   });
 
-  it("Arm B's SELECTED call never overrides buildInvariantSlice's limit — only the AVAILABLE call does (2026-09-07 instrument-validation fix)", async () => {
+  it('Arm B is computed ONCE PER TASK, passing intentText: task.prompt — and NEVER task.keywords (2026-09-07 selection-fidelity fix)', async () => {
     mockLatestFrozenCrystalArtifact.mockResolvedValue(frozenArtifact());
-    // Distinguish the two calls by whether `limit` was overridden: the
-    // AVAILABLE call passes `limit: members.length` (10); the SELECTED call
-    // must call buildInvariantSlice WITHOUT a limit override at all.
-    mockBuildInvariantSlice.mockImplementation((ctx: { limit?: number }) => {
-      if (ctx.limit === MEMBERS.length) {
-        // AVAILABLE — the whole domain-filtered pool.
-        return Promise.resolve({
-          generatedAt: null,
-          context: ctx,
-          items: MEMBERS.map((m) => ({ id: m.id, seedId: null, statement: m.statement, namespace: 'finance', semanticType: null, status: 'validated', confidence: 1, standing: 1, reach: 1 })),
-          citedIds: MEMBERS.map((m) => m.id),
-        });
-      }
-      // SELECTED — buildInvariantSlice's own default (never a population-sized override).
-      expect(ctx.limit).toBeUndefined();
-      return Promise.resolve({
-        generatedAt: null,
-        context: ctx,
-        items: [{ id: 'inv-0', seedId: null, statement: MEMBERS[0].statement, namespace: 'finance', semanticType: null, status: 'validated', confidence: 1, standing: 1, reach: 1 }],
-        citedIds: ['inv-0'],
-      });
-    });
+    mockSelectTaskScopedInvariants.mockImplementation((input: { intentText: string }) =>
+      Promise.resolve(
+        // Echo something derived from the intent so different tasks visibly
+        // produce different Arm B selections — mirrors the real selector's
+        // task-scoped behavior without re-implementing it here.
+        taskScopedSelectionFixture({
+          availableIds: MEMBERS.map((m) => m.id),
+          selectedIds: input.intentText.includes('risk') ? ['inv-0'] : ['inv-1'],
+        }),
+      ),
+    );
+    const taskSet = {
+      id: 'test-task-set',
+      provenance: 'synthetic' as const,
+      tasks: [
+        { id: 'task-risk', kind: 'recall' as const, prompt: 'What about risk?', keywords: ['risk'] },
+        { id: 'task-custody', kind: 'recall' as const, prompt: 'What about custody?', keywords: ['custody'] },
+      ],
+    };
 
-    await runExpP1Rehearsal({ personaId: 'persona-1', experimentId: 'EXP-P1' });
-    expect(mockBuildInvariantSlice).toHaveBeenCalledTimes(2);
+    await runExpP1Rehearsal({ personaId: 'persona-1', experimentId: 'EXP-P1', taskSet });
+
+    expect(mockSelectTaskScopedInvariants).toHaveBeenCalledTimes(2);
+    for (const [arg] of mockSelectTaskScopedInvariants.mock.calls as [Record<string, unknown>][]) {
+      expect(arg.intentText).not.toBe(undefined);
+      // The answer-key field must never be forwarded — no `keywords` key at all.
+      expect('keywords' in arg).toBe(false);
+    }
+    const intents = mockSelectTaskScopedInvariants.mock.calls.map((c) => (c[0] as { intentText: string }).intentText);
+    expect(intents).toEqual(['What about risk?', 'What about custody?']);
+
     const call = mockRecordExecutionRun.mock.calls[0][0];
-    const armB = call.taskResults[0].armResults.find((a: { armId: string }) => a.armId === 'B');
-    // AVAILABLE is the whole population (10); SELECTED is genuinely bounded (1)
-    // — the exact confound the first rehearsal run surfaced.
-    expect(armB.availableInvariantIds).toHaveLength(MEMBERS.length);
-    expect(armB.selectedInvariantIds).toEqual(['inv-0']);
-    expect(armB.availableInvariantIds.length).toBeGreaterThan(armB.selectedInvariantIds.length);
+    const armBRisk = call.taskResults.find((t: { taskId: string }) => t.taskId === 'task-risk').armResults.find((a: { armId: string }) => a.armId === 'B');
+    const armBCustody = call.taskResults.find((t: { taskId: string }) => t.taskId === 'task-custody').armResults.find((a: { armId: string }) => a.armId === 'B');
+    // Two materially different tasks produced DIFFERENT Arm B selections —
+    // the exact property the old (task-blind, once-per-run) selector could
+    // never exhibit.
+    expect(armBRisk.selectedInvariantIds).not.toEqual(armBCustody.selectedInvariantIds);
   });
 
   it('marks a task unscorable when no frozen invariant matches its keywords, and scorable otherwise — excluding neither from the persisted taskResults', async () => {
@@ -301,12 +321,9 @@ describe('runExpP1Rehearsal', () => {
 
   it('actuallyGroundedInvariantIds is null for every arm on every task (2026-09-07 audit: no model/runtime execution exists in this harness to demonstrate evidence-of-use, so it must NEVER be populated as a copy of selectedInvariantIds)', async () => {
     mockLatestFrozenCrystalArtifact.mockResolvedValue(frozenArtifact());
-    mockBuildInvariantSlice.mockResolvedValue({
-      generatedAt: null,
-      context: {},
-      items: [{ id: 'inv-0', seedId: null, statement: MEMBERS[0].statement, namespace: 'finance', semanticType: null, status: 'validated', confidence: 1, standing: 1, reach: 1 }],
-      citedIds: ['inv-0'],
-    });
+    mockSelectTaskScopedInvariants.mockResolvedValue(
+      taskScopedSelectionFixture({ availableIds: ['inv-0'], selectedIds: ['inv-0'] }),
+    );
     await runExpP1Rehearsal({ personaId: 'persona-1', experimentId: 'EXP-P1' });
     const call = mockRecordExecutionRun.mock.calls[0][0];
     for (const task of call.taskResults) {
@@ -481,5 +498,53 @@ describe('LARGER_REHEARSAL_TASK_SET (2026-09-07, prepared after the actuallyGrou
     expect(new Set(ids).size).toBe(ids.length);
     const v1Ids = new Set(PROVISIONAL_REHEARSAL_TASK_SET.tasks.map((t) => t.id));
     for (const id of ids) expect(v1Ids.has(id)).toBe(false);
+  });
+});
+
+describe('UNSEEN_REHEARSAL_TASK_SET (2026-09-07, the unseen v3 set for evaluating the corrected task-scoped Arm B selector)', () => {
+  it('is roughly 12-18 tasks, balanced between recall and derivation', () => {
+    expect(UNSEEN_REHEARSAL_TASK_SET.tasks.length).toBeGreaterThanOrEqual(12);
+    expect(UNSEEN_REHEARSAL_TASK_SET.tasks.length).toBeLessThanOrEqual(18);
+    const recall = UNSEEN_REHEARSAL_TASK_SET.tasks.filter((t) => t.kind === 'recall');
+    const derivation = UNSEEN_REHEARSAL_TASK_SET.tasks.filter((t) => t.kind === 'derivation');
+    expect(recall.length).toBeGreaterThan(0);
+    expect(derivation.length).toBeGreaterThan(0);
+    expect(recall.length).toBeLessThanOrEqual(derivation.length * 2);
+    expect(derivation.length).toBeLessThanOrEqual(recall.length * 2);
+  });
+
+  it('is provisional, never external-held-out or synthetic', () => {
+    expect(UNSEEN_REHEARSAL_TASK_SET.provenance).toBe('provisional');
+  });
+
+  it('EVERY keyword on EVERY task has at least one real hit against the frozen crystal-vP2 corpus', () => {
+    for (const task of UNSEEN_REHEARSAL_TASK_SET.tasks) {
+      for (const keyword of task.keywords) {
+        const hits = FROZEN_CRYSTAL_VP2_STATEMENTS.filter((s) => s.toLowerCase().includes(keyword.toLowerCase()));
+        expect(hits.length, `task '${task.id}' keyword '${keyword}' must hit the frozen corpus at least once`).toBeGreaterThan(0);
+      }
+      const union = FROZEN_CRYSTAL_VP2_STATEMENTS.filter((s) => task.keywords.some((k) => s.toLowerCase().includes(k.toLowerCase())));
+      expect(union.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('has no duplicate task ids, and no keyword string reused from v1 or v2 — genuinely unseen thematic ground', () => {
+    const ids = UNSEEN_REHEARSAL_TASK_SET.tasks.map((t) => t.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    const v1Ids = new Set(PROVISIONAL_REHEARSAL_TASK_SET.tasks.map((t) => t.id));
+    const v2Ids = new Set(LARGER_REHEARSAL_TASK_SET.tasks.map((t) => t.id));
+    for (const id of ids) {
+      expect(v1Ids.has(id)).toBe(false);
+      expect(v2Ids.has(id)).toBe(false);
+    }
+
+    const priorKeywords = new Set(
+      [...PROVISIONAL_REHEARSAL_TASK_SET.tasks, ...LARGER_REHEARSAL_TASK_SET.tasks].flatMap((t) => t.keywords.map((k) => k.toLowerCase())),
+    );
+    for (const task of UNSEEN_REHEARSAL_TASK_SET.tasks) {
+      for (const keyword of task.keywords) {
+        expect(priorKeywords.has(keyword.toLowerCase()), `'${keyword}' must not reuse a v1/v2 keyword string`).toBe(false);
+      }
+    }
   });
 });

@@ -26,7 +26,7 @@
  *        never be used to launch (or mislabel) a confirmatory execution.
  *
  *        The ONE body field this route reads: `taskSetVersion` (`'v1'` |
- *        `'v2'`, default `'v1'`) — a lookup key into a fixed, checked-in
+ *        `'v2'` | `'v3'`, default `'v1'`) — a lookup key into a fixed, checked-in
  *        allowlist of PROVISIONAL task-set fixtures
  *        (`services/research/expP1Rehearsal.ts`'s own exports), never an
  *        arbitrary caller-supplied task set. Any other/missing value falls
@@ -42,6 +42,7 @@ import { listExecutionRuns } from '@/services/research/artifacts';
 import {
   LARGER_REHEARSAL_TASK_SET,
   PROVISIONAL_REHEARSAL_TASK_SET,
+  UNSEEN_REHEARSAL_TASK_SET,
   rehearsalEligibility,
   runExpP1Rehearsal,
   summarizeRehearsalRun,
@@ -58,6 +59,11 @@ export const maxDuration = 60;
 const TASK_SET_ALLOWLIST: Record<string, ProvisionalTaskSet> = {
   v1: PROVISIONAL_REHEARSAL_TASK_SET,
   v2: LARGER_REHEARSAL_TASK_SET,
+  // v3 — the unseen set for evaluating the corrected (task-scoped) Arm B
+  // selector (2026-09-07 Arm B selection-fidelity fix). Never reuse v2 as
+  // the primary evaluation set for that fix — see UNSEEN_REHEARSAL_TASK_SET's
+  // own header.
+  v3: UNSEEN_REHEARSAL_TASK_SET,
 };
 
 const CRYSTAL_VERSION_ID_PATTERN = /\/crystal-vP(\d+)$/;
