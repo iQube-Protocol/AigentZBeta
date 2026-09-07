@@ -48,11 +48,15 @@ import { BridgeActivityCompanionColumn } from '@/components/journey/BridgeActivi
 import type { BridgeActivityGroup } from '@/services/journey/bridgeActivity';
 import { ListenButton } from '@/components/shared/ListenButton';
 import { type BridgeAccent } from '@/components/journey/BridgeMediaStage';
+import { liquidGlassButtonClass } from '@/components/journey/BridgeStageCapsuleShell';
 
 /**
  * Bridge-consistent accent classes — CI stays indigo/lilac, KNYTS stays
  * amber (BridgeMediaStage's own ACCENT_CLASSES pairing). ONE place derives
  * these so no FS stage hardcodes a color from the other bridge's palette.
+ * `buttonClass` is the shared liquid-glass treatment (2026-09-06) — was a
+ * solid `bg-indigo-500`/`bg-amber-500` fill; both bridges' buttons now use
+ * the same translucent-tint-plus-blur material instead of a solid block.
  */
 export function resolveFsAccentClasses(accent: BridgeAccent): {
   buttonClass: string;
@@ -61,12 +65,12 @@ export function resolveFsAccentClasses(accent: BridgeAccent): {
 } {
   return accent === 'indigo'
     ? {
-        buttonClass: 'bg-indigo-500 hover:bg-indigo-400 text-slate-950',
+        buttonClass: liquidGlassButtonClass('indigo'),
         eyebrowClass: 'text-indigo-400/80',
         dotClass: 'bg-indigo-400',
       }
     : {
-        buttonClass: 'bg-amber-500 hover:bg-amber-400 text-slate-950',
+        buttonClass: liquidGlassButtonClass('amber'),
         eyebrowClass: 'text-amber-400/80',
         dotClass: 'bg-amber-400',
       };

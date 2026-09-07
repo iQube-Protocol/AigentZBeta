@@ -126,6 +126,7 @@ import {
 } from '@/services/journey/financialServicesEntryPresentation';
 import { FullscreenableFrame } from '@/components/journey/FullscreenableFrame';
 import { BridgeReserveInterestCard } from '@/components/journey/BridgeReserveInterestCard';
+import { BridgeStageCapsuleShell } from '@/components/journey/BridgeStageCapsuleShell';
 import {
   KNYTS_BRIDGE_SECTION_DEFAULTS,
   type KnytsBridgeEditorialSection,
@@ -335,7 +336,14 @@ export function KnytsBridgeChooseSurface({
         )}
       </FullscreenableFrame>
 
-      {/* RIGHT — destination cards */}
+      {/* RIGHT — encapsulated in the same capsule shell/header treatment the
+          FS bridge stages' companion column uses (2026-09-06). Destination
+          cards below are UNCHANGED. */}
+      <BridgeStageCapsuleShell
+        eyebrow="Choose capsule"
+        description="Pick where to go next in the Polity."
+        accentEyebrowClass="text-amber-400/80"
+      >
       <div className="flex flex-col gap-3">
         <BridgeReserveInterestCard
           title="Get first access to the metaKnyt Kickstarter"
@@ -434,6 +442,7 @@ export function KnytsBridgeChooseSurface({
           <ArrowRight className="h-4 w-4 shrink-0 text-slate-400" />
         </button>
       </div>
+      </BridgeStageCapsuleShell>
 
       <SocialSharingModal
         isOpen={shareOpen}

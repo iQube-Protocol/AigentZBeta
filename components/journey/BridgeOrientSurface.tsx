@@ -35,6 +35,7 @@ import { useEffect, useState } from 'react';
 import { ConstitutionalFrontierOrientSurface } from '@/components/journey/ConstitutionalFrontierOrientSurface';
 import type { CanonicalPlateImage } from '@/services/artifact/canonicalPlateImages';
 import { BridgeMediaCarouselPane, type BridgeMediaCarouselItem } from '@/components/journey/BridgeMediaCarouselPane';
+import { BridgeStageCapsuleShell } from '@/components/journey/BridgeStageCapsuleShell';
 import {
   KNYTS_BRIDGE_SECTION_DEFAULTS,
   type KnytsBridgeEditorialSection,
@@ -99,18 +100,26 @@ export function BridgeOrientSurface({ section, fallbackPlate, carouselPlates = [
           state. */}
       <BridgeMediaCarouselPane items={carouselItems} emptyLabel="No orientation media configured." />
 
-      {/* RIGHT — proposition, intro copy, and the shared question capsule. */}
-      <div className="flex flex-col gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-white sm:text-2xl">
-            {config.headline ?? defaults.headline}
-          </h2>
-          {introCopy && (
-            <p className="mt-2 text-[13px] leading-[1.5] text-slate-300">{introCopy}</p>
-          )}
+      {/* RIGHT — encapsulated in the same capsule shell/header treatment the
+          FS bridge stages' companion column uses (2026-09-06). Content and
+          affordances below are UNCHANGED — only the surrounding chrome. */}
+      <BridgeStageCapsuleShell
+        eyebrow="Orientation capsule"
+        description="Answer three quick questions to see your constitutional frontier."
+        accentEyebrowClass="text-amber-400/80"
+      >
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-xl font-bold text-white sm:text-2xl">
+              {config.headline ?? defaults.headline}
+            </h2>
+            {introCopy && (
+              <p className="mt-2 text-[13px] leading-[1.5] text-slate-300">{introCopy}</p>
+            )}
+          </div>
+          <ConstitutionalFrontierOrientSurface />
         </div>
-        <ConstitutionalFrontierOrientSurface />
-      </div>
+      </BridgeStageCapsuleShell>
     </div>
   );
 }

@@ -25,6 +25,7 @@
 
 import React, { useState } from 'react';
 import { BookMarked } from 'lucide-react';
+import { liquidGlassButtonClass } from '@/components/journey/BridgeStageCapsuleShell';
 
 interface BridgeReserveInterestCardProps {
   title: string;
@@ -41,12 +42,10 @@ const ACCENT_CLASSES = {
   indigo: {
     icon: 'text-indigo-300',
     inputFocus: 'focus:border-indigo-400/50',
-    button: 'bg-indigo-500 hover:bg-indigo-400',
   },
   amber: {
     icon: 'text-amber-300',
     inputFocus: 'focus:border-amber-400/50',
-    button: 'bg-amber-500 hover:bg-amber-400',
   },
 } as const;
 
@@ -107,7 +106,7 @@ export function BridgeReserveInterestCard({
           type="button"
           disabled={status === 'submitting' || !email.includes('@')}
           onClick={submit}
-          className={`rounded-lg px-4 py-2 text-xs font-semibold text-slate-950 transition disabled:opacity-40 ${accentClasses.button}`}
+          className={`rounded-lg px-4 py-2 text-xs font-semibold disabled:opacity-40 ${liquidGlassButtonClass(accent)}`}
         >
           Reserve
         </button>

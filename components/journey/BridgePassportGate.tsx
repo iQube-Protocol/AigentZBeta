@@ -19,23 +19,22 @@
 
 import React from 'react';
 import { Lock } from 'lucide-react';
+import { liquidGlassButtonClass } from '@/components/journey/BridgeStageCapsuleShell';
 
 export type BridgePassportGateAccent = 'indigo' | 'amber';
 
-const ACCENT_CLASSES: Record<BridgePassportGateAccent, { border: string; iconBg: string; iconText: string; dot: string; button: string }> = {
+const ACCENT_CLASSES: Record<BridgePassportGateAccent, { border: string; iconBg: string; iconText: string; dot: string }> = {
   indigo: {
     border: 'border-indigo-400/20',
     iconBg: 'bg-indigo-500/20',
     iconText: 'text-indigo-300',
     dot: 'bg-indigo-400',
-    button: 'bg-indigo-500 hover:bg-indigo-400',
   },
   amber: {
     border: 'border-amber-400/20',
     iconBg: 'bg-amber-500/20',
     iconText: 'text-amber-300',
     dot: 'bg-amber-400',
-    button: 'bg-amber-500 hover:bg-amber-400',
   },
 };
 
@@ -103,7 +102,7 @@ export function BridgePassportGate({
           <button
             type="button"
             onClick={onProceedToPassport}
-            className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold text-slate-950 transition ${classes.button}`}
+            className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold ${liquidGlassButtonClass(accent)}`}
           >
             Go to Passport
           </button>

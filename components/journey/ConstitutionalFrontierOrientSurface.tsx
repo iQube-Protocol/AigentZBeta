@@ -40,6 +40,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { personaFetch } from '@/utils/personaSpine';
 import { CI_BRIDGE_ORIENT_COMPANION_COPY } from '@/services/journey/constitutionalInternetBridgeJourney';
+import { liquidGlassButtonClass } from '@/components/journey/BridgeStageCapsuleShell';
 
 /** How long a just-clicked option stays visibly selected before the
  *  question advances — long enough to register, short enough not to stall. */
@@ -259,7 +260,7 @@ export function ConstitutionalFrontierOrientSurface() {
               type="button"
               disabled={!allChosen}
               onClick={reveal}
-              className="shrink-0 rounded-lg bg-amber-500 px-3.5 py-2 text-xs font-semibold text-slate-950 transition hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed"
+              className={`shrink-0 rounded-lg px-3.5 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${liquidGlassButtonClass('amber')}`}
             >
               {answeredCount}/3 — See your Constitutional Frontier
             </button>
