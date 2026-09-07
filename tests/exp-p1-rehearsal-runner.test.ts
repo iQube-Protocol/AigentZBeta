@@ -2,7 +2,8 @@
  * Canary — `services/research/expP1Rehearsal.ts` (2026-09-07 two-mode
  * execution model: "Update the experiment execution model so we can
  * rehearse internally without weakening the registered confirmatory
- * protocol.").
+ * protocol." Extended same-day for the instrument-validation fixes found in
+ * the first rehearsal run — see the module's own header.).
  *
  * Pins:
  *   1. Eligibility requires a FROZEN crystal-version generation with
@@ -22,6 +23,18 @@
  *      override.
  *   7. The frozen crystal artifact is only ever READ (`latestFrozenCrystalArtifact`)
  *      — never mutated (no freeze/upsert call is made).
+ *   8. Arm B's SELECTED set (what grounds its score) is a genuinely BOUNDED
+ *      selection — `buildInvariantSlice` is called WITHOUT a `limit`
+ *      override — distinct from its AVAILABLE set, which may be larger.
+ *   9. A task with no keyword match anywhere in the frozen population is
+ *      `scorable: false` with a non-null `unscorableReason`; a task with a
+ *      match is `scorable: true` with `unscorableReason: null`.
+ *  10. Arm D's `scoreMetric` is `'keyword-substring-coverage'`; A/B/C's is
+ *      `'invariant-id-recall'`.
+ *  11. `recordExecutionRun` receives `armDProvenance`, `armConfiguration`,
+ *      `scoringConfiguration` reflecting the actual selection/scoring used.
+ *  12. `summarizeRehearsalRun` excludes unscorable tasks from every mean and
+ *      reports the B available/selected and C fixed-slice sizes.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { HashCoveredMember } from '@/services/research/crystalContentProjection';
@@ -166,18 +179,36 @@ describe('runExpP1Rehearsal', () => {
     // Arm A — Cold — always empty grounding, score 0.
     for (const task of call.taskResults) {
       const armA = task.armResults.find((a: { armId: string }) => a.armId === 'A');
-      expect(armA.groundingInvariantIds).toEqual([]);
+      expect(armA.actuallyGroundedInvariantIds).toEqual([]);
+      expect(armA.availableInvariantIds).toEqual([]);
+      expect(armA.selectedInvariantIds).toEqual([]);
+      expect(armA.scoreMetric).toBe('invariant-id-recall');
       expect(armA.score).toBe(0);
     }
 
+    // Arm D — its scoreMetric is the DIFFERENT, text-based one.
+    const armD = call.taskResults[0].armResults.find((a: { armId: string }) => a.armId === 'D');
+    expect(armD.scoreMetric).toBe('keyword-substring-coverage');
+    expect(armD.actuallyGroundedInvariantIds).toEqual([]);
+
     // Arm C — a genuine, bounded subset (≤ 40% of 10 members = 4).
-    const armCIds = call.taskResults[0].armResults.find((a: { armId: string }) => a.armId === 'C').groundingInvariantIds;
-    expect(armCIds.length).toBeGreaterThan(0);
-    expect(armCIds.length).toBeLessThanOrEqual(4);
-    for (const id of armCIds) expect(MEMBERS.some((m) => m.id === id)).toBe(true);
+    const armC = call.taskResults[0].armResults.find((a: { armId: string }) => a.armId === 'C');
+    expect(armC.selectedInvariantIds.length).toBeGreaterThan(0);
+    expect(armC.selectedInvariantIds.length).toBeLessThanOrEqual(4);
+    expect(armC.actuallyGroundedInvariantIds).toEqual(armC.selectedInvariantIds);
+    // Arm C's AVAILABLE set is the whole frozen population it was carved from.
+    expect(armC.availableInvariantIds).toHaveLength(MEMBERS.length);
+    for (const id of armC.selectedInvariantIds) expect(MEMBERS.some((m) => m.id === id)).toBe(true);
+
+    // recordExecutionRun receives the new audit-trail fields.
+    expect(call.armDProvenance).toBe('provisional-irl-authored');
+    expect(call.armConfiguration.armC.fixedSliceSize).toBe(armC.selectedInvariantIds.length);
+    expect(call.armConfiguration.armC.frozenPopulationSize).toBe(MEMBERS.length);
+    expect(call.scoringConfiguration['invariant-id-recall']).toMatch(/recall/i);
+    expect(call.scoringConfiguration['keyword-substring-coverage']).toMatch(/not comparable/i);
   });
 
-  it("Arm B's grounding is constrained to the FROZEN snapshot — a live-only id never leaks in", async () => {
+  it("Arm B's SELECTED grounding is constrained to the FROZEN snapshot — a live-only id never leaks in", async () => {
     mockLatestFrozenCrystalArtifact.mockResolvedValue(frozenArtifact());
     mockBuildInvariantSlice.mockResolvedValue({
       generatedAt: null,
@@ -194,8 +225,121 @@ describe('runExpP1Rehearsal', () => {
 
     await runExpP1Rehearsal({ personaId: 'persona-1', experimentId: 'EXP-P1' });
     const call = mockRecordExecutionRun.mock.calls[0][0];
-    const armBIds = call.taskResults[0].armResults.find((a: { armId: string }) => a.armId === 'B').groundingInvariantIds;
-    expect(armBIds).toContain('inv-0');
-    expect(armBIds).not.toContain('inv-999-live-only');
+    const armB = call.taskResults[0].armResults.find((a: { armId: string }) => a.armId === 'B');
+    expect(armB.selectedInvariantIds).toContain('inv-0');
+    expect(armB.selectedInvariantIds).not.toContain('inv-999-live-only');
+    expect(armB.availableInvariantIds).toContain('inv-0');
+    expect(armB.availableInvariantIds).not.toContain('inv-999-live-only');
+    expect(armB.actuallyGroundedInvariantIds).toEqual(armB.selectedInvariantIds);
+  });
+
+  it("Arm B's SELECTED call never overrides buildInvariantSlice's limit — only the AVAILABLE call does (2026-09-07 instrument-validation fix)", async () => {
+    mockLatestFrozenCrystalArtifact.mockResolvedValue(frozenArtifact());
+    // Distinguish the two calls by whether `limit` was overridden: the
+    // AVAILABLE call passes `limit: members.length` (10); the SELECTED call
+    // must call buildInvariantSlice WITHOUT a limit override at all.
+    mockBuildInvariantSlice.mockImplementation((ctx: { limit?: number }) => {
+      if (ctx.limit === MEMBERS.length) {
+        // AVAILABLE — the whole domain-filtered pool.
+        return Promise.resolve({
+          generatedAt: null,
+          context: ctx,
+          items: MEMBERS.map((m) => ({ id: m.id, seedId: null, statement: m.statement, namespace: 'finance', semanticType: null, status: 'validated', confidence: 1, standing: 1, reach: 1 })),
+          citedIds: MEMBERS.map((m) => m.id),
+        });
+      }
+      // SELECTED — buildInvariantSlice's own default (never a population-sized override).
+      expect(ctx.limit).toBeUndefined();
+      return Promise.resolve({
+        generatedAt: null,
+        context: ctx,
+        items: [{ id: 'inv-0', seedId: null, statement: MEMBERS[0].statement, namespace: 'finance', semanticType: null, status: 'validated', confidence: 1, standing: 1, reach: 1 }],
+        citedIds: ['inv-0'],
+      });
+    });
+
+    await runExpP1Rehearsal({ personaId: 'persona-1', experimentId: 'EXP-P1' });
+    expect(mockBuildInvariantSlice).toHaveBeenCalledTimes(2);
+    const call = mockRecordExecutionRun.mock.calls[0][0];
+    const armB = call.taskResults[0].armResults.find((a: { armId: string }) => a.armId === 'B');
+    // AVAILABLE is the whole population (10); SELECTED is genuinely bounded (1)
+    // — the exact confound the first rehearsal run surfaced.
+    expect(armB.availableInvariantIds).toHaveLength(MEMBERS.length);
+    expect(armB.selectedInvariantIds).toEqual(['inv-0']);
+    expect(armB.availableInvariantIds.length).toBeGreaterThan(armB.selectedInvariantIds.length);
+  });
+
+  it('marks a task unscorable when no frozen invariant matches its keywords, and scorable otherwise — excluding neither from the persisted taskResults', async () => {
+    mockLatestFrozenCrystalArtifact.mockResolvedValue(frozenArtifact());
+    // MEMBERS' statements contain 'risk' (member 0) and 'custody'/'reserves'
+    // (the rest) — 'nonexistent-keyword' matches nothing in the population.
+    const taskSet = {
+      id: 'test-task-set',
+      provenance: 'synthetic' as const,
+      tasks: [
+        { id: 'scorable-task', kind: 'recall' as const, prompt: 'p', keywords: ['risk'] },
+        { id: 'unscorable-task', kind: 'recall' as const, prompt: 'p', keywords: ['nonexistent-keyword'] },
+      ],
+    };
+    await runExpP1Rehearsal({ personaId: 'persona-1', experimentId: 'EXP-P1', taskSet });
+    const call = mockRecordExecutionRun.mock.calls[0][0];
+    const scorable = call.taskResults.find((t: { taskId: string }) => t.taskId === 'scorable-task');
+    const unscorable = call.taskResults.find((t: { taskId: string }) => t.taskId === 'unscorable-task');
+    expect(scorable.scorable).toBe(true);
+    expect(scorable.unscorableReason).toBeNull();
+    expect(unscorable.scorable).toBe(false);
+    expect(unscorable.unscorableReason).toMatch(/nonexistent-keyword/);
+    // Diagnostics retained, never dropped, even though unscorable.
+    expect(unscorable.armResults).toHaveLength(4);
+  });
+});
+
+describe('summarizeRehearsalRun', () => {
+  it('excludes unscorable tasks from every mean and reports B/C set sizes', async () => {
+    const { summarizeRehearsalRun } = await import('@/services/research/expP1Rehearsal');
+    const run = {
+      armIds: ['A', 'B', 'C', 'D'] as const,
+      taskResults: [
+        {
+          taskId: 't1',
+          taskKind: 'recall',
+          groundTruthInvariantIds: ['inv-1'],
+          scorable: true,
+          unscorableReason: null,
+          armResults: [
+            { armId: 'A' as const, armLabel: 'Cold', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: [], scoreMetric: 'invariant-id-recall' as const, score: 0 },
+            { armId: 'B' as const, armLabel: 'Full Runtime', availableInvariantIds: ['inv-1', 'inv-2'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: ['inv-1'], scoreMetric: 'invariant-id-recall' as const, score: 1 },
+            { armId: 'C' as const, armLabel: 'Flattened Invariants', availableInvariantIds: ['inv-1', 'inv-2'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: ['inv-1'], scoreMetric: 'invariant-id-recall' as const, score: 1 },
+            { armId: 'D' as const, armLabel: 'Expert Prose', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: [], scoreMetric: 'keyword-substring-coverage' as const, score: 0.5 },
+          ],
+        },
+        {
+          taskId: 't2-unscorable',
+          taskKind: 'derivation',
+          groundTruthInvariantIds: [],
+          scorable: false,
+          unscorableReason: 'no match',
+          armResults: [
+            { armId: 'A' as const, armLabel: 'Cold', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: [], scoreMetric: 'invariant-id-recall' as const, score: 0 },
+            { armId: 'B' as const, armLabel: 'Full Runtime', availableInvariantIds: ['inv-1', 'inv-2'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: ['inv-1'], scoreMetric: 'invariant-id-recall' as const, score: 0 },
+            { armId: 'C' as const, armLabel: 'Flattened Invariants', availableInvariantIds: ['inv-1', 'inv-2'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: ['inv-1'], scoreMetric: 'invariant-id-recall' as const, score: 0 },
+            { armId: 'D' as const, armLabel: 'Expert Prose', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: [], scoreMetric: 'keyword-substring-coverage' as const, score: 0 },
+          ],
+        },
+      ],
+    };
+    const summary = summarizeRehearsalRun(run);
+    expect(summary.taskCounts).toEqual({ total: 2, scored: 1, unscorable: 1 });
+    expect(summary.unscorableTaskIds).toEqual(['t2-unscorable']);
+    // The unscorable task's zero scores must NOT drag the mean down.
+    const armBSummary = summary.perArm.find((a) => a.armId === 'B')!;
+    expect(armBSummary.meanScoreOverall).toBe(1);
+    expect(armBSummary.meanScoreRecall).toBe(1);
+    expect(armBSummary.meanScoreDerivation).toBeNull(); // no scorable derivation task
+    expect(summary.armBAvailableSetSize).toBe(2);
+    expect(summary.armBSelectedSetSize).toBe(1);
+    expect(summary.armCFixedSliceSize).toBe(1);
+    expect(summary.frozenPopulationSize).toBe(2);
+    expect(summary.instrumentCaveat).toMatch(/NOT A SCIENTIFIC RESULT/);
   });
 });

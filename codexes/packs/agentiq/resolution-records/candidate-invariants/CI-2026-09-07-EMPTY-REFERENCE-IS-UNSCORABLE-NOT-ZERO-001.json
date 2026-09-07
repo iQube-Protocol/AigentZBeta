@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "A mechanical scoring function that compares a retrieved/produced set against a reference set commonly needs a divide-by-zero guard for an empty reference — but that guard's return value (typically 0) is a DEFENSIVE default, never a considered scoring-specification decision that an empty-reference case should count as 'the arm failed to recall'. The two look identical in an aggregate mean unless the empty-reference case is flagged and excluded.",
+    "The mechanism this invariant requires: (1) the task/case level, not the arm level, carries a `scorable: boolean` (or equivalent) flag set by whether a valid reference exists at all — never derived per-arm, since an empty reference makes EVERY arm's evaluation of that case equally unscorable; (2) an unscorable case's raw per-arm scores are still computed and PERSISTED (never silently dropped — they remain valid instrument diagnostics, e.g. for debugging why the reference came up empty), but every aggregate/summary computation MUST filter them out before averaging; (3) the reason a case is unscorable is recorded verbatim (e.g. 'no source material matched this case's derivation keywords'), not just a boolean, so a reader can distinguish 'the harness's own fixture was never cross-checked against the corpus' from other failure modes.",
+    "Discovered via EXP-P1's rehearsal harness: `idRecallScore` returned 0 for an empty `groundTruthInvariantIds` (mirroring the identical divide-by-zero guard in the established EXP-012 `services/experiments/expP3.ts::scoreSet` precedent) for two of six provisional tasks whose keywords matched nothing in the frozen crystal's actual 63 members. Before this invariant, that 0 was read as 'every arm failed to recall this task', not 'this task's own fixture never had valid reference material in the first place' — a fixture-authoring gap dressed up as a scoring result.",
+    "Generalizes beyond EXP-P1: any mechanical/automated scoring harness (precision/recall/F1/coverage, or any metric with a defensive zero for an empty denominator) must apply this distinction before reporting an aggregate score, and especially before comparing two conditions' aggregate scores against each other."
+  ],
+  "canaries": [
+    {
+      "path": "tests/exp-p1-rehearsal-runner.test.ts",
+      "assertion": "A task whose keywords match nothing in the frozen population is marked scorable: false with a non-null unscorableReason naming the unmatched keywords; a task with a genuine match is scorable: true with unscorableReason: null. summarizeRehearsalRun excludes an unscorable task's scores from every arm's mean (recall, derivation, and overall) while the task's raw per-arm scores remain present in the persisted taskResults array.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "candidateId": "CI-2026-09-07-EMPTY-REFERENCE-IS-UNSCORABLE-NOT-ZERO-001",
+  "statement": "In any mechanical scoring harness, a case whose reference/ground-truth set is empty must be marked UNSCORABLE (a distinct, explicit, case-level flag with a recorded reason) rather than silently scored zero by a metric function's divide-by-zero guard. An unscorable case's raw per-condition scores must still be persisted as instrument diagnostics — never dropped — but every aggregate/summary computation must exclude them, and a comparison between two conditions' aggregate scores is invalid (or at minimum must be reported separately) unless unscorable cases have been excluded from both. A metric function's defensive zero-for-empty-reference behavior is a divide-by-zero guard, never itself a scoring-specification decision about what an empty reference means.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-09-07-EXP-P1-REHEARSAL-INSTRUMENT-VALIDATION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/expP1Rehearsal.ts::idRecallScore, runExpP1Rehearsal",
+      "defect": "Two of the six provisional rehearsal tasks (rehearsal-003, rehearsal-005) had empty groundTruthInvariantIds because their authored keywords ('settlement'/'value', 'reserve') matched zero of the frozen crystal's 63 actual member statements — idRecallScore's defensive `groundTruthIds.length === 0 ? 0` branch reported this as a real 0% recall score for every arm, indistinguishable from a genuine recall failure, in the first persisted rehearsal run.",
+      "resolutionId": "RES-2026-09-07-EXP-P1-REHEARSAL-INSTRUMENT-VALIDATION-001",
+      "evidence": [
+        "tests/exp-p1-rehearsal-runner.test.ts"
+      ]
+    }
+  ],
+  "family": "constitutional",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
+}

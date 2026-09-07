@@ -33,11 +33,13 @@ const TASK_RESULTS: RehearsalTaskResult[] = [
     taskId: 'rehearsal-001',
     taskKind: 'recall',
     groundTruthInvariantIds: ['inv-1'],
+    scorable: true,
+    unscorableReason: null,
     armResults: [
-      { armId: 'A', armLabel: 'Cold', groundingInvariantIds: [], score: 0 },
-      { armId: 'B', armLabel: 'Full Runtime', groundingInvariantIds: ['inv-1'], score: 1 },
-      { armId: 'C', armLabel: 'Flattened Invariants', groundingInvariantIds: ['inv-1'], score: 1 },
-      { armId: 'D', armLabel: 'Expert Prose', groundingInvariantIds: [], score: 0.5 },
+      { armId: 'A', armLabel: 'Cold', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: [], scoreMetric: 'invariant-id-recall', score: 0 },
+      { armId: 'B', armLabel: 'Full Runtime', availableInvariantIds: ['inv-1'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: ['inv-1'], scoreMetric: 'invariant-id-recall', score: 1 },
+      { armId: 'C', armLabel: 'Flattened Invariants', availableInvariantIds: ['inv-1'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: ['inv-1'], scoreMetric: 'invariant-id-recall', score: 1 },
+      { armId: 'D', armLabel: 'Expert Prose', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: [], scoreMetric: 'keyword-substring-coverage', score: 0.5 },
     ],
   },
 ];
@@ -54,6 +56,9 @@ function baseInput(overrides: Partial<Parameters<typeof recordExecutionRun>[0]> 
     armIds: ['A', 'B', 'C', 'D'] as const,
     providerModel: 'deterministic-retrieval-v1',
     confirmatoryEligible: false,
+    armDProvenance: 'provisional-irl-authored',
+    armConfiguration: { armB: { availableSetSize: 1, selectedSetSize: 1 } },
+    scoringConfiguration: { 'invariant-id-recall': 'hits / groundTruthInvariantIds.length' },
     taskResults: TASK_RESULTS,
     ...overrides,
   };
@@ -97,6 +102,25 @@ describe('recordExecutionRun', () => {
     expect(call.payload.taskSetProvenance).toBe('provisional');
     expect(call.payload.armIds).toEqual(['A', 'B', 'C', 'D']);
     expect(call.payload.taskResults).toEqual(TASK_RESULTS);
+    expect(call.payload.armDProvenance).toBe('provisional-irl-authored');
+    expect(call.payload.armConfiguration).toEqual({ armB: { availableSetSize: 1, selectedSetSize: 1 } });
+    expect(call.payload.scoringConfiguration).toEqual({ 'invariant-id-recall': 'hits / groundTruthInvariantIds.length' });
+  });
+
+  it('computes a deterministic, non-null contentHash covering the frozen substrate, task-set, arm/scoring configuration and provider/model — commitmentHash stays null (reserved for a confirmatory protocol commitment)', async () => {
+    const result = await recordExecutionRun(baseInput());
+    expect(result.ok).toBe(true);
+    expect(result.artifact?.contentHash).toEqual(expect.any(String));
+    expect(result.artifact?.contentHash).toHaveLength(64); // sha256 hex
+    expect(result.artifact?.commitmentHash).toBeNull();
+
+    // Deterministic: an identical input produces the identical hash.
+    const again = await recordExecutionRun(baseInput());
+    expect(again.artifact?.contentHash).toBe(result.artifact?.contentHash);
+
+    // Sensitive to configuration: a different arm configuration changes the hash.
+    const different = await recordExecutionRun(baseInput({ armConfiguration: { armB: { availableSetSize: 99, selectedSetSize: 1 } } }));
+    expect(different.artifact?.contentHash).not.toBe(result.artifact?.contentHash);
   });
 
   it('never touches EXPERIMENT_LIFECYCLE / recordExperimentRunLifecycle — writes a research_objects artifact row only', async () => {

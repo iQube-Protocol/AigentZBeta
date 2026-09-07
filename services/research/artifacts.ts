@@ -16,6 +16,7 @@ import {
   writeLifecycleReceipt,
   type ResearchObjectRecord,
 } from '@/services/research/lifecycle';
+import { commit } from '@/services/research/review/deterministic';
 import { runCrystalReadinessReport } from '@/services/research/crystalReadiness';
 import { runTaskCoverageReport, type TaskDefinition } from '@/services/research/taskCoverage';
 import {
@@ -675,6 +676,9 @@ export async function recordExecutionRun(input: {
    *  — refused outright otherwise, since this is the ONE field every
    *  confirmatory-result reader filters on (readinessDashboard.ts). */
   confirmatoryEligible: boolean;
+  armDProvenance: string;
+  armConfiguration: Record<string, unknown>;
+  scoringConfiguration: Record<string, unknown>;
   taskResults: RehearsalTaskResult[];
 }): Promise<{ ok: boolean; error?: string; receiptId?: string | null; artifact?: ExecutionRunArtifact }> {
   if (input.runExecutionDesignation === 'internal-rehearsal' && input.confirmatoryEligible) {
@@ -689,13 +693,33 @@ export async function recordExecutionRun(input: {
 
   const frozenAt = new Date().toISOString();
   const id = `${input.experimentId}/execution-run/${input.runExecutionDesignation}/${frozenAt}`;
+  // A deterministic REPRODUCIBILITY hash — never the confirmatory protocol's
+  // pre-registration commitment (README §10; that stays a separate, external,
+  // hash-committed-at-freeze concept this codebase does not construct).
+  // Covers exactly the run's CONFIGURATION (what would need to match for a
+  // re-run to be "the same run"): the frozen substrate it read, which task
+  // set, the arm/scoring configuration, and the provider/model identity —
+  // deliberately NOT the taskResults themselves (those are the run's OUTPUT,
+  // not its config; hashing them here would make the hash "verify itself"
+  // rather than let a reader check the run was reproducible under the same
+  // inputs). `commitmentHash` stays `null` — reserved for a real confirmatory
+  // protocol commitment, which no `internal-rehearsal` run ever has.
+  const contentHash = commit({
+    frozenCrystalContentHash: input.frozenCrystalContentHash,
+    taskSetId: input.taskSetId,
+    taskSetProvenance: input.taskSetProvenance,
+    armIds: input.armIds,
+    armConfiguration: input.armConfiguration,
+    scoringConfiguration: input.scoringConfiguration,
+    providerModel: input.providerModel,
+  });
   const artifact: ExecutionRunArtifact = {
     id,
     kind: 'execution-run',
     phase: 'execution',
     experimentId: input.experimentId,
     lifecycle: 'executed',
-    contentHash: null,
+    contentHash,
     commitmentHash: null,
     frozenAt,
     signedBy: [],
@@ -708,6 +732,9 @@ export async function recordExecutionRun(input: {
     armIds: input.armIds,
     providerModel: input.providerModel,
     confirmatoryEligible: input.confirmatoryEligible,
+    armDProvenance: input.armDProvenance,
+    armConfiguration: input.armConfiguration,
+    scoringConfiguration: input.scoringConfiguration,
     taskResults: input.taskResults,
   };
 

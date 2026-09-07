@@ -29,9 +29,11 @@ vi.mock('@/services/research/artifacts', () => ({
 
 const mockRehearsalEligibility = vi.fn();
 const mockRunExpP1Rehearsal = vi.fn();
+const mockSummarizeRehearsalRun = vi.fn();
 vi.mock('@/services/research/expP1Rehearsal', () => ({
   rehearsalEligibility: (...args: any[]) => mockRehearsalEligibility(...args),
   runExpP1Rehearsal: (...args: any[]) => mockRunExpP1Rehearsal(...args),
+  summarizeRehearsalRun: (...args: any[]) => mockSummarizeRehearsalRun(...args),
 }));
 
 import { GET, POST } from '@/app/api/research/crystal/[experimentId]/rehearsal/route';
@@ -53,6 +55,17 @@ beforeEach(() => {
   mockGetExecutionRun.mockReset();
   mockRehearsalEligibility.mockReset();
   mockRunExpP1Rehearsal.mockReset();
+  mockSummarizeRehearsalRun.mockReset();
+  mockSummarizeRehearsalRun.mockReturnValue({
+    taskCounts: { total: 0, scored: 0, unscorable: 0 },
+    unscorableTaskIds: [],
+    perArm: [],
+    frozenPopulationSize: null,
+    armBAvailableSetSize: null,
+    armBSelectedSetSize: null,
+    armCFixedSliceSize: null,
+    instrumentCaveat: 'INTERNAL REHEARSAL — INSTRUMENT VALIDATION ONLY, NOT A SCIENTIFIC RESULT.',
+  });
 });
 
 describe('GET /rehearsal — auth', () => {
@@ -149,6 +162,18 @@ describe('POST /rehearsal — launches a run', () => {
     expect(body.runId).toBe('run-1');
     expect(body.note).toMatch(/NON-CONFIRMATORY/);
     expect(mockRunExpP1Rehearsal).toHaveBeenCalledWith({ personaId: 'persona-1', experimentId: 'EXP-P1' });
+    // No `run` in the runner's result -> no summary computed.
+    expect(body.summary).toBeNull();
+    expect(mockSummarizeRehearsalRun).not.toHaveBeenCalled();
+  });
+
+  it('computes the proper rehearsal summary from the runner\'s returned `run` when present', async () => {
+    const run = { id: 'run-1', taskResults: [{}, {}] };
+    mockRunExpP1Rehearsal.mockResolvedValue({ ok: true, runId: 'run-1', receiptId: 'receipt-1', taskResults: [{}, {}], run });
+    const res = await POST(makePostRequest({}), { params: params() });
+    const body = await res.json();
+    expect(mockSummarizeRehearsalRun).toHaveBeenCalledWith(run);
+    expect(body.summary).toBeDefined();
   });
 
   it('returns 409 with the runner\'s own error when refused', async () => {
@@ -180,6 +205,9 @@ describe('GET /rehearsal?runId=... — the "View results" affordance (2026-09-07
     expect(body.requestSucceeded).toBe(true);
     expect(body.run).toEqual(run);
     expect(mockGetExecutionRun).toHaveBeenCalledWith('EXP-P1/execution-run/internal-rehearsal/x');
+    // The proper rehearsal summary (2026-09-07) is computed from the SAME run.
+    expect(mockSummarizeRehearsalRun).toHaveBeenCalledWith(run);
+    expect(body.summary).toBeDefined();
     // The status-summary fields are never computed on this path.
     expect(mockRehearsalEligibility).not.toHaveBeenCalled();
   });
