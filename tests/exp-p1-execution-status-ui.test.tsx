@@ -81,15 +81,40 @@ const JUST_COMPLETED_TASK_RESULTS = [
     taskId: 'rehearsal-001',
     taskKind: 'recall',
     groundTruthInvariantIds: ['inv-1'],
+    scorable: true,
+    unscorableReason: null,
     armResults: [
-      { armId: 'A', armLabel: 'Cold', groundingInvariantIds: [], score: 0 },
-      { armId: 'B', armLabel: 'Full Runtime', groundingInvariantIds: ['inv-1'], score: 1 },
-      { armId: 'C', armLabel: 'Flattened Invariants', groundingInvariantIds: ['inv-1'], score: 1 },
-      { armId: 'D', armLabel: 'Expert Prose', groundingInvariantIds: [], score: 0.5 },
+      { armId: 'A', armLabel: 'Cold', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: [], scoreMetric: 'invariant-id-recall', score: 0 },
+      { armId: 'B', armLabel: 'Full Runtime', availableInvariantIds: ['inv-1', 'inv-2'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: ['inv-1'], scoreMetric: 'invariant-id-recall', score: 1 },
+      { armId: 'C', armLabel: 'Flattened Invariants', availableInvariantIds: ['inv-1'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: ['inv-1'], scoreMetric: 'invariant-id-recall', score: 1 },
+      { armId: 'D', armLabel: 'Expert Prose', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: [], scoreMetric: 'keyword-substring-coverage', score: 0.5 },
     ],
   },
-  { taskId: 'rehearsal-002', taskKind: 'recall', groundTruthInvariantIds: [], armResults: [] },
+  {
+    taskId: 'rehearsal-002',
+    taskKind: 'recall',
+    groundTruthInvariantIds: [],
+    scorable: false,
+    unscorableReason: "no frozen invariant matched this task's keyword set",
+    armResults: [],
+  },
 ];
+
+const JUST_COMPLETED_SUMMARY = {
+  taskCounts: { total: 2, scored: 1, unscorable: 1 },
+  unscorableTaskIds: ['rehearsal-002'],
+  perArm: [
+    { armId: 'A', armLabel: 'Cold', scoreMetric: 'invariant-id-recall', meanScoreOverall: 0, meanScoreRecall: 0, meanScoreDerivation: null },
+    { armId: 'B', armLabel: 'Full Runtime', scoreMetric: 'invariant-id-recall', meanScoreOverall: 1, meanScoreRecall: 1, meanScoreDerivation: null },
+    { armId: 'C', armLabel: 'Flattened Invariants', scoreMetric: 'invariant-id-recall', meanScoreOverall: 1, meanScoreRecall: 1, meanScoreDerivation: null },
+    { armId: 'D', armLabel: 'Expert Prose', scoreMetric: 'keyword-substring-coverage', meanScoreOverall: 0.5, meanScoreRecall: 0.5, meanScoreDerivation: null },
+  ],
+  frozenPopulationSize: 1,
+  armBAvailableSetSize: 2,
+  armBSelectedSetSize: 1,
+  armCFixedSliceSize: 1,
+  instrumentCaveat: 'INTERNAL REHEARSAL — INSTRUMENT VALIDATION ONLY, NOT A SCIENTIFIC RESULT.',
+};
 
 describe('ExpP1ExecutionStatus — eligible internal rehearsal, frozen substrate resolved server-side', () => {
   function mockEligible() {
@@ -107,6 +132,7 @@ describe('ExpP1ExecutionStatus — eligible internal rehearsal, frozen substrate
               confirmatoryEligible: false,
               taskResults: JUST_COMPLETED_TASK_RESULTS,
             },
+            summary: JUST_COMPLETED_SUMMARY,
             note: 'INTERNAL / NON-CONFIRMATORY / NOT VALID SCIENTIFIC EVIDENCE — this run may never be promoted.',
           }),
         );
@@ -161,9 +187,36 @@ describe('ExpP1ExecutionStatus — eligible internal rehearsal, frozen substrate
     await user.click(button);
     expect(await screen.findByText('rehearsal-001')).toBeInTheDocument();
     expect(screen.getByText(/B Full Runtime:/)).toBeInTheDocument();
-    expect(screen.getByText('50%')).toBeInTheDocument(); // Arm D's unique score
+    // Arm D's unique score — appears once in the per-task row and once in the
+    // summary block's per-arm mean (the mean of one task IS that task's score).
+    expect(screen.getAllByText('50%').length).toBeGreaterThanOrEqual(1);
     // The POST response already carried taskResults — no ?runId= fetch was needed.
     expect(mockPersonaFetch.mock.calls.some(([url]) => /\?runId=/.test(url))).toBe(false);
+  });
+
+  it('flags an unscorable task distinctly and shows its reason as a diagnostic, never as a real score', async () => {
+    mockEligible();
+    const user = userEvent.setup();
+    render(<ExpP1ExecutionStatus experimentId="EXP-P1" />);
+    const button = await screen.findByRole('button', { name: /Run EXP-P1 internal rehearsal/ });
+    await user.click(button);
+    await screen.findByText('rehearsal-001');
+    expect(screen.getByText('rehearsal-002')).toBeInTheDocument();
+    expect(screen.getByText('unscorable — diagnostics only')).toBeInTheDocument();
+    expect(screen.getByText(/no frozen invariant matched this task's keyword set/)).toBeInTheDocument();
+  });
+
+  it('shows the proper rehearsal summary — scored/unscorable counts, per-arm means split recall/derivation, and B/C set sizes', async () => {
+    mockEligible();
+    const user = userEvent.setup();
+    render(<ExpP1ExecutionStatus experimentId="EXP-P1" />);
+    const button = await screen.findByRole('button', { name: /Run EXP-P1 internal rehearsal/ });
+    await user.click(button);
+    await screen.findByText('rehearsal-001');
+    expect(screen.getByText(/1\/2 task\(s\) scored/)).toBeInTheDocument();
+    expect(screen.getByText(/1 unscorable \(rehearsal-002\)/)).toBeInTheDocument();
+    expect(screen.getByText(/1 selected of 2 available/)).toBeInTheDocument();
+    expect(screen.getByText(/Arm C: 1 fixed/)).toBeInTheDocument();
   });
 
   it('"Copy JSON" on the just-completed run copies the FULL run record to the clipboard, and shows a transient "Copied" confirmation', async () => {
@@ -211,12 +264,27 @@ describe('ExpP1ExecutionStatus — "View results" on a PAST run', () => {
                   taskId: 'rehearsal-past',
                   taskKind: 'recall',
                   groundTruthInvariantIds: ['inv-9'],
+                  scorable: true,
+                  unscorableReason: null,
                   armResults: [
-                    { armId: 'A', armLabel: 'Cold', groundingInvariantIds: [], score: 0 },
-                    { armId: 'C', armLabel: 'Flattened Invariants', groundingInvariantIds: ['inv-9'], score: 1 },
+                    { armId: 'A', armLabel: 'Cold', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: [], scoreMetric: 'invariant-id-recall', score: 0 },
+                    { armId: 'C', armLabel: 'Flattened Invariants', availableInvariantIds: ['inv-9'], selectedInvariantIds: ['inv-9'], actuallyGroundedInvariantIds: ['inv-9'], scoreMetric: 'invariant-id-recall', score: 1 },
                   ],
                 },
               ],
+            },
+            summary: {
+              taskCounts: { total: 1, scored: 1, unscorable: 0 },
+              unscorableTaskIds: [],
+              perArm: [
+                { armId: 'A', armLabel: 'Cold', scoreMetric: 'invariant-id-recall', meanScoreOverall: 0, meanScoreRecall: 0, meanScoreDerivation: null },
+                { armId: 'C', armLabel: 'Flattened Invariants', scoreMetric: 'invariant-id-recall', meanScoreOverall: 1, meanScoreRecall: 1, meanScoreDerivation: null },
+              ],
+              frozenPopulationSize: 1,
+              armBAvailableSetSize: null,
+              armBSelectedSetSize: null,
+              armCFixedSliceSize: 1,
+              instrumentCaveat: 'INTERNAL REHEARSAL — INSTRUMENT VALIDATION ONLY, NOT A SCIENTIFIC RESULT.',
             },
           }),
         );

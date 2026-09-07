@@ -46,7 +46,10 @@ interface PastRehearsalRunView {
 interface RehearsalArmResultView {
   armId: string;
   armLabel: string;
-  groundingInvariantIds: string[];
+  availableInvariantIds: string[];
+  selectedInvariantIds: string[];
+  actuallyGroundedInvariantIds: string[];
+  scoreMetric: string;
   score: number;
 }
 
@@ -54,7 +57,29 @@ interface RehearsalTaskResultView {
   taskId: string;
   taskKind: string;
   groundTruthInvariantIds: string[];
+  scorable?: boolean;
+  unscorableReason?: string | null;
   armResults: RehearsalArmResultView[];
+}
+
+interface RehearsalArmSummaryView {
+  armId: string;
+  armLabel: string;
+  scoreMetric: string;
+  meanScoreOverall: number | null;
+  meanScoreRecall: number | null;
+  meanScoreDerivation: number | null;
+}
+
+interface RehearsalRunSummaryView {
+  taskCounts: { total: number; scored: number; unscorable: number };
+  unscorableTaskIds: string[];
+  perArm: RehearsalArmSummaryView[];
+  frozenPopulationSize: number | null;
+  armBAvailableSetSize: number | null;
+  armBSelectedSetSize: number | null;
+  armCFixedSliceSize: number | null;
+  instrumentCaveat: string;
 }
 
 /** The FULL persisted execution-run record — the same shape the POST
@@ -85,29 +110,81 @@ type Phase =
 /** Shared task-by-task, arm-by-arm rendering — used for BOTH the just-
  *  completed run (shown unconditionally) and an expanded past run (shown on
  *  demand), so the two surfaces can never drift into two different layouts
- *  for the same data. */
+ *  for the same data. A task with `scorable === false` (no frozen invariant
+ *  matched its keywords — nothing to score recall against) is flagged
+ *  distinctly; its raw per-arm scores are still shown as diagnostics, never
+ *  hidden, but the reader is told not to trust them as real recall. */
 function TaskResultsList({ results }: { results: RehearsalTaskResultView[] }) {
   return (
     <>
-      {results.map((task) => (
-        <div key={task.taskId} className="mb-1.5 last:mb-0">
-          <div className="text-slate-300">
-            {task.taskId} <span className="text-slate-600">({task.taskKind})</span>
+      {results.map((task) => {
+        const unscorable = task.scorable === false;
+        return (
+          <div key={task.taskId} className="mb-1.5 last:mb-0">
+            <div className="text-slate-300">
+              {task.taskId} <span className="text-slate-600">({task.taskKind})</span>
+              {unscorable && (
+                <span className="ml-1.5 rounded border border-amber-700/50 bg-amber-950/30 px-1 py-0.5 text-[10px] text-amber-300">
+                  unscorable — diagnostics only
+                </span>
+              )}
+            </div>
+            {unscorable && task.unscorableReason && (
+              <div className="ml-2 text-slate-600">{task.unscorableReason}</div>
+            )}
+            <div className="ml-2 grid grid-cols-2 gap-x-3 gap-y-0.5 sm:grid-cols-4">
+              {task.armResults.map((a) => {
+                const grounded = a.actuallyGroundedInvariantIds?.length ?? 0;
+                const available = a.availableInvariantIds?.length ?? 0;
+                const selected = a.selectedInvariantIds?.length ?? 0;
+                return (
+                  <div key={a.armId}>
+                    <span className="text-slate-400">{a.armId} {a.armLabel}:</span>{" "}
+                    <span className="text-slate-200">{Math.round(a.score * 100)}%</span>
+                    {grounded > 0 && (
+                      <span className="text-slate-600">
+                        {" "}
+                        · {selected} selected{available !== selected ? ` (${available} available)` : ""}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-          <div className="ml-2 grid grid-cols-2 gap-x-3 gap-y-0.5 sm:grid-cols-4">
-            {task.armResults.map((a) => (
-              <div key={a.armId}>
-                <span className="text-slate-400">{a.armId} {a.armLabel}:</span>{" "}
-                <span className="text-slate-200">{Math.round(a.score * 100)}%</span>
-                {a.groundingInvariantIds.length > 0 && (
-                  <span className="text-slate-600"> · {a.groundingInvariantIds.length} grounded</span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </>
+  );
+}
+
+/** Compact aggregate view — item 6's "proper rehearsal summary": scored vs
+ *  unscorable, per-arm means split recall/derivation, and the B/C set-size
+ *  distinction, never a single blended number. Shown ABOVE the per-task
+ *  list, never in place of it. */
+function RunSummaryBlock({ summary }: { summary: RehearsalRunSummaryView }) {
+  const pct = (v: number | null) => (v === null ? "—" : `${Math.round(v * 100)}%`);
+  return (
+    <div className="mb-2 rounded border border-slate-800 bg-slate-900/60 p-1.5 text-slate-400">
+      <div>
+        {summary.taskCounts.scored}/{summary.taskCounts.total} task(s) scored
+        {summary.taskCounts.unscorable > 0 && (
+          <span className="text-amber-300"> · {summary.taskCounts.unscorable} unscorable ({summary.unscorableTaskIds.join(", ")})</span>
+        )}
+      </div>
+      <div className="mt-0.5">
+        Arm B: {summary.armBSelectedSetSize ?? "—"} selected of {summary.armBAvailableSetSize ?? "—"} available · Arm C:{" "}
+        {summary.armCFixedSliceSize ?? "—"} fixed · frozen population {summary.frozenPopulationSize ?? "—"}
+      </div>
+      <div className="mt-0.5 grid grid-cols-2 gap-x-3 gap-y-0.5 sm:grid-cols-4">
+        {summary.perArm.map((a) => (
+          <div key={a.armId}>
+            <span className="text-slate-500">{a.armId}:</span> {pct(a.meanScoreOverall)}
+            <span className="text-slate-600"> (recall {pct(a.meanScoreRecall)} · derivation {pct(a.meanScoreDerivation)})</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -167,6 +244,12 @@ export function ExpP1ExecutionStatus({
   const [lastCompletedRunId, setLastCompletedRunId] = useState<string | null>(null);
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
   const [runDetails, setRunDetails] = useState<Record<string, RehearsalRunFullView>>({});
+  // The server-computed aggregate — see `summarizeRehearsalRun`
+  // (services/research/expP1Rehearsal.ts). Never re-derived client-side;
+  // cached by run id alongside `runDetails`, absent for a run fetched before
+  // the server started returning it (renders no summary block, never a stale
+  // client-computed one).
+  const [runSummaries, setRunSummaries] = useState<Record<string, RehearsalRunSummaryView>>({});
   const [detailLoadingRunId, setDetailLoadingRunId] = useState<string | null>(null);
   const [detailErr, setDetailErr] = useState<string | null>(null);
   // "Copy JSON" — transient per-run confirmation, cleared after ~1.5s or on
@@ -230,6 +313,7 @@ export function ExpP1ExecutionStatus({
       setLastRunNote(`Rehearsal complete — ${taskCount} task(s) across arms A/B/C/D. ${body.note ?? ""}`.trim());
       if (typeof body.runId === "string" && body.run) {
         setRunDetails((prev) => ({ ...prev, [body.runId]: body.run }));
+        if (body.summary) setRunSummaries((prev) => ({ ...prev, [body.runId]: body.summary }));
         setLastCompletedRunId(body.runId);
       }
       await load();
@@ -260,6 +344,7 @@ export function ExpP1ExecutionStatus({
           throw new Error(body?.error || `could not read this run's results (HTTP ${res.status})`);
         }
         setRunDetails((prev) => ({ ...prev, [runId]: body.run ?? { taskResults: [] } }));
+        if (body.summary) setRunSummaries((prev) => ({ ...prev, [runId]: body.summary }));
       } catch (e) {
         setDetailErr(e instanceof Error ? e.message : "could not read this run's results");
       } finally {
@@ -351,6 +436,7 @@ export function ExpP1ExecutionStatus({
                 <div className="mb-1 flex justify-end">
                   <CopyJsonButton runId={lastCompletedRunId} copiedRunId={copiedRunId} onCopy={copyRunJson} />
                 </div>
+                {runSummaries[lastCompletedRunId] && <RunSummaryBlock summary={runSummaries[lastCompletedRunId]} />}
                 <TaskResultsList results={runDetails[lastCompletedRunId].taskResults} />
               </div>
             )}
@@ -394,6 +480,7 @@ export function ExpP1ExecutionStatus({
                             <div className="mb-1 flex justify-end">
                               <CopyJsonButton runId={r.id} copiedRunId={copiedRunId} onCopy={copyRunJson} />
                             </div>
+                            {runSummaries[r.id] && <RunSummaryBlock summary={runSummaries[r.id]} />}
                             <TaskResultsList results={runDetails[r.id].taskResults} />
                           </>
                         )}

@@ -30,7 +30,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { deriveProtocolRatified, getExecutionRun } from '@/services/research/artifacts';
 import { listExecutionRuns } from '@/services/research/artifacts';
-import { rehearsalEligibility, runExpP1Rehearsal } from '@/services/research/expP1Rehearsal';
+import { rehearsalEligibility, runExpP1Rehearsal, summarizeRehearsalRun } from '@/services/research/expP1Rehearsal';
 import type { FrozenArtifactKind } from '@/types/research';
 
 export const dynamic = 'force-dynamic';
@@ -72,7 +72,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ expe
     if (!run || run.experimentId !== experimentId || run.runExecutionDesignation !== 'internal-rehearsal') {
       return NextResponse.json({ requestSucceeded: false, error: `no internal-rehearsal run '${runId}' found for '${experimentId}'` }, { status: 404 });
     }
-    return NextResponse.json({ requestSucceeded: true, run }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json(
+      { requestSucceeded: true, run, summary: summarizeRehearsalRun(run) },
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
   }
 
   const eligibility = await rehearsalEligibility(experimentId);
@@ -137,6 +140,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ exp
       // past run, so the UI's "copy as JSON" affordance has one shape to
       // work with whether the run just completed or is looked up later.
       run: result.run,
+      summary: result.run ? summarizeRehearsalRun(result.run) : null,
       note:
         'INTERNAL / NON-CONFIRMATORY / NOT VALID SCIENTIFIC EVIDENCE — this run may never be promoted into the ' +
         'confirmatory EXP-P1 result set. It exercised the pipeline against the frozen internal-pilot substrate ' +

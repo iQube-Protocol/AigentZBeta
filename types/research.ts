@@ -933,17 +933,51 @@ export type RehearsalArmId = (typeof REHEARSAL_ARM_IDS)[number];
 export const RUN_EXECUTION_DESIGNATIONS = ['internal-rehearsal', 'confirmatory'] as const;
 export type RunExecutionDesignation = (typeof RUN_EXECUTION_DESIGNATIONS)[number];
 
+/** Which mechanical formula a `RehearsalArmTaskResult.score` was computed by
+ *  (2026-09-07 instrument-validation finding — see `expP1Rehearsal.ts`'s
+ *  header). The two metrics are NOT commensurable: `invariant-id-recall` is
+ *  the fraction of a task's ground-truth invariant-ID set present in an arm's
+ *  `actuallyGroundedInvariantIds`; `keyword-substring-coverage` is the
+ *  fraction of a task's keyword list found as a substring of Arm D's FIXED
+ *  prose blob. Both happen to range 0..1, which is precisely why they must
+ *  never be compared arm-for-arm as if they measured the same thing — neither
+ *  is an answer-correctness or grounding-quality judgment; no live judge/model
+ *  exists anywhere in this codebase for EXP-P1. */
+export const REHEARSAL_SCORE_METRICS = ['invariant-id-recall', 'keyword-substring-coverage'] as const;
+export type RehearsalScoreMetric = (typeof REHEARSAL_SCORE_METRICS)[number];
+
 /** One arm's result for one task — mechanically scored (no live judge/rubric
  *  exists in this codebase; see EXP-012/`services/experiments/expP3.ts` for
  *  the established precision/recall/F1 mechanical-scoring convention this
- *  mirrors). `groundingInvariantIds` is what that arm actually retrieved/was
- *  given for this task — empty for Arm A by protocol definition. */
+ *  mirrors, though this harness computes recall only, never precision/F1 —
+ *  see `scoreMetric`'s own doc). Three DISTINCT invariant-id sets, never
+ *  collapsed into one (2026-09-07 instrument-validation finding: a single
+ *  `groundingInvariantIds` field let Arm B's rehearsal call silently pass the
+ *  ENTIRE frozen population as "grounding", confounding runtime/selection
+ *  advantage with raw context quantity against Arm C's genuinely smaller
+ *  fixed slice):
+ *   - `availableInvariantIds` — the domain-filtered candidate pool this arm
+ *     could see, before any ranking/truncation. NEVER used to ground a score.
+ *   - `selectedInvariantIds` — what this arm's REGISTERED selection procedure
+ *     actually chose from the available pool (Arm B: `buildInvariantSlice`'s
+ *     own unmodified default limit, standing-ranked, truncated — never
+ *     overridden to the population size; Arm C: the fixed pre-registered
+ *     slice; Arm A/D: empty, no discrete-id selection by protocol definition).
+ *   - `actuallyGroundedInvariantIds` — what the score was actually computed
+ *     against. Equal to `selectedInvariantIds` for every arm in this
+ *     mechanical harness (no arm here re-derives a smaller grounded-citation
+ *     set at answer time); kept as its own field because a live-model
+ *     confirmatory run's ACTUAL cited set can differ from what it was merely
+ *     offered. */
 export interface RehearsalArmTaskResult {
   armId: RehearsalArmId;
   armLabel: string;
-  groundingInvariantIds: string[];
-  /** 0..1 — mechanical coverage of the task's (provisional/synthetic) ground
-   *  truth by this arm's grounding set. Never a live judge score. */
+  availableInvariantIds: string[];
+  selectedInvariantIds: string[];
+  actuallyGroundedInvariantIds: string[];
+  scoreMetric: RehearsalScoreMetric;
+  /** 0..1 — see `scoreMetric` for what this number actually measures. Never a
+   *  live judge score, never answer-correctness. */
   score: number;
 }
 
@@ -954,6 +988,15 @@ export interface RehearsalTaskResult {
    *  was measured against — persisted so a later reader can audit exactly
    *  what "score" meant for this run, never re-derived silently differently. */
   groundTruthInvariantIds: string[];
+  /** `false` when `groundTruthInvariantIds` is empty — no frozen invariant
+   *  matched this task's keyword set, so there is nothing to score recall
+   *  against for ANY arm. An unscorable task's per-arm `score` values are
+   *  still persisted (instrument diagnostics — never silently dropped), but
+   *  every aggregate (`summarizeRehearsalRun`) MUST exclude it, never let it
+   *  silently contribute a zero (2026-09-07 instrument-validation finding). */
+  scorable: boolean;
+  /** Non-null exactly when `scorable` is `false`. */
+  unscorableReason: string | null;
   armResults: RehearsalArmTaskResult[];
 }
 
@@ -988,5 +1031,61 @@ export interface ExecutionRunArtifact extends FrozenArtifact {
    *  constructs one yet. The field every confirmatory query must filter on;
    *  see `readinessDashboard.ts`. */
   confirmatoryEligible: boolean;
+  /** Where Arm D's prose came from for THIS run — always
+   *  `'provisional-irl-authored'` for an `internal-rehearsal` run (the fixed
+   *  placeholder `expP1Rehearsal.ts::buildProvisionalArmDProse` builds).
+   *  Persisted explicitly (never left to a reader's inference from
+   *  `taskSetProvenance`, a DIFFERENT field describing the TASK set, not the
+   *  Arm D prose) so no future reader can mistake a rehearsal's placeholder
+   *  prose for Austin's externally-authored expert prose (§4 of the
+   *  registered protocol). Nothing in this codebase ever sets this to
+   *  anything else. */
+  armDProvenance: string;
+  /** Verbatim record of the selection/slicing procedure each arm actually
+   *  used for this run — the arm-configuration component of `contentHash`'s
+   *  hash pre-image, and the human-readable audit trail for "was the
+   *  registered Arm B selection procedure actually enforced". Shape is
+   *  harness-specific and intentionally loosely typed (mirrors
+   *  `readinessReportAtFreeze`'s own precedent for "verbatim recorded blob,
+   *  no second typed copy"). */
+  armConfiguration: Record<string, unknown>;
+  /** Verbatim record of what each `scoreMetric` means and the unscorable-task
+   *  rule applied — the scoring-configuration component of `contentHash`'s
+   *  hash pre-image, and the definitive answer to "what does score mean"
+   *  without requiring a reader to go read source code. */
+  scoringConfiguration: Record<string, unknown>;
   taskResults: RehearsalTaskResult[];
+}
+
+/** One arm's aggregate, computed ONLY over `scorable` tasks — see
+ *  `summarizeRehearsalRun` (`services/research/expP1Rehearsal.ts`). `null`
+ *  means zero scorable tasks contributed to that bucket, never zero. */
+export interface RehearsalArmSummary {
+  armId: RehearsalArmId;
+  armLabel: string;
+  scoreMetric: RehearsalScoreMetric;
+  meanScoreOverall: number | null;
+  meanScoreRecall: number | null;
+  meanScoreDerivation: number | null;
+}
+
+/** A proper rehearsal summary (2026-09-07 instrument-validation finding) —
+ *  never a single blended number. Distinguishes scored vs unscorable tasks,
+ *  recall vs derivation, and Arm B's genuinely SELECTED set size from Arm C's
+ *  fixed-slice size, so a reader can see at a glance whether the instrument
+ *  is even measuring what it claims to. Derived ENTIRELY from `taskResults`
+ *  at read time (never persisted redundantly — one source of truth,
+ *  `inv.engineering.036`/`037`). */
+export interface RehearsalRunSummary {
+  taskCounts: { total: number; scored: number; unscorable: number };
+  unscorableTaskIds: string[];
+  perArm: RehearsalArmSummary[];
+  frozenPopulationSize: number | null;
+  armBAvailableSetSize: number | null;
+  armBSelectedSetSize: number | null;
+  armCFixedSliceSize: number | null;
+  /** Fixed, machine-readable restatement of the "this is instrument
+   *  validation, not a scientific result" posture — never omitted, never
+   *  reworded per-run. */
+  instrumentCaveat: string;
 }
