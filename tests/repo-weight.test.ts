@@ -101,12 +101,19 @@ const GRANDFATHERED_OVERSIZE: ReadonlySet<string> = new Set([
   'public/images/demo/agentiq-tutorial.jpg',
   'public/images/demo/penny-digital.jpg',
   'public/images/demo/qripto-chronicles.jpg',
-  'public/metaMe/sources/asset-specification-sheet.png',
-  'public/metaMe/sources/iqube-copper-render-alt.png',
-  'public/metaMe/sources/iqube-copper-render.png',
-  'public/metaMe/sources/iqube-sand-render.png',
-  'public/metaMe/sources/iqube-stone-render.png',
-  'public/metaMe/sources/iqube-teal-render.png',
+  // 2026-09-07: relocated out of public/metaMe/ — unreferenced by any code
+  // (verified: no import/src pointed at these paths; only
+  // public/metaMe/metaMe/metame-32.png is actually rendered), so keeping
+  // them under public/ was pure deploy-artifact weight for zero runtime
+  // benefit. Moved to design-assets/metaMe/ (outside the Next.js public/
+  // and .next/ deploy footprint) rather than deleted — still grandfathered
+  // debt, now at least not costing every Amplify build its size budget.
+  'design-assets/metaMe/sources/asset-specification-sheet.png',
+  'design-assets/metaMe/sources/iqube-copper-render-alt.png',
+  'design-assets/metaMe/sources/iqube-copper-render.png',
+  'design-assets/metaMe/sources/iqube-sand-render.png',
+  'design-assets/metaMe/sources/iqube-stone-render.png',
+  'design-assets/metaMe/sources/iqube-teal-render.png',
 ]);
 
 function trackedFiles(): string[] {
