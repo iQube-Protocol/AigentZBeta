@@ -28,10 +28,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getCallerIdentityContext } from '@/services/wallet/personaRepo';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 import { standUpDelegate, HOMECOMING_DELEGATE_SPECS } from '@/services/homecoming/agentHomecoming';
 import { provisionAgentPersona } from '@/services/agents/provisionAgentPersona';
+import { resolveRootPrincipalForAuthUser } from '@/services/identity/passportPrincipal';
 import { assessDelegate } from '@/services/homecoming/constitutionalPresence';
 import { HOMECOMING_DELEGATES, type HomecomingDelegateId } from '@/types/homecoming';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
@@ -93,6 +95,15 @@ export async function POST(req: NextRequest) {
   if (!persona?.personaId) return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
   if (!persona.cartridgeFlags?.isAdmin) return NextResponse.json({ ok: false, error: 'Admin access required' }, { status: 403 });
 
+  // Principal-first (DiDQube Phase 2.5, 2026-09-07): the delegation anchor is
+  // resolved from the CALLER's own authenticated auth_user_id, never from
+  // personas.root_did. sponsorPersonaId (resolved below) stays authorization/
+  // provenance only — see provisionAgentPersona.ts's header for the full model.
+  const identity = await getCallerIdentityContext(req);
+  if (!identity?.authUserId) {
+    return NextResponse.json({ ok: false, error: 'Unable to resolve authenticated session identity' }, { status: 401 });
+  }
+
   let body: { delegate?: string; sponsorPassportId?: string };
   try {
     body = (await req.json()) as typeof body;
@@ -144,11 +155,9 @@ export async function POST(req: NextRequest) {
   // persists at L1); it is reported honestly so the operator can retry.
   const personaOutcome = await provisionAgentPersona({
     admin,
-    sponsorPersonaId, // the resolved passport-holder persona (matches the seeded sponsor)
+    sponsorPersonaId, // the resolved passport-holder persona — authorization/provenance only
+    sponsorAuthUserId: identity.authUserId, // the caller's own auth_user_id — the anchor's ONLY source
     agentRootId: agent.agentRootId,
-    // Reach L2 even when the sponsor's FIO-style root_did has no root_identity
-    // row — provision un-anchored (NULL delegating root), flagged for backfill.
-    allowUnanchored: true,
   }).catch((e) => ({ ok: false, status: 500, error: e instanceof Error ? e.message : 'persona provisioning failed' }));
 
   // Positive stand-up receipt (Aletheon Homecoming Stage 1 preflight,
@@ -238,6 +247,11 @@ async function GET_preflight(req: NextRequest, delegate: HomecomingDelegateId) {
   if (!persona?.personaId) return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
   if (!persona.cartridgeFlags?.isAdmin) return NextResponse.json({ ok: false, error: 'Admin access required' }, { status: 403 });
 
+  const identity = await getCallerIdentityContext(req);
+  if (!identity?.authUserId) {
+    return NextResponse.json({ ok: false, error: 'Unable to resolve authenticated session identity' }, { status: 401 });
+  }
+
   const admin = getSupabaseServer();
   if (!admin) return NextResponse.json({ ok: false, error: 'Supabase configuration missing' }, { status: 500 });
 
@@ -264,16 +278,14 @@ async function GET_preflight(req: NextRequest, delegate: HomecomingDelegateId) {
   // a revoked/suspended citizen passport must not read as a valid sponsor.
   const passportValid = Boolean(passportRow) && passportRow?.passport_class === 'citizen' && citizenStatus === 'active';
 
-  // Mirrors provisionAgentPersona's read-only root/did_persona resolution —
-  // preview only, never writes. See that file for the authoritative version
-  // exercised at actual persona-provisioning time.
-  const { data: sponsorPersonaRow } = await admin.from('personas').select('root_did').eq('id', sponsorPersonaId).maybeSingle();
-  const sponsorRootDid = sponsorPersonaRow?.root_did ?? null;
-  let sponsorRootResolvable = false;
-  if (sponsorRootDid) {
-    const { data: rootRow } = await admin.from('root_identity').select('id').eq('did_uri', sponsorRootDid).maybeSingle();
-    sponsorRootResolvable = Boolean(rootRow);
-  }
+  // Mirrors provisionAgentPersona's principal-first resolution (DiDQube Phase
+  // 2.5, 2026-09-07) — preview only, never writes, and reuses the SAME
+  // resolveRootPrincipalForAuthUser walk (composed, not re-derived) so this
+  // preview can never diverge from what the real POST call would do. Never
+  // reads personas.root_did — sponsorPersonaId is not even consulted here,
+  // matching the POST handler's principal-first behavior exactly.
+  const rootPrincipal = await resolveRootPrincipalForAuthUser(identity.authUserId);
+  const sponsorRootResolvable = rootPrincipal.ok;
 
   // The canonical capacity resolver — preview only, never writes or gates.
   // The real function (sponsorPolityAgent, via standUpDelegate) re-runs this

@@ -13,11 +13,13 @@
  * locker grant flow read delegation_persona_id off this row; until it exists
  * those paths fall back to the sponsor persona as a placeholder.
  *
- * FK resolution (spine-critical, T0):
- *   - delegation_user_root_id → root_identity(id): resolved from the sponsor's
- *     personas.root_did → root_identity.did_uri (the reliable link bind writes;
- *     NOT via authProfileId, which is the multi-email-merged id and may differ
- *     from root_identity.auth_user_id).
+ * FK resolution (spine-critical, T0; DiDQube Phase 2.5, 2026-09-07):
+ *   - delegation_user_root_id → root_identity(id): resolved PRINCIPAL-FIRST,
+ *     from the caller's own authenticated auth_user_id
+ *     (`resolveRootPrincipalForAuthUser`, via `getCallerIdentityContext`) —
+ *     NEVER from `personas.root_did`, which is a semantically overloaded
+ *     legacy column (see `services/agents/provisionAgentPersona.ts`'s header
+ *     for the full rationale and why the old walk left real rows unanchored).
  *   - delegation_persona_id → did_persona(id): the sponsor's Bureau did_persona
  *     (root_id + app_origin='polity-passport-bureau'); nullable if absent.
  *
@@ -32,6 +34,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getCallerIdentityContext } from '@/services/wallet/personaRepo';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { provisionAgentPersona } from '@/services/agents/provisionAgentPersona';
 
@@ -49,6 +52,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
     }
 
+    const identity = await getCallerIdentityContext(req);
+    if (!identity?.authUserId) {
+      return NextResponse.json({ ok: false, error: 'Unable to resolve authenticated session identity' }, { status: 401 });
+    }
+
     const body = (await req.json().catch(() => ({}))) as AgentPersonaBody;
     const admin = getSupabaseServer();
     if (!admin) {
@@ -58,6 +66,7 @@ export async function POST(req: NextRequest) {
     const { status, ...outcome } = await provisionAgentPersona({
       admin,
       sponsorPersonaId: persona.personaId,
+      sponsorAuthUserId: identity.authUserId,
       agentRootId: body.agentRootId?.trim() ?? '',
       personaRole: body.personaRole,
     });

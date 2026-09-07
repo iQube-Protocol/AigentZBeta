@@ -129,7 +129,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     admin,
     sponsorPersonaId: PLATFORM_SPONSOR_PERSONA_ID,
     agentRootId: rootOutcome.agent.agentRootId,
-    allowUnanchored: true,
+    // No human auth session exists on this machine-to-machine path (only the
+    // validated CRON_TRIGGER_TOKEN above) — mirrors sponsorPolityAgent's own
+    // isPlatformAuthority flag (DiDQube Phase 2.5, 2026-09-07).
+    isPlatformAuthority: true,
   }).catch((e) => ({ ok: false as const, status: 500, error: e instanceof Error ? e.message : 'agent persona provisioning failed' }));
 
   let standingPersonaId: string | null = null;

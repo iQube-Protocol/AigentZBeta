@@ -7,36 +7,83 @@
  * /api/identity/persona/agent route so BOTH that route AND Agent Homecoming's
  * stand-up chain provision personas identically (Extend-Don't-Duplicate).
  *
- * FK resolution (spine-critical, T0):
- *   - delegation_user_root_id → root_identity(id): via personas.root_did →
- *     root_identity.did_uri (the link bindBureauIdentity writes; NOT authProfileId).
- *   - delegation_persona_id → did_persona(id): the sponsor's Bureau did_persona
- *     (root_id + app_origin='polity-passport-bureau'); nullable.
+ * ── Principal-first resolution (DiDQube Phase 2.5, 2026-09-07) ──────────────
  *
- * T0 discipline: sponsorPersonaId and the resolved root/did ids are server-only.
+ * FK resolution (spine-critical, T0):
+ *   - delegation_user_root_id → root_identity(id): resolved via
+ *     `resolveRootPrincipalForAuthUser(sponsorAuthUserId)` — the SAME
+ *     auth_user_id → root_identity → kybe_id walk `passportPrincipal.ts`
+ *     already exports and `services/passport/legacyPassportLinkageRepair.ts`
+ *     already uses as its reference pattern (composed, not re-derived —
+ *     inv.engineering.036/037). NEVER via `personas.root_did` — that column
+ *     is semantically overloaded (see `passportPrincipal.ts`'s own SUPERSEDED
+ *     comment) and was never a reliable link: `did:fio:<handle>` strings and
+ *     other disposable persona-level identifiers vastly outnumber genuine
+ *     `root_identity.did_uri` values in that column. The prior walk here
+ *     read it directly and left 2 of 3 live `agent_persona` rows unanchored
+ *     (DiDQube Phase 0 inventory, 2026-09-07).
+ *   - `sponsorPersonaId` is now AUTHORIZATION/PROVENANCE ONLY (does this
+ *     persona sponsor the agent? — the existing check below, unchanged) —
+ *     never the identity-resolution mechanism. Persona membership and
+ *     principal identity are deliberately kept as two separate questions
+ *     (mirrors `legacyPassportLinkageRepair.ts`'s `LegacyLinkageRepairCaller`
+ *     shape: `authUserId` resolves identity, `authProfileId`/persona
+ *     ownership gates authorization — never conflated).
+ *   - delegation_persona_id → did_persona(id): the sponsor's Bureau did_persona
+ *     (root_id + app_origin='polity-passport-bureau'); nullable. Unchanged —
+ *     already fed by the resolved root, not by `personas.root_did`.
+ *
+ * `allowUnanchored` is REMOVED. It existed only to route around the OLD
+ * walk's failure mode (a sponsor's `did:fio:<handle>` root_did matching no
+ * real `root_identity` row) — principal-first resolution has no equivalent
+ * failure mode for a real, Bureau-bound citizen (every Passport-issued
+ * `root_identity` row is anchored to an `auth_user_id`;
+ * `bureauIdentityService.ts`'s own "find-or-create root_identity by
+ * auth_user_id" pattern guarantees it). A human-sponsored call that cannot
+ * resolve now fails closed (409), rather than silently provisioning
+ * unanchored — this is the fix, not a workaround to reintroduce.
+ *
+ * `isPlatformAuthority` replaces `allowUnanchored` for the ONE case
+ * principal-first resolution cannot and should not cover: a machine-to-
+ * machine sponsor with no human auth session at all (e.g.
+ * `/api/ops/agents/provision-platform-agent`'s CRON_TRIGGER_TOKEN path,
+ * sponsoring under the shared platform sponsor persona). Mirrors
+ * `sponsorPolityAgent`'s own `isPlatformAuthority` flag for the identical
+ * semantic distinction — never settable from a request body; the caller
+ * sets it only after its own authority check has already succeeded.
+ *
+ * T0 discipline: sponsorPersonaId, sponsorAuthUserId, and the resolved
+ * root/did ids are server-only, never serialised.
  * Idempotent: one production persona per agent root (returns the existing row).
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { resolveRootPrincipalForAuthUser } from '@/services/identity/passportPrincipal';
 
 const BUREAU_APP_ORIGIN = 'polity-passport-bureau';
 
 export interface ProvisionAgentPersonaInput {
   admin: SupabaseClient;
-  /** Caller persona (T0) — must sponsor the agent. */
+  /** Caller persona (T0) — must sponsor the agent. Authorization/provenance only. */
   sponsorPersonaId: string;
   /** agent_root_identity.id returned by genesis. */
   agentRootId: string;
   personaRole?: string;
   /**
-   * When true, provision even if the sponsor's root_identity can't be resolved —
-   * with delegation_user_root_id NULL (a schema-permitted, RLS-recognised state),
-   * flagged `sponsorRootResolved: false` for later backfill. Default false keeps
-   * the strict behaviour the /api/identity/persona/agent route relies on; Agent
-   * Homecoming passes true so a delegate reaches L2 when the sponsor's FIO-style
-   * root_did has no root_identity row (a common human-persona gap).
+   * The sponsoring citizen's authenticated Supabase auth.users id — the
+   * ONLY source of the delegation anchor (`resolveRootPrincipalForAuthUser`).
+   * Required unless `isPlatformAuthority` is true. Never a caller-supplied
+   * rootIdentityId/kybeId, and never derived from `sponsorPersonaId` or
+   * `personas.root_did`.
    */
-  allowUnanchored?: boolean;
+  sponsorAuthUserId?: string;
+  /**
+   * True ONLY for machine-to-machine platform-authority provisioning (no
+   * human auth session exists) — mirrors `sponsorPolityAgent`'s own
+   * `isPlatformAuthority` flag. The delegation anchor is honestly left NULL
+   * (there is no human principal to resolve), never guessed at.
+   */
+  isPlatformAuthority?: boolean;
 }
 
 export interface AgentPersonaResult {
@@ -60,7 +107,14 @@ export interface ProvisionAgentPersonaOutcome {
 export async function provisionAgentPersona(
   input: ProvisionAgentPersonaInput,
 ): Promise<ProvisionAgentPersonaOutcome> {
-  const { admin, sponsorPersonaId, agentRootId, personaRole: roleInput, allowUnanchored = false } = input;
+  const { admin, sponsorPersonaId, agentRootId, personaRole: roleInput, sponsorAuthUserId, isPlatformAuthority = false } = input;
+  if (!isPlatformAuthority && !sponsorAuthUserId?.trim()) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'sponsorAuthUserId is required for principal-first delegation anchoring (unless isPlatformAuthority is true)',
+    };
+  }
   if (!agentRootId?.trim()) {
     return { ok: false, status: 400, error: 'agentRootId is required — the id returned by /api/agents/genesis' };
   }
@@ -112,38 +166,21 @@ export async function provisionAgentPersona(
     };
   }
 
-  // 3. Resolve the sponsor's root_identity via personas.root_did →
-  //    root_identity.did_uri (best-effort). Human personas often carry a
-  //    did:fio:<handle> root_did with no matching root_identity row; when
-  //    allowUnanchored is set we provision an UN-anchored persona
-  //    (delegation_user_root_id NULL — schema-permitted, RLS-recognised) rather
-  //    than blocking, and flag it for later backfill.
-  const { data: sponsorPersona, error: sponsorPersonaErr } = await admin
-    .from('personas')
-    .select('root_did')
-    .eq('id', sponsorPersonaId)
-    .maybeSingle();
-  if (sponsorPersonaErr) return { ok: false, status: 500, error: sponsorPersonaErr.message };
-  const sponsorRootDid = sponsorPersona?.root_did ?? null;
-
+  // 3. Resolve the sponsor's root_identity — principal-first, from the
+  //    AUTHENTICATED caller's own auth_user_id. NEVER from personas.root_did.
+  //    Platform-authority calls have no human principal at all: the anchor
+  //    is honestly NULL, not guessed at.
   let sponsorRootId: string | null = null;
-  if (sponsorRootDid) {
-    const { data: rootRow, error: rootErr } = await admin
-      .from('root_identity')
-      .select('id')
-      .eq('did_uri', sponsorRootDid)
-      .maybeSingle();
-    if (rootErr) return { ok: false, status: 500, error: rootErr.message };
-    sponsorRootId = rootRow?.id ?? null;
-  }
-  if (!sponsorRootId && !allowUnanchored) {
-    return {
-      ok: false,
-      status: 409,
-      error: sponsorRootDid
-        ? 'Sponsor root identity not found — cannot anchor bounded delegation'
-        : 'Sponsor persona has no root DID — cannot anchor bounded delegation',
-    };
+  if (!isPlatformAuthority) {
+    const principal = await resolveRootPrincipalForAuthUser(sponsorAuthUserId!);
+    if (!principal.ok) {
+      return {
+        ok: false,
+        status: 409,
+        error: `Sponsor principal could not be resolved (${principal.reason}) — cannot anchor bounded delegation`,
+      };
+    }
+    sponsorRootId = principal.rootIdentityId;
   }
 
   // 4. Resolve the sponsor's Bureau did_persona (nullable; only with a root).

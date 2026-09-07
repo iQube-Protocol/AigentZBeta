@@ -512,10 +512,11 @@ DCIR/Standing/Registry-Horizen/DVN code calls the resolver; `services/dvn/activi
 was not touched; no `personas.root_did` elimination was attempted (that is Phase 2.5, a separate,
 subsequent round).
 
-### Phase 2.5 — Eliminate authoritative `personas.root_did` reads (moved ahead per ruling #5)
+### Phase 2.5 — Eliminate authoritative `personas.root_did` reads (moved ahead per ruling #5) — IMPLEMENTED
 *Not deferred to Phase 5 cleanup, as the original plan had it — this now runs before Phase 3/4, since
 it gates a real, currently-live correctness gap (Phase 0 found 2 of 3 `agent_persona` rows already
-unanchored because of it).*
+unanchored because of it). Implemented and verified 2026-09-07 — see "Phase 2.5 — implementation
+record" after this section.*
 
 1. `services/agents/provisionAgentPersona.ts` — replace the `personas.root_did → root_identity.did_uri`
    walk with principal-first resolution from the authenticated `auth_user_id`
@@ -540,6 +541,57 @@ unanchored because of it).*
 tree (grep + a canary added under the existing `CI-2026-08-23-CANONICAL-IDENTITY-CHAIN-OVER-FUZZY-MATCH-001`
 candidate invariant, as a second recorded occurrence in the same file class). Both existing unanchored
 `agent_persona` rows are backfilled or explicitly flagged.
+
+#### Phase 2.5 — implementation record (2026-09-07)
+
+**Full inventory and classification, every site Phase 0 named plus one new discovery:**
+
+| Site | Classification | Action taken |
+|---|---|---|
+| `services/agents/provisionAgentPersona.ts` | authoritative read (broken) | **Fixed** — principal-first via new `sponsorAuthUserId` param + `resolveRootPrincipalForAuthUser` (composed, not re-derived). `allowUnanchored` removed; a human-sponsored call that cannot resolve now fails closed (409). New `isPlatformAuthority` flag (mirrors `sponsorPolityAgent`'s own) covers the one case principal-first cannot: machine-to-machine sponsorship with no human auth session. |
+| `app/api/homecoming/agent/stand-up/route.ts` POST | authoritative read (duplicated walk) + `allowUnanchored: true` | **Fixed** — resolves the caller's own `auth_user_id` via `getCallerIdentityContext`, passes it as `sponsorAuthUserId`; `allowUnanchored` removed. |
+| `app/api/homecoming/agent/stand-up/route.ts` GET preflight | authoritative read, independently hand-rolled duplicate of the same broken walk | **Fixed** — now calls `resolveRootPrincipalForAuthUser` directly (the same walk POST uses), so the preview can never diverge from what POST actually does. |
+| `app/api/identity/persona/agent/route.ts` | authoritative read (via `provisionAgentPersona` call) | **Fixed** — added `getCallerIdentityContext`, passes `sponsorAuthUserId`. |
+| `app/api/ops/agents/provision-platform-agent/route.ts` | `allowUnanchored: true`, no human session (CRON_TRIGGER_TOKEN path) | **Fixed** — passes `isPlatformAuthority: true` instead. |
+| `app/api/admin/identity/sync-persona-evm-addresses/route.ts` | write (synthetic `did:fio:<handle>` placeholder) | **Fixed** — write removed. It never produced a genuine `root_identity.did_uri` link and, once every authoritative reader above was fixed, was provably inert — pure dead weight perpetuating the column's ambiguity. |
+| `services/standing/agentStandingPersona.ts` | flagged in Phase 0 as a write site requiring elimination | **Reclassified as already-safe, no change.** Close reading: `root_did` is used purely as a self-referential match key for an AGENT's OWN already-resolved `agent_root_identity.did_uri` (both read and write), to satisfy the existing `sync_persona_to_crm_persona` trigger's requirements for CRM Standing bridging — never to resolve a HUMAN sponsor's identity. Structurally distinct from the defect class being eliminated. Redesigning this CRM-bridge mechanism is Standing/reputation Phase 4 territory (its own dry-run reconciliation per the plan's own §Phase 4 item 5), not Phase 2.5. |
+| `services/agents/provisionAigentMePersona.ts` / `provisionAgentWalletPersona.ts` | read (comparison) | **Already safe, no change.** Same self-referential agent-identity-match pattern as above. |
+| `services/passport/bureauIdentityService.ts` — `lookupExistingBinding` inside `bindBureauIdentity` | read | **Already safe, no change.** A self-consistency read of its own prior write for the SAME auth account (idempotency check), not a resolution of an unrelated persona's identity. |
+| `services/passport/bureauIdentityService.ts` — exported `resolveRootDidCommitment` | read, consumed by `services/constitutional/constitutionalAgreement.ts` for cross-persona agreement-authorization comparison | **NOT fixed — flagged as a new, more serious finding than Phase 0's original "Medium, needs confirmation" classification.** This is a genuinely consequential (execution-gating) use: equality of two personas' RootDID commitments is what lets a different persona under the same RootDID authorize an agreement a different persona formed. Fixing it needs a persona-id → principal walk that does not cleanly exist yet (unlike every other site above, which resolves the CURRENT caller's own `auth_user_id` — this consumer needs to resolve an ARBITRARY persona's principal). Recorded as an `unresolvedRisk` in the resolution record below; recommended as the immediate next follow-up, reviewed on its own. |
+| `app/api/identity/persona/[id]/route.ts` | read (agent-rename propagation) | **Already safe, no change.** Same self-referential pattern; confirmed `root_did` is never serialized to the client (`toIdentitySafePersona`'s allowlist excludes it). |
+| `app/api/wallet/identity/references/route.ts` | read (display grouping) | **Already safe, no change.** Informational grouping only (which list to render a persona card in), never an authority/ownership decision. |
+| `services/agents/repairDelegationAnchor.ts` | the existing backfill mechanism for the 2 known unanchored rows | **Already correct, no change.** Resolves via `resolvePassportExplicitAnchor(sponsor_passport_id)`, never `personas.root_did`. |
+| 2 existing unanchored `agent_persona` rows | data backfill | **Flagged, not backfilled this pass** — `repairDelegationAnchor.ts` already handles this exact case; running it requires live database access this environment doesn't have. Operator should invoke the existing `POST /api/homecoming/agent/repair-anchor` route. |
+
+**Tests:** `tests/provision-agent-persona-principal-first.test.ts` (new, 7 tests) proves: a conflicting/
+misleading `personas.root_did` cannot override resolution (the fake admin client throws if `personas`
+is ever queried); a populated legacy value cannot rescue a missing canonical lineage (fails closed 409,
+never silently unanchored); valid human-sponsor and platform-authority paths both resolve correctly;
+missing `sponsorAuthUserId` is rejected before any DB read; idempotency short-circuits before principal
+resolution. `tests/agent-homecoming.test.ts` (16 tests, existing file) updated with a
+`getCallerIdentityContext` mock and passes unchanged otherwise — proves stand-up/provisioning/preflight
+share the same resolver rather than duplicated walks. `tests/sync-persona-evm-addresses-no-root-did-write.test.ts`
+(new) proves the admin backfill no longer writes `root_did`. `tests/legacy-passport-linkage-principal-first.test.ts`
+(existing, unchanged) continues to pass, confirming the reference pattern this fix generalizes from is
+undisturbed.
+
+**Regression check:** full suite (`npx vitest run`) — **17 failed files / 65 failed tests, 644 passed
+files / 10,595 passed tests** — matches the Phase 2 implementation record's own documented baseline
+(17/65) exactly. Zero new failures; none of the 17 pre-existing failing files touch any file this pass
+changed. `npx tsc --noEmit` on the whole project: zero new errors in any touched file (grepped the
+full output for each modified filename — no matches).
+
+**Resolution record:** `RES-2026-09-07-DIDQUBE-PHASE-2-5-ROOT-DID-ELIMINATION-001`, registered as a
+second occurrence under the existing candidate invariant
+`CI-2026-08-23-CANONICAL-IDENTITY-CHAIN-OVER-FUZZY-MATCH-001` (per the Phase 0 doc's own instruction to
+track this as a second occurrence of the same principle, not a freestanding new finding).
+
+**What Phase 2.5 deliberately did not do:** did not touch `services/constitutional/constitutionalAgreement.ts`
+(the newly-discovered consequential `resolveRootDidCommitment` consumer — see table above); did not
+redesign `services/standing/agentStandingPersona.ts`'s CRM-bridge mechanism (Phase 4 territory); did not
+backfill the 2 live unanchored `agent_persona` rows (no live DB access from this environment); did not
+touch DVN payloads; did not migrate Factor/Aegis/CTP/DCIR/Standing/Registry-Horizen consumers (Phase 4,
+unchanged sequencing).
 
 ### Phase 3 — Passport corrections + existing-Passport reconciliation (brief §6-§8, expanded per rulings #3/#4)
 *First phase that changes observable behavior — Passport issuance and VC shape.*
@@ -698,18 +750,21 @@ first becomes meaningful (not all at the end):
 ## 4. Immediate next step
 
 Phase 0 is complete (conditionally-complete corrections closed per §0.2), Phase 1 is implemented and
-verified against the live database (§"Phase 1 — implementation record"), and Phase 2 (the canonical
-read-only resolver) is implemented and behaviorally verified (§"Phase 2 — implementation record"). CFS-051
-registration is done.
+verified against the live database (§"Phase 1 — implementation record"), Phase 2 (the canonical
+read-only resolver) is implemented and behaviorally verified (§"Phase 2 — implementation record"), and
+**Phase 2.5 (eliminating authoritative `personas.root_did` reads) is implemented and verified**
+(§"Phase 2.5 — implementation record"). CFS-051 registration is done.
 
 1. **The DVN-payload go/no-go (Phase 4 step 6) remains explicitly unresolved and ungranted.** Per the
    operator's own scope for this round ("inventory and exact payload design only... return later with
    the precise versioned payload diff, compatibility plan and failing-before-fix canary for separate
    approval"), that separate return-and-approve step has not happened yet and is not part of this
    plan's current authorization.
-2. Per requirement #8 (§0.3), this round stops here: **Phase 2.5** (eliminating authoritative
-   `personas.root_did` reads) is the operator's own stated next step in sequence, but is explicitly a
-   separate, subsequent round — not started in this one, awaiting its own go-ahead.
+2. **Stop here, per explicit instruction: Phase 3 (Passport corrections) and all DVN work remain
+   un-started, awaiting their own separate go-ahead.** Phase 2.5's one newly-discovered, un-fixed
+   consequential finding (`resolveRootDidCommitment` consumed by `constitutionalAgreement.ts` for
+   cross-persona agreement authorization — see the implementation record's table) is recommended as the
+   immediate next follow-up, reviewed on its own before Phase 3 begins.
 3. The disclosed gaps from earlier rounds remain open, flagged, not silently resolved: (a) the
    `didqube.*` (agentiq-wallet) RLS policies still need replacing with explicitly role-scoped ones
    before any grant is added (§0.2 correction #2 — a fix to the OTHER schema, not the new one); (b) no
