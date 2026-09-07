@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-07",
+  "resolutionId": "RES-2026-09-07-DIDQUBE-PHASE-3-ASYMMETRIC-VC-SIGNING-001",
+  "capability": "polity-passport-issuance",
+  "milestone": "DiDQube Phase 3 item 5: asymmetric VC signing, replacing the Phase A HMAC stub for new Passport credential issuance.",
+  "problem": "services/passport/passportCredential.ts's buildPassportCredential signed new credentials with HMAC-SHA256 over process.env.PASSPORT_BUREAU_CREDENTIAL_SECRET -- a shared-secret scheme that proves the envelope came from a holder of the Bureau secret but is not a publicly verifiable signature (any verifier needs the SAME secret the issuer used, meaning verification is never independent of issuance), has no key-rotation story, and used plain JSON.stringify for its signed payload (order-fragile, not a genuine canonicalization).",
+  "observedFailure": [
+    "The HMAC scheme's own doc comment named the gap explicitly: 'NOT a publicly verifiable signature... Phase C replaces this with an asymmetric key.'",
+    "No canonical serialization existed -- JSON.stringify(credential) depends on JS object property insertion order, which is stable in practice for one fixed object literal but not a genuine canonicalization guarantee if the shape ever changes.",
+    "Proof metadata (created, proofPurpose) was never bound into what was signed -- tampering either after issuance would not have been caught by the (pre-fix) verification scheme, since nothing existed to verify NEW credentials independently at all."
+  ],
+  "rootCauses": [
+    "The HMAC stub was an intentional, explicitly-labeled Phase A placeholder (per its own doc comment) -- this resolution is its planned successor, not a bug fix for an unintentional defect.",
+    "No independent verification path existed for new credentials at all prior to this pass -- issuance and (informal) verification were the same shared-secret check, which cannot be delegated to a third party without also handing them signing capability."
+  ],
+  "resolution": [
+    "services/passport/passportCredentialSigningProviders.ts (new): canonical sorted-key payload serialization (canonicalizeCredentialPayload); a local-ed25519 signing provider using Node's native crypto.sign/crypto.verify (no new dependency); a small known-keys registry (PASSPORT_BUREAU_SIGNING_KEYS_JSON) so a rotated-out key stays verifiable for what it already signed; proof metadata (created, proofPurpose) bound into the signed payload via buildSignablePayload.",
+    "services/passport/passportCredentialVerification.ts (new): a genuinely SEPARATE module from signing (shares no call chain or state) that dispatches on proof.type and handles every proof type this issuer has produced -- new Ed25519, legacy HMAC stub (verified via the EXACT historical, non-canonicalized algorithm -- never re-derived with the new canonicalization, which would never match), and legacy unsigned stub (never valid).",
+    "services/passport/passportCredential.ts's buildPassportCredential updated to sign via the new provider when a key is configured, falling back to the pre-existing unsigned-stub proof when it is not -- the HMAC stub path is fully retired for NEW issuance (never produced again) but every already-issued HMAC-stub credential remains exactly as valid as it always was, verified by the new module's legacy branch.",
+    "PassportRecordRow gained renewal_of_passport_id, threaded into credentialSubject.supersedesPassportId when a Passport is a successor (issueSuccessorPassport, Phase 3 item 3) -- part of the signed body, so tampering the predecessor reference is caught exactly like tampering any other claim.",
+    "tests/passport-credential-signing.test.ts (23 tests): the full ruling-specified tamper matrix (subject, a claim, issuance time, predecessor reference, proof metadata) each independently invalidates the signature; every fail-closed verification reason (unknown algorithm/key/issuer, malformed key/proof, legacy-secret-unavailable); canonical-serialization determinism; the unsigned-stub fallback paths; and a T0 canary proving no private key material is ever serialized."
+  ],
+  "rejectedApproaches": [
+    "Building a KMS/HSM-backed signing provider in this pass -- rejected: no real KMS credentials exist to wire (the No-Guessing rule), and the provider interface is deliberately structured so one is a drop-in addition later, exactly how x409 sits beside local in the sibling agreement-acceptance seam. Building a fake/simulated KMS provider now would itself be a form of guessing.",
+    "Re-signing every already-issued HMAC-stub credential with the new Ed25519 scheme -- rejected per explicit instruction ('preserve legacy credentials; do not re-sign or mutate them') and per this codebase's own successor-issuance discipline: a subject/scheme change goes through a NEW successor credential, never an in-place rewrite of history.",
+    "Signing only the credential body and leaving proof metadata (created, proofPurpose) unprotected -- rejected on review: the ruling explicitly asked for proof-metadata tamper testing, and a correct design binds created/proofPurpose into the signed payload rather than leaving them as free-form, unverified fields."
+  ],
+  "candidateInvariants": [],
+  "canaries": [
+    "tests/passport-credential-signing.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/passport-credential-signing.test.ts",
+      "tests/passport-credential.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "services/passport/passportCredential.ts",
+    "services/passport/passportCredentialSigningProviders.ts",
+    "services/passport/passportCredentialVerification.ts",
+    "codexes/packs/agentiq/updates/2026-09-07_didqube-canonical-resolver-execution-plan.md"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "unresolvedRisks": [
+    "No real KMS/HSM provider exists yet -- the active signing private key currently lives in a server-side environment variable (PASSPORT_BUREAU_ED25519_PRIVATE_KEY_B64), which is a genuine improvement over a shared HMAC secret (asymmetric, publicly verifiable, rotatable via the known-keys registry) but is not yet custodial-grade key management. A future KMS-backed provider is the named follow-on, not built here.",
+    "No credentials have been issued with the new Ed25519 scheme in any live environment yet -- PASSPORT_BUREAU_ACTIVE_SIGNING_KEY_ID/PASSPORT_BUREAU_ED25519_PRIVATE_KEY_B64/PASSPORT_BUREAU_SIGNING_KEYS_JSON are not yet configured in any deployment; until they are, issuance continues to fall back to the unsigned stub exactly as it did before this pass (a safe, unchanged default, never a regression)."
+  ]
+}
