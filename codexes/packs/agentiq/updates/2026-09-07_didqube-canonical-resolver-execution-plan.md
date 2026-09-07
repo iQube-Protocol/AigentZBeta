@@ -1,8 +1,10 @@
 # DiDQube Canonical Resolver — Execution Plan
 
-**Status:** Phase 0 COMPLETE (read-only inventory — see
-`2026-09-07_didqube-phase0-inventory.md`). Phases 1-5 remain PLAN ONLY — no schema, resolver, or
-Passport code has been implemented. This document is the response to the operator's architectural
+**Status:** Phase 0 COMPLETE (read-only inventory — see `2026-09-07_didqube-phase0-inventory.md`).
+Phase 1 (additive supertype tables) IMPLEMENTED and verified against the live database. Phase 2 (the
+canonical read-only resolver) IMPLEMENTED and behaviorally verified. Phases 2.5-5 remain PLAN ONLY — no
+Passport code, consumer migration, or `personas.root_did` elimination has been implemented. This
+document is the response to the operator's architectural
 brief (ruling: *"A DiDQube is the canonical constitutional container for an entity's identity
 primitives..."*), corrected in place on 2026-09-07 per nine operator rulings issued after review (see
 §0.1), and proposes how to execute it safely against the actual codebase audited in
@@ -84,6 +86,43 @@ CLAUDE.md's Resolution → Invariant Loop, an agent may propose and classify but
 promote a candidate to canonical status. Recommend registering the ruling above and this plan into the
 CFS-051 research backlog under an architecture marker, pending explicit operator sign-off on the
 phase-by-phase sequencing below — not a request to begin Phase 1 immediately without that sign-off.
+
+### 0.3 Third review — Phase 1 closed, Phase 2 approved in principle with 8 requirements (2026-09-07)
+
+The operator confirmed Phase 1 "closes... credibly" on the same evidence recorded in the implementation
+record below, and separately noted the `didqube.*` (agentiq-wallet) RLS defect (§0.2 correction #2)
+remains **unfixed and tracked separately** — it does not invalidate the new canonical tables, which
+correctly have RLS with zero policies and explicit client-role revocation.
+
+**Phase 2 is approved in principle**, scoped explicitly as **read-only and non-authoritative**: build
+and prove the resolver only — do NOT migrate Factor, Aegis, Passport, CTP, DCIR, Standing,
+Registry/Horizen, or DVN consumers yet (unchanged from the original Phase 2 scoping; restated by the
+operator as a hard boundary for this round). The operator's canonical resolver vocabulary, **superseding
+the five-state sketch in the original Phase 2 section below** (`resolved | unresolved | absent |
+ambiguous | conflicted`):
+
+- `resolved`
+- `unresolved`
+- `ambiguous`
+- `conflicted`
+- `unsupported_subject_class`
+
+**`absent` is not a top-level state.** It is represented as `{ state: "unresolved", reason:
+"anchor_absent" }` — a shape, not a fifth state. Implemented exactly this way in
+`services/identity/didQubeResolver.ts` (see the implementation record after this section).
+
+Eight non-negotiable requirements for the resolver (verbatim, operator ruling 2026-09-07):
+
+1. No fallback to `personas.root_did`.
+2. Keep constitutional anchor, current identity primitive, Passport credential and public commitment
+   distinct.
+3. Include provenance and trust classification for every primitive.
+4. Treat public commitments as versioned records.
+5. Test missing, duplicate, ambiguous, cross-class, conflicted, superseded and malformed bindings.
+6. Do not migrate Passport, Factor, Aegis, CTP, DCIR, Standing, Registry/Horizen or DVN consumers yet.
+7. Do not alter DVN payloads.
+8. Report and stop after Phase 2 is implemented and verified (this round does not extend into Phase 2.5
+   — that remains a separate, subsequent round, unchanged from the sequencing in §1 "Phase 2.5" below).
 
 ---
 
@@ -284,45 +323,125 @@ call could exercise a real trigger/constraint — the honest state is "verified 
 the real database, with a re-runnable script capturing the exact statements," not "automated in CI."
 Flagged for the operator as a real gap rather than silently built around.
 
-### Phase 2 — The canonical resolver, additive and read-only (brief §5)
-*The resolver exists and is testable, but nothing is migrated to depend on it yet.*
+### Phase 2 — The canonical resolver, additive and read-only (brief §5) — IMPLEMENTED
+*The resolver exists and is testable, but nothing is migrated to depend on it yet. Approved in
+principle by the operator 2026-09-07 (third review, §0.3) with 8 non-negotiable requirements;
+implemented and verified the same day. See §"Phase 2 — implementation record" after this section.*
 
-1. Implement `resolveDiDQube(input): Promise<DiDQubeResolution>` in
-   `services/identity/didQubeResolver.ts` (new file — first real DIDQube-service-pattern file the
-   prior audit found missing), supporting the entry identifiers the brief lists, built by **composing**
-   the existing walks (`passportPrincipal.ts`'s `resolveRootPrincipalForAuthUser`,
-   `resolvePassportPrincipal`, etc.) rather than re-deriving them — this is the direct application of
-   `inv.engineering.036`/`037`.
-2. Implement the five-state model (`resolved | unresolved | absent | ambiguous | conflicted`) and the
-   `DiDQubePrimitive` projection, sourced from the real FK-backed tables the brief names — the
-   resolver normalizes; it does not become a second source of truth.
-3. **Four distinct value kinds, never conflated** (ruling #6): the internal `didqube_id` UUID, the raw
-   T0 DID/kybe_id string, the public commitment (a truncated hash — e.g. the existing `didPublicRef()`
-   16-hex pattern), and the public VC subject URI. **Version the commitment scheme explicitly** (e.g.
-   `commitmentVersion: 'v1'` alongside the value) — the existing 16-hex `didPublicRef()` output is one
-   possible commitment scheme, not something inherently equivalent to "a DID"; a future scheme change
-   must not silently reinterpret old commitments as the new shape.
-4. **Trust classes on every resolver input** (ruling #7): `auth_user_id` and other T0 identifiers are
-   accepted only when server-derived (never caller-supplied — same posture `passportPrincipal.ts`
-   already enforces); a wallet address requires a proven-control signature, matching
-   `resolvePassportPrincipal`'s existing "pass the recovered signer" contract; an ERC-8004 identifier
-   is network-qualified and requires a verified binding record, never bare trust of an on-chain lookup;
-   a public Agent Card URL or runtime ID is a discovery input only — it may locate a candidate
-   `agent_root_identity` row (as `provisionAgentPersona.ts` already does via `agent_card_url`), but
-   never stands as constitutional authority on its own.
-5. Explicitly port the existing fail-closed rules: never resolve by display name/partial match. The
-   elimination of authoritative `personas.root_did` reads is tracked as its own priority item ahead of
-   this phase (§1 Phase 2.5 below, per ruling #5) rather than folded in here as an afterthought — the
-   resolver must simply never read it from day one, and the existing call sites must be fixed on their
-   own schedule, not silently left for "later."
-6. Unit tests against the acceptance criteria in brief §"Hard acceptance criteria" that are testable
-   in isolation now: citizen resolves to exactly one DiDQube; agent resolves to exactly one DiDQube;
-   ambiguous lineage returns `ambiguous` never a guess; RootDID reissuance does not create a new human
-   DiDQube (supersession, not duplication).
+1. Implemented `resolveDiDQube(input): Promise<DiDQubeResolution>` in
+   `services/identity/didQubeResolver.ts`, supporting `kybe_identity_id`, `agent_root_identity_id`,
+   `auth_user_id`, `proven_wallet`, `agent_card_url`, `erc8004`, and `subject_class_hint` (robot/
+   organization — always `unsupported_subject_class`, no DB call). Built by **composing** the existing
+   walks (`passportPrincipal.ts`'s `resolveRootPrincipalForAuthUser` for `auth_user_id`,
+   `resolvePassportPrincipal` for `proven_wallet`) rather than re-deriving them — direct application of
+   `inv.engineering.036`/`037`. `resolveRootPrincipalForAuthUser` is Passport-independent (as its own
+   doc comment states it was extracted for); `resolvePassportPrincipal` is not — it bundles a
+   usable-Passport requirement into its own success condition, and its private `resolveAuthUserForKybe`
+   step is not separately exported. Rather than re-deriving that private walk (which would be exactly
+   the "second identity path" `inv.engineering.036`/`037` forbids), the resolver inherits this coupling
+   for `proven_wallet` and documents it explicitly in the module header: a proven wallet with a
+   resolvable kybe but no currently-usable Passport reports `unresolved`/`passport_gate_unmet` even
+   though its DiDQube would resolve fine via the anchor-only paths. Flagged as a disclosed limitation
+   with a named follow-up (a future Passport-independent wallet→root export), not silently worked
+   around.
+2. Implemented the operator's five-state vocabulary (§0.3): `resolved | unresolved | ambiguous |
+   conflicted | unsupported_subject_class`, with `absent` represented as `{ state: 'unresolved',
+   reason: 'anchor_absent' }` rather than a sixth state. `DiDQubePrimitive` is sourced from the real
+   FK-backed Phase 1 tables (`didqubes`/`human_didqubes`/`agent_didqubes`) plus `kybe_identity`,
+   `root_identity`, `agent_root_identity`, `polity_passport_records` — the resolver normalizes; it is
+   not a second source of truth.
+3. **Four distinct fields, never conflated** (ruling #6, requirement #2): every resolved primitive
+   carries `constitutionalAnchor` (`kybe_identity` for humans, `agent_root_identity` for agents),
+   `currentIdentityPrimitive` (the current `root_identity` for humans — the reissuable layer beneath
+   personhood; for agents, Phase 1 has no separate reissuable layer, so this explicitly coincides with
+   the anchor, marked `coincidesWithAnchor: true` rather than silently assumed to generalize),
+   `passportCredential` (existence + usability only — never gates DiDQube resolution itself), and
+   `publicCommitment` as four separate fields, never collapsed into one shape.
+4. **Versioned public commitment** (ruling #6, requirement #4): `{ commitmentVersion: 'v1', value:
+   <16-hex> }`, reusing the existing `didPublicRef()` (`services/passport/bureauIdentityService.ts`)
+   rather than re-deriving a new hash function. `v1` is never treated as inherently equivalent to a DID;
+   a future scheme is a new version value.
+5. **Trust classes on every resolved primitive** (ruling #7, requirement #3): `server_derived`
+   (`auth_user_id` and direct anchor-id inputs — server-internal callers only, documented as never
+   accepted from a browser caller), `proven_control` (a wallet address the caller has already proven
+   control of), `network_qualified` (ERC-8004 — see below), `discovery` (`agent_card_url` — locates a
+   candidate row but is never constitutional authority alone; Phase 4 consumers classify their own
+   consequential use per ruling #8, this resolver only tags the trust class).
+6. **ERC-8004 handled honestly, not guessed at**: no ERC-8004 binding store exists yet anywhere in this
+   codebase (verified against the Phase 0 inventory). The `erc8004` input kind is accepted for
+   forward-compatible contract shape but always resolves `unresolved`/`unqualified_reference` — with or
+   without a `verifiedBindingRef` — until a real verified-binding store exists to check it against. This
+   follows CLAUDE.md's "No Guessing or Hallucinating" rule rather than inventing a schema to query.
+7. **No fallback to `personas.root_did`** (requirement #1): the module never references the `personas`
+   table anywhere; a dedicated test asserts a `.from('personas')` call would throw and confirms it is
+   never reached on the `auth_user_id` path. The elimination of *existing* authoritative reads
+   elsewhere in the tree remains Phase 2.5 (unchanged sequencing, ruling #5) — a separate, subsequent
+   round per requirement #8, not started in this one.
+8. **Fail-closed, defensively, even against Phase 1's own DB-enforced invariants** (requirement #5):
+   the resolver does not trust the migration's triggers alone. At read time it re-checks (a)
+   subject-class agreement between a subtype table and the `didqubes` row it points to — `conflicted`
+   on mismatch (the **cross-class** scenario — a real gap, since `didqube_enforce_subject_class` only
+   fires on subtype-table writes, never on a later out-of-band `UPDATE didqubes SET subject_class =
+   ...`); (b) that a `didqube_id` is never bound in *both* `human_didqubes` and `agent_didqubes` —
+   `conflicted` on violation (the **conflicted**/dual-subtype scenario); (c) `lifecycle_state =
+   'superseded'` chains, followed via `superseded_by` to the active DiDQube with cycle detection and a
+   bounded hop count — `conflicted` on a cycle or a superseded row with no successor recorded (the
+   **superseded** and one **malformed** scenario); (d) a subtype row referencing a nonexistent
+   `didqubes` row, or a constitutional anchor with no public DID material to commit to (`kybe_did`/
+   `did_uri` null) — both `conflicted` (further **malformed** scenarios); (e) more than one row
+   returned for what the schema's own `UNIQUE` constraints guarantee should be at most one — `ambiguous`
+   (the **duplicate** scenario, defensive against the DB layer rather than trusting it blindly).
 
-**Exit check:** `resolveDiDQube` is callable, tested, and correct against Phase 1's backfilled data —
-but no existing route, CTP, DCIR, DVN, or Factor code calls it yet. Still zero externally-visible
-behavior change.
+**Exit check — met:** `resolveDiDQube` is callable, tested, and correct against Phase 1's schema — no
+existing route, CTP, DCIR, DVN, Passport, Factor, Aegis, or Standing code calls it yet (verified: zero
+importers of `services/identity/didQubeResolver` outside its own test file). Zero externally-visible
+behavior change; zero DVN payload change.
+
+#### Phase 2 — implementation record (2026-09-07)
+
+**Resolver:** `services/identity/didQubeResolver.ts`. No schema change, no migration — reads only.
+Entry point `resolveDiDQube(input: DiDQubeResolverInput): Promise<DiDQubeResolution>`. Never imports or
+references `personas`.
+
+**Tests:** `tests/didqube-resolver.test.ts` — 27 tests, all passing. Every real dependency is mocked
+(`getSupabaseServer`, `resolveRootPrincipalForAuthUser`, `resolvePassportPrincipal` — the latter two via
+`vi.mock(..., { importOriginal })` so `isPassportUsable` stays the REAL implementation, not stubbed).
+Coverage against the operator's 7 named scenarios:
+
+| Scenario (operator's list) | Test(s) | Outcome asserted |
+|---|---|---|
+| **missing** | `kybe_identity_id`/`agent_root_identity_id`/`agent_card_url` with zero matching rows | `unresolved` / `anchor_absent` — the literal `{ state: 'unresolved', reason: 'anchor_absent' }` shape the operator specified for "absent" |
+| **duplicate** | two `human_didqubes` rows for one `kybe_identity_id`; an `agent_card_url` matching two `agent_root_identity` rows | `ambiguous` — defensive against the DB's own `UNIQUE` constraint, not trusting it blindly |
+| **ambiguous** | same two tests above | `ambiguous` with `candidateCount` |
+| **cross-class** | a `human_didqubes`→`didqubes` row whose `subject_class` is `'agent'` (and the agent-side mirror) | `conflicted` — the `didqube_enforce_subject_class` trigger fires only on subtype-table writes, never on a later out-of-band `didqubes.subject_class` update, so this is a real gap the resolver closes at read time, not a contrived case |
+| **conflicted** | a `didqube_id` bound in both `human_didqubes` and `agent_didqubes` | `conflicted` |
+| **superseded** | a single supersession hop resolves to the successor; a supersession cycle is `conflicted` not an infinite loop; a `superseded` row with no `superseded_by` is `conflicted` | `resolved` (successor's id) / `conflicted` (cycle, bounded at 10 hops) / `conflicted` (malformed) |
+| **malformed** | a subtype row referencing a nonexistent `didqubes` row; a constitutional anchor with null `kybe_did`/`did_uri` | `conflicted` in every case |
+
+Additional coverage beyond the 7 named scenarios: `subject_class_hint` for `robot`/`organization` →
+`unsupported_subject_class` with zero DB calls; `erc8004` (with and without `verifiedBindingRef`) →
+`unresolved`/`unqualified_reference` in both cases (no binding store exists — see Phase 2 item 6 above);
+resolved happy paths for direct `kybe_identity_id`/`agent_root_identity_id`/`agent_card_url` inputs,
+asserting the four fields stay distinct, the commitment is versioned and one-way (asserted the output
+never contains the raw `kybe_did`/`did_uri` string), and `trustClass` is tagged correctly per input kind
+(`server_derived`/`discovery`); `auth_user_id` and `proven_wallet` composition tests, including the
+`passport_gate_unmet`/`anchor_absent` failure-mapping for `proven_wallet` and a dedicated assertion that
+a `.from('personas')` call would throw and is never reached on the `auth_user_id` path.
+
+**Regression check:** full suite run (`npx vitest run`) after implementation — 19 failed files / 67
+failed tests, 638 passed files / 10575 passed tests. None of the 19 failing files reference
+`didQubeResolver`/`didqube-resolver`; the new test file (`tests/didqube-resolver.test.ts`) is not among
+them and passes 27/27. `npx tsc --noEmit` on the whole project reports pre-existing errors unrelated to
+either new file (confirmed by grep — zero matches for `didQubeResolver`/`didqube-resolver` in the tsc
+output). The failing-file list is a pre-existing baseline (drifted slightly from the count recorded in
+the Phase 1 record — a handful of unrelated tests, e.g. `resolution-records.test.ts` and
+`repo-weight.test.ts`, appear to have started failing independently of this session's Phase 2 work); not
+investigated further as explicitly out of scope for this round.
+
+**What Phase 2 deliberately did not do (per requirements #6/#7/#8):** no Passport/Factor/Aegis/CTP/
+DCIR/Standing/Registry-Horizen/DVN code calls the resolver; `services/dvn/activityReceiptDvnPipeline.ts`
+was not touched; no `personas.root_did` elimination was attempted (that is Phase 2.5, a separate,
+subsequent round).
 
 ### Phase 2.5 — Eliminate authoritative `personas.root_did` reads (moved ahead per ruling #5)
 *Not deferred to Phase 5 cleanup, as the original plan had it — this now runs before Phase 3/4, since
@@ -509,20 +628,23 @@ first becomes meaningful (not all at the end):
 
 ## 4. Immediate next step
 
-Phase 0 is complete (conditionally-complete corrections closed per §0.2) and Phase 1 is implemented
-and verified against the live database (§"Phase 1 — implementation record"). CFS-051 registration is
-done.
+Phase 0 is complete (conditionally-complete corrections closed per §0.2), Phase 1 is implemented and
+verified against the live database (§"Phase 1 — implementation record"), and Phase 2 (the canonical
+read-only resolver) is implemented and behaviorally verified (§"Phase 2 — implementation record"). CFS-051
+registration is done.
 
 1. **The DVN-payload go/no-go (Phase 4 step 6) remains explicitly unresolved and ungranted.** Per the
    operator's own scope for this round ("inventory and exact payload design only... return later with
    the precise versioned payload diff, compatibility plan and failing-before-fix canary for separate
    approval"), that separate return-and-approve step has not happened yet and is not part of this
    plan's current authorization.
-2. Awaiting operator confirmation to begin **Phase 2** (the canonical `resolveDiDQube()` resolver) and
-   **Phase 2.5** (eliminating authoritative `personas.root_did` reads) — both application-code changes,
-   not yet started.
-3. The two disclosed gaps from this round — (a) the `didqube.*` (agentiq-wallet) RLS policies still
-   need replacing with explicitly role-scoped ones before any grant is added (§0.2 correction #2;
-   not yet done — this is a fix to the OTHER schema, not the new one), and (b) no CI-integrated
-   real-Postgres test harness exists yet (Phase 1 implementation record) — remain open, flagged, not
-   silently resolved.
+2. Per requirement #8 (§0.3), this round stops here: **Phase 2.5** (eliminating authoritative
+   `personas.root_did` reads) is the operator's own stated next step in sequence, but is explicitly a
+   separate, subsequent round — not started in this one, awaiting its own go-ahead.
+3. The disclosed gaps from earlier rounds remain open, flagged, not silently resolved: (a) the
+   `didqube.*` (agentiq-wallet) RLS policies still need replacing with explicitly role-scoped ones
+   before any grant is added (§0.2 correction #2 — a fix to the OTHER schema, not the new one); (b) no
+   CI-integrated real-Postgres test harness exists yet (Phase 1 implementation record); (c) the full
+   test-suite baseline drifted slightly during this round (19 failed files / 67 failed tests, up from
+   17/65) in files unrelated to either new file (Phase 2 implementation record) — not investigated
+   further as out of scope for this round.
