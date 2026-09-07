@@ -106,7 +106,7 @@ export function BridgeOrientSurface({ section, fallbackPlate, carouselPlates = [
     // needed — never actually matching the media, and never bounded enough
     // for its own internal scroll to engage.
     <div>
-      <div className="grid gap-4 lg:h-[60vh] lg:max-h-[70vh] lg:min-h-[18rem] lg:grid-cols-[3fr_2fr] lg:items-stretch">
+      <div className="grid gap-4 lg:h-[45vh] lg:max-h-[55vh] lg:min-h-[16rem] lg:grid-cols-[3fr_2fr] lg:items-stretch">
         {/* LEFT — dominant media (~60% width on desktop). A restrained
             carousel when extra plates are configured; a single pane
             otherwise. Controls belong to this pane only — the questionnaire
