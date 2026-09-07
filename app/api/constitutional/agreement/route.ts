@@ -30,11 +30,14 @@ import {
   requireAuthorizedAgreement,
   listAgreements,
   agreementOwnerCommitment,
+  agreementPrincipalMatches,
   AGREEMENT_AUTHORITY_BINDINGS,
   type DelegatedAuthority,
   type AgreementAuthorityBinding,
+  type ConstitutionalAgreementRow,
 } from '@/services/constitutional/constitutionalAgreement';
-import { resolveRootDidCommitment } from '@/services/passport/bureauIdentityService';
+import { resolveDiDQube, type DiDQubePrimitive } from '@/services/identity/didQubeResolver';
+import { getCallerIdentityContext } from '@/services/wallet/personaRepo';
 
 export const dynamic = 'force-dynamic';
 
@@ -92,18 +95,33 @@ export async function GET(request: NextRequest) {
    * UNAUTHORIZED (operator directive, 2026-08-08). A non-admin viewer sees
    * an agreement when EITHER they are its owner-commitment match (the
    * pre-existing rule, unchanged) OR it is ROOT_DID-bound and the viewer's
-   * OWN RootDID commitment matches the agreement's pinned principal — the
-   * exact equivalence `authorizeAgreement` itself uses, never a raw RootDID
-   * comparison. Resolved once per request, not per agreement.
+   * OWN DiDQube resolves to the SAME principal as the agreement's pinned
+   * commitment — `agreementPrincipalMatches`, the exact predicate
+   * `authorizeAgreement` itself uses (never a raw RootDID/personas.root_did
+   * comparison), so visibility can never disagree with authority. Resolved
+   * once per request, not per agreement.
    */
-  const myRootDid = isAdmin ? null : (await resolveRootDidCommitment(g.persona.personaId)).rootDidPublicRef ?? null;
+  let myPrimitive: DiDQubePrimitive | null = null;
+  if (!isAdmin) {
+    const identity = await getCallerIdentityContext(request);
+    if (identity?.authUserId) {
+      const resolution = await resolveDiDQube({ kind: 'auth_user_id', authUserId: identity.authUserId });
+      if (resolution.state === 'resolved') myPrimitive = resolution.primitive;
+    }
+  }
   const agreements = isAdmin
     ? all
-    : all.filter((a) => {
-        if (a.object.ownership.ownerCommitment === mine) return true;
-        const binding = a.object.payload.authorityBinding ?? 'PERSONA';
-        return binding === 'ROOT_DID' && myRootDid !== null && a.object.payload.principalRootDidCommitment === myRootDid;
-      });
+    : (
+        await Promise.all(
+          all.map(async (a): Promise<ConstitutionalAgreementRow | null> => {
+            if (a.object.ownership.ownerCommitment === mine) return a;
+            const binding = a.object.payload.authorityBinding ?? 'PERSONA';
+            if (binding !== 'ROOT_DID' || !myPrimitive) return null;
+            const matches = await agreementPrincipalMatches(a, myPrimitive);
+            return matches ? a : null;
+          }),
+        )
+      ).filter((a): a is ConstitutionalAgreementRow => a !== null);
   return NextResponse.json({ ok: true, agreements, viewer: { isAdmin } });
 }
 
@@ -111,6 +129,10 @@ export async function POST(request: NextRequest) {
   const g = await gate(request);
   if ('error' in g) return g.error;
   const personaId = g.persona.personaId;
+  // Only resolved when a ROOT_DID-bound form/authorize actually needs it —
+  // getCallerIdentityContext reads the request's own bearer token, never a
+  // client-supplied identity. null for PERSONA-bound agreements (unaffected).
+  const callerAuthUserId = (await getCallerIdentityContext(request))?.authUserId ?? null;
 
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body || typeof body.action !== 'string') {
@@ -142,7 +164,7 @@ export async function POST(request: NextRequest) {
       settlementTerms: body.settlementTerms && typeof body.settlementTerms === 'object' ? (body.settlementTerms as Record<string, unknown>) : null,
       governingInvariants: Array.isArray(body.governingInvariants) ? body.governingInvariants.filter((x): x is string => typeof x === 'string') : undefined,
       authorityBinding,
-    });
+    }, callerAuthUserId);
     if (!result.ok) return NextResponse.json({ ok: false, error: result.reason }, { status: 400 });
     return NextResponse.json({ ok: true, alreadyFormed: result.alreadyFormed, agreement: result.agreement });
   }
@@ -167,7 +189,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (body.action === 'authorize') {
-    const result = await authorizeAgreement(personaId, { agreementId: String(body.agreementId ?? '') });
+    const result = await authorizeAgreement(personaId, { agreementId: String(body.agreementId ?? '') }, callerAuthUserId);
     if (!result.ok) return NextResponse.json({ ok: false, error: result.reason }, { status: 400 });
     return NextResponse.json({
       ok: true,

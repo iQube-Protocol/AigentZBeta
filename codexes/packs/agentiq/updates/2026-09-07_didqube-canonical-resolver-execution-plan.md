@@ -586,12 +586,66 @@ second occurrence under the existing candidate invariant
 `CI-2026-08-23-CANONICAL-IDENTITY-CHAIN-OVER-FUZZY-MATCH-001` (per the Phase 0 doc's own instruction to
 track this as a second occurrence of the same principle, not a freestanding new finding).
 
-**What Phase 2.5 deliberately did not do:** did not touch `services/constitutional/constitutionalAgreement.ts`
-(the newly-discovered consequential `resolveRootDidCommitment` consumer — see table above); did not
-redesign `services/standing/agentStandingPersona.ts`'s CRM-bridge mechanism (Phase 4 territory); did not
-backfill the 2 live unanchored `agent_persona` rows (no live DB access from this environment); did not
-touch DVN payloads; did not migrate Factor/Aegis/CTP/DCIR/Standing/Registry-Horizen consumers (Phase 4,
-unchanged sequencing).
+**What Phase 2.5 deliberately did not do (at the time):** did not touch
+`services/constitutional/constitutionalAgreement.ts` (the newly-discovered consequential
+`resolveRootDidCommitment` consumer — see table above); did not redesign
+`services/standing/agentStandingPersona.ts`'s CRM-bridge mechanism (Phase 4 territory); did not backfill
+the 2 live unanchored `agent_persona` rows (no live DB access from this environment); did not touch DVN
+payloads; did not migrate Factor/Aegis/CTP/DCIR/Standing/Registry-Horizen consumers (Phase 4, unchanged
+sequencing). **The `constitutionalAgreement.ts` gap is now closed — see the follow-up implementation
+record immediately below. Phase 2.5 is now COMPLETE; the other deferrals above remain Phase 4/5
+territory, unchanged.**
+
+#### Phase 2.5 authority closure — implementation record (2026-09-07, follow-up)
+
+Closes the one item Phase 2.5 deliberately deferred: `services/constitutional/constitutionalAgreement.ts`
+and `app/api/constitutional/agreement/route.ts` consumed `resolveRootDidCommitment()`/`personas.root_did`
+for the `authorityBinding: 'ROOT_DID'` cross-persona agreement-authorization comparison. Model applied,
+per operator ruling: **DiDQube is the stable constitutional subject/container; RootDID is a rotatable
+identity primitive WITHIN it.**
+
+- `AgreementPayload` gained `principalDiDQubeCommitment` / `principalDiDQubeCommitmentVersion` — the
+  versioned, stable DiDQube public commitment, pinned once at formation via
+  `resolveDiDQube({ kind: 'auth_user_id', authUserId })` (composed from the Phase 2 canonical resolver,
+  never re-derived). THE authority anchor for agreements formed after this closure. The pre-existing
+  `principalRootDidCommitment` field is retained but is now informational only for new agreements —
+  recorded from the resolved primitive's `currentIdentityPrimitive.didUri`, never from
+  `personas.root_did`.
+- `formAgreement`/`authorizeAgreement` gained a `callerAuthUserId` parameter (mirroring the
+  `sponsorAuthUserId` pattern from the main Phase 2.5 pass), supplied by the route via the EXISTING
+  `getCallerIdentityContext(request)` helper (`services/wallet/personaRepo.ts`) — never a client-supplied
+  value, and only required when `authorityBinding === 'ROOT_DID'` (PERSONA-bound agreements, the
+  overwhelming majority, are completely unaffected and need no auth_user_id at all).
+  `authorizeAgreement`'s ROOT_DID branch now fails closed on any `resolveDiDQube` state other than
+  `resolved` (unresolved/ambiguous/conflicted/unsupported), then compares DiDQube public commitments via
+  the new shared `agreementPrincipalMatches` predicate.
+- **Legacy compatibility verifier** (`legacyRootDidCommitmentBelongsToKybe`): for `ROOT_DID` agreements
+  formed BEFORE this closure (no `principalDiDQubeCommitment` pinned, only the legacy
+  `principalRootDidCommitment`), authorization proves the historical RootDID belonged to the SAME
+  canonically-resolved DiDQube by enumerating every `root_identity` row ever issued under that DiDQube's
+  own `kybe_identity` anchor (`root_identity.kybe_id`) and hash-comparing each `did_uri` — never by
+  reading `personas.root_did`. This also gives legacy agreements RootDID-rotation tolerance they never
+  had under the old literal-hash comparison.
+- `agreementPrincipalMatches` is exported and shared between `authorizeAgreement` (execution-gating) and
+  the `GET /api/constitutional/agreement` listing route's viewer-equivalence check (visibility only) —
+  one predicate, so the two can never disagree about who counts as the same principal
+  (inv.engineering.036/037).
+- Existing signed agreements and their `termsCommitment`/payload content are never mutated by this
+  closure — only the (pre-existing, unrelated) `lifecycle.state` and `provenance.receiptIds` change on
+  authorize, exactly as before.
+- Behavioral tests added/rewritten in `tests/constitutional-agreement-rootdid-authority.test.ts` (16
+  tests, all passing), proving: RootDID rotation inside one DiDQube preserves authorized continuity; a
+  copied RootDID string across a different DiDQube cannot authorize; conflicting/irrelevant
+  `personas.root_did` values have no effect (plus a static-source proof the module never reads
+  `personas.root_did` or imports `resolveRootDidCommitment`); unresolved/ambiguous/conflicted/unsupported
+  resolution is refused on both form and authorize; and legacy agreement payloads/hashes remain
+  byte-for-byte unchanged. Full targeted regression (this file + `financial-services-runtime.test.ts` +
+  `moneypenny-runtime-authority-boundary.test.ts` + `companion-act.test.ts` + `onboarding-substrate.test.ts`
+  + `homecoming.test.ts` + `agent-bench-read-model.test.ts` + `experiment-workspace.test.ts` +
+  `didqube-resolver.test.ts`): 219/219 passing, zero regressions.
+- `resolveRootDidCommitment` itself (`services/passport/bureauIdentityService.ts`) is left in place,
+  unused — it was not deleted, since deleting an exported function is outside this closure's scope and
+  it may still serve future reference; its only production consumer has now been migrated off it.
 
 ### Phase 3 — Passport corrections + existing-Passport reconciliation (brief §6-§8, expanded per rulings #3/#4)
 *First phase that changes observable behavior — Passport issuance and VC shape.*
@@ -752,19 +806,21 @@ first becomes meaningful (not all at the end):
 Phase 0 is complete (conditionally-complete corrections closed per §0.2), Phase 1 is implemented and
 verified against the live database (§"Phase 1 — implementation record"), Phase 2 (the canonical
 read-only resolver) is implemented and behaviorally verified (§"Phase 2 — implementation record"), and
-**Phase 2.5 (eliminating authoritative `personas.root_did` reads) is implemented and verified**
-(§"Phase 2.5 — implementation record"). CFS-051 registration is done.
+**Phase 2.5 (eliminating authoritative `personas.root_did` reads, INCLUDING the
+`constitutionalAgreement.ts` authority closure) is implemented and verified — COMPLETE**
+(§"Phase 2.5 — implementation record" + §"Phase 2.5 authority closure — implementation record"). CFS-051
+registration is done.
 
 1. **The DVN-payload go/no-go (Phase 4 step 6) remains explicitly unresolved and ungranted.** Per the
    operator's own scope for this round ("inventory and exact payload design only... return later with
    the precise versioned payload diff, compatibility plan and failing-before-fix canary for separate
    approval"), that separate return-and-approve step has not happened yet and is not part of this
    plan's current authorization.
-2. **Stop here, per explicit instruction: Phase 3 (Passport corrections) and all DVN work remain
-   un-started, awaiting their own separate go-ahead.** Phase 2.5's one newly-discovered, un-fixed
-   consequential finding (`resolveRootDidCommitment` consumed by `constitutionalAgreement.ts` for
-   cross-persona agreement authorization — see the implementation record's table) is recommended as the
-   immediate next follow-up, reviewed on its own before Phase 3 begins.
+2. Phase 2.5's one previously-deferred consequential finding (`resolveRootDidCommitment` consumed by
+   `constitutionalAgreement.ts` for cross-persona agreement authorization) is now resolved — see
+   "Phase 2.5 authority closure" above. Phase 3 (Passport corrections) proceeds next, per the operator's
+   own explicit continuation instruction (2026-09-07); all DVN-payload work remains un-started, awaiting
+   its own separate go-ahead per item 1 above.
 3. The disclosed gaps from earlier rounds remain open, flagged, not silently resolved: (a) the
    `didqube.*` (agentiq-wallet) RLS policies still need replacing with explicitly role-scoped ones
    before any grant is added (§0.2 correction #2 — a fix to the OTHER schema, not the new one); (b) no

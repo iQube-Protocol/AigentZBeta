@@ -40,7 +40,8 @@ import {
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { PROOF_REQUIREMENT } from '@/services/constitutional/guidedOnboarding';
 import { hasVerifiedWorldIdPassport } from '@/services/passport/personhoodProof';
-import { resolveRootDidCommitment } from '@/services/passport/bureauIdentityService';
+import { didPublicRef } from '@/services/passport/bureauIdentityService';
+import { resolveDiDQube, type DiDQubePrimitive } from '@/services/identity/didQubeResolver';
 import {
   getAcceptanceProvider,
   type AcceptanceRecord,
@@ -71,15 +72,38 @@ const GATE_OPEN_STATUSES = new Set<AgreementStatus>(['authorized', 'executed', '
  * persona-authority-bound"). `PERSONA` (the pre-existing, only behavior) —
  * the SAME persona that formed the agreement must authorize it, checked by
  * one-way `ownerCommitment` equality. `ROOT_DID` — forming and authorizing
- * personas may differ; authorization succeeds when BOTH resolve through the
- * identity spine (`resolveRootDidCommitment`) to the SAME RootDID
- * commitment. Deliberately scoped to CFS agreements only for now — see
- * this file's own `formAgreement` and `authorizeAgreement`.
+ * personas may differ; authorization succeeds when both resolve, through the
+ * canonical DiDQube resolver (`services/identity/didQubeResolver.ts`), to the
+ * SAME stable constitutional subject. Deliberately scoped to CFS agreements
+ * only for now — see this file's own `formAgreement` and `authorizeAgreement`.
+ *
+ * ── DiDQube is the anchor, RootDID is not (DiDQube Phase 2.5 authority
+ *    closure, 2026-09-07) ────────────────────────────────────────────────────
+ *
+ * A DiDQube is the stable constitutional subject/container; RootDID is a
+ * rotatable identity primitive WITHIN that container. Agreements formed after
+ * this closure pin a versioned, stable DiDQube public commitment
+ * (`principalDiDQubeCommitment` / `principalDiDQubeCommitmentVersion`) — THE
+ * authority anchor. The RootDID commitment current at formation time may
+ * still be recorded (`principalRootDidCommitment`, unchanged field), but it is
+ * informational only and is never compared for authority on a new-model
+ * agreement. This means RootDID rotation inside the same DiDQube (a citizen
+ * re-keying their root, a device recovery) preserves authorized continuity —
+ * the previous `resolveRootDidCommitment()`/`personas.root_did` walk could
+ * not offer that guarantee, because `personas.root_did` is a legacy column
+ * written once at bind time and never updated on rotation (DiDQube Phase 2.5
+ * root-did-elimination finding). Agreements formed BEFORE this closure carry
+ * only the legacy `principalRootDidCommitment` — those are authorized through
+ * an explicit compatibility verifier (see `legacyRootDidCommitmentBelongsToKybe`
+ * below) that proves the historical RootDID belonged to the SAME
+ * canonically-resolved DiDQube, by enumerating every `root_identity` ever
+ * issued under that DiDQube's own `kybe_identity` anchor — it never reads
+ * `personas.root_did`.
  *
  * NOT a claim that RootDID is the highest authority tier — sovereign
  * personhood remains constitutionally prior to RootDID. This says only that
- * CFS currently belongs at the RootDID tier rather than the persona tier;
- * the broader authority hierarchy (personhood → RootDID → persona →
+ * CFS currently belongs at the RootDID/DiDQube tier rather than the persona
+ * tier; the broader authority hierarchy (personhood → RootDID → persona →
  * delegation → session) is a separate development.
  */
 export const AGREEMENT_AUTHORITY_BINDINGS = ['PERSONA', 'ROOT_DID'] as const;
@@ -194,15 +218,30 @@ export interface AgreementPayload extends AgreementTerms {
   /** Defaults to 'PERSONA' via `?? 'PERSONA'` at every read site — never assume this field is present on a row formed before 2026-08-08. */
   authorityBinding: AgreementAuthorityBinding;
   /**
-   * T2-safe commitment of the FORMING persona's RootDID
-   * (`resolveRootDidCommitment`), resolved and pinned once at formation —
-   * never re-derived at authorize time. `null` for `authorityBinding:
-   * 'PERSONA'` agreements, which never had a RootDID to pin. Compared
-   * against the AUTHORIZING persona's own RootDID commitment at
-   * authorize time; equality is what lets a different persona under the
-   * same RootDID authorize what a different persona formed.
+   * T2-safe RootDID commitment recorded at formation, for observability
+   * only. `null` for `authorityBinding: 'PERSONA'` agreements. NOT the
+   * authority anchor for a new-model agreement (see
+   * `principalDiDQubeCommitment`) — kept for legacy rows formed before the
+   * DiDQube closure, where it IS the only pinned principal and is verified
+   * at authorize time through the legacy compatibility verifier, never by
+   * reading `personas.root_did`.
    */
   principalRootDidCommitment: string | null;
+  /**
+   * T2-safe, versioned public commitment of the FORMING persona's DiDQube —
+   * the STABLE constitutional container, resolved via the canonical DiDQube
+   * resolver and pinned once at formation, never re-derived at authorize
+   * time. `null` for `authorityBinding: 'PERSONA'` agreements and for legacy
+   * `ROOT_DID` agreements formed before this field existed. THE authority
+   * anchor for a new-model `ROOT_DID` agreement: equality against the
+   * AUTHORIZING persona's own freshly-resolved DiDQube public commitment is
+   * what lets a different persona under the same DiDQube (including one
+   * that has since rotated its RootDID) authorize what a different persona
+   * formed.
+   */
+  principalDiDQubeCommitment: string | null;
+  /** `null` iff `principalDiDQubeCommitment` is `null`. Never assume 'v1' — compare versions before comparing values. */
+  principalDiDQubeCommitmentVersion: 'v1' | null;
 }
 
 /** PURE — build the agreement's ConstitutionalObject. No I/O, no receipts. */
@@ -210,6 +249,7 @@ export function buildAgreementObject(
   input: FormAgreementInput,
   ownerCommitment: string,
   principalRootDidCommitment: string | null = null,
+  principalDiDQubeCommitment: { value: string; version: 'v1' } | null = null,
 ): ConstitutionalObject<AgreementPayload> {
   const terms: AgreementTerms = {
     capabilityRef: input.capabilityRef,
@@ -225,6 +265,8 @@ export function buildAgreementObject(
     acceptance: null,
     authorityBinding: input.authorityBinding ?? 'PERSONA',
     principalRootDidCommitment,
+    principalDiDQubeCommitment: principalDiDQubeCommitment?.value ?? null,
+    principalDiDQubeCommitmentVersion: principalDiDQubeCommitment?.version ?? null,
   };
   return {
     identity: {
@@ -329,6 +371,57 @@ export async function getAgreement(agreementId: string): Promise<ConstitutionalA
 }
 
 // ---------------------------------------------------------------------------
+// ROOT_DID authority — DiDQube stable-container resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * LEGACY COMPATIBILITY VERIFIER — for `ROOT_DID`-bound agreements formed
+ * before the DiDQube public commitment was pinned (`principalDiDQubeCommitment`
+ * is `null`, only the legacy `principalRootDidCommitment` exists). Proves the
+ * historical RootDID commitment belonged to the SAME canonically-resolved
+ * DiDQube the acting persona resolves to today, by enumerating every
+ * `root_identity` row ever issued under that DiDQube's own `kybe_identity`
+ * anchor (`root_identity.kybe_id`) and hash-comparing each `did_uri` against
+ * the pinned commitment. This tolerates RootDID rotation (a historical root
+ * under the same kybe still matches) without EVER reading `personas.root_did`
+ * — the anchor (`kybeIdentityId`) itself comes from the canonical DiDQube
+ * resolver's own `constitutionalAnchor`, never from the legacy column.
+ */
+async function legacyRootDidCommitmentBelongsToKybe(
+  admin: NonNullable<ReturnType<typeof getSupabaseServer>>,
+  kybeIdentityId: string,
+  targetCommitment: string,
+): Promise<boolean> {
+  const { data, error } = await admin.from('root_identity').select('did_uri').eq('kybe_id', kybeIdentityId);
+  if (error) return false;
+  const rows = (data ?? []) as Array<{ did_uri: string | null }>;
+  return rows.some((r) => Boolean(r.did_uri) && didPublicRef(r.did_uri as string) === targetCommitment);
+}
+
+/**
+ * THE shared ROOT_DID authority predicate — used identically by
+ * `authorizeAgreement` (execution-gating) and the agreement listing route
+ * (visibility only), so the two can never disagree about who counts as the
+ * same principal. Fails closed: any resolver state other than `resolved`, or
+ * an agreement with no principal commitment of either kind, is `false`.
+ */
+export async function agreementPrincipalMatches(
+  agreement: Pick<ConstitutionalAgreementRow, 'object'>,
+  actingPrimitive: DiDQubePrimitive,
+): Promise<boolean> {
+  const pinned = agreement.object.payload.principalDiDQubeCommitment;
+  if (pinned) {
+    return actingPrimitive.publicCommitment.value === pinned;
+  }
+  const legacy = agreement.object.payload.principalRootDidCommitment;
+  if (!legacy) return false;
+  if (actingPrimitive.constitutionalAnchor.kind !== 'kybe_identity') return false;
+  const admin = getSupabaseServer();
+  if (!admin) return false;
+  return legacyRootDidCommitmentBelongsToKybe(admin, actingPrimitive.constitutionalAnchor.id, legacy);
+}
+
+// ---------------------------------------------------------------------------
 // Form → Accept → Authorize
 // ---------------------------------------------------------------------------
 
@@ -341,7 +434,11 @@ export type FormResult =
  * — a proposal is pre-commitment; the constitutional commitment happens at
  * acceptance. The requesting operator is stored only as a one-way commitment.
  */
-export async function formAgreement(personaId: string, input: FormAgreementInput): Promise<FormResult> {
+export async function formAgreement(
+  personaId: string,
+  input: FormAgreementInput,
+  callerAuthUserId: string | null = null,
+): Promise<FormResult> {
   const agreementId = input.agreementId?.trim();
   if (!agreementId) return { ok: false, reason: 'agreementId required' };
   if (!input.displayLabel?.trim()) return { ok: false, reason: 'displayLabel required' };
@@ -352,24 +449,36 @@ export async function formAgreement(personaId: string, input: FormAgreementInput
 
   const authorityBinding = input.authorityBinding ?? 'PERSONA';
   let principalRootDidCommitment: string | null = null;
+  let principalDiDQubeCommitment: { value: string; version: 'v1' } | null = null;
   if (authorityBinding === 'ROOT_DID') {
     // Pinned ONCE, here, at formation — never re-derived at authorize time.
-    // Fail closed: a forming persona with no resolvable RootDID cannot form
-    // a ROOT_DID-bound agreement at all, rather than forming one with a
+    // Fail closed: a forming persona that cannot resolve, through the
+    // canonical DiDQube resolver, to a stable constitutional subject cannot
+    // form a ROOT_DID-bound agreement at all, rather than forming one with a
     // null principal that would make every future authorize attempt refuse
-    // for an unclear reason.
-    const { rootDidPublicRef } = await resolveRootDidCommitment(personaId);
-    if (!rootDidPublicRef) {
+    // for an unclear reason. Never falls back to personas.root_did.
+    if (!callerAuthUserId) {
       return {
         ok: false,
-        reason: 'authorityBinding "ROOT_DID" requires the forming persona to resolve a RootDID through the identity spine — none found',
+        reason: 'authorityBinding "ROOT_DID" requires the forming persona\'s authenticated auth_user_id — none supplied',
       };
     }
-    principalRootDidCommitment = rootDidPublicRef;
+    const resolution = await resolveDiDQube({ kind: 'auth_user_id', authUserId: callerAuthUserId });
+    if (resolution.state !== 'resolved') {
+      return {
+        ok: false,
+        reason: `authorityBinding "ROOT_DID" requires the forming persona to resolve, through the canonical DiDQube resolver, to a stable constitutional subject — resolution ${resolution.state}`,
+      };
+    }
+    principalDiDQubeCommitment = { value: resolution.primitive.publicCommitment.value, version: resolution.primitive.publicCommitment.commitmentVersion };
+    // Recorded for observability only — never the authority anchor. See the
+    // DiDQube stable-container model note on AGREEMENT_AUTHORITY_BINDINGS.
+    const currentDidUri = resolution.primitive.currentIdentityPrimitive?.didUri ?? null;
+    principalRootDidCommitment = currentDidUri ? didPublicRef(currentDidUri) : null;
   }
 
   const ownerCommitment = agreementOwnerCommitment(personaId);
-  const object = buildAgreementObject({ ...input, agreementId }, ownerCommitment, principalRootDidCommitment);
+  const object = buildAgreementObject({ ...input, agreementId }, ownerCommitment, principalRootDidCommitment, principalDiDQubeCommitment);
   // T2 canary — a leak is a refusal, never a write.
   const leak = findForbiddenObjectKey(object);
   if (leak) return { ok: false, reason: `T0 identifier leak in agreement object at ${leak} — refused` };
@@ -527,6 +636,7 @@ export type AuthorizeResult =
 export async function authorizeAgreement(
   personaId: string,
   input: { agreementId: string },
+  callerAuthUserId: string | null = null,
 ): Promise<AuthorizeResult> {
   const agreementId = input.agreementId?.trim();
   if (!agreementId) return { ok: false, reason: 'agreementId required' };
@@ -545,27 +655,42 @@ export async function authorizeAgreement(
    *
    * 'ROOT_DID': the forming and authorizing personas need not be the same
    * persona — authorization succeeds when BOTH resolve, through the
-   * identity spine, to the SAME RootDID commitment. RootDID equivalence
-   * establishes WHO may exercise the principal's authority; it does not by
-   * itself open the gate below — the verification-requirements check that
-   * follows still runs against the AUTHORIZING persona, exactly as before,
-   * so "same RootDID but this specific human hasn't met the CFS
+   * canonical DiDQube resolver, to the SAME stable constitutional subject
+   * (`agreementPrincipalMatches`, shared with the listing route). DiDQube
+   * equivalence establishes WHO may exercise the principal's authority; it
+   * does not by itself open the gate below — the verification-requirements
+   * check that follows still runs against the AUTHORIZING persona, exactly
+   * as before, so "same DiDQube but this specific human hasn't met the CFS
    * verification bar" still refuses.
    */
   const authorityBinding = row.object.payload.authorityBinding ?? 'PERSONA';
   let principalRootDidCommitment: string | null = null;
-  let actingRootDidCommitment: string | null = null;
   if (authorityBinding === 'ROOT_DID') {
     principalRootDidCommitment = row.object.payload.principalRootDidCommitment ?? null;
-    const { rootDidPublicRef } = await resolveRootDidCommitment(personaId);
-    actingRootDidCommitment = rootDidPublicRef ?? null;
-    // Fail closed on either side missing — an unresolvable RootDID is never
-    // treated as "matches" and never treated as "safe to skip the check".
-    if (!principalRootDidCommitment || !actingRootDidCommitment || principalRootDidCommitment !== actingRootDidCommitment) {
+    if (!callerAuthUserId) {
+      return {
+        ok: false,
+        reason: 'authorizing a ROOT_DID-bound agreement requires the authorizing persona\'s authenticated auth_user_id — none supplied',
+      };
+    }
+    const resolution = await resolveDiDQube({ kind: 'auth_user_id', authUserId: callerAuthUserId });
+    // Fail closed on any resolver state other than 'resolved' — unresolved,
+    // ambiguous, conflicted or unsupported is never treated as "matches" and
+    // never treated as "safe to skip the check".
+    if (resolution.state !== 'resolved') {
       return {
         ok: false,
         reason:
-          'only a persona resolving to the same RootDID as the agreement\'s principal may authorize this ' +
+          `only a persona resolving, through the canonical DiDQube resolver, to the same stable constitutional ` +
+          `subject as the agreement's principal may authorize this ROOT_DID-bound agreement — authorizer resolution ${resolution.state}`,
+      };
+    }
+    const matches = await agreementPrincipalMatches(row, resolution.primitive);
+    if (!matches) {
+      return {
+        ok: false,
+        reason:
+          'only a persona resolving to the same DiDQube as the agreement\'s principal may authorize this ' +
           'ROOT_DID-bound agreement',
       };
     }
@@ -643,6 +768,7 @@ export async function authorizeAgreement(
         termsCommitment: row.object.payload.termsCommitment,
         authorityClass: authorityBinding,
         principalRootDidCommitment: authorityBinding === 'ROOT_DID' ? principalRootDidCommitment : null,
+        principalDiDQubeCommitment: authorityBinding === 'ROOT_DID' ? row.object.payload.principalDiDQubeCommitment ?? null : null,
         actingPersonaCommitment: agreementOwnerCommitment(personaId),
         verificationEvidence: { worldIdRequired, worldIdVerified: verified },
         verifiedAt: new Date().toISOString(),
