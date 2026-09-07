@@ -223,70 +223,122 @@ export async function applyReviewDecision(
   }
 
   const passportId = mintPassportId(passportClass);
-  const { data: record, error: recordError } = await admin
-    .from('polity_passport_records')
-    .insert({
-      passport_id: passportId,
-      passport_class: passportClass,
-      citizen_status: isCitizen ? issuedStatus : null,
-      participant_status: isCitizen ? null : issuedStatus,
-      passport_grade: app.passport_grade ?? null,
-      persona_id: app.persona_id ?? null,
-      did_persona_id: app.did_persona_id ?? null,
-      kybe_identity_id: app.kybe_identity_id ?? null,
-      root_identity_id: app.root_identity_id ?? null,
-      persona_public_ref: app.persona_public_ref ?? null,
-      kybe_did_public_ref: app.kybe_did_public_ref ?? null,
-      root_did_public_ref: app.root_did_public_ref ?? null,
-      vault_content_id: app.vault_content_id ?? null,
-      vault_content_hash: app.vault_content_hash ?? null,
-      application_id: app.id,
-      issued_at: new Date().toISOString(),
-    })
-    .select('id')
-    .single();
-  if (recordError) return { ok: false, error: recordError.message };
+  const actorType = input.actorType ?? 'steward';
+  let recordId: string;
 
-  // Citizen issuance creates the privilege-standing row (Addendum D).
   if (isCitizen) {
+    const { data: record, error: recordError } = await admin
+      .from('polity_passport_records')
+      .insert({
+        passport_id: passportId,
+        passport_class: passportClass,
+        citizen_status: issuedStatus,
+        participant_status: null,
+        passport_grade: app.passport_grade ?? null,
+        persona_id: app.persona_id ?? null,
+        did_persona_id: app.did_persona_id ?? null,
+        kybe_identity_id: app.kybe_identity_id ?? null,
+        root_identity_id: app.root_identity_id ?? null,
+        persona_public_ref: app.persona_public_ref ?? null,
+        kybe_did_public_ref: app.kybe_did_public_ref ?? null,
+        root_did_public_ref: app.root_did_public_ref ?? null,
+        vault_content_id: app.vault_content_id ?? null,
+        vault_content_hash: app.vault_content_hash ?? null,
+        application_id: app.id,
+        issued_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+    if (recordError) return { ok: false, error: recordError.message };
+    recordId = String(record.id);
+
+    // Citizen issuance creates the privilege-standing row (Addendum D).
     const { error: privError } = await admin.from('passport_citizen_privileges').insert({
-      passport_record_id: record.id,
+      passport_record_id: recordId,
     });
     if (privError) {
       console.error('[passport issuance] privilege-standing insert failed:', privError.message);
     }
-  }
 
-  const actorType = input.actorType ?? 'steward';
+    // Status-transition audit row — fields come from the machine rule.
+    await admin.from('passport_status_transitions').insert({
+      passport_record_id: recordId,
+      from_status: 'pending_approval',
+      to_status: issuedStatus,
+      passport_class: passportClass,
+      actor_type: actorType,
+      actor_id: input.stewardPersonaId,
+      reason: input.notes ?? null,
+      evidence_type: rule.evidence,
+      receipt_action: rule.receipt,
+    });
 
-  // Status-transition audit row — fields come from the machine rule.
-  await admin.from('passport_status_transitions').insert({
-    passport_record_id: record.id,
-    from_status: 'pending_approval',
-    to_status: issuedStatus,
-    passport_class: passportClass,
-    actor_type: actorType,
-    actor_id: input.stewardPersonaId,
-    reason: input.notes ?? null,
-    evidence_type: rule.evidence,
-    receipt_action: rule.receipt,
-  });
+    // A system decision assigns no human steward — assigned_steward_id names
+    // the human who reviewed an application, and no human reviewed this one.
+    const appUpdate: Record<string, unknown> = {
+      application_status: 'approved',
+      passport_id: passportId,
+      decided_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    if (actorType === 'steward') appUpdate.assigned_steward_id = input.stewardPersonaId;
+    const { error: appUpdateError } = await admin
+      .from('polity_passport_applications')
+      .update(appUpdate)
+      .eq('id', input.applicationId);
+    if (appUpdateError) {
+      console.error('[passport issuance] application update failed:', appUpdateError.message);
+    }
+  } else {
+    /*
+     * AGENT PASSPORT — ATOMIC issuance + RootDID binding (DiDQube Phase 3
+     * items 1-2, 2026-09-07). Resolve agent_card_url to EXACTLY ONE
+     * agent_root_identity at application time, refusing on
+     * missing/ambiguous/conflicted resolution (fail closed, no exceptions —
+     * brief §7) — then insert the passport record + status-transition audit
+     * row + application update + RootDID bind as ONE Postgres transaction
+     * via issue_agent_participant_passport_atomic, replacing what used to be
+     * a sequence of separate client calls plus a SEPARATE, best-effort,
+     * non-transactional bind in services/homecoming/issueDelegatePassport.ts
+     * (the exact gap Phase 0's live inventory found: 3 of 10 resolvable,
+     * approved applications missing their bound_passport_id back-reference).
+     */
+    const agentResolution = await resolveAgentRootIdentityForCard(admin, app.agent_card_url);
+    if (!agentResolution.ok) {
+      return {
+        ok: false,
+        error: `agent Passport issuance requires exactly one agent_root_identity for agent_card_url "${String(app.agent_card_url ?? '')}" — resolution: ${agentResolution.reason}`,
+      };
+    }
 
-  // A system decision assigns no human steward — assigned_steward_id names
-  // the human who reviewed an application, and no human reviewed this one.
-  const appUpdate: Record<string, unknown> = {
-    application_status: 'approved',
-    passport_id: passportId,
-    decided_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
-  if (actorType === 'steward') appUpdate.assigned_steward_id = input.stewardPersonaId;
-  const { error: appUpdateError } = await admin
-    .from('polity_passport_applications')
-    .update(appUpdate)
-    .eq('id', input.applicationId);
-  if (appUpdateError) {
-    console.error('[passport issuance] application update failed:', appUpdateError.message);
+    const { data: rpcData, error: rpcError } = await admin.rpc('issue_agent_participant_passport_atomic', {
+      p_application_id: input.applicationId,
+      p_passport_id: passportId,
+      p_passport_class: passportClass,
+      p_issued_status: issuedStatus,
+      p_passport_grade: app.passport_grade ?? null,
+      p_persona_id: app.persona_id ?? null,
+      p_did_persona_id: app.did_persona_id ?? null,
+      p_kybe_identity_id: app.kybe_identity_id ?? null,
+      p_root_identity_id: app.root_identity_id ?? null,
+      p_persona_public_ref: app.persona_public_ref ?? null,
+      p_kybe_did_public_ref: app.kybe_did_public_ref ?? null,
+      p_root_did_public_ref: app.root_did_public_ref ?? null,
+      p_vault_content_id: app.vault_content_id ?? null,
+      p_vault_content_hash: app.vault_content_hash ?? null,
+      p_agent_root_identity_id: agentResolution.agentRootIdentityId,
+      p_actor_type: actorType,
+      p_steward_persona_id: input.stewardPersonaId,
+      p_notes: input.notes ?? null,
+      p_evidence_type: rule.evidence,
+      p_receipt_action: rule.receipt,
+    });
+    if (rpcError) return { ok: false, error: rpcError.message };
+    const row = (Array.isArray(rpcData) ? rpcData[0] : rpcData) as
+      | { passport_record_id: string; bound: boolean; already_bound: boolean }
+      | undefined;
+    if (!row) return { ok: false, error: 'atomic issuance RPC returned no row' };
+    recordId = String(row.passport_record_id);
   }
 
   const receiptId = await writeReceipt({
@@ -330,7 +382,7 @@ export async function applyReviewDecision(
     ok: true,
     applicationStatus: 'approved',
     passportId,
-    passportRecordId: String(record.id),
+    passportRecordId: recordId,
     receiptId,
   };
 }
@@ -390,6 +442,38 @@ async function resolveAgentRefsForCard(
     console.error('[passport issuance] agent attribution lookup failed:', e);
     return undefined;
   }
+}
+
+export type AgentRootIdentityResolution =
+  | { ok: true; agentRootIdentityId: string }
+  | { ok: false; reason: 'missing' | 'ambiguous' | 'unavailable' };
+
+/**
+ * Resolve `agent_card_url` to EXACTLY ONE `agent_root_identity` row, at
+ * issuance time (DiDQube Phase 3 item 2, brief §7) — fail closed on
+ * missing/ambiguous/conflicted resolution, never a best-effort guess. This
+ * is the id the atomic issuance RPC binds `bound_passport_id` onto; it is
+ * distinct from `resolveAgentRefsForCard` above (which returns the
+ * best-effort, non-blocking `agent_id` used only for receipt attribution —
+ * a lookup failure there must never block issuance, unlike here).
+ */
+async function resolveAgentRootIdentityForCard(
+  admin: ReturnType<typeof getSupabaseServer>,
+  agentCardUrl: unknown,
+): Promise<AgentRootIdentityResolution> {
+  if (!admin || typeof agentCardUrl !== 'string' || !agentCardUrl) {
+    return { ok: false, reason: 'missing' };
+  }
+  const { data, error } = await admin
+    .from('agent_root_identity')
+    .select('id')
+    .eq('agent_card_url', agentCardUrl)
+    .limit(2);
+  if (error) return { ok: false, reason: 'unavailable' };
+  const rows = (data ?? []) as Array<{ id: string }>;
+  if (rows.length === 0) return { ok: false, reason: 'missing' };
+  if (rows.length > 1) return { ok: false, reason: 'ambiguous' };
+  return { ok: true, agentRootIdentityId: rows[0].id };
 }
 
 async function writeReceipt(input: {

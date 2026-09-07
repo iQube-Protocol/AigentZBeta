@@ -694,6 +694,41 @@ the same transaction. The 3 existing unbound-but-resolvable applications have th
 filled in; the 3 unresolvable applications are named for the operator, not silently forced. No issued
 credential is mutated — any subject change goes through successor issuance.
 
+#### Phase 3 items 1-2 — implementation record (2026-09-07)
+
+**Agent Passport atomic binding/issuance RPC + agent_card_url resolution — IMPLEMENTED and verified
+against the live 'Aigent Z' Supabase project.**
+
+- New Postgres function `issue_agent_participant_passport_atomic`
+  (`supabase/migrations/20260930280000_agent_participant_passport_issuance_atomic.sql`): one plpgsql
+  function performing the `polity_passport_records` insert, `passport_status_transitions` insert,
+  `polity_passport_applications` update, AND the `agent_root_identity.bound_passport_id` bind
+  (NULL-guarded, idempotent) as ONE transaction. Additive, reversible (`DROP FUNCTION`).
+- `services/passport/issuanceService.ts`: new `resolveAgentRootIdentityForCard` resolves
+  `agent_card_url` to EXACTLY ONE `agent_root_identity` at issuance time (`.limit(2)` + explicit
+  0/1/>1 branching) — refuses (fail closed, no exceptions, per brief §7) on missing or ambiguous
+  resolution. `applyReviewDecision`'s non-citizen approve branch now resolves + calls the atomic RPC
+  instead of the prior 3 separate writes; the citizen branch is byte-for-byte unchanged.
+- `services/homecoming/issueDelegatePassport.ts`: removed the now-redundant separate, best-effort
+  bind step — binding happens atomically inside `applyReviewDecision` for EVERY caller now, including
+  the manual Bureau review path that never bound at all before.
+- Real-Postgres verification: a self-rolling-back transaction against `bsjhfvctmduxhohtllly` proved
+  the RPC binds atomically on first call and the NULL-guard prevents a second call (different
+  passport id) from clobbering the existing bind; zero residue left behind.
+- Behavioral tests: `tests/agent-passport-atomic-issuance.test.ts` (4 tests) — successful atomic
+  issuance, missing-resolution refusal, ambiguous-resolution refusal, and RPC-error surfacing.
+  Targeted regression (this file + `tests/passport-bureau.test.ts` +
+  `tests/admin-action-centre-citizen-auto-issuance.test.ts` + `tests/agent-homecoming.test.ts` +
+  `tests/journey-admission-spine.test.ts`): 153/156 passing, the 3 failures pre-existing and
+  unrelated (confirmed via `git stash` comparison).
+- Resolution record:
+  `codexes/packs/agentiq/resolution-records/records/RES-2026-09-07-DIDQUBE-PHASE-3-AGENT-PASSPORT-ATOMIC-ISSUANCE-001.json`.
+- **Not done in this pass** (separate, subsequent vertical commits per the operator's own sequencing):
+  item 3 (existing-Passport reconciliation — backfilling the 3 known-resolvable applications),
+  item 4 (class-sensitive VC subject construction), item 5 (VC signing remains a stub), item 6 (the
+  T0/T1 wallet-route tension — an unresolved constitutional choice requiring its own operator ruling,
+  deliberately not touched).
+
 ### Phase 4 — Consumer migration, one subsystem at a time (brief §9-§11, §"Registry and Horizen")
 *Each subsystem migrates independently; none blocks the others. This is where "CTP, DCIR, Factor,
 Aegis, Standing and DVN consume the same resolver" actually happens — but sequenced, not simultaneous.*

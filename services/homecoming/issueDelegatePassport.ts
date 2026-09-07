@@ -138,7 +138,15 @@ export async function issueDelegatePassport(
     submitted = true;
   }
 
-  // 2. Approve → issue (the admin-as-Bureau decision, receipted by the service).
+  // 2. Approve → issue AND bind — one atomic Postgres transaction
+  //    (issue_agent_participant_passport_atomic, DiDQube Phase 3 item 1,
+  //    2026-09-07). applyReviewDecision resolves agent_card_url to exactly
+  //    one agent_root_identity and binds bound_passport_id inside the same
+  //    transaction as the passport insert — this used to be a SEPARATE,
+  //    best-effort, non-transactional step here (the exact gap Phase 0's
+  //    live inventory found: 3 of 10 resolvable, approved applications
+  //    missing their bound_passport_id back-reference). Binding is no
+  //    longer this caller's concern at all.
   const decision = await applyReviewDecision({
     applicationId,
     decision: 'approve',
@@ -147,18 +155,6 @@ export async function issueDelegatePassport(
   });
   if (!decision.ok || !decision.passportId) {
     return { ok: false, status: 500, applicationId, submitted, error: decision.error ?? 'issuance failed' };
-  }
-
-  // 3. Bind the passport to the RootDID — the L5 passport signal. NULL-guarded
-  //    so a concurrent claim can't be clobbered; best-effort (non-fatal).
-  try {
-    await admin
-      .from('agent_root_identity')
-      .update({ bound_passport_id: decision.passportId })
-      .eq('agent_card_url', agentCardUrl)
-      .is('bound_passport_id', null);
-  } catch {
-    /* binding is best-effort — the record is issued regardless */
   }
 
   return { ok: true, status: 200, passportId: decision.passportId, applicationId, submitted };
