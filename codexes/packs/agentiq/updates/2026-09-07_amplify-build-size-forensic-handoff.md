@@ -1,11 +1,85 @@
-# Amplify build-size forensic investigation — handoff (2026-09-07, in progress)
+# Amplify build-size forensic investigation — handoff (2026-09-07)
 
-**Status: IN PROGRESS, not yet resolved.** This doc exists so another agent (or the same agent in a
-fresh session) can pick this up without re-deriving what's already established below. Read this before
-touching `amplify.yml` or `next.config.js` again — see also
-`2026-09-07_amplify-build-size-cap-incident-and-handoff.md` (the prior incident: a bad guess broke
-production; the discipline in THAT doc — never delete anything outside
-`.next/standalone/node_modules` without a verified reason — still applies in full here).
+**Status: CONCLUSIVE FINDING REACHED for the `0d22e7ea8` vs `3c1144060` pair — no source-level fix
+required for this flip.** The manifest diff (see "RESOLVED" section immediately below) shows these two
+commits produce a **byte-for-byte identical `.next` artifact composition** — same 13,979 files, same
+paths, same sizes; only non-deterministic per-build content hashes differ. The pass→fail flip the
+operator observed between these two specific commits is build-to-build noise at the margin, not a
+regression introduced by the DiDQube Phase 2 correction diff. **Do not chase this pair as a size
+regression.** The remaining open item — exactly what subset of `.next` Amplify's platform-level
+`CustomerError` cap measures (it is NOT the full `du -sb .next` total) — is still unresolved and is a
+separate, lower-urgency platform-fidelity question; read "Open question" in the RESOLVED section before
+deciding whether it's worth pursuing further. This doc is kept as the full record (read before touching
+`amplify.yml` or `next.config.js` again) — see also `2026-09-07_amplify-build-size-cap-incident-and-handoff.md`
+(the prior incident: a bad guess broke production; the discipline in THAT doc — never delete anything
+outside `.next/standalone/node_modules` without a verified reason — still applies in full here).
+
+## RESOLVED (2026-09-07, this pass) — the manifest diff, and what it proves
+
+Both commits (`0d22e7ea8` last-passing, `3c1144060` first-failing) were rebuilt from scratch in
+**fully independent environments** — each worktree got its own real `npm ci` install (see "Reproduction
+bug #2" below for why sharing `node_modules` via a symlink across worktrees was invalid), `AWS_BRANCH=dev`
+set so `next.config.js` actually activates `output: "standalone"`, and amplify.yml's exact postBuild
+prune sequence (`scripts` inlined into `/tmp/build-repro/replay-postbuild.sh`, not committed — see
+below) replayed against a real (non-symlinked) copy of each `.next` tree.
+
+**Result — `scripts/build-artifact-manifest.sh` run on both post-cleanup trees:**
+
+- **File paths**: `cut -f1 *.manifest.tsv | sort | diff` → **0 lines of difference**. Every one of the
+  13,979 files exists in both builds, at the identical path. No file was added or removed.
+- **File sizes**: `cut -f1,2 *.manifest.tsv | sort | diff` → **0 lines of difference**. Every file is the
+  identical byte size in both builds.
+- **File content hashes**: differ for a large fraction of files — this is NOT evidence of a real change.
+  Next.js embeds a fresh, non-deterministic build ID into many compiled server/client chunks on every
+  separate `next build` invocation, so two builds of **the exact same source** produce different SHA-256
+  hashes throughout while staying byte-identical in size. This is exactly the "noise" the handoff doc's
+  original "Next steps" section predicted as the most likely honest outcome — confirmed here directly,
+  not assumed.
+- **Whole-tree `du -sb .next` after the full postBuild replay**: passing = 357,321,620 bytes; failing =
+  357,325,334 bytes — a **3,714-byte difference on a 357 MB tree**, consistent with directory-metadata/
+  build-ID-string-length noise, not a structural regression.
+- **Smoke test**: the passing build's `.next/standalone/server.js` was booted locally
+  (`AWS_BRANCH=dev NODE_ENV=production PORT=3411 node .next/standalone/server.js`) and answered `GET /`
+  and `GET /health` with `200` — the reproduction pipeline produces a genuinely bootable artifact, not
+  just a directory of files that happens to match on size.
+
+**Conclusion: there is no source-level growth to attribute to a route/import for this commit pair.** The
+DiDQube Phase 2 correction diff (`services/identity/didQubeResolver.ts` + one test + one doc) changed
+zero bytes of the compiled artifact. Nothing in `amplify.yml`, `next.config.js`, or application code
+should be changed in response to this specific pass/fail report — doing so would be curve-fitting noise,
+exactly what this investigation was opened to stop.
+
+**Open question — NOT resolved, and lower urgency now that "is there a regression" is answered**: the
+local full-tree total (357.3 MB) is close to what the doc's earlier pass observed as Amplify's own
+real-build `du -sb .next` printout (~366.18 MB) — good fidelity for the "did these two commits differ"
+question this pass answered. It is NOT close to the `CustomerError`'s reported build-output size
+(~230.8 MB) — a ~126 MB gap remains between "whole `.next` tree" and "whatever Amplify's platform
+actually measures against the 230,686,720-byte cap." `.next/standalone` alone (209.9 MB) +
+`.next/static` (40.2 MB) + top-level manifest JSON files (~1.0 MB) ≈ 251.2 MB — closer, but still ~20 MB
+over the real reported figure, and this local repro carries known fidelity gaps (Node v22 here vs the
+pinned v20.18.0; `npm ci` here vs Amplify's `npm install --legacy-peer-deps --include=optional`;
+placeholder env values vs real secrets) that could plausibly account for a gap of this size. Settling
+this precisely would require either an AWS support confirmation of exactly what Amplify Hosting SSR
+compute zips into the size-checked deployment package, or a controlled test directly in the real Amplify
+environment (e.g., temporarily logging `.next/standalone`-only vs whole-tree byte counts on an actual
+Amplify build and comparing both against that same build's own `CustomerError`, if one occurs) — not
+further local guessing.
+
+**Reproduction bug #2, found and fixed during this pass (distinct from the `AWS_BRANCH` bug documented
+below)**: the first attempt at this rebuild symlinked each worktree's `node_modules` to the shared
+install (to save the ~1 minute + 2.6 GB per `npm ci`). Next.js's `output: "standalone"` file tracer
+detects a symlinked `node_modules` (its pnpm-compatibility path) and, instead of copying a pruned subset
+into `.next/standalone/node_modules`, symlinks that entire directory wholesale to the real target. The
+postBuild replay script's `rm -rf`/`find -delete` commands then executed *through* that symlink and
+deleted real files (`.bin`, `.d.ts`, docs, `playwright-core`, etc.) from the actual shared
+`node_modules` — which is why a subsequent build attempt failed with `next: not found`. Fixed by giving
+each worktree its own independent, physical `npm ci` install (confirmed non-symlinked via `ls -la
+.next/standalone/node_modules` before pruning). **Do not symlink `node_modules` across worktrees when
+reproducing an `output: "standalone"` build for artifact-composition comparison purposes** — it silently
+invalidates the standalone output as a stand-in for what Amplify's own isolated install produces, and
+risks exactly this kind of cross-contamination if a cleanup script assumes the traced copy is physically
+independent. Nothing in the committed repo was affected — this damaged only a disposable `/tmp`
+`node_modules` install, which was wiped and reinstalled cleanly.
 
 ## Corrected framing (read this first — it changes what "the problem" is)
 
@@ -206,44 +280,52 @@ package" question; if you also need the POST-cleanup composition (closer to what
 ships), manually replay the relevant `amplify.yml` `postBuild` command lines against a copy of that
 `.next` tree first, then run this script again on the copy. Do not conflate the two runs.
 
-## Next steps (in the order the operator specified)
+## Next steps — DONE for steps 1-2 and 8; steps 4-7 do not apply (no cause found to fix)
 
-1. Let both builds finish; run the manifest script on each.
-2. `diff <(cut -f1,2,3 passing-manifest.manifest.tsv) <(cut -f1,2,3 failing-manifest.manifest.tsv)` —
-   find every path present in only one manifest (added/removed) and every path present in both with a
-   different size/hash (changed). Given confirmed-identical dependencies (§3 above) and a tiny source
-   diff, **the most likely honest outcome is a very short diff, possibly even empty modulo
-   nondeterministic build IDs/hashes/timestamps embedded in a handful of files** — if so, say that
-   plainly; do not manufacture a "root cause" narrative to satisfy the request if the evidence says
-   this is build-to-build noise at a razor-thin margin.
-3. Compare `.next/standalone` bytes alone (from each `*.summary.txt`) against Amplify's own reported
-   230,822,049 / 230,825,248 — this is the fastest way to test the "Amplify only measures standalone"
-   hypothesis from §"Corrected framing" above.
-4. If a real added/enlarged file is found, open its route's `.next/server/app/**/*.nft.json` (or
-   `.next/server/pages/**/*.nft.json`) — these list every traced file path for that route — grep for
-   the new/enlarged file's path to find which route(s) pulled it in, then trace that back to the
-   specific import in application code.
-5. Only then propose a source-level fix (an import change, a `next.config.js`
-   `outputFileTracingExcludes`/`serverExternalPackages` entry, etc.) — and only remove a file from the
-   artifact if you can point to the specific `.nft.json`/import evidence that the SSR runtime never
-   resolves it, per the prior incident's hard-won rule.
-6. Re-verify (or fix) the license/notice exclude contradiction the operator flagged (§4 above) once its
-   exact current location is confirmed.
-7. If real headroom is established, add a budget gate keyed to the actual deployable composition (very
-   likely `.next/standalone` + `.next/static`, pending step 3's confirmation) with a ≥10 MB margin, not
-   the current razor's-edge check against raw `.next`.
-8. Build the standalone server locally (`node .next/standalone/server.js` with the same env) and smoke-
-   test a few real routes before committing anything.
-9. Commit and push only after all of the above produces a demonstrated (not guessed) cause and fix.
+1. ✅ **Done.** Both builds completed (in fully independent environments — see "Reproduction bug #2"
+   above); the manifest script ran on both post-cleanup trees.
+2. ✅ **Done.** Path diff: 0 lines. Size diff: 0 lines. Hash diff: large, but attributed to Next's
+   non-deterministic per-build embedded build ID, not a real content change — see "RESOLVED" above.
+   **This is the "possibly even empty" outcome this step predicted, confirmed directly.**
+3. **Partially done, not conclusive** — see "Open question" in the RESOLVED section: local
+   `.next/standalone` (209.9 MB) + `.next/static` (40.2 MB) + manifests (~1.0 MB) ≈ 251.2 MB, still
+   ~20 MB over Amplify's real reported ~230.8 MB. Local environment fidelity gaps (Node v22 vs pinned
+   v20.18.0, `npm ci` vs Amplify's `npm install --legacy-peer-deps --include=optional`, placeholder vs
+   real env vars) are the likely explanation, but this was not proven further — not needed to answer the
+   original "is there a regression" question, since steps 1-2 already answered it conclusively.
+4-7. **N/A.** These steps only apply if a real added/enlarged file is found. None was — every file in
+   both builds is byte-identical in size. There is nothing to trace to an import, no source-level fix to
+   make, and no new headroom to convert into a budget gate. Adding a "budget gate keyed to the actual
+   deployable composition" now, without having resolved step 3's open question, would encode a guessed
+   threshold — exactly what this investigation was opened to stop. Leave `amplify.yml`'s existing
+   razor's-edge `du -sb .next` check as-is until step 3 is genuinely settled (see "Open question" above
+   for what that would take).
+8. ✅ **Done.** The passing build's `.next/standalone/server.js` was booted locally and answered `GET /`
+   and `GET /health` with `200` — see "RESOLVED" above.
+9. ✅ **Done, this pass.** No cause was demonstrated because there is no cause — the two commits produce
+   an identical artifact. Committing this finding (a doc update only, no `amplify.yml`/`next.config.js`/
+   application-code change) is the correct action per this rule, since guessing further would violate it
+   in the other direction.
 
 ## Files touched by this handoff itself
 
-- `scripts/build-artifact-manifest.sh` — new, committed (see above).
+- `scripts/build-artifact-manifest.sh` — new, committed (see above). Still the only committed tool;
+  `/tmp/build-repro/replay-postbuild.sh` (this pass's exact `amplify.yml` postBuild replay, used to
+  produce the post-cleanup trees the manifest script measured) was NOT committed — it is a literal
+  transcription of `amplify.yml`'s existing `build.commands` and would drift the moment that file
+  changes. Regenerate it by copying the `build:` commands from `amplify.yml` (roughly the block from
+  the native-binary cleanup through the `ARTIFACT LEDGER` echo) into a script that `cd`s into the target
+  directory first, if this reproduction is needed again.
 - `amplify.yml` — one independent, low-risk line fixed (the license/notice deletion contradiction, §4
-  above). This is the ONLY change to `amplify.yml`/`next.config.js` in this pass; no byte-size-driven
-  prune has been made — the manifest-diff investigation is still in progress (builds running) and per
-  the operator's explicit instruction, no size-driven change should be committed until the cause is
-  demonstrated.
-- This doc — new, committed, registered in `codexes/packs/agentiq/collections.json`'s `col_updates`.
-- The two build-reproduction git worktrees and generated `.env.production.local` live under this
-  container's `/tmp` — NOT committed (ephemeral, disposable, regeneration instructions above).
+  above), from the previous pass. **No additional `amplify.yml`/`next.config.js` change in this pass** —
+  the manifest diff showed no cause to fix (see "RESOLVED" above).
+- This doc — updated in place (not a new file) with the conclusive finding, registered in
+  `codexes/packs/agentiq/collections.json`'s `col_updates` from the previous pass.
+- The two build-reproduction git worktrees, their independent `node_modules` installs, and generated
+  `.env.production.local` files live under this container's `/tmp` — NOT committed (ephemeral, disposable,
+  regeneration instructions above). **Confirmed this pass: this container's `/tmp` and its entire
+  `node_modules` do NOT survive a container restart** (observed directly — both were gone at the start of
+  this pass despite the previous pass's builds having been "in progress" when that session ended) —
+  budget for a full re-setup (`npm ci` at repo root + both worktrees, ~3 x ~1 minute) every time this
+  investigation is picked up in a new session, not just the worktree/env-file recreation the previous
+  pass anticipated.
