@@ -152,10 +152,32 @@ export NODE_ENV=production
 npm run build
 ```
 
-**As of this handoff, the `passing` (0d22e7ea8) build is still running in the background** — it had
-completed dependency install (shared via symlink, so no fresh install needed) and was in the
-"Creating an optimized production build..." webpack/SWC compile phase. Check
-`/tmp/build-passing.log` for progress; when it finishes, run:
+**CRITICAL CORRECTION, found after the first `passing` build completed:** the first attempt did NOT
+set `AWS_BRANCH` or `AMPLIFY_APP_ID`. `next.config.js` reads
+`const isAmplifyBuild = Boolean(process.env.AWS_BRANCH || process.env.AMPLIFY_APP_ID)` and only sets
+`output: "standalone"` when that's true — so the first local build produced **NO `.next/standalone`
+directory at all**, silently. Every postBuild prune step that targets
+`.next/standalone/node_modules` therefore did nothing (there was nothing there), and the resulting
+`.next` total (~149 MB post-cleanup: `.next/server` 107.75 MB + `.next/static` 40.19 MB + ~1 MB of
+manifests) is NOT comparable to Amplify's real ~220 MB measured output — it is missing the standalone
+bundle entirely. **Any reproduction MUST set `AWS_BRANCH=<something>` (or `AMPLIFY_APP_ID`) in the
+build environment**, or the comparison is worthless. This also weakens (does not yet disprove) the
+"maybe Amplify's measurement excludes `.next/standalone`" hypothesis from "Corrected framing" above:
+if the non-standalone content alone is only ~149 MB and Amplify reports ~220 MB, `.next/standalone`
+(once correctly produced) is very likely IN the measured total after all — this needs the corrected
+rebuild to confirm, not additional guessing.
+
+A second `passing` build, now WITH `AWS_BRANCH=dev` exported, was kicked off immediately after finding
+this — check whether it's finished and whether `.next/standalone` now exists before doing anything else.
+If it's done, run the manifest script (see below) and the postBuild replay (`/tmp/postbuild-commands.txt`
+— extracted from `amplify.yml`'s `native-binary cleanup` through the `ARTIFACT LEDGER` line — was used
+for the first, invalid attempt; reuse it, it doesn't depend on the env-var bug, only the build itself
+does) on this corrected `.next` tree, THEN generate manifests.
+
+**As of this handoff, the first `passing` (0d22e7ea8) build (missing `AWS_BRANCH`, later found invalid)
+had already completed; the CORRECTED rebuild (same commit, `AWS_BRANCH=dev` set) is running in the
+background.** Check `/tmp/build-passing-v2.log` for progress; when it finishes AND
+`ls .next/standalone` shows content, run:
 
 ```bash
 ./scripts/build-artifact-manifest.sh /tmp/build-repro/passing /tmp/build-repro/passing-manifest
