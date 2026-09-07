@@ -29,8 +29,11 @@ import type {
   InvariantStatus,
 } from '@/types/invariants';
 
-/** Statuses that carry grounding authority — knowledge, not candidates. */
-const GROUNDING_STATUSES: InvariantStatus[] = ['canonical', 'validated'];
+/** Statuses that carry grounding authority — knowledge, not candidates.
+ *  Exported (2026-09-07) so a task-scoped selector composing this module's
+ *  substrate reader (`services/invariants/taskScopedSelection.ts`) uses the
+ *  SAME default authority set rather than hand-copying it — inv.engineering.036/037. */
+export const GROUNDING_STATUSES: InvariantStatus[] = ['canonical', 'validated'];
 
 /**
  * A context descriptor derivable at any runtime call site. Every field is
@@ -94,14 +97,25 @@ function projectItem(inv: InvariantRecord): InvariantSliceItem {
  * invariants with the most validated confidence, NOT the most-adopted ones —
  * reach is a tiebreak only, never the lead signal, so adoption can never
  * masquerade as authority.
+ *
+ * Exported (2026-09-07, Arm B selection-fidelity audit): this is the ONE
+ * standing-calibration function every selector must reuse rather than
+ * re-deriving. It intentionally has NO relevance/role/relational awareness —
+ * it is a pure ordering step over whatever candidate set the CALLER already
+ * narrowed to relevant/comparable members. A caller that sorts an
+ * unfiltered-by-relevance pool with this function is misusing it as a global
+ * ranking criterion — see `taskScopedSelection.ts`'s header for the audited
+ * failure mode this export exists to let other callers avoid repeating.
  */
-function rankByStanding(a: InvariantRecord, b: InvariantRecord): number {
+export function rankByStanding(a: InvariantRecord, b: InvariantRecord): number {
   if (b.standing !== a.standing) return b.standing - a.standing;
   if (b.confidence !== a.confidence) return b.confidence - a.confidence;
   return b.reach - a.reach;
 }
 
-function dedupeById(records: InvariantRecord[]): InvariantRecord[] {
+/** Exported (2026-09-07) alongside `rankByStanding`/`GROUNDING_STATUSES` for
+ *  the same reuse reason. */
+export function dedupeById(records: InvariantRecord[]): InvariantRecord[] {
   const seen = new Set<string>();
   const out: InvariantRecord[] = [];
   for (const r of records) {

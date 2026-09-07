@@ -16,8 +16,10 @@
  *           matched to Arm C, fixed once, identical across all tasks.
  *
  * This runner exercises the REAL shape of that design — real retrieval (Arm B
- * via `buildInvariantSlice`, the actual production selection path; Arm C via
- * the frozen crystal's own committed `memberSnapshot`), real task loading,
+ * via `selectTaskScopedInvariants`, a task-scoped selection path composed from
+ * the same production substrate/graph services — see this module's third
+ * header section for why it replaced a direct `buildInvariantSlice` call;
+ * Arm C via the frozen crystal's own committed `memberSnapshot`), real task loading,
  * real receipts, real persistence — against ONLY materials that genuinely
  * exist today:
  *   - the FROZEN `crystal-vP2` substrate (never mutated by this runner);
@@ -119,10 +121,61 @@
  * still unfrozen — `deriveProtocolRatified`). A rehearsal run must never be
  * able to advance, or be read as advancing, that macro-lifecycle.
  *
+ * ── THIRD AUDIT — ARM B SELECTION FIDELITY, 2026-09-07 (Arm B rewired to
+ *    `selectTaskScopedInvariants`) ───────────────────────────────────────────
+ *
+ * Mechanical trace of Arm B's selection pipeline found it violated the
+ * required runtime principle ("Intent and functional relevance determine
+ * candidate eligibility. Standing calibrates evidentiary strength among
+ * sufficiently relevant, functionally comparable candidates. Standing must
+ * never substitute one invariant type or relational role for another that
+ * the intent requires."):
+ *   - `buildInvariantSlice` was called ONCE per RUN (not per task), with a
+ *     single run-level domain constant — task intent was never represented
+ *     at all, so Arm B's "selection" never varied across the 16 tasks;
+ *   - the only eligibility gate was domain/namespace/status membership —
+ *     coarse and identical for every task in a single-domain corpus;
+ *   - `semanticType` (functional role) was read nowhere in the path;
+ *   - no relational/graph structure was ever consulted;
+ *   - standing was therefore the ONLY discriminating signal over an
+ *     undifferentiated 63-member pool — a GLOBAL ranking criterion, not a
+ *     calibrator among already-relevant candidates.
+ *
+ * Per that audit, the THREE persisted internal-rehearsal runs that used the
+ * old (task-blind, globally-standing-ranked) selector —
+ * `EXP-P1/execution-run/internal-rehearsal/2026-09-06T17:47:45.131Z` (6
+ * tasks, pre-repair), `.../2026-09-07T15:58:43.405Z` (6 tasks, post
+ * actuallyGroundedInvariantIds repair) and `.../2026-09-07T21:11:38.247Z` (16
+ * tasks) — are PERMANENTLY reclassified `treatment-fidelity-diagnostic`:
+ * instrument-validation evidence about the OLD selector's plumbing, NEVER
+ * evidence for or against the runtime hypothesis (B vs C, B vs A, any
+ * cross-arm delta). Those three artifacts are left byte-for-byte unmutated —
+ * this classification lives here and in
+ * `RES-2026-09-07-EXP-P1-ARM-B-SELECTION-FIDELITY-001.json`, never in the
+ * persisted rows.
+ *
+ * Arm B now calls `services/invariants/taskScopedSelection.ts`'s
+ * `selectTaskScopedInvariants` ONCE PER TASK, passing `task.prompt` (never
+ * `task.keywords` — the answer-key field) as the intent. That module
+ * implements the corrected order (intent -> relevance/role -> relational
+ * completion -> standing calibration WITHIN the relevant set -> bounded
+ * representation) and documents, in its own header, why a Stage 5
+ * consequence/value calibration is a deliberate no-op in this version rather
+ * than an invented score. `buildInvariantSlice` itself is untouched — Arm B
+ * no longer calls it at all; the new module is a distinct pipeline over the
+ * SAME underlying substrate/graph services, so every OTHER caller of
+ * `buildInvariantSlice` is unaffected by this fix.
+ *
+ * A new, unseen `EXP-P1/rehearsal-task-set-provisional-v3` set exists for
+ * evaluating the corrected selector — the 16-task v2 set is NOT reused as
+ * the primary evaluation set for the corrected B treatment (it was designed
+ * and its results already read under the OLD selector; re-scoring it would
+ * not be "unseen" with respect to this fix).
+ *
  * Server-only.
  */
 
-import { buildInvariantSlice } from '@/services/invariants/grounding';
+import { selectTaskScopedInvariants, TASK_SCOPED_SELECTOR_VERSION } from '@/services/invariants/taskScopedSelection';
 import { crystalDomainForExperiment } from '@/services/research/crystalDomains';
 import { latestFrozenCrystalArtifact, recordExecutionRun } from '@/services/research/artifacts';
 import type { HashCoveredMember } from '@/services/research/crystalContentProjection';
@@ -429,33 +482,9 @@ export async function runExpP1Rehearsal(input: {
 
   const domain = crystalDomainForExperiment(input.experimentId)?.domain;
 
-  // Arm B — AVAILABLE: the domain-filtered candidate pool this rehearsal's
-  // up-front call can see, before any ranking/truncation — a diagnostic
-  // upper bound ONLY, never used to ground a score (2026-09-07: this used to
-  // be the ONLY call, with `limit: members.length` defeating truncation
-  // entirely and silently grounding Arm B on the whole frozen population —
-  // see this module's header). Constrained to ids that are ALSO members of
-  // the FROZEN snapshot — the live table may have moved on since freeze (a
-  // successor generation under construction), and Arm B must stay scoped to
-  // the frozen substrate this run is against, never to whatever the live
-  // table currently holds.
-  const armBAvailableSlice = await buildInvariantSlice({ domains: domain ? [domain] : undefined, limit: members.length });
-  const armBAvailableIds = armBAvailableSlice.items.map((i) => i.id).filter((id) => memberIds.has(id));
-
-  // Arm B — SELECTED: the REGISTERED Arm B selection procedure actually
-  // enforced — `buildInvariantSlice`'s own UNMODIFIED default limit
-  // (standing-ranked, truncated), never overridden to the population size.
-  // THIS is what grounds Arm B's score. Called ONCE (not per task):
-  // buildInvariantSlice has no per-task free-text intent scoping in this
-  // codebase today — every task shares the same domain-filtered,
-  // standing-ranked slice, an honest simplification from the confirmatory
-  // design's true per-task intent-scoped selection, which does not exist as
-  // a callable function here.
-  const armBSelectedSlice = await buildInvariantSlice({ domains: domain ? [domain] : undefined });
-  const armBSelectedIds = armBSelectedSlice.items.map((i) => i.id).filter((id) => memberIds.has(id));
-
   // Arm C — AVAILABLE is the whole frozen population it was carved from;
-  // SELECTED is the fixed, pre-registered slice.
+  // SELECTED is the fixed, pre-registered slice. Task-blind by protocol
+  // definition — unchanged by the Arm B selection-fidelity fix.
   const armCAvailableIds = members.map((m) => m.id);
   const armCSlice = buildFixedArmCSlice(members);
   const armCSelectedIds = armCSlice.map((m) => m.id);
@@ -463,58 +492,87 @@ export async function runExpP1Rehearsal(input: {
   // Arm D — fixed, IRL-authored provisional prose placeholder (never Austin's).
   const armDProse = buildProvisionalArmDProse(members);
 
-  const taskResults: RehearsalTaskResult[] = taskSet.tasks.map((task) => {
-    const groundTruthInvariantIds = members
-      .filter((m) => task.keywords.some((k) => m.statement.toLowerCase().includes(k.toLowerCase())))
-      .map((m) => m.id);
-    const scorable = groundTruthInvariantIds.length > 0;
-    const unscorableReason = scorable
-      ? null
-      : `no frozen invariant statement in '${eligibility.frozenCrystalArtifactId}' matched this task's keyword set (${task.keywords.join(', ')}) — nothing to score recall against; raw per-arm scores below are diagnostics only`;
+  // Arm B diagnostics accumulated across tasks, for the run-level
+  // armConfiguration summary below (2026-09-07 selection-fidelity fix: Arm B
+  // is now computed PER TASK, so there is no longer one single set size to
+  // report — see armBTaskDiagnostics).
+  const armBTaskDiagnostics: { taskId: string; availableSize: number; selectedSize: number; usedRelevanceFallback: boolean }[] = [];
 
-    const armResults: RehearsalArmTaskResult[] = [
-      {
-        armId: 'A',
-        armLabel: REHEARSAL_ARM_LABELS.A,
-        availableInvariantIds: [],
-        selectedInvariantIds: [],
-        // No model/runtime execution exists in this harness to extract
-        // evidence-of-use from — null, never a copy of selectedInvariantIds.
-        actuallyGroundedInvariantIds: null,
-        scoreMetric: 'invariant-id-recall',
-        score: idRecallScore([], groundTruthInvariantIds),
-      },
-      {
-        armId: 'B',
-        armLabel: REHEARSAL_ARM_LABELS.B,
-        availableInvariantIds: armBAvailableIds,
-        selectedInvariantIds: armBSelectedIds,
-        actuallyGroundedInvariantIds: null,
-        scoreMetric: 'invariant-id-recall',
-        score: idRecallScore(armBSelectedIds, groundTruthInvariantIds),
-      },
-      {
-        armId: 'C',
-        armLabel: REHEARSAL_ARM_LABELS.C,
-        availableInvariantIds: armCAvailableIds,
-        selectedInvariantIds: armCSelectedIds,
-        actuallyGroundedInvariantIds: null,
-        scoreMetric: 'invariant-id-recall',
-        score: idRecallScore(armCSelectedIds, groundTruthInvariantIds),
-      },
-      {
-        armId: 'D',
-        armLabel: REHEARSAL_ARM_LABELS.D,
-        availableInvariantIds: [],
-        selectedInvariantIds: [],
-        actuallyGroundedInvariantIds: null,
-        scoreMetric: 'keyword-substring-coverage',
-        score: keywordCoverageScore(armDProse, task.keywords),
-      },
-    ];
+  const taskResults: RehearsalTaskResult[] = await Promise.all(
+    taskSet.tasks.map(async (task) => {
+      const groundTruthInvariantIds = members
+        .filter((m) => task.keywords.some((k) => m.statement.toLowerCase().includes(k.toLowerCase())))
+        .map((m) => m.id);
+      const scorable = groundTruthInvariantIds.length > 0;
+      const unscorableReason = scorable
+        ? null
+        : `no frozen invariant statement in '${eligibility.frozenCrystalArtifactId}' matched this task's keyword set (${task.keywords.join(', ')}) — nothing to score recall against; raw per-arm scores below are diagnostics only`;
 
-    return { taskId: task.id, taskKind: task.kind, groundTruthInvariantIds, scorable, unscorableReason, armResults };
-  });
+      // Arm B — the corrected, task-scoped selector (2026-09-07 selection-
+      // fidelity fix). `task.prompt` is the ONLY task field passed as intent
+      // — never `task.keywords` (the answer-key field this rehearsal scores
+      // against), so the selector can never see what it is being graded on.
+      // Restricted to ids that are ALSO members of the FROZEN snapshot — the
+      // live table may have moved on since freeze — mirroring the discipline
+      // the old implementation already established for this exact reason.
+      const armBSelection = await selectTaskScopedInvariants({
+        intentText: task.prompt,
+        domains: domain ? [domain] : undefined,
+        restrictToIds: [...memberIds],
+      });
+      const armBAvailableIds = armBSelection.availableIds;
+      const armBSelectedIds = armBSelection.selectedIds;
+      armBTaskDiagnostics.push({
+        taskId: task.id,
+        availableSize: armBAvailableIds.length,
+        selectedSize: armBSelectedIds.length,
+        usedRelevanceFallback: armBSelection.usedRelevanceFallback,
+      });
+
+      const armResults: RehearsalArmTaskResult[] = [
+        {
+          armId: 'A',
+          armLabel: REHEARSAL_ARM_LABELS.A,
+          availableInvariantIds: [],
+          selectedInvariantIds: [],
+          // No model/runtime execution exists in this harness to extract
+          // evidence-of-use from — null, never a copy of selectedInvariantIds.
+          actuallyGroundedInvariantIds: null,
+          scoreMetric: 'invariant-id-recall',
+          score: idRecallScore([], groundTruthInvariantIds),
+        },
+        {
+          armId: 'B',
+          armLabel: REHEARSAL_ARM_LABELS.B,
+          availableInvariantIds: armBAvailableIds,
+          selectedInvariantIds: armBSelectedIds,
+          actuallyGroundedInvariantIds: null,
+          scoreMetric: 'invariant-id-recall',
+          score: idRecallScore(armBSelectedIds, groundTruthInvariantIds),
+        },
+        {
+          armId: 'C',
+          armLabel: REHEARSAL_ARM_LABELS.C,
+          availableInvariantIds: armCAvailableIds,
+          selectedInvariantIds: armCSelectedIds,
+          actuallyGroundedInvariantIds: null,
+          scoreMetric: 'invariant-id-recall',
+          score: idRecallScore(armCSelectedIds, groundTruthInvariantIds),
+        },
+        {
+          armId: 'D',
+          armLabel: REHEARSAL_ARM_LABELS.D,
+          availableInvariantIds: [],
+          selectedInvariantIds: [],
+          actuallyGroundedInvariantIds: null,
+          scoreMetric: 'keyword-substring-coverage',
+          score: keywordCoverageScore(armDProse, task.keywords),
+        },
+      ];
+
+      return { taskId: task.id, taskKind: task.kind, groundTruthInvariantIds, scorable, unscorableReason, armResults };
+    }),
+  );
 
   const recorded = await recordExecutionRun({
     personaId: input.personaId,
@@ -532,10 +590,15 @@ export async function runExpP1Rehearsal(input: {
       armA: { description: 'Cold — no grounding material by protocol definition' },
       armB: {
         domain: domain ?? null,
+        selectorVersion: TASK_SCOPED_SELECTOR_VERSION,
         selectionProcedure:
-          "buildInvariantSlice (services/invariants/grounding.ts) — its own unmodified default limit, standing-ranked, domain-filtered — never overridden to the frozen population size",
-        availableSetSize: armBAvailableIds.length,
-        selectedSetSize: armBSelectedIds.length,
+          'selectTaskScopedInvariants (services/invariants/taskScopedSelection.ts) — per-task: task.prompt intent ' +
+          '-> lexical-overlap relevance/role eligibility (never a hard semanticType gate) -> graph expansion ' +
+          '(depends_on/composes) before truncation -> standing calibration WITHIN the relevant+expanded set -> ' +
+          'bounded representation. Replaces the pre-2026-09-07 single run-level buildInvariantSlice call — see ' +
+          "this module's header, third audit section.",
+        perTask: armBTaskDiagnostics,
+        relevanceFallbackTaskCount: armBTaskDiagnostics.filter((d) => d.usedRelevanceFallback).length,
       },
       armC: {
         sliceFraction: ARM_C_SLICE_FRACTION,
