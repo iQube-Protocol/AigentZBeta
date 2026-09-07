@@ -36,6 +36,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AlertTriangle, CheckCircle2, Circle, Loader2, Lock, RefreshCw, ShieldAlert } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { FreezeVP2InternalPilotAction } from "@/components/research/FreezeVP2InternalPilotAction";
+import { ExpP1ExecutionStatus } from "@/components/research/ExpP1ExecutionStatus";
 import { settleTrack2DuplicateQueue } from "@/services/research/track2DuplicateQueueSettle";
 import { PROVENANCE_CLASSES } from "@/services/corpusScout/types";
 import { INVARIANT_EDGE_TYPES } from "@/types/invariants";
@@ -557,6 +558,15 @@ export function Track2ProgrammePanel({
          * FreezeVP2InternalPilotAction's own header for the full mechanism.
          */}
         {experimentId === "EXP-P1" && <FreezeVP2InternalPilotAction experimentId={experimentId} onFrozen={() => void load()} />}
+
+        {/*
+         * THE TWO-MODE EXECUTION MODEL — internal rehearsal vs. confirmatory
+         * execution (operator ruling, 2026-09-07). Rendered unconditionally,
+         * for the SAME reason as the freeze action immediately above: this is
+         * a separately-authorized governed act, not a fact about Track 2's
+         * own programme composition.
+         */}
+        {experimentId === "EXP-P1" && <ExpP1ExecutionStatus experimentId={experimentId} />}
 
         {programme && (
           <>

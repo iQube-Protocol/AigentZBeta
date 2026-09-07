@@ -1408,7 +1408,7 @@ function FloatingCopilot({
               )}
             </div>
 
-            {/* Right: paperclip (attachments) + model selector + mic */}
+            {/* Right: paperclip (attachments) + mic + model selector */}
             <div className="relative flex items-center gap-2">
               {/* Paperclip — toggles the attachment picker bar.
                   Highlighted when there are selections so the operator
@@ -1439,6 +1439,38 @@ function FloatingCopilot({
                     {attachedUploadIds.length}
                   </span>
                 )}
+              </button>
+
+              {/* Mic toggle — wired to useSpeechRecognition (MediaRecorder +
+                  Whisper via /api/skills/stt). Disabled when MediaRecorder
+                  isn't supported (very old browsers) or while a prior clip
+                  is still being transcribed. */}
+              <button
+                type="button"
+                onClick={() => stt.toggle()}
+                disabled={!stt.isSupported || stt.isProcessing}
+                title={
+                  !stt.isSupported
+                    ? 'Speech recognition unavailable in this browser'
+                    : stt.isProcessing
+                      ? 'Transcribing…'
+                      : micActive
+                        ? 'Stop microphone'
+                        : 'Start microphone'
+                }
+                className={`p-1.5 rounded-lg transition-colors ${
+                  micActive
+                    ? 'text-cyan-300 bg-cyan-500/10'
+                    : stt.isProcessing
+                      ? 'text-amber-300 bg-amber-500/10'
+                      : 'text-slate-400 hover:text-fuchsia-300 hover:bg-fuchsia-500/10'
+                } disabled:opacity-40 disabled:cursor-not-allowed`}
+              >
+                {stt.isProcessing
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : micActive
+                    ? <Mic className="w-4 h-4" />
+                    : <MicOff className="w-4 h-4" />}
               </button>
 
               {/* LLM provider icon dropdown */}
@@ -1484,38 +1516,6 @@ function FloatingCopilot({
                   </div>
                 )}
               </div>
-
-              {/* Mic toggle — wired to useSpeechRecognition (MediaRecorder +
-                  Whisper via /api/skills/stt). Disabled when MediaRecorder
-                  isn't supported (very old browsers) or while a prior clip
-                  is still being transcribed. */}
-              <button
-                type="button"
-                onClick={() => stt.toggle()}
-                disabled={!stt.isSupported || stt.isProcessing}
-                title={
-                  !stt.isSupported
-                    ? 'Speech recognition unavailable in this browser'
-                    : stt.isProcessing
-                      ? 'Transcribing…'
-                      : micActive
-                        ? 'Stop microphone'
-                        : 'Start microphone'
-                }
-                className={`p-1.5 rounded-lg transition-colors ${
-                  micActive
-                    ? 'text-cyan-300 bg-cyan-500/10'
-                    : stt.isProcessing
-                      ? 'text-amber-300 bg-amber-500/10'
-                      : 'text-slate-400 hover:text-fuchsia-300 hover:bg-fuchsia-500/10'
-                } disabled:opacity-40 disabled:cursor-not-allowed`}
-              >
-                {stt.isProcessing
-                  ? <Loader2 className="w-4 h-4 animate-spin" />
-                  : micActive
-                    ? <Mic className="w-4 h-4" />
-                    : <MicOff className="w-4 h-4" />}
-              </button>
             </div>
           </div>
 

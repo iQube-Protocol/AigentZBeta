@@ -15,7 +15,7 @@
 "use client";
 
 import React from "react";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, ExternalLink } from "lucide-react";
 
 interface IframeTabProps {
   src?: string;
@@ -52,12 +52,22 @@ export function IframeTab({
     );
   }
   return (
-    <div className="flex flex-col w-full h-full min-h-[600px] bg-slate-950">
-      {/* Open-in-new-tab affordance removed — the cartridge sub-header
-          already shows the embed URL + label, and any chrome row above
-          the iframe ate vertical space the embedded site needs. If a
-          future cartridge wants its own embed open-link, surface it
-          in the sub-header instead of in this component. */}
+    <div className="relative flex flex-col w-full h-full min-h-[600px] bg-slate-950">
+      {/* Pop-out — a small floating overlay, not a chrome row (a prior
+          attempt at this affordance ate vertical space the embedded site
+          needs; the cartridge sub-header this comment used to point to
+          doesn't reliably render for a singleton-group embed tab, so it
+          lives here instead, positioned to cost no layout height). */}
+      <a
+        href={src}
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Open in new tab"
+        aria-label="Open embed URL in new tab"
+        className="absolute right-2 top-2 z-10 flex items-center justify-center rounded-md bg-slate-900/70 p-1.5 text-slate-300 backdrop-blur hover:bg-slate-900/90 hover:text-white transition-colors"
+      >
+        <ExternalLink className="h-3.5 w-3.5" />
+      </a>
       <iframe
         src={src}
         title={title}

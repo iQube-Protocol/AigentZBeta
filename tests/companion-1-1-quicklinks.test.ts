@@ -392,7 +392,7 @@ describe('the ranking signal is one that is actually present', () => {
     // `data/codex-configs.ts`, read directly: 'journey' and 'venture lab' are
     // real substrings of the Journey tab's own rankKey ('venture lab α
     // journey partner-pilot-journey partner'); 'moneypenny' is a real
-    // substring of MONEYPENNY_CARTRIDGE.name ('Aigent MoneyPenny'). 'horizen'
+    // substring of MONEYPENNY_CARTRIDGE.name ('MoneyPenny'). 'horizen'
     // is deliberately absent from the VALUES (only ever a table KEY / title
     // substring to detect) because it appears in no codex name, tab label,
     // tab slug, or tab group — including it as a rank word would match
