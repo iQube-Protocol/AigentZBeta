@@ -882,6 +882,60 @@ All five checks were already true in shipped code (`services/identity/didQubeRes
 No refactor beyond the one added test — per instruction, code already correct is documented, not
 touched.
 
+#### Item 5 — asymmetric VC signing — IMPLEMENTED (2026-09-07)
+
+Retires the Phase A HMAC stub (`PolityBureauHmacStub/v0`) for NEW issuance in favor of a real,
+publicly-verifiable Ed25519 signature, mirroring the swappable-provider seam already established for
+agreement acceptance (`services/constitutional/agreementProviders.ts`).
+
+- **New files**: `services/passport/passportCredentialSigningProviders.ts` (canonical, sorted-key
+  payload serialization; the `local-ed25519` provider using Node's native `crypto.sign`/`crypto.verify`
+  — no new dependency; a small known-keys registry so a rotated-out key stays verifiable for what it
+  already signed without being usable for new issuance) and
+  `services/passport/passportCredentialVerification.ts` (a genuinely SEPARATE module from signing —
+  shares no call chain or in-memory state — that dispatches on `proof.type` and handles every proof
+  type this issuer has ever produced: the new Ed25519 suite, the legacy HMAC stub, and the legacy
+  unsigned stub).
+- **Canonical serialization**: `canonicalizeCredentialPayload` recursively sorts object keys (arrays
+  keep position, which is meaningful) so the signed bytes never depend on incidental JS property
+  insertion order — the fragility of the OLD stub's plain `JSON.stringify(credential)`.
+- **Keys are server-side and provider-backed**: signing needs the private key
+  (`PASSPORT_BUREAU_ED25519_PRIVATE_KEY_B64`, server-only); verification needs ONLY the matching public
+  key from the known-keys registry (`PASSPORT_BUREAU_SIGNING_KEYS_JSON`) — a verifier never touches
+  private key material, making verification genuinely independent of issuance. A future KMS/HSM-backed
+  provider is a drop-in addition behind the same interface, exactly how `x409` sits beside `local` in
+  the agreement-acceptance seam — not built here (no real KMS credentials exist to wire).
+- **Proof metadata is bound into the signature**: `proof.created`/`proof.proofPurpose` are included in
+  the signed payload (`buildSignablePayload`) alongside the credential body — `proof.type` and
+  `proof.keyId` are already implicitly protected (a tampered type re-dispatches verification to the
+  wrong/no branch; a tampered keyId selects the wrong public key for the original signature). This
+  means every field in the proof, not just the credential body, is tamper-evident.
+- **Legacy credentials are never re-signed or mutated**: `passportCredentialVerification.ts` verifies
+  an old HMAC-stub credential using the EXACT historical algorithm (plain, non-canonicalized
+  `JSON.stringify`) — never the new sorted-key canonicalization, which would never match a legacy
+  signature. An old unsigned-stub credential is never treated as valid (`unsigned_stub` — it never
+  claimed a signature).
+- **Fails closed** on: unknown `proof.type` (`unknown_algorithm`), an unrecognised `keyId`
+  (`unknown_key`), a malformed public key in the registry (`malformed_key`), a proof missing fields its
+  own declared type requires (`malformed_proof`), an unrecognised `issuer.id` shape (`unknown_issuer`),
+  and a legacy HMAC-stub credential when `PASSPORT_BUREAU_CREDENTIAL_SECRET` is unavailable
+  (`legacy_secret_unavailable` — an inability to check is NEVER treated as valid).
+- **Predecessor reference carried into the signed payload**: `PassportRecordRow` gained
+  `renewal_of_passport_id` (threaded from the two credential-serving routes' `SELECT`s), surfaced as
+  `credentialSubject.supersedesPassportId` when a Passport is a successor
+  (`issueSuccessorPassport`, Phase 3 item 3) — part of the signed body, so tampering it is caught
+  exactly like tampering any other claim.
+- **Tamper matrix tested** (`tests/passport-credential-signing.test.ts`, 23 tests): subject, a claim
+  (`passportGrade`), issuance time (`validFrom`), the predecessor reference
+  (`supersedesPassportId`), and proof metadata (`proof.created`, `proof.proofPurpose`) each
+  independently invalidate an Ed25519-signed credential. Plus: canonical-serialization determinism,
+  the no-key-configured and key-not-in-registry fallback-to-unsigned-stub paths, every fail-closed
+  reason above, and a T0 canary proving a signed credential never serialises the private key.
+  Full targeted regression (this file + `passport-credential.test.ts` +
+  `passport-successor-credential.test.ts` + `passport-bureau.test.ts` +
+  `admin-action-centre-citizen-auto-issuance.test.ts` + `agent-passport-atomic-issuance.test.ts`):
+  104/104 passing.
+
 ### Phase 4 — Consumer migration, one subsystem at a time (brief §9-§11, §"Registry and Horizen")
 *Each subsystem migrates independently; none blocks the others. This is where "CTP, DCIR, Factor,
 Aegis, Standing and DVN consume the same resolver" actually happens — but sequenced, not simultaneous.*

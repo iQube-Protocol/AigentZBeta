@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
     let { data, error } = await admin
       .from('polity_passport_records')
       .select(
-        'passport_id, passport_class, citizen_status, participant_status, passport_grade, kybe_did_public_ref, root_did_public_ref, persona_public_ref, registry_record_id, issuer_id, issued_at, expires_at, revoked, credential_claimed_at',
+        'passport_id, passport_class, citizen_status, participant_status, passport_grade, kybe_did_public_ref, root_did_public_ref, persona_public_ref, registry_record_id, issuer_id, issued_at, expires_at, revoked, credential_claimed_at, renewal_of_passport_id',
       )
       .in('persona_id', scopedPersonaIds);
 
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
       ({ data, error } = await admin
         .from('polity_passport_records')
         .select(
-          'passport_id, passport_class, citizen_status, participant_status, passport_grade, kybe_did_public_ref, root_did_public_ref, persona_public_ref, registry_record_id, issuer_id, issued_at, expires_at, revoked',
+          'passport_id, passport_class, citizen_status, participant_status, passport_grade, kybe_did_public_ref, root_did_public_ref, persona_public_ref, registry_record_id, issuer_id, issued_at, expires_at, revoked, renewal_of_passport_id',
         )
         .in('persona_id', scopedPersonaIds));
     }
