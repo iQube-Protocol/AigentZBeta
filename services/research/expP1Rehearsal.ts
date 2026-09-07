@@ -449,7 +449,7 @@ export const UNSEEN_REHEARSAL_TASK_SET: ProvisionalTaskSet = {
  *  of the same frozen generation. */
 const ARM_C_SLICE_FRACTION = 0.4;
 
-function buildFixedArmCSlice(members: HashCoveredMember[]): HashCoveredMember[] {
+export function buildFixedArmCSlice(members: HashCoveredMember[]): HashCoveredMember[] {
   const cap = Math.max(1, Math.floor(members.length * ARM_C_SLICE_FRACTION));
   return [...members].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)).slice(0, cap);
 }
@@ -463,7 +463,7 @@ function buildFixedArmCSlice(members: HashCoveredMember[]): HashCoveredMember[] 
  *  invariant-id citations — it is scored by keyword coverage of its TEXT,
  *  never by an id-overlap check, exactly like the real arm's structural
  *  role. */
-function buildProvisionalArmDProse(members: HashCoveredMember[]): string {
+export function buildProvisionalArmDProse(members: HashCoveredMember[]): string {
   const sample = [...members].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)).slice(0, 5);
   const body = sample.map((m) => m.statement).join(' ');
   return (
@@ -472,7 +472,7 @@ function buildProvisionalArmDProse(members: HashCoveredMember[]): string {
   );
 }
 
-function keywordCoverageScore(text: string, keywords: string[]): number {
+export function keywordCoverageScore(text: string, keywords: string[]): number {
   if (keywords.length === 0) return 0;
   const hay = text.toLowerCase();
   const hits = keywords.filter((k) => hay.includes(k.toLowerCase())).length;
@@ -489,7 +489,7 @@ function keywordCoverageScore(text: string, keywords: string[]): number {
  *  `groundTruthIds` — a defensive divide-by-zero guard, NOT a scoring-
  *  specification decision; callers MUST treat that case as `scorable: false`
  *  and exclude it from aggregates rather than trust this 0 as a real score. */
-function idRecallScore(retrievedIds: string[], groundTruthIds: string[]): number {
+export function idRecallScore(retrievedIds: string[], groundTruthIds: string[]): number {
   if (groundTruthIds.length === 0) return 0;
   const retrieved = new Set(retrievedIds);
   const hits = groundTruthIds.filter((id) => retrieved.has(id)).length;
@@ -636,6 +636,20 @@ export async function runExpP1Rehearsal(input: {
         usedRelevanceFallback: armBSelection.usedRelevanceFallback,
       });
 
+      // Every arm in THIS (retrieval-only) harness never calls a model, so
+      // the 2026-09-07 execution-rehearsal fields are always the same,
+      // honest "nothing happened here" values — never fabricated, never
+      // silently omitted (RehearsalArmTaskResult requires them explicitly).
+      const noExecution = {
+        generatedAnswerText: null,
+        promptTokens: null,
+        completionTokens: null,
+        demonstratedUseRecall: null,
+        answerKeywordCoverage: null,
+        executionOutcome: 'completed' as const,
+        armRepresentation: 'none' as const,
+      };
+
       const armResults: RehearsalArmTaskResult[] = [
         {
           armId: 'A',
@@ -647,6 +661,7 @@ export async function runExpP1Rehearsal(input: {
           actuallyGroundedInvariantIds: null,
           scoreMetric: 'invariant-id-recall',
           score: idRecallScore([], groundTruthInvariantIds),
+          ...noExecution,
         },
         {
           armId: 'B',
@@ -656,6 +671,7 @@ export async function runExpP1Rehearsal(input: {
           actuallyGroundedInvariantIds: null,
           scoreMetric: 'invariant-id-recall',
           score: idRecallScore(armBSelectedIds, groundTruthInvariantIds),
+          ...noExecution,
         },
         {
           armId: 'C',
@@ -665,6 +681,7 @@ export async function runExpP1Rehearsal(input: {
           actuallyGroundedInvariantIds: null,
           scoreMetric: 'invariant-id-recall',
           score: idRecallScore(armCSelectedIds, groundTruthInvariantIds),
+          ...noExecution,
         },
         {
           armId: 'D',
@@ -674,6 +691,7 @@ export async function runExpP1Rehearsal(input: {
           actuallyGroundedInvariantIds: null,
           scoreMetric: 'keyword-substring-coverage',
           score: keywordCoverageScore(armDProse, task.keywords),
+          ...noExecution,
         },
       ];
 

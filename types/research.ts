@@ -943,8 +943,55 @@ export type RunExecutionDesignation = (typeof RUN_EXECUTION_DESIGNATIONS)[number
  *  never be compared arm-for-arm as if they measured the same thing — neither
  *  is an answer-correctness or grounding-quality judgment; no live judge/model
  *  exists anywhere in this codebase for EXP-P1. */
-export const REHEARSAL_SCORE_METRICS = ['invariant-id-recall', 'keyword-substring-coverage'] as const;
+/** `demonstrated-use-recall` (2026-09-07 execution-rehearsal addition): the
+ *  fraction of a task's ground-truth invariant-ID set present in an arm's
+ *  REAL `actuallyGroundedInvariantIds` (extracted from a generated model
+ *  answer's own inline citations, never copied from `selectedInvariantIds`).
+ *  Used by `services/research/expP1ExecutionRehearsal.ts` for arms A/B/C once
+ *  a real model call exists to extract evidence-of-use from — still NOT a
+ *  judge/correctness score (no rubric or answer-key adjudication exists), but
+ *  a genuine step up from `invariant-id-recall` (which measures the
+ *  SELECTED/offered set, never what was demonstrably used). */
+export const REHEARSAL_SCORE_METRICS = [
+  'invariant-id-recall',
+  'keyword-substring-coverage',
+  'demonstrated-use-recall',
+] as const;
 export type RehearsalScoreMetric = (typeof REHEARSAL_SCORE_METRICS)[number];
+
+/** Honest per-call outcome (2026-09-07 execution-rehearsal addition, mirrors
+ *  `services/experiments/exp005.ts`'s outcome-taxonomy discipline) — a failed
+ *  model call must never be silently scored as if it answered nothing
+ *  meaningfully; it must be VISIBLY excluded from aggregates, never folded
+ *  into a `0` that looks the same as a real, low-scoring answer. */
+export const REHEARSAL_EXECUTION_OUTCOMES = [
+  'completed',
+  'provider_unavailable',
+  'timed_out',
+  'empty_completion',
+  'error',
+] as const;
+export type RehearsalExecutionOutcome = (typeof REHEARSAL_EXECUTION_OUTCOMES)[number];
+
+/** What context, if any, an arm's model call actually received — the
+ *  MECHANISM-level distinction the registered protocol's MDE cares about
+ *  (per-task live selection vs a fixed pre-registered slice vs nothing vs
+ *  externally-authored prose), NEVER a cosmetic formatting difference. Arms B
+ *  and C are rendered through the SAME per-item serializer (marker + type +
+ *  statement, verbatim) so the only difference between their prompts is WHICH
+ *  items are included — this field records the SELECTION MECHANISM that
+ *  decided that, not the text format (see
+ *  `services/research/expP1ExecutionRehearsal.ts`'s header for why standing/
+ *  confidence are deliberately never shown to the model — the MDE marks the
+ *  post-call standing/citation return path as lifecycle-only, unable to
+ *  affect the in-call answer). */
+export const ARM_REPRESENTATION_KINDS = [
+  'none',
+  'live-task-scoped-selection',
+  'fixed-flattened-slice',
+  'expert-prose',
+] as const;
+export type ArmRepresentationKind = (typeof ARM_REPRESENTATION_KINDS)[number];
 
 /** One arm's result for one task — mechanically scored (no live judge/rubric
  *  exists in this codebase; see EXP-012/`services/experiments/expP3.ts` for
@@ -985,12 +1032,47 @@ export interface RehearsalArmTaskResult {
   selectedInvariantIds: string[];
   actuallyGroundedInvariantIds: string[] | null;
   scoreMetric: RehearsalScoreMetric;
-  /** 0..1 — see `scoreMetric` for what this number actually measures. Always
-   *  computed from `selectedInvariantIds` (A/B/C) or the fixed prose (D) —
-   *  NEVER from `actuallyGroundedInvariantIds`, which this harness cannot
-   *  populate. Never a live judge score, never answer-correctness, never a
-   *  measure of demonstrated reasoning use. */
+  /** 0..1 — see `scoreMetric` for what this number actually measures.
+   *  `services/research/expP1Rehearsal.ts` (retrieval-only): always computed
+   *  from `selectedInvariantIds` (A/B/C) or the fixed prose (D) — NEVER from
+   *  `actuallyGroundedInvariantIds`. `services/research/
+   *  expP1ExecutionRehearsal.ts` (real model execution, 2026-09-07): computed
+   *  from `actuallyGroundedInvariantIds` (A/B/C, now a REAL measurement) or
+   *  `generatedAnswerText` keyword coverage (D). Still never a live judge
+   *  score, never adjudicated answer-correctness — no rubric/answer-key
+   *  exists in this codebase for either harness. */
   score: number;
+  /** 2026-09-07 execution-rehearsal addition — the model's raw generated text
+   *  for this arm/task. `null` in the retrieval-only harness (no model is
+   *  ever called there) and whenever `executionOutcome !== 'completed'`. */
+  generatedAnswerText: string | null;
+  /** Real per-provider usage tokens from `ChatResult` (`services/experiments/
+   *  llm.ts`) — `null` in the retrieval-only harness or on a failed call.
+   *  Never fabricated when a provider doesn't report usage. */
+  promptTokens: number | null;
+  completionTokens: number | null;
+  /** `idRecallScore(actuallyGroundedInvariantIds, groundTruthInvariantIds)` —
+   *  the fraction of ground truth the arm DEMONSTRABLY cited, as opposed to
+   *  merely retrieved/selected. `null` whenever `actuallyGroundedInvariantIds`
+   *  is `null` (D, and any harness that never measures usage). */
+  demonstratedUseRecall: number | null;
+  /** Keyword-substring coverage of `generatedAnswerText` against the task's
+   *  keyword list — computed IDENTICALLY for all four arms (unlike `score`,
+   *  which uses a different formula per arm), so it is the one number that IS
+   *  meaningfully comparable arm-for-arm as a directional "did the answer
+   *  engage with the task's substance" proxy. Still mechanical, still never a
+   *  correctness judgment. `null` in the retrieval-only harness. */
+  answerKeywordCoverage: number | null;
+  /** Honest per-call outcome — see `RehearsalExecutionOutcome`. Always
+   *  `'completed'` in the retrieval-only harness's construction (no call is
+   *  ever attempted, so there is nothing to fail) — real values only appear
+   *  from `expP1ExecutionRehearsal.ts`. */
+  executionOutcome: RehearsalExecutionOutcome;
+  /** Which selection MECHANISM produced this arm's context — see
+   *  `ArmRepresentationKind`'s own doc for why this is a mechanism label, not
+   *  a text-format label. `'none'` for every arm in the retrieval-only
+   *  harness (no context is ever rendered into a live prompt there). */
+  armRepresentation: ArmRepresentationKind;
 }
 
 export interface RehearsalTaskResult {
@@ -1061,6 +1143,16 @@ export interface ExecutionRunArtifact extends FrozenArtifact {
    *  `readinessReportAtFreeze`'s own precedent for "verbatim recorded blob,
    *  no second typed copy"). */
   armConfiguration: Record<string, unknown>;
+  /** Real execution parameters (2026-09-07 execution-rehearsal addition) —
+   *  provider, pinned model, temperature, max tokens, the prompt-template
+   *  version, and the FROZEN Arm B selector version this run asserted
+   *  against (`services/invariants/taskScopedSelection.ts::
+   *  TASK_SCOPED_SELECTOR_VERSION`). `null` for every run the retrieval-only
+   *  harness (`expP1Rehearsal.ts`) constructs — there is no execution to
+   *  configure there. Never omitted on a real execution run: this is the
+   *  field a later reader checks to prove "which selector/model treatment
+   *  produced this run's context and answers". */
+  executionConfiguration: Record<string, unknown> | null;
   /** Verbatim record of what each `scoreMetric` means and the unscorable-task
    *  rule applied — the scoring-configuration component of `contentHash`'s
    *  hash pre-image, and the definitive answer to "what does score mean"

@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "A field claiming to measure 'demonstrated use' of a supplied knowledge item by a generated response must be populated ONLY by a real extraction step reading the response's OWN output — never inferred from the mere fact that the item was supplied/selected/offered. Context presence is not evidence of use.",
+    "The minimum auditable mechanism for this is: (1) instruct the generator to cite a stable, per-item marker inline when it materially relies on that item; (2) after generation, parse the output for marker-shaped tokens; (3) INDEPENDENTLY VERIFY each found marker against the set of markers ACTUALLY offered to that call — a marker not offered is a fabricated citation, excluded from the credited set and counted as a diagnostic, never silently accepted or silently dropped without a trace.",
+    "This verifies citation VALIDITY (was this genuinely among what was offered) but not deeper citation TRUTHFULNESS (would the answer change if the item were removed — an ablation study). That gap must be stated as a documented limitation of the mechanism, never silently assumed closed.",
+    "When comparing two treatments that both receive contextual material through the SAME serializer, any information shown to the model that is not part of the treatments' registered, load-bearing difference (e.g. metadata like validation/reputation scores marked 'lifecycle-only, cannot affect the in-call answer' in a Mechanistic Difference Enumeration) must be withheld from BOTH treatments' prompts — never added to one only to 'reflect its own runtime', since that silently introduces a new, unauthorized explanatory mechanism.",
+    "Discovered via EXP-P1's execution rehearsal: prior to this fix, `actuallyGroundedInvariantIds` had already been found once (same day) to be a naive copy of the selected/offered set; this invariant generalizes the LESSON from that repair into the POSITIVE construction required once a real generator call exists, so the next harness that adds real execution doesn't have to rediscover the same distinction from a fresh audit."
+  ],
+  "canaries": [
+    {
+      "path": "tests/exp-p1-execution-rehearsal.test.ts",
+      "assertion": "citation extraction credits only markers the arm was ACTUALLY offered; a fabricated marker is excluded from actuallyGroundedInvariantIds and counted as a diagnostic; demonstratedUseRecall is computed from actuallyGroundedInvariantIds, never from selectedInvariantIds (a citation to an offered-but-not-ground-truth item scores 0, proving the metric is not gameable by selection size alone).",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/exp-p1-execution-rehearsal.test.ts",
+      "assertion": "Arm B and Arm C prompts never render standing/confidence/reach — lifecycle-only metadata withheld from both treatments identically, never added to one to explain its own runtime.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "candidateId": "CI-2026-09-07-EVIDENCE-OF-USE-REQUIRES-VERIFIED-CITATION-EXTRACTION-001",
+  "statement": "A 'demonstrated use' field must be populated ONLY by extracting real evidence from a generator's OWN output — via a stable per-item citation marker, self-reported inline by the generator and then independently verified against the set of markers actually offered to that call — never inferred from context presence (supply/selection) alone. A cited marker not among what was offered is a fabricated citation: excluded from the credited set and counted as a diagnostic, never silently accepted or dropped. This verifies citation VALIDITY, not deeper TRUTHFULNESS (no ablation is implied) — state that gap explicitly rather than assuming it closed. When two treatments share a serializer, withhold any non-load-bearing metadata (e.g. lifecycle-only scores) from BOTH prompts identically; never add it to one treatment only to explain its own mechanism, since that introduces a new, unauthorized, unregistered explanatory signal.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-09-07-EXP-P1-EXECUTION-EVIDENCE-OF-USE-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/expP1ExecutionRehearsal.ts::extractDemonstratedUse, ::renderInvariantBlock",
+      "defect": "Before this module, no evidence-of-use extraction step existed anywhere in EXP-P1's harnesses (actuallyGroundedInvariantIds was always null); this occurrence is the first POSITIVE construction of the invariant, not a repair of a prior violation of it.",
+      "resolutionId": "RES-2026-09-07-EXP-P1-EXECUTION-EVIDENCE-OF-USE-001",
+      "evidence": [
+        "tests/exp-p1-execution-rehearsal.test.ts"
+      ]
+    }
+  ],
+  "family": "constitutional",
+  "parentCandidateId": "CI-2026-09-07-USAGE-MUST-BE-NULL-NOT-COPIED-WHEN-UNMEASURED-001",
+  "projections": {
+    "targets": [
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
+}

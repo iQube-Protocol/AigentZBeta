@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-07",
+  "resolutionId": "RES-2026-09-07-EXP-P1-EXECUTION-EVIDENCE-OF-USE-001",
+  "capability": "exp-p1-execution-model",
+  "milestone": "Operator instruction: 'freeze Arm B treatment and implement the genuine execution/evidence-of-use rehearsal layer' — after the v3 unseen rehearsal reported Arm B outperforming Arm C (overall 87.5% vs 46.9%), the operator explicitly required that this remain a RETRIEVAL-SET-recall finding, never scientific evidence, until a genuine per-arm model-execution layer measuring DEMONSTRATED USE (not mere selection) existed.",
+  "problem": "Every EXP-P1 rehearsal harness through v3 (`expP1Rehearsal.ts`) measured whether a task's ground-truth invariant ids were present in an arm's SELECTED set — never whether a generated answer actually used them. `actuallyGroundedInvariantIds` was `null` in every run (a prior 2026-09-07 audit's own honest repair) because no model/runtime execution step existed anywhere in this codebase for EXP-P1. A v3 B > C delta computed this way cannot distinguish 'the runtime selects better' from 'nothing was ever generated or checked for use' — the exact confusion the operator's instruction exists to close before any interpretation.",
+  "observedFailure": [
+    "`expP1Rehearsal.ts`'s own header (from the prior same-day audit) states plainly: 'no arm in this harness ever generates a response for evidence-of-use to be extracted from' — confirmed unchanged up to and including the v3 run the operator reported results from.",
+    "Without a real model call, `score` for A/B/C was `idRecallScore(selectedInvariantIds, groundTruthInvariantIds)` — retrieval availability, not reasoning use — and Arm D's `score` was keyword coverage of its OWN FIXED PROSE INPUT, never of any generated output (there was no output)."
+  ],
+  "rootCauses": [
+    "The rehearsal harness was built to validate PLUMBING (task loading, arm construction, retrieval, scoring, receipts, persistence) before any model-calling seam was wired in for EXP-P1 specifically — a deliberate, previously-documented scope boundary, not an oversight, but one that could not be left in place once a v3-style B-vs-C delta was reported and risked being read as a runtime-reasoning finding."
+  ],
+  "resolution": [
+    "New module `services/research/expP1ExecutionRehearsal.ts` (`runExpP1ExecutionRehearsal`) executes every arm/task independently via `services/experiments/llm.ts::callChatWithUsage` — the SAME provider-calling seam every existing `services/experiments/exp00N.ts` harness already uses; no parallel inference system was built.",
+    "Arm B's selector is FROZEN at `task-scoped-v1` (`FROZEN_ARM_B_SELECTOR_VERSION`), asserted against the live `TASK_SCOPED_SELECTOR_VERSION` at run start (`assertFrozenSelectorVersion`) — the run refuses outright on drift. No change was made to `taskScopedSelection.ts`'s relevance/graph-expansion/standing/budgeting behavior to produce this module.",
+    "Arm B and Arm C are rendered through ONE shared serializer (`renderInvariantBlock`: marker + functional-role tag + statement, verbatim) so the only difference between their prompts is WHICH items are included (the load-bearing MDE difference) — standing/confidence/reach are NEVER shown to the model (the MDE's own 'lifecycle, cannot affect the in-call answer' carve-out), so no new in-call mechanism was invented to explain a result.",
+    "Evidence-of-use: every prompt instructs the model to cite the bracket marker of any offered statement it materially relies on. `extractDemonstratedUse` parses the answer for marker-shaped tokens and credits ONLY those matching something the arm was ACTUALLY offered — a marker not offered is a fabricated citation, counted (`citationDiagnostics`) and excluded from `actuallyGroundedInvariantIds`, which is now REAL (non-null) for A/B/C for the first time in this codebase's EXP-P1 history.",
+    "New metric `demonstratedUseRecall` (`idRecallScore(actuallyGroundedInvariantIds, groundTruthInvariantIds)`) replaces retrieval-set recall as `score` for A/B/C; a uniform `answerKeywordCoverage` (keyword coverage of each arm's OWN generated answer) is computed identically across all four arms as the one number meaningfully comparable arm-for-arm. No real judge/rubric/answer-key exists — both metrics remain honest mechanical proxies, never adjudicated correctness.",
+    "`executionConfiguration` (provider, pinned model, temperature, max tokens, prompt-template version, frozen + asserted selector version) is persisted on every execution run — the auditable proof of which selector/model treatment produced a run's context and answers.",
+    "A new, unseen `EXP-P1/rehearsal-task-set-provisional-v4` (`UNSEEN_EXECUTION_REHEARSAL_TASK_SET`) was authored — 16 keyword phrases verified by a live SQL count against `EXP-P1/crystal-vP2`'s frozen `memberSnapshot`, all distinct from v1/v2/v3's wording, not authored by tuning against the v3 outcome. v3 is explicitly NOT reused as the primary evaluation set for this new treatment, since its selection results have already been observed and reported.",
+    "New API route `/api/research/crystal/[experimentId]/execution-rehearsal` (its own `maxDuration`, isolated from the retrieval-only route) and one new, clearly labeled UI button ('Run EXP-P1 execution rehearsal — unseen tasks') — never auto-triggered by this codebase.",
+    "27 new tests across `tests/exp-p1-execution-rehearsal.test.ts` (11), `tests/exp-p1-execution-rehearsal-route.test.ts` (6), and additions to `tests/exp-p1-rehearsal-runner.test.ts` (v4 keyword/lineage verification) prove: selector-version-drift refusal; B and C receive genuinely different content through the identical serializer; fabricated citations are excluded and counted; a failed provider call is visibly flagged and never crashes the run; `providerAvailable()===false` fails every arm the same honest way; `task.keywords` never leaks into any prompt; `executionConfiguration` is recorded; and `demonstratedUseRecall` is computed from `actuallyGroundedInvariantIds`, never from `selectedInvariantIds` (a citation to an OFFERED-but-not-ground-truth item scores 0, proving the metric cannot be gamed by mere selection size)."
+  ],
+  "rejectedApproaches": [
+    "Tuning `taskScopedSelection.ts`'s relevance/graph-expansion/standing/budgeting behavior in light of the v3 B>C result — rejected outright per explicit operator instruction; the selector is frozen, not iterated on outcome.",
+    "Treating context presence as evidence of use (i.e. `actuallyGroundedInvariantIds := selectedInvariantIds` once a model call exists) — rejected; this is precisely the conflation a prior same-day audit (`RES-2026-09-07-EXP-P1-GROUNDED-VS-SELECTED-CONFLATION-001`) already found and repaired. A real citation-extraction step was required instead.",
+    "Trusting the model's self-reported citations without verification — rejected; `extractDemonstratedUse` cross-checks every cited marker against what was ACTUALLY offered, excluding and counting anything fabricated, honestly documented as verifying citation VALIDITY (not deeper TRUTHFULNESS — no ablation study is performed; stated as a limitation, not assumed away).",
+    "Showing standing/confidence/reach in Arm B's (but not Arm C's) rendered prompt to reflect 'live runtime context' — rejected after re-reading the registered protocol's own Mechanistic Difference Enumeration, which marks the post-call standing/citation path as lifecycle-only and unable to affect the in-call answer; showing it would have introduced an unauthorized new mechanism outside the MDE.",
+    "Reusing the 16-task v3 set (`UNSEEN_REHEARSAL_TASK_SET`) as the primary evaluation set for the execution treatment — rejected per explicit operator instruction; its selection results have already been observed, so a fresh, verified v4 set was authored instead.",
+    "Widening the retrieval-only route's `maxDuration` to accommodate real model calls — rejected; a dedicated route with its own duration keeps the existing v1/v2/v3 retrieval-only surface's envelope and behavior completely untouched."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-07-EVIDENCE-OF-USE-REQUIRES-VERIFIED-CITATION-EXTRACTION-001"
+  ],
+  "canaries": [
+    "tests/exp-p1-execution-rehearsal.test.ts",
+    "tests/exp-p1-execution-rehearsal-route.test.ts",
+    "tests/exp-p1-rehearsal-runner.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/exp-p1-execution-rehearsal.test.ts",
+      "tests/exp-p1-execution-rehearsal-route.test.ts",
+      "tests/exp-p1-rehearsal-runner.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "Operator instruction, 2026-09-07, verbatim: \"EXP-P1 — freeze Arm B treatment and implement the genuine execution/evidence-of-use rehearsal layer... Treat 'task-scoped-v1' as the frozen selector version... Do not tune its relevance, graph-expansion, standing, budgeting or other selection behaviour in response to v2/v3 outcomes... Design the minimum auditable evidence-of-use mechanism that can establish which supplied invariants materially supported the answer... Do not automatically execute the new rehearsal.\""
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md",
+    "services/experiments/llm.ts",
+    "services/experiments/exp003.ts",
+    "services/experiments/exp004.ts"
+  ],
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}
