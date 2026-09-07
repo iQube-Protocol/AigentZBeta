@@ -42,7 +42,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { canonicalPlateImage } from '@/services/artifact/canonicalPlateImages';
 import { ArtifactMattedFrame } from '@/components/journey/ArtifactMattedFrame';
 import { BridgeActionModeQuestion } from '@/components/journey/BridgeActionModeQuestion';
-import { BridgeStageCapsuleShell } from '@/components/journey/BridgeStageCapsuleShell';
+import { BridgeStageCapsuleShell, BridgeStepTeachingNote } from '@/components/journey/BridgeStageCapsuleShell';
 import {
   KNYTS_BRIDGE_SECTION_DEFAULTS,
   type KnytsBridgeEditorialSection,
@@ -150,6 +150,12 @@ export function KnytsBridgePassportRoom({ personaId, citizenPassportUsable, requ
           routeTo="citizen"
           onUsablePassportDetected={requestStateRefresh}
         />
+        <BridgeStepTeachingNote
+          accent="amber"
+          eyebrow="What this step enables"
+          title="Passport — your one first constitutional act"
+          body="Claiming your Polity Citizen Passport is what makes every later step possible: it establishes your constitutional presence, so an agent can act with you and Standing can start accruing to a real identity, not an anonymous visit. You can create it in a minute — new account or sign in — and nothing here asks for more than personhood."
+        />
       </div>
     );
   }
@@ -243,6 +249,13 @@ export function KnytsBridgePassportRoom({ personaId, citizenPassportUsable, requ
           </div>
         </BridgeStageCapsuleShell>
       </div>
+
+      <BridgeStepTeachingNote
+        accent="amber"
+        eyebrow="What this step enables"
+        title="Passport — now that your presence is confirmed"
+        body="With your Passport established, two things are yours to do here: tell aigentMe what you'd like to do in the Polity (a preference signal, not a binding commitment — Choose still decides your path), and optionally create a delegate — an agent granted bounded authority to act with you, never in your place. Neither action is required before continuing to tell your own story."
+      />
 
       {/* Two peer post-activation actions (operator ruling, 2026-08-21).
           "Create a delegate" is the lighter-weight action — it only opens

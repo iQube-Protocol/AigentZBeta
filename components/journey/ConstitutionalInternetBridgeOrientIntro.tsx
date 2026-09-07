@@ -26,6 +26,7 @@ export function ConstitutionalInternetBridgeOrientIntro() {
       section="ci-orient"
       fallbackPlate={BEARING_INSTRUMENT}
       carouselPlates={GOVERNMENT_GRADE_PLATE ? [GOVERNMENT_GRADE_PLATE] : []}
+      accent="indigo"
     />
   );
 }
