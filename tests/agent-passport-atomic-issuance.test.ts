@@ -1,16 +1,19 @@
 /**
- * DiDQube Phase 3, items 1-2 (2026-09-07): Agent Passport atomic
- * binding/issuance. `applyReviewDecision`'s agent-participant approve branch
- * now (a) resolves `agent_card_url` to EXACTLY ONE `agent_root_identity` at
- * issuance time — refusing on missing/ambiguous resolution, fail closed, no
- * exceptions (brief §7) — and (b) issues the passport + binds the RootDID as
- * ONE Postgres transaction via `issue_agent_participant_passport_atomic`
- * (`supabase/migrations/20260930280000_agent_participant_passport_issuance_atomic.sql`),
- * replacing what used to be a sequence of separate client calls plus a
- * SEPARATE, best-effort, non-transactional bind in
- * `services/homecoming/issueDelegatePassport.ts` — the exact gap Phase 0's
- * live inventory found (3 of 10 resolvable, approved applications missing
- * their `bound_passport_id` back-reference).
+ * DiDQube Phase 3, item 1 (2026-09-07), hardened on closure review.
+ * `applyReviewDecision`'s agent-participant approve branch calls
+ * `issue_agent_participant_passport_atomic` with ONLY the application id,
+ * the minted passport id, and policy inputs (issued status, evidence/
+ * receipt type, actor) — every subject/binding field (passport_class,
+ * persona/kybe/root refs, and the agent_root_identity resolved from the
+ * application's OWN agent_card_url) is now re-derived BY THE RPC ITSELF
+ * from the claimed `polity_passport_applications` row, never accepted as a
+ * caller-supplied parameter. This file proves the TypeScript call shape and
+ * error-surfacing; the RPC's own SQL-level guarantees (grants, concurrency,
+ * confused-deputy resolution) are proven against the live Postgres schema
+ * in `tests/agent-passport-atomic-issuance-postgres.test.ts` (skipped
+ * without live DB credentials) and were verified live against the
+ * 'Aigent Z' Supabase project during the closure review — see
+ * `codexes/packs/agentiq/updates/2026-09-07_didqube-canonical-resolver-execution-plan.md`.
  *
  * Citizen issuance is untouched by this change (a citizen has no
  * agent_root_identity to bind) — covered separately by
@@ -20,7 +23,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const rpcCalls: Array<{ fn: string; args: any }> = [];
-let agentRootIdentityRows: Array<{ id: string }> = [];
 let rpcResult: { data: any; error: any } = {
   data: [{ passport_record_id: 'record-atomic-1', bound: true, already_bound: false }],
   error: null,
@@ -56,13 +58,12 @@ function fakeAdmin() {
         };
       }
       if (table === 'agent_root_identity') {
+        // Only reached by resolveAgentRefsForCard's best-effort receipt
+        // attribution lookup now — the binding resolution itself moved
+        // inside the RPC.
         return {
           select: () => ({
-            eq: () => ({
-              limit: async () => ({ data: agentRootIdentityRows, error: null }),
-              // resolveAgentRefsForCard's best-effort receipt-attribution lookup.
-              maybeSingle: async () => ({ data: agentRootIdentityRows[0] ? { agent_id: 'aigent-nakamoto' } : null, error: null }),
-            }),
+            eq: () => ({ maybeSingle: async () => ({ data: { agent_id: 'aigent-nakamoto' }, error: null }) }),
           }),
         };
       }
@@ -99,13 +100,12 @@ import { applyReviewDecision } from '@/services/passport/issuanceService';
 
 beforeEach(() => {
   rpcCalls.length = 0;
-  agentRootIdentityRows = [{ id: 'agent-root-1' }];
   rpcResult = { data: [{ passport_record_id: 'record-atomic-1', bound: true, already_bound: false }], error: null };
   createActivityReceipt.mockClear();
 });
 
-describe('applyReviewDecision — agent Passport atomic issuance (DiDQube Phase 3)', () => {
-  it('resolves agent_card_url to exactly one agent_root_identity and issues via the atomic RPC', async () => {
+describe('applyReviewDecision — agent Passport atomic issuance (DiDQube Phase 3, hardened)', () => {
+  it('calls the atomic RPC with ONLY the application id, minted passport id, and policy inputs — no identity/binding data', async () => {
     const result = await applyReviewDecision({
       applicationId: 'app-1',
       decision: 'approve',
@@ -120,16 +120,23 @@ describe('applyReviewDecision — agent Passport atomic issuance (DiDQube Phase 
 
     expect(rpcCalls).toHaveLength(1);
     expect(rpcCalls[0].fn).toBe('issue_agent_participant_passport_atomic');
-    expect(rpcCalls[0].args).toMatchObject({
+    const args = rpcCalls[0].args;
+    expect(args).toMatchObject({
       p_application_id: 'app-1',
-      p_agent_root_identity_id: 'agent-root-1',
+      p_issued_status: 'approved',
       p_actor_type: 'steward',
       p_steward_persona_id: 'steward-1',
     });
+    expect(typeof args.p_passport_id).toBe('string');
+    // The hardened signature carries NO identity/binding parameters at all —
+    // confused-deputy safety comes from their absence, not a client-side check.
+    expect(Object.keys(args).sort()).toEqual(
+      ['p_application_id', 'p_passport_id', 'p_issued_status', 'p_actor_type', 'p_steward_persona_id', 'p_notes', 'p_evidence_type', 'p_receipt_action'].sort(),
+    );
   });
 
-  it('REFUSES issuance when agent_card_url resolves to NO agent_root_identity — fails closed, no exceptions', async () => {
-    agentRootIdentityRows = [];
+  it('surfaces the RPC error (e.g. missing/ambiguous agent_root_identity resolution) rather than silently swallowing it', async () => {
+    rpcResult = { data: null, error: { message: 'no agent_root_identity resolves for agent_card_url https://agents.example.invalid/card/nakamoto (missing)' } };
 
     const result = await applyReviewDecision({
       applicationId: 'app-1',
@@ -141,11 +148,10 @@ describe('applyReviewDecision — agent Passport atomic issuance (DiDQube Phase 
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error).toContain('missing');
-    expect(rpcCalls).toHaveLength(0);
   });
 
-  it('REFUSES issuance when agent_card_url resolves to MORE THAN ONE agent_root_identity — ambiguous, fails closed', async () => {
-    agentRootIdentityRows = [{ id: 'agent-root-1' }, { id: 'agent-root-2' }];
+  it('surfaces a concurrency-claim failure (application already decided or claimed by a concurrent call)', async () => {
+    rpcResult = { data: null, error: { message: 'application app-1 is not an open agent_participant application -- already decided, a concurrent issuance won the race, or this is not an agent_participant application' } };
 
     const result = await applyReviewDecision({
       applicationId: 'app-1',
@@ -156,11 +162,10 @@ describe('applyReviewDecision — agent Passport atomic issuance (DiDQube Phase 
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.error).toContain('ambiguous');
-    expect(rpcCalls).toHaveLength(0);
+    expect(result.error).toContain('already decided');
   });
 
-  it('surfaces the atomic RPC error rather than silently swallowing a partial failure', async () => {
+  it('surfaces a generic atomic RPC error rather than silently swallowing a partial failure', async () => {
     rpcResult = { data: null, error: { message: 'simulated transaction failure' } };
 
     const result = await applyReviewDecision({

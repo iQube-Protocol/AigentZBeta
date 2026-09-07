@@ -292,41 +292,25 @@ export async function applyReviewDecision(
   } else {
     /*
      * AGENT PASSPORT — ATOMIC issuance + RootDID binding (DiDQube Phase 3
-     * items 1-2, 2026-09-07). Resolve agent_card_url to EXACTLY ONE
-     * agent_root_identity at application time, refusing on
-     * missing/ambiguous/conflicted resolution (fail closed, no exceptions —
-     * brief §7) — then insert the passport record + status-transition audit
-     * row + application update + RootDID bind as ONE Postgres transaction
-     * via issue_agent_participant_passport_atomic, replacing what used to be
-     * a sequence of separate client calls plus a SEPARATE, best-effort,
-     * non-transactional bind in services/homecoming/issueDelegatePassport.ts
-     * (the exact gap Phase 0's live inventory found: 3 of 10 resolvable,
-     * approved applications missing their bound_passport_id back-reference).
+     * item 1, hardened 2026-09-07 on closure review). The RPC itself now
+     * re-derives every subject/binding field (passport_class, persona/kybe/
+     * root refs, and the agent_root_identity resolved from the CLAIMED
+     * application's own agent_card_url) directly from
+     * polity_passport_applications — never from a caller-supplied
+     * parameter. This closes a confused-deputy gap the first version had
+     * (a caller could in principle pass a mismatched agent_root_identity_id)
+     * and makes the application-status claim itself the concurrency gate:
+     * a second concurrent call against the same application_id gets no
+     * rows back and the RPC raises, rolling back its entire attempted
+     * issuance rather than minting a second Passport. EXECUTE is restricted
+     * to service_role at the database level (see migration
+     * 20260930290000) — this call can only ever succeed from trusted
+     * server code, never from a client holding an anon/authenticated key.
      */
-    const agentResolution = await resolveAgentRootIdentityForCard(admin, app.agent_card_url);
-    if (!agentResolution.ok) {
-      return {
-        ok: false,
-        error: `agent Passport issuance requires exactly one agent_root_identity for agent_card_url "${String(app.agent_card_url ?? '')}" — resolution: ${agentResolution.reason}`,
-      };
-    }
-
     const { data: rpcData, error: rpcError } = await admin.rpc('issue_agent_participant_passport_atomic', {
       p_application_id: input.applicationId,
       p_passport_id: passportId,
-      p_passport_class: passportClass,
       p_issued_status: issuedStatus,
-      p_passport_grade: app.passport_grade ?? null,
-      p_persona_id: app.persona_id ?? null,
-      p_did_persona_id: app.did_persona_id ?? null,
-      p_kybe_identity_id: app.kybe_identity_id ?? null,
-      p_root_identity_id: app.root_identity_id ?? null,
-      p_persona_public_ref: app.persona_public_ref ?? null,
-      p_kybe_did_public_ref: app.kybe_did_public_ref ?? null,
-      p_root_did_public_ref: app.root_did_public_ref ?? null,
-      p_vault_content_id: app.vault_content_id ?? null,
-      p_vault_content_hash: app.vault_content_hash ?? null,
-      p_agent_root_identity_id: agentResolution.agentRootIdentityId,
       p_actor_type: actorType,
       p_steward_persona_id: input.stewardPersonaId,
       p_notes: input.notes ?? null,
@@ -420,10 +404,9 @@ export interface IssueSuccessorPassportInput {
   /** The existing, historically-issued passport this successor supersedes. */
   priorPassportId: string;
   /**
-   * The recomputed subject anchors, e.g. from a fresh
-   * resolveAgentRootIdentityForCard / DiDQube resolution. Only the fields
-   * that actually change need be supplied — everything else is carried
-   * forward unchanged from the prior record.
+   * The recomputed subject anchors, e.g. from a fresh DiDQube resolution.
+   * Only the fields that actually change need be supplied — everything
+   * else is carried forward unchanged from the prior record.
    */
   updates?: Partial<
     Pick<
@@ -566,37 +549,6 @@ async function resolveAgentRefsForCard(
   }
 }
 
-export type AgentRootIdentityResolution =
-  | { ok: true; agentRootIdentityId: string }
-  | { ok: false; reason: 'missing' | 'ambiguous' | 'unavailable' };
-
-/**
- * Resolve `agent_card_url` to EXACTLY ONE `agent_root_identity` row, at
- * issuance time (DiDQube Phase 3 item 2, brief §7) — fail closed on
- * missing/ambiguous/conflicted resolution, never a best-effort guess. This
- * is the id the atomic issuance RPC binds `bound_passport_id` onto; it is
- * distinct from `resolveAgentRefsForCard` above (which returns the
- * best-effort, non-blocking `agent_id` used only for receipt attribution —
- * a lookup failure there must never block issuance, unlike here).
- */
-async function resolveAgentRootIdentityForCard(
-  admin: ReturnType<typeof getSupabaseServer>,
-  agentCardUrl: unknown,
-): Promise<AgentRootIdentityResolution> {
-  if (!admin || typeof agentCardUrl !== 'string' || !agentCardUrl) {
-    return { ok: false, reason: 'missing' };
-  }
-  const { data, error } = await admin
-    .from('agent_root_identity')
-    .select('id')
-    .eq('agent_card_url', agentCardUrl)
-    .limit(2);
-  if (error) return { ok: false, reason: 'unavailable' };
-  const rows = (data ?? []) as Array<{ id: string }>;
-  if (rows.length === 0) return { ok: false, reason: 'missing' };
-  if (rows.length > 1) return { ok: false, reason: 'ambiguous' };
-  return { ok: true, agentRootIdentityId: rows[0].id };
-}
 
 async function writeReceipt(input: {
   personaId: string | null;

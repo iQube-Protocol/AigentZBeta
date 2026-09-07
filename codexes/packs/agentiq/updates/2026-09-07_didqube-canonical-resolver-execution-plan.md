@@ -786,6 +786,102 @@ caller-supplied reason.
   MECHANISM ships, the live write against specific named rows is a deliberate, separate operator-
   confirmed act.
 
+### Phase 3 closure review (2026-09-07) — bounded, before item 5
+
+Two verification passes over already-shipped Phase 3 work, requested explicitly rather than assumed
+complete. Found and fixed four real gaps in item 1's RPC that its own original tests never exercised;
+item 2's checks were already correct in code but had one real test gap, now closed.
+
+#### Item 1 — atomic Passport issuance RPC: four real gaps found and fixed
+
+`supabase/migrations/20260930290000_agent_participant_passport_issuance_hardening.sql` supersedes
+`issue_agent_participant_passport_atomic` from the item-1 pass:
+
+1. **GRANTS (critical).** The function was created with default privileges intact — `EXECUTE` was
+   granted to `PUBLIC`, `anon`, AND `authenticated`. Confirmed live: `full_acl` showed
+   `postgres=X/postgres, service_role=X/postgres, anon=X/postgres, authenticated=X/postgres`. Since
+   PostgREST exposes every function in the `public` schema the calling role has `EXECUTE` on, **this
+   function was callable directly by any client holding an anon or authenticated key, completely
+   bypassing every TypeScript-side check** (steward gate, World-ID verification, application-status
+   validation) `applyReviewDecision` performs before ever reaching it. Fixed: `REVOKE` from
+   `PUBLIC`/`anon`/`authenticated`, `GRANT` to `service_role` only. Verified live: `SET LOCAL ROLE
+   anon`/`authenticated` both now get `ERROR 42501: permission denied for function`.
+2. **CONCURRENCY.** Nothing prevented two concurrent calls against the same `application_id` from
+   both succeeding — each mints its own unique `passport_id`, so both `INSERT`s would succeed,
+   producing two active Passports for one application. Fixed: the `application_status` `UPDATE` is
+   now the FIRST statement and the concurrency gate (only transitions rows still in an open status);
+   a losing call gets zero rows back and `RAISE`s, rolling back its entire attempted issuance.
+   Verified live: a second call against an already-claimed application raises
+   `... is not an open agent_participant application ...` and exactly one `polity_passport_records`
+   row exists for the application afterward.
+3. **CONFUSED DEPUTY.** The original signature accepted `passport_class`, `persona_id`, and (most
+   seriously) `agent_root_identity_id` as caller-supplied parameters, with nothing forcing them to
+   correspond to the application's own recorded data. Fixed: the function now re-derives every
+   subject/binding field DIRECTLY from the claimed `polity_passport_applications` row and resolves
+   `agent_root_identity` from THAT row's own `agent_card_url` internally (fail closed on 0 or >1
+   matches) — the caller supplies only the passport id to mint and policy inputs (issued status,
+   evidence/receipt type, actor) that legitimately come from the TypeScript status-machine decision.
+   Verified live: an unrelated `agent_root_identity` row planted alongside the correct one is
+   provably never touched.
+4. **UNDEFINED SUBJECT ON ISSUE.** The original version propagated
+   `polity_passport_applications.root_did_public_ref` as-is — but nothing in this codebase writes
+   that column for an agent application, so it was always `null`, meaning the item-4 class-sensitive
+   VC subject fix would resolve every freshly-issued agent Passport's `credentialSubject.id` to
+   `undefined` in practice. Fixed: the RPC now COMPUTES the commitment from the resolved
+   `agent_root_identity`'s own `did_uri` (`sha256`, first 16 hex chars via `pgcrypto`'s `digest()`) —
+   verified live, byte-identical to `services/passport/bureauIdentityService.ts`'s `didPublicRef` for
+   the same input, so every other commitment comparison in this codebase (the Constitutional
+   Agreement legacy compatibility verifier included) stays consistent with what this RPC writes.
+
+Also sets a fixed `search_path = public, extensions, pg_temp` (Postgres best practice for a
+write-side-effect function; `extensions` is where this project's `pgcrypto` lives), and scopes the
+claim to `passport_class = 'agent_participant'` exactly — a citizen, robot, or organization
+application is refused by this RPC (verified live for citizen; robot/organization have no canonical
+root table yet per the DiDQube resolver's own `UnsupportedSubjectClass`, so they must never silently
+borrow this function's `agent_root_identity` resolution).
+
+`services/passport/issuanceService.ts`'s `applyReviewDecision` updated to call the reduced signature;
+the now-fully-superseded `resolveAgentRootIdentityForCard`/`AgentRootIdentityResolution` (added in the
+item-1 pass, made redundant by the RPC's own internal resolution) removed —
+`resolveAgentRefsForCard` (a DIFFERENT, deliberately best-effort function used only for receipt
+attribution) is unaffected. `tests/agent-passport-atomic-issuance.test.ts` updated to the new call
+shape; `tests/agent-passport-atomic-issuance-hardening.integration.test.ts` added (skipped without
+live service-role credentials) to keep the grants/concurrency/scope proofs as a standing regression
+check rather than a one-time manual verification.
+
+#### Item 2 — canonical legacy agreement continuity by subject class: already correct, one test gap closed
+
+All five checks were already true in shipped code (`services/identity/didQubeResolver.ts` +
+`services/constitutional/constitutionalAgreement.ts`'s `agreementPrincipalMatches`):
+
+- Natural-person history resolves through `human_didqubes`/`kybe_identity` — `buildHumanPrimitive`,
+  covered by `tests/didqube-resolver.test.ts`'s "resolved happy paths" suite.
+- Agent history resolves through `agent_root_identity`/`agent_didqubes` — `buildAgentPrimitive`, same
+  file, plus now doubly proven by item 1's own confused-deputy-safe RPC resolution.
+- **No agent RootDID is looked up through a citizen-only table** — `agreementPrincipalMatches`
+  structurally refuses (`constitutionalAnchor.kind !== 'kybe_identity' → return false`) BEFORE it
+  would ever call `legacyRootDidCommitmentBelongsToKybe` (which queries `root_identity`, a
+  citizen-only table). This guard existed in shipped code but had **no test** — added
+  `tests/constitutional-agreement-rootdid-authority.test.ts`'s "an AGENT-anchored acting primitive can
+  never satisfy a legacy natural-person agreement" test, which plants a commitment that WOULD match
+  if `root_identity` were queried against the wrong anchor kind, asserts refusal, AND asserts the
+  `root_identity` query count stays at zero — proving the refusal is structural, not a lucky
+  non-match.
+- Robot and organization classes fail explicitly as `unsupported_subject_class` —
+  `resolveDiDQube`'s `subject_class_hint` entry gate, covered both in `didqube-resolver.test.ts` and
+  in `constitutional-agreement-rootdid-authority.test.ts`'s own non-`resolved`-state refusal tests.
+- Discovery-only references cannot authorize — true, currently VACUOUSLY: grepped every production
+  caller of `resolveDiDQube` and found exactly three (`constitutionalAgreement.ts`'s two branches +
+  the agreement-listing route), all three using `kind: 'auth_user_id'` exclusively. No consequential
+  consumer in this codebase resolves via `kind: 'agent_card_url'` (`trustClass: 'discovery'`) at all
+  yet — that is Phase 4 territory (Factor/CTP), not yet started. The resolver's own tag
+  (`didqube-resolver.test.ts`'s "tagged trustClass 'discovery' — never authoritative alone" test) is
+  the correct and sufficient existing coverage until a discovery-consuming consumer exists to test
+  against.
+
+No refactor beyond the one added test — per instruction, code already correct is documented, not
+touched.
+
 ### Phase 4 — Consumer migration, one subsystem at a time (brief §9-§11, §"Registry and Horizen")
 *Each subsystem migrates independently; none blocks the others. This is where "CTP, DCIR, Factor,
 Aegis, Standing and DVN consume the same resolver" actually happens — but sequenced, not simultaneous.*
