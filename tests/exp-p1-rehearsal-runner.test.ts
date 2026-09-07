@@ -350,10 +350,10 @@ describe('summarizeRehearsalRun', () => {
           scorable: true,
           unscorableReason: null,
           armResults: [
-            { armId: 'A' as const, armLabel: 'Cold', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: null, scoreMetric: 'invariant-id-recall' as const, score: 0 },
-            { armId: 'B' as const, armLabel: 'Full Runtime', availableInvariantIds: ['inv-1', 'inv-2'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: null, scoreMetric: 'invariant-id-recall' as const, score: 1 },
-            { armId: 'C' as const, armLabel: 'Flattened Invariants', availableInvariantIds: ['inv-1', 'inv-2'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: null, scoreMetric: 'invariant-id-recall' as const, score: 1 },
-            { armId: 'D' as const, armLabel: 'Expert Prose', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: null, scoreMetric: 'keyword-substring-coverage' as const, score: 0.5 },
+            { armId: 'A' as const, armLabel: 'Cold', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: null, scoreMetric: 'invariant-id-recall' as const, score: 0, generatedAnswerText: null, promptTokens: null, completionTokens: null, demonstratedUseRecall: null, answerKeywordCoverage: null, executionOutcome: 'completed' as const, armRepresentation: 'none' as const },
+            { armId: 'B' as const, armLabel: 'Full Runtime', availableInvariantIds: ['inv-1', 'inv-2'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: null, scoreMetric: 'invariant-id-recall' as const, score: 1, generatedAnswerText: null, promptTokens: null, completionTokens: null, demonstratedUseRecall: null, answerKeywordCoverage: null, executionOutcome: 'completed' as const, armRepresentation: 'none' as const },
+            { armId: 'C' as const, armLabel: 'Flattened Invariants', availableInvariantIds: ['inv-1', 'inv-2'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: null, scoreMetric: 'invariant-id-recall' as const, score: 1, generatedAnswerText: null, promptTokens: null, completionTokens: null, demonstratedUseRecall: null, answerKeywordCoverage: null, executionOutcome: 'completed' as const, armRepresentation: 'none' as const },
+            { armId: 'D' as const, armLabel: 'Expert Prose', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: null, scoreMetric: 'keyword-substring-coverage' as const, score: 0.5, generatedAnswerText: null, promptTokens: null, completionTokens: null, demonstratedUseRecall: null, answerKeywordCoverage: null, executionOutcome: 'completed' as const, armRepresentation: 'none' as const },
           ],
         },
         {
@@ -363,10 +363,10 @@ describe('summarizeRehearsalRun', () => {
           scorable: false,
           unscorableReason: 'no match',
           armResults: [
-            { armId: 'A' as const, armLabel: 'Cold', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: null, scoreMetric: 'invariant-id-recall' as const, score: 0 },
-            { armId: 'B' as const, armLabel: 'Full Runtime', availableInvariantIds: ['inv-1', 'inv-2'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: null, scoreMetric: 'invariant-id-recall' as const, score: 0 },
-            { armId: 'C' as const, armLabel: 'Flattened Invariants', availableInvariantIds: ['inv-1', 'inv-2'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: null, scoreMetric: 'invariant-id-recall' as const, score: 0 },
-            { armId: 'D' as const, armLabel: 'Expert Prose', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: null, scoreMetric: 'keyword-substring-coverage' as const, score: 0 },
+            { armId: 'A' as const, armLabel: 'Cold', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: null, scoreMetric: 'invariant-id-recall' as const, score: 0, generatedAnswerText: null, promptTokens: null, completionTokens: null, demonstratedUseRecall: null, answerKeywordCoverage: null, executionOutcome: 'completed' as const, armRepresentation: 'none' as const },
+            { armId: 'B' as const, armLabel: 'Full Runtime', availableInvariantIds: ['inv-1', 'inv-2'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: null, scoreMetric: 'invariant-id-recall' as const, score: 0, generatedAnswerText: null, promptTokens: null, completionTokens: null, demonstratedUseRecall: null, answerKeywordCoverage: null, executionOutcome: 'completed' as const, armRepresentation: 'none' as const },
+            { armId: 'C' as const, armLabel: 'Flattened Invariants', availableInvariantIds: ['inv-1', 'inv-2'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: null, scoreMetric: 'invariant-id-recall' as const, score: 0, generatedAnswerText: null, promptTokens: null, completionTokens: null, demonstratedUseRecall: null, answerKeywordCoverage: null, executionOutcome: 'completed' as const, armRepresentation: 'none' as const },
+            { armId: 'D' as const, armLabel: 'Expert Prose', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: null, scoreMetric: 'keyword-substring-coverage' as const, score: 0, generatedAnswerText: null, promptTokens: null, completionTokens: null, demonstratedUseRecall: null, answerKeywordCoverage: null, executionOutcome: 'completed' as const, armRepresentation: 'none' as const },
           ],
         },
       ],
@@ -544,6 +544,48 @@ describe('UNSEEN_REHEARSAL_TASK_SET (2026-09-07, the unseen v3 set for evaluatin
     for (const task of UNSEEN_REHEARSAL_TASK_SET.tasks) {
       for (const keyword of task.keywords) {
         expect(priorKeywords.has(keyword.toLowerCase()), `'${keyword}' must not reuse a v1/v2 keyword string`).toBe(false);
+      }
+    }
+  });
+});
+
+describe('UNSEEN_EXECUTION_REHEARSAL_TASK_SET (2026-09-07, v4 — the unseen set for the genuine execution rehearsal)', () => {
+  it('is roughly 12-18 tasks, balanced between recall and derivation, and every keyword hits the frozen corpus at least once', async () => {
+    const { UNSEEN_EXECUTION_REHEARSAL_TASK_SET } = await import('@/services/research/expP1ExecutionRehearsal');
+    expect(UNSEEN_EXECUTION_REHEARSAL_TASK_SET.tasks.length).toBeGreaterThanOrEqual(12);
+    expect(UNSEEN_EXECUTION_REHEARSAL_TASK_SET.tasks.length).toBeLessThanOrEqual(18);
+    expect(UNSEEN_EXECUTION_REHEARSAL_TASK_SET.provenance).toBe('provisional');
+    const recall = UNSEEN_EXECUTION_REHEARSAL_TASK_SET.tasks.filter((t) => t.kind === 'recall');
+    const derivation = UNSEEN_EXECUTION_REHEARSAL_TASK_SET.tasks.filter((t) => t.kind === 'derivation');
+    expect(recall.length).toBeGreaterThan(0);
+    expect(derivation.length).toBeGreaterThan(0);
+
+    for (const task of UNSEEN_EXECUTION_REHEARSAL_TASK_SET.tasks) {
+      for (const keyword of task.keywords) {
+        const hits = FROZEN_CRYSTAL_VP2_STATEMENTS.filter((s) => s.toLowerCase().includes(keyword.toLowerCase()));
+        expect(hits.length, `task '${task.id}' keyword '${keyword}' must hit the frozen corpus at least once`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('has no duplicate task ids, and no keyword string reused from v1/v2/v3 — genuinely unseen thematic ground', async () => {
+    const { UNSEEN_EXECUTION_REHEARSAL_TASK_SET } = await import('@/services/research/expP1ExecutionRehearsal');
+    const ids = UNSEEN_EXECUTION_REHEARSAL_TASK_SET.tasks.map((t) => t.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const id of ids) {
+      expect(PROVISIONAL_REHEARSAL_TASK_SET.tasks.some((t) => t.id === id)).toBe(false);
+      expect(LARGER_REHEARSAL_TASK_SET.tasks.some((t) => t.id === id)).toBe(false);
+      expect(UNSEEN_REHEARSAL_TASK_SET.tasks.some((t) => t.id === id)).toBe(false);
+    }
+
+    const priorKeywords = new Set(
+      [...PROVISIONAL_REHEARSAL_TASK_SET.tasks, ...LARGER_REHEARSAL_TASK_SET.tasks, ...UNSEEN_REHEARSAL_TASK_SET.tasks].flatMap((t) =>
+        t.keywords.map((k) => k.toLowerCase()),
+      ),
+    );
+    for (const task of UNSEEN_EXECUTION_REHEARSAL_TASK_SET.tasks) {
+      for (const keyword of task.keywords) {
+        expect(priorKeywords.has(keyword.toLowerCase()), `'${keyword}' must not reuse a v1/v2/v3 keyword string`).toBe(false);
       }
     }
   });

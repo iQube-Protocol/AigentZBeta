@@ -338,6 +338,43 @@ export function ExpP1ExecutionStatus({
     }
   }, [experimentId, load, personaHintOpt]);
 
+  /** The genuine per-arm EXECUTION rehearsal (2026-09-07) — a REAL pinned
+   *  model call per arm/task against `/api/.../execution-rehearsal`, distinct
+   *  from `runRehearsal`'s retrieval-only `/api/.../rehearsal`. Reuses the
+   *  same status/detail state so the run appears in the identical "just
+   *  completed" + past-runs surfaces — never a parallel UI for what is,
+   *  structurally, still one `execution-run` artifact kind. Never
+   *  auto-triggered: only this handler, only a click. */
+  const runExecutionRehearsal = useCallback(async () => {
+    setBusy(true);
+    setRunErr(null);
+    setLastRunNote(null);
+    try {
+      const res = await personaFetch(`/api/research/crystal/${encodeURIComponent(experimentId)}/execution-rehearsal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskSetVersion: "v4" }),
+        ...personaHintOpt,
+      });
+      const body = await res.json().catch(() => null);
+      if (!body?.requestSucceeded) {
+        throw new Error(body?.error || `the execution rehearsal was refused (HTTP ${res.status})`);
+      }
+      const taskCount = Array.isArray(body.taskResults) ? body.taskResults.length : 0;
+      setLastRunNote(`Execution rehearsal complete — ${taskCount} task(s), real per-arm model calls, across arms A/B/C/D. ${body.note ?? ""}`.trim());
+      if (typeof body.runId === "string" && body.run) {
+        setRunDetails((prev) => ({ ...prev, [body.runId]: body.run }));
+        if (body.summary) setRunSummaries((prev) => ({ ...prev, [body.runId]: body.summary }));
+        setLastCompletedRunId(body.runId);
+      }
+      await load();
+    } catch (e) {
+      setRunErr(e instanceof Error ? e.message : "the execution rehearsal was refused");
+    } finally {
+      setBusy(false);
+    }
+  }, [experimentId, load, personaHintOpt]);
+
   const toggleRunDetails = useCallback(
     async (runId: string) => {
       if (expandedRunId === runId) {
@@ -481,6 +518,15 @@ export function ExpP1ExecutionStatus({
               >
                 {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />} Run unseen
                 rehearsal — corrected Arm B (16 tasks)
+              </button>
+              <button
+                onClick={() => void runExecutionRehearsal()}
+                disabled={busy}
+                title="INTERNAL / NON-CONFIRMATORY — real per-arm model execution (A/B/C/D) with structured-citation evidence-of-use, against an unseen 16-task set. Never auto-run."
+                className="flex items-center gap-1 rounded border border-amber-800 bg-amber-950/30 px-2.5 py-1 text-amber-200 disabled:opacity-50"
+              >
+                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />} Run EXP-P1
+                execution rehearsal — unseen tasks
               </button>
             </div>
             {data.pastRehearsalRuns.length > 0 && (

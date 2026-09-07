@@ -678,6 +678,10 @@ export async function recordExecutionRun(input: {
   confirmatoryEligible: boolean;
   armDProvenance: string;
   armConfiguration: Record<string, unknown>;
+  /** Real execution parameters (2026-09-07) — omit for the retrieval-only
+   *  harness (no model is ever called there); a real execution run MUST pass
+   *  this. See `ExecutionRunArtifact.executionConfiguration`'s own doc. */
+  executionConfiguration?: Record<string, unknown> | null;
   scoringConfiguration: Record<string, unknown>;
   taskResults: RehearsalTaskResult[];
 }): Promise<{ ok: boolean; error?: string; receiptId?: string | null; artifact?: ExecutionRunArtifact }> {
@@ -710,6 +714,7 @@ export async function recordExecutionRun(input: {
     taskSetProvenance: input.taskSetProvenance,
     armIds: input.armIds,
     armConfiguration: input.armConfiguration,
+    executionConfiguration: input.executionConfiguration ?? null,
     scoringConfiguration: input.scoringConfiguration,
     providerModel: input.providerModel,
   });
@@ -734,6 +739,7 @@ export async function recordExecutionRun(input: {
     confirmatoryEligible: input.confirmatoryEligible,
     armDProvenance: input.armDProvenance,
     armConfiguration: input.armConfiguration,
+    executionConfiguration: input.executionConfiguration ?? null,
     scoringConfiguration: input.scoringConfiguration,
     taskResults: input.taskResults,
   };
