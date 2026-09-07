@@ -963,21 +963,33 @@ export type RehearsalScoreMetric = (typeof REHEARSAL_SCORE_METRICS)[number];
  *     own unmodified default limit, standing-ranked, truncated — never
  *     overridden to the population size; Arm C: the fixed pre-registered
  *     slice; Arm A/D: empty, no discrete-id selection by protocol definition).
- *   - `actuallyGroundedInvariantIds` — what the score was actually computed
- *     against. Equal to `selectedInvariantIds` for every arm in this
- *     mechanical harness (no arm here re-derives a smaller grounded-citation
- *     set at answer time); kept as its own field because a live-model
- *     confirmatory run's ACTUAL cited set can differ from what it was merely
- *     offered. */
+ *   - `actuallyGroundedInvariantIds` — which of the offered/selected
+ *     invariants were DEMONSTRABLY USED by a generated response (a real
+ *     per-answer citation-extraction step reading what the model/runtime
+ *     actually cited). `null` — NEVER an array copied from
+ *     `selectedInvariantIds` — whenever no such step exists, which is EVERY
+ *     arm in THIS mechanical harness: no model/runtime execution happens
+ *     anywhere here (see `expP1Rehearsal.ts`'s header), so there is nothing
+ *     to extract usage from. `null` means "not measured", structurally
+ *     distinct from `[]` ("measured — zero of the offered invariants were
+ *     used") — a reader must never treat a non-null value here as anything
+ *     other than a real, demonstrated citation set (2026-09-07
+ *     instrument-validation finding: an earlier version of this field
+ *     silently copied `selectedInvariantIds`, which is retrieval
+ *     AVAILABILITY, not reasoning USE — `score` has always been, and
+ *     remains, computed from `selectedInvariantIds`, never from this field). */
 export interface RehearsalArmTaskResult {
   armId: RehearsalArmId;
   armLabel: string;
   availableInvariantIds: string[];
   selectedInvariantIds: string[];
-  actuallyGroundedInvariantIds: string[];
+  actuallyGroundedInvariantIds: string[] | null;
   scoreMetric: RehearsalScoreMetric;
-  /** 0..1 — see `scoreMetric` for what this number actually measures. Never a
-   *  live judge score, never answer-correctness. */
+  /** 0..1 — see `scoreMetric` for what this number actually measures. Always
+   *  computed from `selectedInvariantIds` (A/B/C) or the fixed prose (D) —
+   *  NEVER from `actuallyGroundedInvariantIds`, which this harness cannot
+   *  populate. Never a live judge score, never answer-correctness, never a
+   *  measure of demonstrated reasoning use. */
   score: number;
 }
 

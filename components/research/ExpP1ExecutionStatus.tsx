@@ -48,7 +48,12 @@ interface RehearsalArmResultView {
   armLabel: string;
   availableInvariantIds: string[];
   selectedInvariantIds: string[];
-  actuallyGroundedInvariantIds: string[];
+  /** `null` whenever no model/runtime execution step exists to extract
+   *  demonstrated evidence-of-use from — i.e. always, in this mechanical
+   *  harness. Never rendered as if it were `selectedInvariantIds` — see the
+   *  service-side type's own doc for the 2026-09-07 audit that caught this
+   *  field silently duplicating selection instead of measuring use. */
+  actuallyGroundedInvariantIds: string[] | null;
   scoreMetric: string;
   score: number;
 }
@@ -134,18 +139,27 @@ function TaskResultsList({ results }: { results: RehearsalTaskResultView[] }) {
             )}
             <div className="ml-2 grid grid-cols-2 gap-x-3 gap-y-0.5 sm:grid-cols-4">
               {task.armResults.map((a) => {
-                const grounded = a.actuallyGroundedInvariantIds?.length ?? 0;
                 const available = a.availableInvariantIds?.length ?? 0;
                 const selected = a.selectedInvariantIds?.length ?? 0;
+                // Usage is measured only once a real model/judge exists and
+                // extracts what a generated answer actually cited — this
+                // harness never does, so actuallyGroundedInvariantIds is
+                // always null here. Gate the "N selected" annotation on
+                // `selected` (the real, always-present count), never on the
+                // usage field — a null usage field must never hide selection
+                // data that IS present.
                 return (
                   <div key={a.armId}>
                     <span className="text-slate-400">{a.armId} {a.armLabel}:</span>{" "}
                     <span className="text-slate-200">{Math.round(a.score * 100)}%</span>
-                    {grounded > 0 && (
+                    {selected > 0 && (
                       <span className="text-slate-600">
                         {" "}
                         · {selected} selected{available !== selected ? ` (${available} available)` : ""}
                       </span>
+                    )}
+                    {a.actuallyGroundedInvariantIds !== null && (
+                      <span className="text-emerald-400"> · {a.actuallyGroundedInvariantIds.length} demonstrably used</span>
                     )}
                   </div>
                 );

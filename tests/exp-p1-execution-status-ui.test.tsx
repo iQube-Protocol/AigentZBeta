@@ -84,10 +84,10 @@ const JUST_COMPLETED_TASK_RESULTS = [
     scorable: true,
     unscorableReason: null,
     armResults: [
-      { armId: 'A', armLabel: 'Cold', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: [], scoreMetric: 'invariant-id-recall', score: 0 },
-      { armId: 'B', armLabel: 'Full Runtime', availableInvariantIds: ['inv-1', 'inv-2'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: ['inv-1'], scoreMetric: 'invariant-id-recall', score: 1 },
-      { armId: 'C', armLabel: 'Flattened Invariants', availableInvariantIds: ['inv-1'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: ['inv-1'], scoreMetric: 'invariant-id-recall', score: 1 },
-      { armId: 'D', armLabel: 'Expert Prose', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: [], scoreMetric: 'keyword-substring-coverage', score: 0.5 },
+      { armId: 'A', armLabel: 'Cold', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: null, scoreMetric: 'invariant-id-recall', score: 0 },
+      { armId: 'B', armLabel: 'Full Runtime', availableInvariantIds: ['inv-1', 'inv-2'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: null, scoreMetric: 'invariant-id-recall', score: 1 },
+      { armId: 'C', armLabel: 'Flattened Invariants', availableInvariantIds: ['inv-1'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: null, scoreMetric: 'invariant-id-recall', score: 1 },
+      { armId: 'D', armLabel: 'Expert Prose', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: null, scoreMetric: 'keyword-substring-coverage', score: 0.5 },
     ],
   },
   {
@@ -267,8 +267,8 @@ describe('ExpP1ExecutionStatus — "View results" on a PAST run', () => {
                   scorable: true,
                   unscorableReason: null,
                   armResults: [
-                    { armId: 'A', armLabel: 'Cold', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: [], scoreMetric: 'invariant-id-recall', score: 0 },
-                    { armId: 'C', armLabel: 'Flattened Invariants', availableInvariantIds: ['inv-9'], selectedInvariantIds: ['inv-9'], actuallyGroundedInvariantIds: ['inv-9'], scoreMetric: 'invariant-id-recall', score: 1 },
+                    { armId: 'A', armLabel: 'Cold', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: null, scoreMetric: 'invariant-id-recall', score: 0 },
+                    { armId: 'C', armLabel: 'Flattened Invariants', availableInvariantIds: ['inv-9'], selectedInvariantIds: ['inv-9'], actuallyGroundedInvariantIds: null, scoreMetric: 'invariant-id-recall', score: 1 },
                   ],
                 },
               ],

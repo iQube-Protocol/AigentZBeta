@@ -179,7 +179,11 @@ describe('runExpP1Rehearsal', () => {
     // Arm A — Cold — always empty grounding, score 0.
     for (const task of call.taskResults) {
       const armA = task.armResults.find((a: { armId: string }) => a.armId === 'A');
-      expect(armA.actuallyGroundedInvariantIds).toEqual([]);
+      // null, never [] and never a copy of anything — no model/runtime
+      // execution exists in this harness to measure demonstrated use
+      // (2026-09-07 audit: this field must never silently equal
+      // selectedInvariantIds).
+      expect(armA.actuallyGroundedInvariantIds).toBeNull();
       expect(armA.availableInvariantIds).toEqual([]);
       expect(armA.selectedInvariantIds).toEqual([]);
       expect(armA.scoreMetric).toBe('invariant-id-recall');
@@ -189,13 +193,15 @@ describe('runExpP1Rehearsal', () => {
     // Arm D — its scoreMetric is the DIFFERENT, text-based one.
     const armD = call.taskResults[0].armResults.find((a: { armId: string }) => a.armId === 'D');
     expect(armD.scoreMetric).toBe('keyword-substring-coverage');
-    expect(armD.actuallyGroundedInvariantIds).toEqual([]);
+    expect(armD.actuallyGroundedInvariantIds).toBeNull();
 
     // Arm C — a genuine, bounded subset (≤ 40% of 10 members = 4).
     const armC = call.taskResults[0].armResults.find((a: { armId: string }) => a.armId === 'C');
     expect(armC.selectedInvariantIds.length).toBeGreaterThan(0);
     expect(armC.selectedInvariantIds.length).toBeLessThanOrEqual(4);
-    expect(armC.actuallyGroundedInvariantIds).toEqual(armC.selectedInvariantIds);
+    // actuallyGroundedInvariantIds is null — NEVER a copy of selectedInvariantIds,
+    // even though score is computed FROM selectedInvariantIds.
+    expect(armC.actuallyGroundedInvariantIds).toBeNull();
     // Arm C's AVAILABLE set is the whole frozen population it was carved from.
     expect(armC.availableInvariantIds).toHaveLength(MEMBERS.length);
     for (const id of armC.selectedInvariantIds) expect(MEMBERS.some((m) => m.id === id)).toBe(true);
@@ -230,7 +236,7 @@ describe('runExpP1Rehearsal', () => {
     expect(armB.selectedInvariantIds).not.toContain('inv-999-live-only');
     expect(armB.availableInvariantIds).toContain('inv-0');
     expect(armB.availableInvariantIds).not.toContain('inv-999-live-only');
-    expect(armB.actuallyGroundedInvariantIds).toEqual(armB.selectedInvariantIds);
+    expect(armB.actuallyGroundedInvariantIds).toBeNull();
   });
 
   it("Arm B's SELECTED call never overrides buildInvariantSlice's limit — only the AVAILABLE call does (2026-09-07 instrument-validation fix)", async () => {
@@ -292,6 +298,26 @@ describe('runExpP1Rehearsal', () => {
     // Diagnostics retained, never dropped, even though unscorable.
     expect(unscorable.armResults).toHaveLength(4);
   });
+
+  it('actuallyGroundedInvariantIds is null for every arm on every task (2026-09-07 audit: no model/runtime execution exists in this harness to demonstrate evidence-of-use, so it must NEVER be populated as a copy of selectedInvariantIds)', async () => {
+    mockLatestFrozenCrystalArtifact.mockResolvedValue(frozenArtifact());
+    mockBuildInvariantSlice.mockResolvedValue({
+      generatedAt: null,
+      context: {},
+      items: [{ id: 'inv-0', seedId: null, statement: MEMBERS[0].statement, namespace: 'finance', semanticType: null, status: 'validated', confidence: 1, standing: 1, reach: 1 }],
+      citedIds: ['inv-0'],
+    });
+    await runExpP1Rehearsal({ personaId: 'persona-1', experimentId: 'EXP-P1' });
+    const call = mockRecordExecutionRun.mock.calls[0][0];
+    for (const task of call.taskResults) {
+      for (const armResult of task.armResults) {
+        expect(armResult.actuallyGroundedInvariantIds).toBeNull();
+      }
+    }
+    // The persisted scoringConfiguration documents this explicitly, so a
+    // reader of the raw JSON (not just the source code) can see why.
+    expect(call.scoringConfiguration.actuallyGroundedInvariantIds).toMatch(/always null/i);
+  });
 });
 
 describe('summarizeRehearsalRun', () => {
@@ -307,10 +333,10 @@ describe('summarizeRehearsalRun', () => {
           scorable: true,
           unscorableReason: null,
           armResults: [
-            { armId: 'A' as const, armLabel: 'Cold', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: [], scoreMetric: 'invariant-id-recall' as const, score: 0 },
-            { armId: 'B' as const, armLabel: 'Full Runtime', availableInvariantIds: ['inv-1', 'inv-2'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: ['inv-1'], scoreMetric: 'invariant-id-recall' as const, score: 1 },
-            { armId: 'C' as const, armLabel: 'Flattened Invariants', availableInvariantIds: ['inv-1', 'inv-2'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: ['inv-1'], scoreMetric: 'invariant-id-recall' as const, score: 1 },
-            { armId: 'D' as const, armLabel: 'Expert Prose', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: [], scoreMetric: 'keyword-substring-coverage' as const, score: 0.5 },
+            { armId: 'A' as const, armLabel: 'Cold', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: null, scoreMetric: 'invariant-id-recall' as const, score: 0 },
+            { armId: 'B' as const, armLabel: 'Full Runtime', availableInvariantIds: ['inv-1', 'inv-2'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: null, scoreMetric: 'invariant-id-recall' as const, score: 1 },
+            { armId: 'C' as const, armLabel: 'Flattened Invariants', availableInvariantIds: ['inv-1', 'inv-2'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: null, scoreMetric: 'invariant-id-recall' as const, score: 1 },
+            { armId: 'D' as const, armLabel: 'Expert Prose', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: null, scoreMetric: 'keyword-substring-coverage' as const, score: 0.5 },
           ],
         },
         {
@@ -320,10 +346,10 @@ describe('summarizeRehearsalRun', () => {
           scorable: false,
           unscorableReason: 'no match',
           armResults: [
-            { armId: 'A' as const, armLabel: 'Cold', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: [], scoreMetric: 'invariant-id-recall' as const, score: 0 },
-            { armId: 'B' as const, armLabel: 'Full Runtime', availableInvariantIds: ['inv-1', 'inv-2'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: ['inv-1'], scoreMetric: 'invariant-id-recall' as const, score: 0 },
-            { armId: 'C' as const, armLabel: 'Flattened Invariants', availableInvariantIds: ['inv-1', 'inv-2'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: ['inv-1'], scoreMetric: 'invariant-id-recall' as const, score: 0 },
-            { armId: 'D' as const, armLabel: 'Expert Prose', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: [], scoreMetric: 'keyword-substring-coverage' as const, score: 0 },
+            { armId: 'A' as const, armLabel: 'Cold', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: null, scoreMetric: 'invariant-id-recall' as const, score: 0 },
+            { armId: 'B' as const, armLabel: 'Full Runtime', availableInvariantIds: ['inv-1', 'inv-2'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: null, scoreMetric: 'invariant-id-recall' as const, score: 0 },
+            { armId: 'C' as const, armLabel: 'Flattened Invariants', availableInvariantIds: ['inv-1', 'inv-2'], selectedInvariantIds: ['inv-1'], actuallyGroundedInvariantIds: null, scoreMetric: 'invariant-id-recall' as const, score: 0 },
+            { armId: 'D' as const, armLabel: 'Expert Prose', availableInvariantIds: [], selectedInvariantIds: [], actuallyGroundedInvariantIds: null, scoreMetric: 'keyword-substring-coverage' as const, score: 0 },
           ],
         },
       ],

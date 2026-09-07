@@ -74,6 +74,40 @@
  * set's keywords are deliberately NOT edited to "fix" this — that would erase
  * the diagnostic rather than report it.
  *
+ * ── SECOND INSTRUMENT-VALIDATION AUDIT, 2026-09-07 (post-repair rehearsal,
+ *    `EXP-P1/execution-run/internal-rehearsal/2026-09-07T15:58:43.405Z`) ────
+ *
+ * Operator audit question: does `actuallyGroundedInvariantIds` represent
+ * evidence DEMONSTRABLY USED by an arm's generated response, or is it merely
+ * copied from `selectedInvariantIds`? Mechanical answer, verified by reading
+ * this module: it was the LATTER — every arm's `actuallyGroundedInvariantIds`
+ * was set to the exact same array as its `selectedInvariantIds` (or `[]`
+ * for A/D), because no arm in this harness ever generates a response for
+ * evidence-of-use to be extracted from (see the header above: no model/judge
+ * call exists anywhere in this codebase for EXP-P1). The exact formula this
+ * harness has ALWAYS actually run, for every scored task and every arm:
+ *
+ *   groundTruthInvariantIds (keyword-substring match against the frozen
+ *     crystal's memberSnapshot)
+ *     -> arm selection (A: none: B: buildInvariantSlice's bounded, standing-
+ *        ranked selection; C: the fixed ~40% slice; D: n/a, fixed prose)
+ *     -> [NO model/runtime execution step — no answer is ever generated]
+ *     -> [NO evidence-of-use extraction step — nothing to extract from]
+ *     -> score = idRecallScore(selectedInvariantIds, groundTruthInvariantIds)
+ *        for A/B/C, or keywordCoverageScore(fixedProse, task.keywords) for D.
+ *
+ * `actuallyGroundedInvariantIds` therefore never added information beyond
+ * `selectedInvariantIds` and risked being misread as a real usage
+ * measurement — retrieval AVAILABILITY was one step from being confused with
+ * demonstrated REASONING USE. Repaired: `actuallyGroundedInvariantIds` is now
+ * `null` for every arm in every run this harness constructs — `null` means
+ * "no evidence-of-use extraction step exists", structurally distinct from an
+ * array (which would mean "measured, and this is what was actually cited").
+ * `score` was already, and remains, computed from `selectedInvariantIds`
+ * directly — this repair changes what is PERSISTED, not what is SCORED. A
+ * real confirmatory run, once a live model/judge exists, is the only thing
+ * that may ever populate this field with a non-null value.
+ *
  * Every run this module writes is `runExecutionDesignation: 'internal-
  * rehearsal'`, `confirmatoryEligible: false`, unconditionally — see
  * `recordExecutionRun`'s own refusal if a caller ever tried to claim
@@ -356,7 +390,9 @@ export async function runExpP1Rehearsal(input: {
         armLabel: REHEARSAL_ARM_LABELS.A,
         availableInvariantIds: [],
         selectedInvariantIds: [],
-        actuallyGroundedInvariantIds: [],
+        // No model/runtime execution exists in this harness to extract
+        // evidence-of-use from — null, never a copy of selectedInvariantIds.
+        actuallyGroundedInvariantIds: null,
         scoreMetric: 'invariant-id-recall',
         score: idRecallScore([], groundTruthInvariantIds),
       },
@@ -365,7 +401,7 @@ export async function runExpP1Rehearsal(input: {
         armLabel: REHEARSAL_ARM_LABELS.B,
         availableInvariantIds: armBAvailableIds,
         selectedInvariantIds: armBSelectedIds,
-        actuallyGroundedInvariantIds: armBSelectedIds,
+        actuallyGroundedInvariantIds: null,
         scoreMetric: 'invariant-id-recall',
         score: idRecallScore(armBSelectedIds, groundTruthInvariantIds),
       },
@@ -374,7 +410,7 @@ export async function runExpP1Rehearsal(input: {
         armLabel: REHEARSAL_ARM_LABELS.C,
         availableInvariantIds: armCAvailableIds,
         selectedInvariantIds: armCSelectedIds,
-        actuallyGroundedInvariantIds: armCSelectedIds,
+        actuallyGroundedInvariantIds: null,
         scoreMetric: 'invariant-id-recall',
         score: idRecallScore(armCSelectedIds, groundTruthInvariantIds),
       },
@@ -383,7 +419,7 @@ export async function runExpP1Rehearsal(input: {
         armLabel: REHEARSAL_ARM_LABELS.D,
         availableInvariantIds: [],
         selectedInvariantIds: [],
-        actuallyGroundedInvariantIds: [],
+        actuallyGroundedInvariantIds: null,
         scoreMetric: 'keyword-substring-coverage',
         score: keywordCoverageScore(armDProse, task.keywords),
       },
@@ -421,11 +457,14 @@ export async function runExpP1Rehearsal(input: {
       armD: { proseSampleSize: 5, provenance: 'provisional-irl-authored' },
     },
     scoringConfiguration: {
-      'invariant-id-recall': 'hits / groundTruthInvariantIds.length — invariant-id retrieval RECALL only (no precision/F1 computed); applies to arms A/B/C',
+      'invariant-id-recall':
+        'hits / groundTruthInvariantIds.length, computed against selectedInvariantIds — invariant-id retrieval RECALL only (no precision/F1 computed); applies to arms A/B/C',
       'keyword-substring-coverage':
         'keyword substring hits / task.keywords.length against a FIXED prose blob (arm D) — a text-coverage metric, NOT id-based, not comparable arm-for-arm with the invariant-id-recall metric',
       unscorableRule:
         'a task with an empty groundTruthInvariantIds set (no frozen invariant statement matched its keywords) is scorable:false and excluded from every aggregate; its raw per-arm scores are retained for diagnostics only',
+      actuallyGroundedInvariantIds:
+        'always null in this harness — no model/runtime execution or evidence-of-use extraction step exists anywhere in this codebase for EXP-P1; score is computed from selectedInvariantIds directly, never from a demonstrated-use set (2026-09-07 instrument-validation audit)',
     },
     taskResults,
   });
