@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-07",
+  "resolutionId": "RES-2026-09-07-DIDQUBE-PHASE-4-REGISTRY-HORIZEN-CONSUMER-MIGRATION-001",
+  "capability": "agent-external-presence-registry-horizen",
+  "milestone": "DiDQube Phase 4 item 7 (execution plan §Phase 4, lowest urgency, 'do last; nothing else in the plan depends on it') -- Registry/Horizen becomes the fifth and final Phase 4 consumer, closing the sub-item sequence Phase 4 laid out (DVN, item 6, remains explicitly excluded pending its own standalone approval).",
+  "problem": "Nothing in this codebase connected the iQube Registry asset (registry_assets, via services/registry/persistence.ts::getAsset) or Horizen/ERC-8004 registration state (services/horizen/agentRegistrationBinding.ts::resolveAgentRegistrationState) back to the canonical DiDQube resolver at all -- both are real, already-correct, independently-read facts (already composed correctly by Factor's own readiness projection), but nothing ever asked the ordering question the execution plan's own testing matrix names for this item: 'external identifiers cannot redefine constitutional identity.' Without an explicit seam enforcing it, a future caller could plausibly have treated a Horizen tokenId or Registry asset id as if it were itself sufficient to establish an agent's identity -- exactly the anti-pattern DiDQube Phase 1-2 was built to prevent.",
+  "observedFailure": [
+    "Code inspection: resolveAgentRegistrationState and getAsset are both real, correct, already-in-production functions with no relationship to resolveDiDQube or the Phase 1 supertype tables whatsoever prior to this change -- confirmed via grep, zero references either direction."
+  ],
+  "rootCauses": [
+    "Horizen/ERC-8004 registration and the iQube Registry predate the DiDQube resolver by a wide margin and were never revisited once it shipped -- the same root cause as every other Phase 4 item, but with genuinely nothing yet built to connect the two, unlike Factor/Aegis/CTP/Standing which each had an existing identity walk to replace or reconcile."
+  ],
+  "resolution": [
+    "New services/horizen/agentDiDQubeExternalPresence.ts::resolveAgentExternalPresence -- a read-only composition function. Calls resolveDiDQube({kind:'agent_root_identity_id', ...}) FIRST; only when it reaches state='resolved' does it additionally read Horizen registration state and Registry asset existence, returning both alongside the DiDQube's own didqubeId/publicCommitment. An unresolved/conflicted/ambiguous DiDQube short-circuits BEFORE either external read runs -- external presence is structurally never checked in the absence of an already-established constitutional identity, which is the concrete, executable form of 'external identifiers cannot redefine constitutional identity.'",
+    "Composes the EXISTING resolveAgentRegistrationState and getAsset functions verbatim -- no re-derivation of Horizen/Registry state, no new table, no new column, no write of any kind. Purely a projection.",
+    "5 new tests in tests/agent-didqube-external-presence.test.ts: an unresolved DiDQube short-circuits before either external read; a conflicted DiDQube does too, naming the conflict; a resolved DiDQube with real Horizen+Registry presence reports both; a resolved DiDQube with neither reports both absent honestly (never fabricated); a thrown Horizen read never aborts the call, resolving to an honest unresolved registration state instead of propagating."
+  ],
+  "rejectedApproaches": [
+    "Accepting a Horizen tokenId or ERC-8004 identifier as a NEW resolveDiDQube input kind that could itself resolve a DiDQube -- rejected: the resolver's own existing 'erc8004' input kind is deliberately unresolvable today ('no ERC-8004 binding store exists yet... always resolves unqualified_reference until one exists') and this item's own testing-matrix line ('external identifiers cannot redefine constitutional identity') forbids exactly this shape of change. External presence is a fact ABOUT a DiDQube, checked only after the DiDQube resolves through its own existing anchor-based input kinds -- never a parallel path INTO one.",
+    "Wiring this new composition into Factor's own readiness projection (which already independently reads Horizen/Registry state correctly) -- not done, per the item's own 'lowest urgency... nothing else in the plan depends on it' framing; Factor's existing reads are correct as-is and this item's job was to build the DiDQube-aware seam, not to force an unrelated refactor of an already-working consumer."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-07-DIDQUBE-CONSUMER-RESOLVER-NOT-RAW-ANCHOR-001"
+  ],
+  "canaries": [
+    "tests/agent-didqube-external-presence.test.ts",
+    "tests/didqube-resolver.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/agent-didqube-external-presence.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-07_didqube-canonical-resolver-execution-plan.md",
+    "services/horizen/agentDiDQubeExternalPresence.ts"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "unresolvedRisks": [
+    "This closes Phase 4's numbered sequence except item 6 (DVN receipt commitment fields), which remains explicitly excluded pending its own required standalone approval per the DVN Pipeline Protection PARAMOUNT rule -- not implemented here, not touched, not scoped by this resolution.",
+    "resolveAgentExternalPresence is a new, standalone capability not yet wired into any live surface (no route or UI consumes it) -- it exists to make the DiDQube-vs-external-identifier ordering enforceable the moment a real caller needs it, matching the item's own 'lowest urgency' framing; a future caller must still be checked to confirm it actually calls this seam rather than reading Horizen/Registry state directly and re-introducing the same gap this resolution closes."
+  ]
+}
