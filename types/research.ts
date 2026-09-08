@@ -721,7 +721,15 @@ export function isLegalExperimentTransition(
  * EXPERIMENT_LIFECYCLE (composes with it — see PROTOCOL_FREEZE_ARTIFACT_KINDS
  * and deriveProtocolRatified in services/research/lifecycle.ts) so the two
  * never collide on a status string. */
-export const ARTIFACT_LIFECYCLE = ['draft', 'validated', 'frozen', 'executed', 'archived'] as const;
+/** `'executing'` (2026-09-08 execution-apparatus incident): a durable
+ *  execution-run record that has been CREATED but whose task/arm results are
+ *  not all persisted yet — the checkpointed, resumable execution state
+ *  `services/research/expP1ExecutionRehearsal.ts`'s start/step split writes
+ *  between the run's creation and its completion. Distinct from `'executed'`
+ *  (every required task/arm result present, contentHash computed, completion
+ *  receipt written) so a reader can always tell "still in progress" from
+ *  "done" without inspecting `taskResults.length` against the task set. */
+export const ARTIFACT_LIFECYCLE = ['draft', 'validated', 'frozen', 'executing', 'executed', 'archived'] as const;
 export type ArtifactLifecycleState = (typeof ARTIFACT_LIFECYCLE)[number];
 
 /** WHEN in the experiment's life an artifact is expected to exist. Informational
@@ -1158,7 +1166,25 @@ export interface ExecutionRunArtifact extends FrozenArtifact {
    *  hash pre-image, and the definitive answer to "what does score mean"
    *  without requiring a reader to go read source code. */
   scoringConfiguration: Record<string, unknown>;
+  /** GROWS over the run's lifetime when `lifecycle === 'executing'` — only
+   *  the task ids actually persisted so far. Complete, and never mutated
+   *  again, once `lifecycle === 'executed'`. */
   taskResults: RehearsalTaskResult[];
+  /** 2026-09-08 execution-apparatus incident: the FULL ordered list of task
+   *  ids this run must eventually cover, recorded at `startExecutionRun` time
+   *  — before any task/arm executes. `null` for every run the OLD one-shot
+   *  `recordExecutionRun` path writes (the retrieval-only harness, and the
+   *  pre-incident synchronous execution harness) — those runs are always
+   *  complete the instant they exist, so there is no "pending" set to track.
+   *  A non-null value is what lets `stepExpP1ExecutionRehearsal` compute
+   *  "which tasks are still pending" by diffing this list against
+   *  `taskResults`, and is the mechanism that makes resume idempotent: a
+   *  task id already present in `taskResults` is NEVER re-executed. */
+  expectedTaskIds: string[] | null;
+  /** Timestamp of the most recent checkpoint write. `null` until the first
+   *  checkpoint; equals `frozenAt`-time-of-completion once `lifecycle ===
+   *  'executed'`. Purely observational — never read to decide correctness. */
+  lastCheckpointedAt: string | null;
 }
 
 /** One arm's aggregate, computed ONLY over `scorable` tasks — see

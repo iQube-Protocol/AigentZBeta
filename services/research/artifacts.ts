@@ -662,6 +662,36 @@ export async function deriveProtocolRatified(experimentId: string): Promise<{
  * kind (`inv.engineering.036`/`037`: an isolated concern gets its own seam,
  * not a bolt-on to a shared one).
  */
+
+/** The ONE reproducibility-hash formula for an execution-run's CONFIGURATION
+ *  (never its taskResults — see `recordExecutionRun`'s own comment for why).
+ *  Shared by `recordExecutionRun` (one-shot, retrieval-only harness) and
+ *  `startExecutionRun` (checkpointed execution harness, 2026-09-08) so the
+ *  formula is never hand-duplicated (`inv.engineering.036`/`037`). Every
+ *  field here is known before any task/arm executes — the hash never needs
+ *  to change between a run's start and its completion. */
+function executionRunContentHash(input: {
+  frozenCrystalContentHash: string | null;
+  taskSetId: string;
+  taskSetProvenance: TaskSetProvenance;
+  armIds: RehearsalArmId[];
+  armConfiguration: Record<string, unknown>;
+  executionConfiguration?: Record<string, unknown> | null;
+  scoringConfiguration: Record<string, unknown>;
+  providerModel: string;
+}): string {
+  return commit({
+    frozenCrystalContentHash: input.frozenCrystalContentHash,
+    taskSetId: input.taskSetId,
+    taskSetProvenance: input.taskSetProvenance,
+    armIds: input.armIds,
+    armConfiguration: input.armConfiguration,
+    executionConfiguration: input.executionConfiguration ?? null,
+    scoringConfiguration: input.scoringConfiguration,
+    providerModel: input.providerModel,
+  });
+}
+
 export async function recordExecutionRun(input: {
   personaId: string;
   experimentId: string;
@@ -708,16 +738,7 @@ export async function recordExecutionRun(input: {
   // rather than let a reader check the run was reproducible under the same
   // inputs). `commitmentHash` stays `null` — reserved for a real confirmatory
   // protocol commitment, which no `internal-rehearsal` run ever has.
-  const contentHash = commit({
-    frozenCrystalContentHash: input.frozenCrystalContentHash,
-    taskSetId: input.taskSetId,
-    taskSetProvenance: input.taskSetProvenance,
-    armIds: input.armIds,
-    armConfiguration: input.armConfiguration,
-    executionConfiguration: input.executionConfiguration ?? null,
-    scoringConfiguration: input.scoringConfiguration,
-    providerModel: input.providerModel,
-  });
+  const contentHash = executionRunContentHash(input);
   const artifact: ExecutionRunArtifact = {
     id,
     kind: 'execution-run',
@@ -741,6 +762,8 @@ export async function recordExecutionRun(input: {
     armConfiguration: input.armConfiguration,
     executionConfiguration: input.executionConfiguration ?? null,
     scoringConfiguration: input.scoringConfiguration,
+    expectedTaskIds: null,
+    lastCheckpointedAt: null,
     taskResults: input.taskResults,
   };
 
@@ -766,6 +789,203 @@ export async function recordExecutionRun(input: {
   });
   if (!persisted.ok) return { ok: false, error: persisted.error };
   return { ok: true, receiptId, artifact: { ...artifact, receiptId: receiptId ?? null } };
+}
+
+/**
+ * Create a DURABLE, checkpointable execution-run record — `lifecycle:
+ * 'executing'`, `taskResults: []` — BEFORE any task/arm executes.
+ *
+ * ── WHY THIS EXISTS (2026-09-08 execution-apparatus incident) ──────────────
+ *
+ * `services/experiments/llm.ts`'s own header already documents the
+ * constraint this incident rediscovered: "The hosting gateway kills SSR
+ * requests at ~30s and answers with an EMPTY body" — a real, ALREADY-KNOWN
+ * ceiling on any synchronous request/response, independent of whatever
+ * `maxDuration` a Next.js route config claims. `recordExecutionRun`'s
+ * one-shot design (compute everything, call the model 64 times, THEN write
+ * one row) held an HTTP response open for however long that took — when it
+ * exceeded ~30s, the gateway returned a 504 to the CLIENT while the
+ * serverless function kept running to completion server-side, producing a
+ * completed-but-unobserved run once, and a receipt-written-but-never-
+ * persisted PARTIAL state the next time (the two attempts on 2026-09-08:
+ * `.../2026-09-08T03:09:58.568Z` fully persisted; `.../2026-09-08T03:12:56.143Z`
+ * has a receipt with no matching `research_objects` row).
+ *
+ * `startExecutionRun` + `checkpointExecutionRun` split what
+ * `recordExecutionRun` did in one shot into: create the durable identity
+ * FIRST (fast — no model calls), then append completed task/arm results in
+ * BOUNDED batches across MULTIPLE requests, each comfortably under the ~30s
+ * ceiling. No single HTTP request ever needs to survive for the whole run.
+ */
+export async function startExecutionRun(input: {
+  personaId: string;
+  experimentId: string;
+  runExecutionDesignation: RunExecutionDesignation;
+  frozenCrystalArtifactId: string;
+  frozenCrystalContentHash: string | null;
+  taskSetId: string;
+  taskSetProvenance: TaskSetProvenance;
+  armIds: RehearsalArmId[];
+  providerModel: string;
+  confirmatoryEligible: boolean;
+  armDProvenance: string;
+  armConfiguration: Record<string, unknown>;
+  executionConfiguration: Record<string, unknown> | null;
+  scoringConfiguration: Record<string, unknown>;
+  /** The FULL ordered list of task ids this run must eventually cover —
+   *  known before any execution starts (the task set itself never changes
+   *  mid-run). Never empty. */
+  expectedTaskIds: string[];
+}): Promise<{ ok: boolean; error?: string; runId?: string; artifact?: ExecutionRunArtifact }> {
+  if (input.runExecutionDesignation === 'internal-rehearsal' && input.confirmatoryEligible) {
+    return {
+      ok: false,
+      error: `an 'internal-rehearsal' execution-run may never be confirmatoryEligible — two distinct governed acts (rehearsal vs. confirmatory execution) may not be collapsed into one`,
+    };
+  }
+  if (input.armIds.length === 0) {
+    return { ok: false, error: 'armIds must name at least one arm this run actually exercises' };
+  }
+  if (input.expectedTaskIds.length === 0) {
+    return { ok: false, error: 'expectedTaskIds must name at least one task this run must cover' };
+  }
+
+  const frozenAt = new Date().toISOString();
+  const id = `${input.experimentId}/execution-run/${input.runExecutionDesignation}/${frozenAt}`;
+  // Every field this hash covers is known NOW, before any task executes —
+  // the hash never needs to change between start and completion.
+  const contentHash = executionRunContentHash(input);
+  const artifact: ExecutionRunArtifact = {
+    id,
+    kind: 'execution-run',
+    phase: 'execution',
+    experimentId: input.experimentId,
+    lifecycle: 'executing',
+    contentHash,
+    commitmentHash: null,
+    frozenAt,
+    signedBy: [],
+    receiptId: null,
+    runExecutionDesignation: input.runExecutionDesignation,
+    frozenCrystalArtifactId: input.frozenCrystalArtifactId,
+    frozenCrystalContentHash: input.frozenCrystalContentHash,
+    taskSetId: input.taskSetId,
+    taskSetProvenance: input.taskSetProvenance,
+    armIds: input.armIds,
+    providerModel: input.providerModel,
+    confirmatoryEligible: input.confirmatoryEligible,
+    armDProvenance: input.armDProvenance,
+    armConfiguration: input.armConfiguration,
+    executionConfiguration: input.executionConfiguration,
+    scoringConfiguration: input.scoringConfiguration,
+    expectedTaskIds: input.expectedTaskIds,
+    lastCheckpointedAt: null,
+    taskResults: [],
+  };
+
+  // Deliberately NO receipt written here — a receipt is a completion event
+  // (CLAUDE.md's DVN-pipeline discipline: this codebase never invents a new
+  // receipt semantic without operator approval). Only the completion path in
+  // `checkpointExecutionRun` writes one, exactly once, per run — matching
+  // `recordExecutionRun`'s existing one-receipt-per-run contract.
+  const persisted = await upsertResearchObject({
+    objectKind: 'artifact',
+    objectId: id,
+    payload: artifact as unknown as Record<string, unknown>,
+    lifecycleState: 'executing',
+    receiptId: null,
+  });
+  if (!persisted.ok) return { ok: false, error: persisted.error };
+  return { ok: true, runId: id, artifact };
+}
+
+/**
+ * Append newly-completed task results to a durable, `'executing'` execution
+ * run — idempotent (a task id already present is never duplicated or
+ * re-scored) and safe to call repeatedly, including with an EMPTY
+ * `newTaskResults` (used to check/advance completion without doing new
+ * work). Once every `expectedTaskIds` entry is present, this call — and only
+ * this call — writes the ONE completion receipt and flips `lifecycle` to
+ * `'executed'`. Calling this again on an already-`'executed'` run is a
+ * no-op that returns the existing artifact unchanged — never a duplicate
+ * receipt, never a second finalization.
+ */
+export async function checkpointExecutionRun(input: {
+  personaId: string;
+  runId: string;
+  newTaskResults: RehearsalTaskResult[];
+}): Promise<{ ok: boolean; error?: string; completed: boolean; artifact?: ExecutionRunArtifact }> {
+  const existing = await getExecutionRun(input.runId);
+  if (!existing) return { ok: false, error: `no execution-run '${input.runId}' found`, completed: false };
+
+  if (existing.lifecycle === 'executed') {
+    // Idempotent — a run that already finalized is NEVER re-finalized or
+    // re-receipted, no matter how many more times this is called.
+    return { ok: true, completed: true, artifact: existing };
+  }
+  if (existing.lifecycle !== 'executing') {
+    return {
+      ok: false,
+      error: `execution-run '${input.runId}' is not in an 'executing' state (lifecycle='${existing.lifecycle}') — refusing to checkpoint`,
+      completed: false,
+    };
+  }
+
+  const existingIds = new Set(existing.taskResults.map((t) => t.taskId));
+  const merged = [...existing.taskResults];
+  for (const tr of input.newTaskResults) {
+    if (existingIds.has(tr.taskId)) continue; // never duplicate an already-persisted task
+    merged.push(tr);
+    existingIds.add(tr.taskId);
+  }
+
+  const expected = existing.expectedTaskIds ?? [];
+  const allDone = expected.length > 0 && expected.every((id) => existingIds.has(id));
+  const checkpointedAt = new Date().toISOString();
+
+  if (!allDone) {
+    const updated: ExecutionRunArtifact = { ...existing, taskResults: merged, lastCheckpointedAt: checkpointedAt };
+    const persisted = await upsertResearchObject({
+      objectKind: 'artifact',
+      objectId: input.runId,
+      payload: updated as unknown as Record<string, unknown>,
+      lifecycleState: 'executing',
+      receiptId: existing.receiptId ?? null,
+    });
+    if (!persisted.ok) return { ok: false, error: persisted.error, completed: false };
+    return { ok: true, completed: false, artifact: updated };
+  }
+
+  // Finalize — the ONE receipt this run will ever get, written exactly once.
+  const { ok, receiptId } = await writeLifecycleReceipt({
+    personaId: input.personaId,
+    summary:
+      `${existing.experimentId} execution-run '${input.runId}' recorded — ${existing.runExecutionDesignation}` +
+      (existing.runExecutionDesignation === 'internal-rehearsal'
+        ? ' [INTERNAL / NON-CONFIRMATORY / NOT VALID SCIENTIFIC EVIDENCE]'
+        : '') +
+      ` against frozen substrate '${existing.frozenCrystalArtifactId}' — ${merged.length} task(s), ` +
+      `arms ${existing.armIds.join(',')}, taskSetProvenance '${existing.taskSetProvenance}'.`,
+    invariantSeedIds: [],
+  });
+  if (!ok) return { ok: false, error: 'completion receipt write failed', completed: false };
+
+  const finalArtifact: ExecutionRunArtifact = {
+    ...existing,
+    taskResults: merged,
+    lifecycle: 'executed',
+    lastCheckpointedAt: checkpointedAt,
+    receiptId: receiptId ?? null,
+  };
+  const persisted = await upsertResearchObject({
+    objectKind: 'artifact',
+    objectId: input.runId,
+    payload: finalArtifact as unknown as Record<string, unknown>,
+    lifecycleState: 'executed',
+    receiptId,
+  });
+  if (!persisted.ok) return { ok: false, error: persisted.error, completed: false };
+  return { ok: true, completed: true, artifact: finalArtifact };
 }
 
 /** All `execution-run` artifacts for an experiment, newest first — the ONE

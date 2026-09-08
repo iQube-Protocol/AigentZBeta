@@ -270,6 +270,12 @@ export function ExpP1ExecutionStatus({
   // the next copy attempt (whichever comes first).
   const [copiedRunId, setCopiedRunId] = useState<string | null>(null);
   const [copyErr, setCopyErr] = useState<string | null>(null);
+  // Progress while `runExecutionRehearsal` is stepping a start/step run
+  // (2026-09-08 durability fix) — `null` when no execution rehearsal is
+  // currently in flight. Shown instead of a single "busy" spinner so a long
+  // multi-batch run gives the operator a live done/total count rather than
+  // looking hung for however long the full run takes.
+  const [execProgress, setExecProgress] = useState<{ doneCount: number; totalCount: number } | null>(null);
 
   const load = useCallback(async () => {
     setPhase((prev) => (prev.kind === "ready" ? prev : { kind: "loading" }));
@@ -338,40 +344,84 @@ export function ExpP1ExecutionStatus({
     }
   }, [experimentId, load, personaHintOpt]);
 
-  /** The genuine per-arm EXECUTION rehearsal (2026-09-07) — a REAL pinned
-   *  model call per arm/task against `/api/.../execution-rehearsal`, distinct
-   *  from `runRehearsal`'s retrieval-only `/api/.../rehearsal`. Reuses the
-   *  same status/detail state so the run appears in the identical "just
-   *  completed" + past-runs surfaces — never a parallel UI for what is,
-   *  structurally, still one `execution-run` artifact kind. Never
-   *  auto-triggered: only this handler, only a click. */
+  /** The genuine per-arm EXECUTION rehearsal (2026-09-07, start/step split
+   *  2026-09-08) — a REAL pinned model call per arm/task against
+   *  `/api/.../execution-rehearsal`, distinct from `runRehearsal`'s
+   *  retrieval-only `/api/.../rehearsal`. Reuses the same status/detail
+   *  state so the run appears in the identical "just completed" +
+   *  past-runs surfaces — never a parallel UI for what is, structurally,
+   *  still one `execution-run` artifact kind. Never auto-triggered: only
+   *  this handler, only a click.
+   *
+   *  Durability (2026-09-08 incident fix): rather than holding one HTTP
+   *  request open for the full run (which exceeded the hosting gateway's
+   *  ~30s SSR ceiling and returned a 504 while the Lambda kept running),
+   *  this now (1) POSTs `action: 'start'` — fast, creates the durable run
+   *  identity, no model calls — then (2) repeatedly POSTs `action: 'step'`
+   *  with that `runId`, each call bounded to one small batch of tasks, until
+   *  the server reports `status: 'executed'`. Every step is a fresh,
+   *  independent HTTP request well under any gateway ceiling; a dropped
+   *  connection on any one step loses no work — the next step (or a fresh
+   *  click of this same button, which is safe to call again since a prior
+   *  in-progress run is resumed rather than duplicated — see the server's
+   *  own idempotency guarantee) simply continues from the same run's
+   *  persisted progress. */
   const runExecutionRehearsal = useCallback(async () => {
     setBusy(true);
     setRunErr(null);
     setLastRunNote(null);
+    setExecProgress(null);
     try {
-      const res = await personaFetch(`/api/research/crystal/${encodeURIComponent(experimentId)}/execution-rehearsal`, {
+      const startRes = await personaFetch(`/api/research/crystal/${encodeURIComponent(experimentId)}/execution-rehearsal`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ taskSetVersion: "v4" }),
+        body: JSON.stringify({ action: "start", taskSetVersion: "v4" }),
         ...personaHintOpt,
       });
-      const body = await res.json().catch(() => null);
-      if (!body?.requestSucceeded) {
-        throw new Error(body?.error || `the execution rehearsal was refused (HTTP ${res.status})`);
+      const startBody = await startRes.json().catch(() => null);
+      if (!startBody?.requestSucceeded) {
+        throw new Error(startBody?.error || `the execution rehearsal could not be started (HTTP ${startRes.status})`);
       }
-      const taskCount = Array.isArray(body.taskResults) ? body.taskResults.length : 0;
-      setLastRunNote(`Execution rehearsal complete — ${taskCount} task(s), real per-arm model calls, across arms A/B/C/D. ${body.note ?? ""}`.trim());
-      if (typeof body.runId === "string" && body.run) {
-        setRunDetails((prev) => ({ ...prev, [body.runId]: body.run }));
-        if (body.summary) setRunSummaries((prev) => ({ ...prev, [body.runId]: body.summary }));
-        setLastCompletedRunId(body.runId);
+      const runId: string = startBody.runId;
+      const totalTasks: number = startBody.totalTasks ?? 0;
+      setExecProgress({ doneCount: startBody.doneCount ?? 0, totalCount: totalTasks });
+
+      // Poll: each step advances one bounded batch and checkpoints. Loop
+      // until the server reports the run fully executed. No client-side
+      // cap on iterations — the server-side batch size bounds each request's
+      // duration, not the number of requests this loop is willing to make.
+      let status: string = "executing";
+      let lastStepBody: any = null;
+      while (status !== "executed") {
+        const stepRes = await personaFetch(`/api/research/crystal/${encodeURIComponent(experimentId)}/execution-rehearsal`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "step", runId, taskSetVersion: "v4" }),
+          ...personaHintOpt,
+        });
+        const stepBody = await stepRes.json().catch(() => null);
+        if (!stepBody?.requestSucceeded) {
+          throw new Error(stepBody?.error || `an execution-rehearsal step was refused (HTTP ${stepRes.status})`);
+        }
+        lastStepBody = stepBody;
+        status = stepBody.status;
+        setExecProgress({ doneCount: stepBody.doneCount ?? 0, totalCount: stepBody.totalCount ?? totalTasks });
+      }
+
+      const body = lastStepBody;
+      const taskCount = Array.isArray(body?.run?.taskResults) ? body.run.taskResults.length : (body?.doneCount ?? 0);
+      setLastRunNote(`Execution rehearsal complete — ${taskCount} task(s), real per-arm model calls, across arms A/B/C/D. ${body?.note ?? ""}`.trim());
+      if (body?.run) {
+        setRunDetails((prev) => ({ ...prev, [runId]: body.run }));
+        if (body.summary) setRunSummaries((prev) => ({ ...prev, [runId]: body.summary }));
+        setLastCompletedRunId(runId);
       }
       await load();
     } catch (e) {
       setRunErr(e instanceof Error ? e.message : "the execution rehearsal was refused");
     } finally {
       setBusy(false);
+      setExecProgress(null);
     }
   }, [experimentId, load, personaHintOpt]);
 
@@ -522,11 +572,12 @@ export function ExpP1ExecutionStatus({
               <button
                 onClick={() => void runExecutionRehearsal()}
                 disabled={busy}
-                title="INTERNAL / NON-CONFIRMATORY — real per-arm model execution (A/B/C/D) with structured-citation evidence-of-use, against an unseen 16-task set. Never auto-run."
+                title="INTERNAL / NON-CONFIRMATORY — real per-arm model execution (A/B/C/D) with structured-citation evidence-of-use, against an unseen 16-task set. Executes in small checkpointed batches (2026-09-08 durability fix) — safe to leave the page and come back; a click while one is already running resumes it rather than starting a duplicate. Never auto-run."
                 className="flex items-center gap-1 rounded border border-amber-800 bg-amber-950/30 px-2.5 py-1 text-amber-200 disabled:opacity-50"
               >
                 {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />} Run EXP-P1
                 execution rehearsal — unseen tasks
+                {execProgress && ` (${execProgress.doneCount}/${execProgress.totalCount})`}
               </button>
             </div>
             {data.pastRehearsalRuns.length > 0 && (

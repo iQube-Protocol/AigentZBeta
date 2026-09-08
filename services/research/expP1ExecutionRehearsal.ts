@@ -121,7 +121,14 @@
 import { callChatWithUsage, providerAvailable, type ExperimentProvider } from '@/services/experiments/llm';
 import { selectTaskScopedInvariants, TASK_SCOPED_SELECTOR_VERSION } from '@/services/invariants/taskScopedSelection';
 import { crystalDomainForExperiment } from '@/services/research/crystalDomains';
-import { latestFrozenCrystalArtifact, recordExecutionRun } from '@/services/research/artifacts';
+import {
+  latestFrozenCrystalArtifact,
+  recordExecutionRun,
+  startExecutionRun,
+  checkpointExecutionRun,
+  getExecutionRun,
+  listExecutionRuns,
+} from '@/services/research/artifacts';
 import {
   REHEARSAL_ARM_LABELS,
   rehearsalEligibility,
@@ -425,44 +432,40 @@ export interface RunExecutionRehearsalResult {
   run?: ExecutionRunArtifact;
 }
 
-/**
- * Run the execution rehearsal — real per-arm model calls against the frozen
- * substrate, citation-based evidence-of-use extraction, persisted as
- * `runExecutionDesignation: 'internal-rehearsal'`, `confirmatoryEligible:
- * false`, unconditionally. Never mutates the frozen crystal artifact.
- */
-export async function runExpP1ExecutionRehearsal(input: {
-  personaId: string;
-  experimentId: string;
-  taskSet?: ProvisionalTaskSet;
-}): Promise<RunExecutionRehearsalResult> {
-  const versionError = assertFrozenSelectorVersion();
-  if (versionError) return { ok: false, error: versionError };
+/** Per-run STATIC context — everything deterministic from the frozen crystal
+ *  and pinned config, none of it dependent on which tasks have executed yet.
+ *  Computed once by `startExpP1ExecutionRehearsal` and RE-derived (cheaply,
+ *  no model calls, the crystal is frozen and immutable) by every
+ *  `stepExpP1ExecutionRehearsal` call — so no extra fields need to be
+ *  persisted on the run record just to survive between requests. */
+interface StaticExecutionContext {
+  eligibilityFrozenCrystalArtifactId: string;
+  eligibilityFrozenCrystalContentHash: string | null;
+  members: HashCoveredMember[];
+  memberIds: Set<string>;
+  domain: string | undefined;
+  armCAvailableIds: string[];
+  armCSelectedIds: string[];
+  armCOfferedItems: { id: string; statement: string; functionalRole: string | null }[];
+  armCContextBlock: string;
+  armDContextBlock: string;
+  executionConfiguration: Record<string, unknown>;
+}
 
-  const eligibility = await rehearsalEligibility(input.experimentId);
+async function buildStaticExecutionContext(
+  experimentId: string,
+): Promise<{ ok: true; context: StaticExecutionContext } | { ok: false; error: string }> {
+  const eligibility = await rehearsalEligibility(experimentId);
   if (!eligibility.eligible || !eligibility.frozenCrystalArtifactId) {
     return { ok: false, error: eligibility.reason ?? 'internal rehearsal is not eligible right now' };
   }
-
-  const frozen = await latestFrozenCrystalArtifact(input.experimentId);
+  const frozen = await latestFrozenCrystalArtifact(experimentId);
   const members: HashCoveredMember[] = frozen?.memberSnapshot ?? [];
   if (members.length === 0) {
     return { ok: false, error: `'${eligibility.frozenCrystalArtifactId}' has no persisted memberSnapshot` };
   }
   const memberIds = new Set(members.map((m) => m.id));
-
-  const taskSet = input.taskSet ?? UNSEEN_EXECUTION_REHEARSAL_TASK_SET;
-  if (taskSet.provenance === 'external-held-out') {
-    return {
-      ok: false,
-      error: `an internal rehearsal may never load an 'external-held-out' task set — that provenance describes materials this codebase cannot construct`,
-    };
-  }
-  if (taskSet.tasks.length === 0) {
-    return { ok: false, error: `task set '${taskSet.id}' has no tasks` };
-  }
-
-  const domain = crystalDomainForExperiment(input.experimentId)?.domain;
+  const domain = crystalDomainForExperiment(experimentId)?.domain;
 
   const armCAvailableIds = members.map((m) => m.id);
   const armCSlice = buildFixedArmCSlice(members);
@@ -472,104 +475,6 @@ export async function runExpP1ExecutionRehearsal(input: {
 
   const armDProse = buildProvisionalArmDProse(members);
   const armDContextBlock = `EXPERT BACKGROUND (continuous prose, provisional, no citation markers):\n${armDProse}`;
-
-  const armBTaskDiagnostics: { taskId: string; availableSize: number; selectedSize: number; usedRelevanceFallback: boolean }[] = [];
-  const citationDiagnostics: { taskId: string; armId: string; fabricatedCitationCount: number }[] = [];
-
-  const taskResults: RehearsalTaskResult[] = await Promise.all(
-    taskSet.tasks.map(async (task) => {
-      const groundTruthInvariantIds = members
-        .filter((m) => task.keywords.some((k) => m.statement.toLowerCase().includes(k.toLowerCase())))
-        .map((m) => m.id);
-      const scorable = groundTruthInvariantIds.length > 0;
-      const unscorableReason = scorable
-        ? null
-        : `no frozen invariant statement in '${eligibility.frozenCrystalArtifactId}' matched this task's keyword set (${task.keywords.join(', ')}) — nothing to score recall against; raw per-arm scores below are diagnostics only`;
-
-      const armBSelection = await selectTaskScopedInvariants({
-        intentText: task.prompt,
-        domains: domain ? [domain] : undefined,
-        restrictToIds: [...memberIds],
-      });
-      armBTaskDiagnostics.push({
-        taskId: task.id,
-        availableSize: armBSelection.availableIds.length,
-        selectedSize: armBSelection.selectedIds.length,
-        usedRelevanceFallback: armBSelection.usedRelevanceFallback,
-      });
-      const armBOfferedItems = armBSelection.items.map((it) => ({ id: it.id, statement: it.statement, functionalRole: it.functionalRole }));
-      const armBContextBlock = renderInvariantBlock(armBOfferedItems);
-
-      const [armA, armB, armC, armD] = await Promise.all([
-        executeArm({
-          armId: 'A',
-          armLabel: REHEARSAL_ARM_LABELS.A,
-          task,
-          contextBlock: null,
-          offeredIds: [],
-          offeredItems: [],
-          armRepresentation: 'none',
-          availableInvariantIds: [],
-          selectedInvariantIds: [],
-          groundTruthInvariantIds,
-          measuresUse: true,
-        }),
-        executeArm({
-          armId: 'B',
-          armLabel: REHEARSAL_ARM_LABELS.B,
-          task,
-          contextBlock: armBContextBlock,
-          offeredIds: armBSelection.selectedIds,
-          offeredItems: armBOfferedItems,
-          armRepresentation: 'live-task-scoped-selection',
-          availableInvariantIds: armBSelection.availableIds,
-          selectedInvariantIds: armBSelection.selectedIds,
-          groundTruthInvariantIds,
-          measuresUse: true,
-        }),
-        executeArm({
-          armId: 'C',
-          armLabel: REHEARSAL_ARM_LABELS.C,
-          task,
-          contextBlock: armCContextBlock,
-          offeredIds: armCSelectedIds,
-          offeredItems: armCOfferedItems,
-          armRepresentation: 'fixed-flattened-slice',
-          availableInvariantIds: armCAvailableIds,
-          selectedInvariantIds: armCSelectedIds,
-          groundTruthInvariantIds,
-          measuresUse: true,
-        }),
-        executeArm({
-          armId: 'D',
-          armLabel: REHEARSAL_ARM_LABELS.D,
-          task,
-          contextBlock: armDContextBlock,
-          offeredIds: [],
-          offeredItems: [],
-          armRepresentation: 'expert-prose',
-          availableInvariantIds: [],
-          selectedInvariantIds: [],
-          groundTruthInvariantIds,
-          measuresUse: false,
-        }),
-      ]);
-
-      for (const arm of [armA, armB, armC, armD]) {
-        if (arm.generatedAnswerText) {
-          const { fabricatedCitationCount } = extractDemonstratedUse(
-            arm.generatedAnswerText,
-            arm.armId === 'B' ? armBOfferedItems : arm.armId === 'C' ? armCOfferedItems : [],
-          );
-          if (fabricatedCitationCount > 0) {
-            citationDiagnostics.push({ taskId: task.id, armId: arm.armId, fabricatedCitationCount });
-          }
-        }
-      }
-
-      return { taskId: task.id, taskKind: task.kind, groundTruthInvariantIds, scorable, unscorableReason, armResults: [armA, armB, armC, armD] };
-    }),
-  );
 
   const executionConfiguration = {
     provider: EXP_P1_EXECUTION_PROVIDER,
@@ -581,69 +486,375 @@ export async function runExpP1ExecutionRehearsal(input: {
     assertedSelectorVersionAtRunTime: TASK_SCOPED_SELECTOR_VERSION,
   };
 
-  const recorded = await recordExecutionRun({
+  return {
+    ok: true,
+    context: {
+      eligibilityFrozenCrystalArtifactId: eligibility.frozenCrystalArtifactId,
+      eligibilityFrozenCrystalContentHash: eligibility.frozenCrystalContentHash,
+      members,
+      memberIds,
+      domain,
+      armCAvailableIds,
+      armCSelectedIds,
+      armCOfferedItems,
+      armCContextBlock,
+      armDContextBlock,
+      executionConfiguration,
+    },
+  };
+}
+
+/** Execute ONE task's four arms concurrently (bounded — never more than 4
+ *  model calls at a time per task) and return its complete `RehearsalTaskResult`
+ *  plus any fabricated-citation diagnostics observed. This is the ONE unit of
+ *  work `stepExpP1ExecutionRehearsal` batches — a task is only ever persisted
+ *  once ALL FOUR of its arms have a result, so a resumed run can never end up
+ *  with a partially-armed task. */
+async function executeOneTask(
+  task: RehearsalTaskDefinition,
+  ctx: StaticExecutionContext,
+): Promise<{ taskResult: RehearsalTaskResult; citationDiagnostics: { taskId: string; armId: string; fabricatedCitationCount: number }[] }> {
+  const groundTruthInvariantIds = ctx.members
+    .filter((m) => task.keywords.some((k) => m.statement.toLowerCase().includes(k.toLowerCase())))
+    .map((m) => m.id);
+  const scorable = groundTruthInvariantIds.length > 0;
+  const unscorableReason = scorable
+    ? null
+    : `no frozen invariant statement in '${ctx.eligibilityFrozenCrystalArtifactId}' matched this task's keyword set (${task.keywords.join(', ')}) — nothing to score recall against; raw per-arm scores below are diagnostics only`;
+
+  const armBSelection = await selectTaskScopedInvariants({
+    intentText: task.prompt,
+    domains: ctx.domain ? [ctx.domain] : undefined,
+    restrictToIds: [...ctx.memberIds],
+  });
+  const armBOfferedItems = armBSelection.items.map((it) => ({ id: it.id, statement: it.statement, functionalRole: it.functionalRole }));
+  const armBContextBlock = renderInvariantBlock(armBOfferedItems);
+
+  const [armA, armB, armC, armD] = await Promise.all([
+    executeArm({
+      armId: 'A',
+      armLabel: REHEARSAL_ARM_LABELS.A,
+      task,
+      contextBlock: null,
+      offeredIds: [],
+      offeredItems: [],
+      armRepresentation: 'none',
+      availableInvariantIds: [],
+      selectedInvariantIds: [],
+      groundTruthInvariantIds,
+      measuresUse: true,
+    }),
+    executeArm({
+      armId: 'B',
+      armLabel: REHEARSAL_ARM_LABELS.B,
+      task,
+      contextBlock: armBContextBlock,
+      offeredIds: armBSelection.selectedIds,
+      offeredItems: armBOfferedItems,
+      armRepresentation: 'live-task-scoped-selection',
+      availableInvariantIds: armBSelection.availableIds,
+      selectedInvariantIds: armBSelection.selectedIds,
+      groundTruthInvariantIds,
+      measuresUse: true,
+    }),
+    executeArm({
+      armId: 'C',
+      armLabel: REHEARSAL_ARM_LABELS.C,
+      task,
+      contextBlock: ctx.armCContextBlock,
+      offeredIds: ctx.armCSelectedIds,
+      offeredItems: ctx.armCOfferedItems,
+      armRepresentation: 'fixed-flattened-slice',
+      availableInvariantIds: ctx.armCAvailableIds,
+      selectedInvariantIds: ctx.armCSelectedIds,
+      groundTruthInvariantIds,
+      measuresUse: true,
+    }),
+    executeArm({
+      armId: 'D',
+      armLabel: REHEARSAL_ARM_LABELS.D,
+      task,
+      contextBlock: ctx.armDContextBlock,
+      offeredIds: [],
+      offeredItems: [],
+      armRepresentation: 'expert-prose',
+      availableInvariantIds: [],
+      selectedInvariantIds: [],
+      groundTruthInvariantIds,
+      measuresUse: false,
+    }),
+  ]);
+
+  const citationDiagnostics: { taskId: string; armId: string; fabricatedCitationCount: number }[] = [];
+  for (const arm of [armA, armB, armC, armD]) {
+    if (arm.generatedAnswerText) {
+      const { fabricatedCitationCount } = extractDemonstratedUse(
+        arm.generatedAnswerText,
+        arm.armId === 'B' ? armBOfferedItems : arm.armId === 'C' ? ctx.armCOfferedItems : [],
+      );
+      if (fabricatedCitationCount > 0) {
+        citationDiagnostics.push({ taskId: task.id, armId: arm.armId, fabricatedCitationCount });
+      }
+    }
+  }
+
+  return {
+    taskResult: { taskId: task.id, taskKind: task.kind, groundTruthInvariantIds, scorable, unscorableReason, armResults: [armA, armB, armC, armD] },
+    citationDiagnostics,
+  };
+}
+
+function buildArmConfiguration(ctx: StaticExecutionContext): Record<string, unknown> {
+  return {
+    armA: { description: 'Cold — no grounding material by protocol definition' },
+    armB: {
+      domain: ctx.domain ?? null,
+      selectorVersion: FROZEN_ARM_B_SELECTOR_VERSION,
+      selectionProcedure:
+        'selectTaskScopedInvariants (services/invariants/taskScopedSelection.ts), FROZEN at ' +
+        FROZEN_ARM_B_SELECTOR_VERSION +
+        ' — per-task live selection, rendered via the SAME shared serializer Arm C uses (marker + type + ' +
+        'statement, never standing/confidence).',
+      // Per-task diagnostics (available/selected set sizes, relevance-fallback
+      // flags) are NOT aggregated here in the checkpointed execution model —
+      // they are inspectable per task from each task's own persisted Arm B
+      // result once the run completes, rather than accumulated redundantly
+      // across steps (2026-09-08 durability fix; a deliberate simplification,
+      // not an omission).
+    },
+    armC: {
+      sliceFraction: ctx.armCSelectedIds.length / Math.max(ctx.members.length, 1),
+      fixedSliceSize: ctx.armCSelectedIds.length,
+      frozenPopulationSize: ctx.members.length,
+    },
+    armD: { proseSampleSize: 5, provenance: 'provisional-irl-authored' },
+  };
+}
+
+const SCORING_CONFIGURATION: Record<string, unknown> = {
+  'demonstrated-use-recall':
+    'idRecallScore(actuallyGroundedInvariantIds, groundTruthInvariantIds) — the fraction of ground truth ' +
+    'the arm DEMONSTRABLY cited in its own generated answer (marker-verified against what it was actually ' +
+    'offered; a fabricated citation to something not offered is excluded and counted separately). Applies ' +
+    'to A/B/C.',
+  'keyword-substring-coverage':
+    'keyword substring hits / task.keywords.length against Arm D\'s GENERATED ANSWER text — a text-coverage ' +
+    'metric, NOT id-based, not comparable arm-for-arm with demonstrated-use-recall.',
+  answerKeywordCoverage:
+    'keyword substring coverage of each arm\'s OWN generated answer text against task.keywords — computed ' +
+    'IDENTICALLY for all four arms (unlike score), the one number meaningfully comparable arm-for-arm; still ' +
+    'mechanical, never a correctness judgment.',
+  unscorableRule:
+    'a task with an empty groundTruthInvariantIds set (no frozen invariant matched its keywords) is ' +
+    'scorable:false and excluded from every aggregate; its raw per-arm scores are retained for diagnostics only',
+  executionOutcomeRule:
+    'a per-arm call that did not complete (provider_unavailable/timed_out/empty_completion/error) scores 0 ' +
+    'but is VISIBLY flagged via executionOutcome — never silently indistinguishable from a real, low-scoring ' +
+    'completed answer.',
+  evidenceOfUseMethod:
+    'structured self-citation (bracket marker inline in the generated answer) + independent verification ' +
+    'that the cited marker corresponds to something the arm was ACTUALLY offered (never inferred from mere ' +
+    'context presence). This verifies citation VALIDITY, not deeper citation TRUTHFULNESS (no ablation study ' +
+    'is performed) — a documented limitation, not a silent assumption.',
+};
+
+function validateTaskSet(taskSet: ProvisionalTaskSet): string | null {
+  if (taskSet.provenance === 'external-held-out') {
+    return `an internal rehearsal may never load an 'external-held-out' task set — that provenance describes materials this codebase cannot construct`;
+  }
+  if (taskSet.tasks.length === 0) return `task set '${taskSet.id}' has no tasks`;
+  return null;
+}
+
+export interface StartExecutionRehearsalResult {
+  ok: boolean;
+  error?: string;
+  runId?: string;
+  taskSetId?: string;
+  totalTasks?: number;
+  /** True when an already-`'executing'` run for this exact task set was
+   *  found and reused instead of creating a new one — see the resume-in-
+   *  place note below. Absent/false for a genuinely new run. */
+  resumed?: boolean;
+  /** Tasks already checkpointed on a RESUMED run — always 0 for a new one.
+   *  Lets the caller show accurate progress immediately, before the first
+   *  step() response arrives. */
+  doneCount?: number;
+}
+
+/**
+ * PHASE 1 — create the durable run identity, OR resume one already in
+ * flight. Fast: reads the frozen crystal and asserts the selector-version
+ * freeze, but calls NO model — safe to complete well within any gateway's
+ * response envelope. Returns immediately with a `runId` the caller then
+ * advances via `stepExpP1ExecutionRehearsal`.
+ *
+ * Resume-in-place (2026-09-08): before creating anything, this checks for an
+ * existing `'executing'` run against the SAME task set. If the operator left
+ * the page mid-run (browser closed, tab navigated away, an earlier step
+ * errored out) and clicks the button again, this reuses that run's id rather
+ * than starting a second, independent run that would re-execute tasks the
+ * first run already completed. A run that has already reached `'executed'`
+ * is NOT resumable (there is nothing left to resume) — a further call
+ * genuinely starts a fresh run, which is the correct "run it again" behavior.
+ */
+export async function startExpP1ExecutionRehearsal(input: {
+  personaId: string;
+  experimentId: string;
+  taskSet?: ProvisionalTaskSet;
+}): Promise<StartExecutionRehearsalResult> {
+  const versionError = assertFrozenSelectorVersion();
+  if (versionError) return { ok: false, error: versionError };
+
+  const taskSet = input.taskSet ?? UNSEEN_EXECUTION_REHEARSAL_TASK_SET;
+  const taskSetError = validateTaskSet(taskSet);
+  if (taskSetError) return { ok: false, error: taskSetError };
+
+  const existingRuns = await listExecutionRuns(input.experimentId);
+  const inProgress = existingRuns.find(
+    (r) => r.runExecutionDesignation === 'internal-rehearsal' && r.lifecycle === 'executing' && r.taskSetId === taskSet.id,
+  );
+  if (inProgress) {
+    return {
+      ok: true,
+      runId: inProgress.id,
+      taskSetId: taskSet.id,
+      totalTasks: inProgress.expectedTaskIds?.length ?? taskSet.tasks.length,
+      resumed: true,
+      doneCount: inProgress.taskResults.length,
+    };
+  }
+
+  const built = await buildStaticExecutionContext(input.experimentId);
+  if (!built.ok) return { ok: false, error: built.error };
+  const ctx = built.context;
+
+  const started = await startExecutionRun({
     personaId: input.personaId,
     experimentId: input.experimentId,
     runExecutionDesignation: 'internal-rehearsal',
-    frozenCrystalArtifactId: eligibility.frozenCrystalArtifactId,
-    frozenCrystalContentHash: eligibility.frozenCrystalContentHash,
+    frozenCrystalArtifactId: ctx.eligibilityFrozenCrystalArtifactId,
+    frozenCrystalContentHash: ctx.eligibilityFrozenCrystalContentHash,
     taskSetId: taskSet.id,
     taskSetProvenance: taskSet.provenance,
     armIds: ['A', 'B', 'C', 'D'],
     providerModel: `${EXP_P1_EXECUTION_PROVIDER}:${EXP_P1_EXECUTION_MODEL}`,
     confirmatoryEligible: false,
     armDProvenance: 'provisional-irl-authored',
-    executionConfiguration,
-    armConfiguration: {
-      armA: { description: 'Cold — no grounding material by protocol definition' },
-      armB: {
-        domain: domain ?? null,
-        selectorVersion: FROZEN_ARM_B_SELECTOR_VERSION,
-        selectionProcedure:
-          'selectTaskScopedInvariants (services/invariants/taskScopedSelection.ts), FROZEN at ' +
-          FROZEN_ARM_B_SELECTOR_VERSION +
-          ' — per-task live selection, rendered via the SAME shared serializer Arm C uses (marker + type + ' +
-          'statement, never standing/confidence).',
-        perTask: armBTaskDiagnostics,
-        relevanceFallbackTaskCount: armBTaskDiagnostics.filter((d) => d.usedRelevanceFallback).length,
-      },
-      armC: {
-        sliceFraction: armCSelectedIds.length / Math.max(members.length, 1),
-        fixedSliceSize: armCSelectedIds.length,
-        frozenPopulationSize: members.length,
-      },
-      armD: { proseSampleSize: 5, provenance: 'provisional-irl-authored' },
-      citationDiagnostics,
-    },
-    scoringConfiguration: {
-      'demonstrated-use-recall':
-        'idRecallScore(actuallyGroundedInvariantIds, groundTruthInvariantIds) — the fraction of ground truth ' +
-        'the arm DEMONSTRABLY cited in its own generated answer (marker-verified against what it was actually ' +
-        'offered; a fabricated citation to something not offered is excluded and counted separately). Applies ' +
-        'to A/B/C.',
-      'keyword-substring-coverage':
-        'keyword substring hits / task.keywords.length against Arm D\'s GENERATED ANSWER text — a text-coverage ' +
-        'metric, NOT id-based, not comparable arm-for-arm with demonstrated-use-recall.',
-      answerKeywordCoverage:
-        'keyword substring coverage of each arm\'s OWN generated answer text against task.keywords — computed ' +
-        'IDENTICALLY for all four arms (unlike score), the one number meaningfully comparable arm-for-arm; still ' +
-        'mechanical, never a correctness judgment.',
-      unscorableRule:
-        'a task with an empty groundTruthInvariantIds set (no frozen invariant matched its keywords) is ' +
-        'scorable:false and excluded from every aggregate; its raw per-arm scores are retained for diagnostics only',
-      executionOutcomeRule:
-        'a per-arm call that did not complete (provider_unavailable/timed_out/empty_completion/error) scores 0 ' +
-        'but is VISIBLY flagged via executionOutcome — never silently indistinguishable from a real, low-scoring ' +
-        'completed answer.',
-      evidenceOfUseMethod:
-        'structured self-citation (bracket marker inline in the generated answer) + independent verification ' +
-        'that the cited marker corresponds to something the arm was ACTUALLY offered (never inferred from mere ' +
-        'context presence). This verifies citation VALIDITY, not deeper citation TRUTHFULNESS (no ablation study ' +
-        'is performed) — a documented limitation, not a silent assumption.',
-    },
-    taskResults,
+    executionConfiguration: ctx.executionConfiguration,
+    armConfiguration: buildArmConfiguration(ctx),
+    scoringConfiguration: SCORING_CONFIGURATION,
+    expectedTaskIds: taskSet.tasks.map((t) => t.id),
   });
-  if (!recorded.ok) return { ok: false, error: recorded.error };
+  if (!started.ok) return { ok: false, error: started.error };
+  return { ok: true, runId: started.runId, taskSetId: taskSet.id, totalTasks: taskSet.tasks.length };
+}
 
-  return { ok: true, receiptId: recorded.receiptId, runId: recorded.artifact?.id, taskResults, run: recorded.artifact };
+/** Bounded default — `batchSize` tasks × 4 arms concurrent model calls per
+ *  step (e.g. 3×4=12), comfortably under the ~30s gateway ceiling documented
+ *  in `services/experiments/llm.ts` — never the 16×4=64 unbounded fan-out
+ *  that caused the 2026-09-08 execution-apparatus incident. */
+export const DEFAULT_STEP_BATCH_SIZE = 3;
+
+export interface StepExecutionRehearsalResult {
+  ok: boolean;
+  error?: string;
+  status?: 'executing' | 'executed';
+  doneCount?: number;
+  totalCount?: number;
+  run?: ExecutionRunArtifact;
+}
+
+/**
+ * PHASE 2 — advance an existing run by executing up to `batchSize` PENDING
+ * tasks (never a task already present in the run's persisted `taskResults`
+ * — idempotent by construction) and checkpointing the result. Safe to call
+ * repeatedly (polling) until `status === 'executed'`; safe to call again
+ * after a client-side timeout/disconnect — nothing is ever re-executed or
+ * re-scored, and nothing is lost.
+ */
+export async function stepExpP1ExecutionRehearsal(input: {
+  personaId: string;
+  runId: string;
+  taskSet: ProvisionalTaskSet;
+  batchSize?: number;
+}): Promise<StepExecutionRehearsalResult> {
+  const existing = await getExecutionRun(input.runId);
+  if (!existing) return { ok: false, error: `no execution-run '${input.runId}' found` };
+  if (existing.lifecycle === 'executed') {
+    return { ok: true, status: 'executed', doneCount: existing.taskResults.length, totalCount: existing.expectedTaskIds?.length ?? existing.taskResults.length, run: existing };
+  }
+  if (existing.lifecycle !== 'executing') {
+    return { ok: false, error: `execution-run '${input.runId}' is in unexpected lifecycle '${existing.lifecycle}'` };
+  }
+
+  const doneIds = new Set(existing.taskResults.map((t) => t.taskId));
+  const pendingTasks = input.taskSet.tasks.filter((t) => !doneIds.has(t.id));
+  const totalCount = existing.expectedTaskIds?.length ?? input.taskSet.tasks.length;
+
+  if (pendingTasks.length === 0) {
+    // Nothing left to execute — finalize (idempotent no-op if already executed).
+    const checkpointed = await checkpointExecutionRun({ personaId: input.personaId, runId: input.runId, newTaskResults: [] });
+    if (!checkpointed.ok) return { ok: false, error: checkpointed.error };
+    return {
+      ok: true,
+      status: checkpointed.completed ? 'executed' : 'executing',
+      doneCount: checkpointed.artifact?.taskResults.length ?? 0,
+      totalCount,
+      run: checkpointed.artifact,
+    };
+  }
+
+  const built = await buildStaticExecutionContext(existing.experimentId);
+  if (!built.ok) return { ok: false, error: built.error };
+  const ctx = built.context;
+
+  const batchSize = input.batchSize ?? DEFAULT_STEP_BATCH_SIZE;
+  const batch = pendingTasks.slice(0, batchSize);
+  const executed = await Promise.all(batch.map((task) => executeOneTask(task, ctx)));
+  const newTaskResults = executed.map((e) => e.taskResult);
+
+  const checkpointed = await checkpointExecutionRun({ personaId: input.personaId, runId: input.runId, newTaskResults });
+  if (!checkpointed.ok) return { ok: false, error: checkpointed.error };
+  return {
+    ok: true,
+    status: checkpointed.completed ? 'executed' : 'executing',
+    doneCount: checkpointed.artifact?.taskResults.length ?? 0,
+    totalCount,
+    run: checkpointed.artifact,
+  };
+}
+
+/**
+ * TEST/LOCAL CONVENIENCE ONLY — starts a run and steps it to completion in
+ * one call, in a single batch covering every task at once. The PRODUCTION
+ * route NEVER calls this: it uses `startExpP1ExecutionRehearsal` then
+ * repeated, small-batch `stepExpP1ExecutionRehearsal` calls, exactly so no
+ * single HTTP request ever needs to survive for the whole run (see this
+ * module's header — the 2026-09-08 execution-apparatus incident this
+ * function's old one-shot design caused).
+ */
+export async function runExpP1ExecutionRehearsal(input: {
+  personaId: string;
+  experimentId: string;
+  taskSet?: ProvisionalTaskSet;
+}): Promise<RunExecutionRehearsalResult> {
+  const started = await startExpP1ExecutionRehearsal(input);
+  if (!started.ok || !started.runId) return { ok: false, error: started.error };
+
+  const taskSet = input.taskSet ?? UNSEEN_EXECUTION_REHEARSAL_TASK_SET;
+  let status: 'executing' | 'executed' = 'executing';
+  let run: ExecutionRunArtifact | undefined;
+  while (status === 'executing') {
+    const stepped = await stepExpP1ExecutionRehearsal({
+      personaId: input.personaId,
+      runId: started.runId,
+      taskSet,
+      batchSize: taskSet.tasks.length,
+    });
+    if (!stepped.ok || !stepped.status) return { ok: false, error: stepped.error };
+    status = stepped.status;
+    run = stepped.run;
+  }
+  return { ok: true, receiptId: run?.receiptId ?? null, runId: run?.id, taskResults: run?.taskResults, run };
 }
