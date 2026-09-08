@@ -87,6 +87,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveRegistrableAgent, type RegistrableAgentConfig } from '@/services/horizen/registrableAgents';
 import { findAgentRootIdentityBySlug } from '@/services/agents/sponsorPolityAgent';
+import { resolveDiDQube } from '@/services/identity/didQubeResolver';
 import { resolveAgentRegistrationState } from '@/services/horizen/agentRegistrationBinding';
 import { AgentPurposeWalletService } from '@/services/wallet/agentPurposeWalletService';
 import { getPassportApplicationStatus, getPassportRecordStatus } from '@/services/passport/passportStatusRead';
@@ -326,6 +327,126 @@ async function resolveAgentShellLeg(
       `"Create and establish an agent" to sponsor its genesis instead.`,
     source: 'services/horizen/registrableAgents.ts',
   });
+}
+
+/**
+ * DiDQube Phase 4 item 1 (2026-09-07, execution plan): a distinct, REQUIRED
+ * leg from `agentShell` itself — `agentShell` establishes the anchor
+ * (`agent_root_identity`); this leg establishes that the anchor is bound
+ * into its DiDQube constitutional container (Phase 1 supertype tables), via
+ * the canonical, READ-ONLY `resolveDiDQube` resolver — never a second,
+ * parallel identity walk. Classification: prepare-gating — a candidate whose
+ * container is not yet bound may still be explored via this read-only
+ * projection (every leg is always computed and reported, regardless of
+ * order), but the orchestrator's own strict first-outstanding-required
+ * sequencing refuses to progress PAST this leg into Aegis/Passport/wallet
+ * provisioning until it resolves.
+ *
+ * Scoped ONLY to the `agent_root_identity`-anchored path (the same
+ * `findAgentRootIdentityBySlug` lookup `agentShell`'s own 'missing RootDID'
+ * branch already performs) — a REGISTRABLE_AGENTS platform runtime agent
+ * (Aegis, MoneyPenny, Factor itself, etc.) is a separate identity model this
+ * leg does not yet cover; reported honestly as not-yet-in-scope (optional,
+ * never blocking) rather than guessed at.
+ */
+async function resolveDidqubeContainerLeg(
+  admin: SupabaseClient,
+  agent: RegistrableAgentConfig | null,
+  agentSlug: string,
+): Promise<ReadinessLeg> {
+  if (agent) {
+    return leg({
+      key: 'didqubeContainer',
+      label: 'DiDQube constitutional container',
+      state: 'established',
+      required: false,
+      mode: 'n/a',
+      reason:
+        `'${agentSlug}' is a REGISTRABLE_AGENTS platform runtime agent — DiDQube container binding ` +
+        `for this identity class is not yet in scope; reported as satisfied so it never blocks this path.`,
+      source: 'services/horizen/registrableAgents.ts',
+    });
+  }
+
+  const rootIdentity = await findAgentRootIdentityBySlug(admin, agentSlug);
+  if (!rootIdentity) {
+    return leg({
+      key: 'didqubeContainer',
+      label: 'DiDQube constitutional container',
+      state: 'missing',
+      mode: 'n/a',
+      reason: 'No agent RootDID exists yet to bind a DiDQube container to — resolve the agent shell first.',
+      source: 'services/identity/didQubeResolver.ts::resolveDiDQube',
+    });
+  }
+
+  try {
+    const resolution = await resolveDiDQube({ kind: 'agent_root_identity_id', agentRootIdentityId: rootIdentity.agentRootId });
+    if (resolution.state === 'resolved') {
+      return leg({
+        key: 'didqubeContainer',
+        label: 'DiDQube constitutional container',
+        state: 'established',
+        mode: 'live',
+        reason: `DiDQube ${resolution.primitive.didqubeId} resolved (public commitment ${resolution.primitive.publicCommitment.commitmentVersion}:${resolution.primitive.publicCommitment.value}).`,
+        source: 'services/identity/didQubeResolver.ts::resolveDiDQube',
+        evidenceRefs: [resolution.primitive.didqubeId],
+      });
+    }
+    if (resolution.state === 'conflicted') {
+      return leg({
+        key: 'didqubeContainer',
+        label: 'DiDQube constitutional container',
+        state: 'blocked',
+        mode: 'n/a',
+        reason: `DiDQube resolution reports a data conflict: ${resolution.detail} — this requires operator/data reconciliation, not automatic binding.`,
+        source: 'services/identity/didQubeResolver.ts::resolveDiDQube',
+      });
+    }
+    if (resolution.state === 'ambiguous') {
+      return leg({
+        key: 'didqubeContainer',
+        label: 'DiDQube constitutional container',
+        state: 'blocked',
+        mode: 'n/a',
+        reason: `DiDQube resolution reports ${resolution.candidateCount} ambiguous candidate bindings for this anchor — requires reconciliation, not automatic binding.`,
+        source: 'services/identity/didQubeResolver.ts::resolveDiDQube',
+      });
+    }
+    if (resolution.state === 'unsupported_subject_class') {
+      return leg({
+        key: 'didqubeContainer',
+        label: 'DiDQube constitutional container',
+        state: 'blocked',
+        mode: 'n/a',
+        reason: `DiDQube resolution reports an unsupported subject class (${resolution.subjectClass}) — this leg does not apply.`,
+        source: 'services/identity/didQubeResolver.ts::resolveDiDQube',
+      });
+    }
+    // 'unresolved' — the real, expected pre-binding state for an
+    // agent_root_identity row that predates this leg's own wiring, or that
+    // was minted through a path that hasn't yet called
+    // ensureAgentDiDQubeBinding. Not a defect — the orchestrator's own
+    // handler for this leg is exactly what resolves it.
+    return leg({
+      key: 'didqubeContainer',
+      label: 'DiDQube constitutional container',
+      state: 'missing',
+      mode: 'n/a',
+      reason: `DiDQube container not yet bound for this agent (resolver reason: ${resolution.reason}) — bind it to progress.`,
+      source: 'services/identity/didQubeResolver.ts::resolveDiDQube',
+      evidenceRefs: [rootIdentity.didUri],
+    });
+  } catch (e) {
+    return leg({
+      key: 'didqubeContainer',
+      label: 'DiDQube constitutional container',
+      state: 'unreadable',
+      mode: 'n/a',
+      reason: `DiDQube resolution read failed: ${e instanceof Error ? e.message : String(e)}`,
+      source: 'services/identity/didQubeResolver.ts::resolveDiDQube',
+    });
+  }
 }
 
 async function resolveWalletLegs(runtimeAgentId: string): Promise<[ReadinessLeg, ReadinessLeg]> {
@@ -1134,6 +1255,7 @@ export async function projectUseCaseZeroReadiness(input: UseCaseZeroReadinessInp
   const legs: ReadinessLeg[] = [
     await resolveOperatorContextLeg(input),
     await resolveAgentShellLeg(input.admin, agent, input.agentSlug, input.path, passportLeg.state === 'established'),
+    await resolveDidqubeContainerLeg(input.admin, agent, input.agentSlug),
     ...(runtimeAgentId
       ? await resolveWalletLegs(runtimeAgentId)
       : ([
@@ -1175,6 +1297,7 @@ export async function projectUseCaseZeroReadiness(input: UseCaseZeroReadinessInp
   const nextActionByKey: Record<string, { handlerId: string; label: string }> = {
     operatorContext: { handlerId: 'factor:explain', label: 'Sign in as the accountable operator persona' },
     agentShell: { handlerId: 'factor:case-service', label: 'Inspect or create the constitutional agent shell (Factor case)' },
+    didqubeContainer: { handlerId: 'factor:ensure-didqube-container', label: "Bind the agent's DiDQube constitutional container" },
     ownerWallet: { handlerId: 'factor:ucz-provision-wallets', label: 'Provision the owner/control wallet' },
     settlementWallet: { handlerId: 'factor:ucz-provision-wallets', label: 'Provision the settlement/x402 wallet' },
     passport: { handlerId: 'factor:ucz-navigate-journey', label: 'File or resume the Passport application' },
