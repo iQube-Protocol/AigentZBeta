@@ -1131,6 +1131,38 @@ needed for this item.
 **Conclusion:** no privacy fix was required. DCIR remains exactly as it is; this closure record is the
 deliverable for Phase 4 item 4.
 
+#### Item 7 — Registry/Horizen: external-presence records inside the agent DiDQube — IMPLEMENTED (2026-09-07)
+
+New `services/horizen/agentDiDQubeExternalPresence.ts::resolveAgentExternalPresence` composes the
+EXISTING `resolveAgentRegistrationState` (Horizen/ERC-8004) and `getAsset` (iQube Registry) reads —
+never re-deriving either — behind one ordering rule that is this item's own testing-matrix line made
+executable: **external identifiers cannot redefine constitutional identity.** `resolveDiDQube` is
+called FIRST; Horizen/Registry are read only once it reaches `state: 'resolved'` — an unresolved,
+conflicted, or ambiguous DiDQube short-circuits before either external read runs, so a Horizen tokenId
+or Registry asset id can never stand in for a constitutional anchor that was never itself established.
+5 new tests (`tests/agent-didqube-external-presence.test.ts`) prove the short-circuit on every
+non-resolved DiDQube state, that both external facts are reported honestly (present or absent, never
+fabricated) once the DiDQube resolves, and that a thrown Horizen read degrades to an honest unresolved
+state rather than aborting the call. Not yet wired into any live route/UI surface — per this item's own
+"lowest urgency... nothing else in the plan depends on it," the seam exists for the next real caller to
+use, rather than forcing an unrelated refactor of Factor's own already-correct Horizen/Registry reads.
+
+### Phase 4 — CLOSED (2026-09-07)
+
+Items 1 (Factor), 2 (Aegis), 3 (CTP), 5 (Standing dry-run reconciliation), and 7 (Registry/Horizen) are
+implemented and verified — full-suite regression after each held exactly at the established 17-failed-
+file/65-failed-test baseline, with zero new failures. Item 4 (DCIR) closed as boundary-aligned/non-
+consuming — a permanent correct posture, not a deferred integration (see above). Item 6 (DVN receipt
+commitment fields) remains explicitly OUT OF SCOPE, unchanged, pending its own required standalone
+operator approval per the DVN Pipeline Protection PARAMOUNT rule — nothing in this phase touched
+`services/dvn/activityReceiptDvnPipeline.ts`'s payload shape.
+
+`CI-2026-09-07-DIDQUBE-CONSUMER-RESOLVER-NOT-RAW-ANCHOR-001` reached `validated` (the agent ceiling)
+after its second occurrence and now carries 5 recorded occurrences across genuinely different consumer
+shapes — a readiness projection, an assessment table, a generic invocation runtime, a read-only
+diagnostic tool, and an external-presence composition — confirming the resolver-consumption pattern
+generalizes rather than being an artifact of the first migration.
+
 **Exit check per sub-item:** each subsystem independently reads from `resolveDiDQube` for the specific
 question it needs, with its own tests proving the relevant acceptance criteria (cross-agent isolation,
 no silent Standing transfer on wallet/token change, etc.).
