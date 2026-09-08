@@ -118,7 +118,16 @@ function buildResearchWorkspaceTab(idPrefix: string) {
       color: 'violet',
     },
     subTabs: [
-      ...RESEARCH_WORKSPACE_VIEWS.filter((view) => view.id !== 'locker' && view.id !== 'participants').map(
+      // `locker` INCLUDED (2026-09-08, IRL OS Workspace consolidation —
+      // "Locker remains the constitutional artifact/signing substrate
+      // underneath [Workspace]"). It was filtered out here previously only
+      // because Locker had its own separate Participation-group mount; that
+      // mount is now retired (see `irl-passport-locker`/`irl-os-passport-
+      // locker`, both `enabled: false` above) in favour of this single one.
+      // `participants` stays excluded — out of this pass's scope, and its
+      // roles (`research-steward`, `faculty-lead` only) make it an access-
+      // administration surface, not a Workspace operating view.
+      ...RESEARCH_WORKSPACE_VIEWS.filter((view) => view.id !== 'participants').map(
         (view, index) => ({
           id: `${idPrefix}-${workspaceSlugSuffix(view.slug)}`,
           label: view.label,
@@ -6302,12 +6311,22 @@ export const IRL_CARTRIDGE: CodexConfig = {
     // AgentiQ OS entrance in the same change — a dangling `?tab=` silently
     // lands the operator on the cartridge's default tab, which is the defect
     // this note exists to stop being reintroduced.
+    // Locker relocated to Workspace (2026-09-08, IRL OS Workspace
+    // consolidation — Locker is a first-class Workspace subTab now that
+    // `buildResearchWorkspaceTab` no longer filters the `locker` view out).
+    // Disabled here rather than deleted (same convention the containment
+    // audit's own Fix set uses) — the SAME `LockerTab` component, no fork.
+    // Kept disabled (not removed) on the internal `irl-cartridge` too,
+    // because it shares this same `buildResearchWorkspaceTab` builder with
+    // `irl-os-cartridge`: leaving this entry enabled here would duplicate
+    // Locker in both Participation and Workspace for the one cartridge that
+    // was never in this pass's stated scope (IRL OS) but inherits the
+    // builder change regardless.
     {
       id: 'irl-passport-locker',
       label: 'Locker',
       slug: 'irl-passport-locker',
-      enabled: true,
-      // NOT admin-gated — see irl-participation-overview's comment above.
+      enabled: false,
       group: 'participation',
       order: 3,
       type: 'static',
@@ -6815,13 +6834,16 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       config: { component: 'BoundedDelegationTab' },
       metadata: { icon: 'Link2', description: 'Grant bounded delegations to sponsored agents — the sponsor authorizes; agents never self-delegate (CFS-043)', color: 'violet' },
     },
-    // REMOVED 2026-07-28 (operator ruling) — see the identical note on the IRL
-    // cartridge above. Same removal, same reason, same repointed deep link.
+    // Locker relocated to Workspace (2026-09-08, IRL OS Workspace
+    // consolidation) — see the identical note + reasoning on the internal
+    // `irl-cartridge`'s own `irl-passport-locker` entry above. Disabled, not
+    // deleted; the SAME `LockerTab` component now renders as a Workspace
+    // subTab instead (`buildResearchWorkspaceTab('irl-os-workspace')`).
     {
       id: 'irl-os-passport-locker',
       label: 'Locker',
       slug: 'irl-os-passport-locker',
-      enabled: true,
+      enabled: false,
       group: 'participation',
       order: 3,
       type: 'static',
@@ -6831,6 +6853,20 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
     {
       // Participation v1 (2026-07-18): the participant's constitutional
       // standing — lanes, reach, receipted contribution history.
+      //
+      // Ingestion Factory removed from this surface (2026-09-08, IRL OS
+      // Workspace consolidation, operator instruction: "Standing here must
+      // render the canonical standing capability only"). `only: 'standing'`
+      // pins `ParticipationStandingTab` to its Standing view and hides the
+      // Ingestion-Factory/Standing tab strip — the SAME pinning mechanism the
+      // Horizen journey's Deploy/Standing stages already use (see that
+      // component's own `only` prop doc comment), not a fork. The Ingestion
+      // Factory capability is not deleted — its canonical, already-admin-
+      // gated home is `iqube-registry-cartridge` → Admin → Intake
+      // (`IQubeRegistryIntakeTab`, `data/codex-configs.ts`'s
+      // `iqube-registry-intake` tab); this was always the primary corpus/
+      // asset-ingestion surface, and this Participation mount was a
+      // deliberate but now-reverted 2026-08-01 pairing.
       id: 'irl-os-participation-standing',
       label: 'Standing',
       slug: 'irl-os-participation-standing',
@@ -6838,7 +6874,7 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       group: 'participation',
       order: 5,
       type: 'static',
-      config: { component: 'ParticipationStandingTab' },
+      config: { component: 'ParticipationStandingTab', props: { only: 'standing' } },
       metadata: { icon: 'Award', description: 'Your standing with the Institute — lanes, reach, and receipted contribution history', color: 'violet' },
     },
     {

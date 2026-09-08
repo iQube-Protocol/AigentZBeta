@@ -1,0 +1,87 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-08",
+  "resolutionId": "RES-2026-09-08-IRL-OS-WORKSPACE-CONSOLIDATION-001",
+  "capability": "irl-os-workspace-consolidation",
+  "milestone": "Operator instruction, 2026-09-08: 'Consolidate IRL OS around Workspace as the single researcher operating surface, using the canonical DiDQube/CTP state projection. This must be generalized — Austin/EXP-P1 and Ian/OCSGA are the acceptance cases, not hardcoded exceptions.' Ten numbered requirements: move Locker into Workspace; clean the Participation IA (remove the Ingestion Factory pairing from Standing); make Workspace's experiment navigation entitlement-derived; bring the Pipeline/Research Journey Spine onto the same resolver; map existing capabilities into role-projected Workspace cards; keep EXP-P1 Readiness properly gated; wire the empty Command Center cards from real state; prove a security invariant (never advertise what a caller cannot dereference) across admin/reviewer/participant/cohort/wrong-scope/anonymous/revoked/expired.",
+  "problem": "Two live defects sat behind the operator's framing that IRL OS's Workspace nav was 'a static registry/catalogue projection': (1) `PartnerProgrammesTab`'s own 'My Experiments' left nav did NOT consume the canonical `getParticipantResearchWorkspaceAccess`/`GET /api/participation/my-experiments` projection built 2026-09-02 for exactly this purpose — it instead composed an older, less complete client path (`useParticipationAccess` + `scopesGrantedIn`) that never resolved a grant scoped by raw `experimentId` (only by `workspaceId`) and treated an empty `allowedScopes` as deny-by-default, the OPPOSITE of the canonical resolver's 'empty = unrestricted' convention every research-lab reviewer grant relies on — two divergent entitlement-filtering implementations for the identical question. (2) Locker had been fully pruned from the Workspace nav (2026-07-29) for every role, including reviewers, contradicting SPEC-IRL-WORKSPACE-001's own §12 acceptance case ('access final Locker artefacts') and its §7 view registry, which had ALWAYS declared `locker` a role-gated view (`allRolesExcept('research-participant')`) that the tab builder simply stopped offering. Separately: an authorized, non-admin EXP-P1 reviewer had NO path to Reviewer Kit/protocol documents, Experimental Readiness, or review/countersignature from inside Workspace — those capabilities existed as components but were never composed into a Workspace card, and the readiness API route was hard admin-only despite its own header comment already claiming 'a reviewer can also hit it directly'. The Participation → Standing surface unconditionally embedded the (correctly, separately, admin-gated) Ingestion Factory alongside Standing, a 2026-08-01 pairing the operator has now reversed. Two Command Center metric cards (Next Milestone, Technical Blockers) rendered an unconditional `NotYetWired` despite a real, queryable backing store (`experiment_workspace_items` via `workspaceTracking.ts`) already existing and simply never being called from the UI.",
+  "observedFailure": [
+    "`PartnerProgrammesTab.tsx`'s research-kind `workspaces` memo filtered `allWorkspaces` via `scopesGrantedIn(access, accessDomain, isAdmin)` — a client path that never checked `ws.experimentId`, so a caller whose grant named the raw experiment id (e.g. `allowed_experiments: ['EXP-P1']`, the exact shape `claimAccessInvitation` produces) would fail to see the wrapping workspace via this path even though the server's own canonical resolver (`canViewResearchWorkspace`) would admit them.",
+    "`RESEARCH_WORKSPACE_VIEWS.filter((view) => view.id !== 'locker' && view.id !== 'participants')` in `buildResearchWorkspaceTab` (data/codex-configs.ts) meant NO role — reviewer included — could reach Locker as a Workspace subTab, directly contradicting `tests/research-workspace-spec.test.ts`'s own first-acceptance-case docstring quoting SPEC §12.",
+    "`app/api/research/readiness/[experimentId]/route.ts` hard-403'd any non-admin caller (`if (!persona.cartridgeFlags?.isAdmin) return 403`), so an invited EXP-P1 reviewer could never see Experimental Readiness anywhere, in Workspace or otherwise.",
+    "No route or component composed the already-authorized (2026-09-08, same day, prior session) scoped `irl`-pack file routes into an in-cartridge Workspace reading surface — a reviewer's only path to the Reviewer Kit/protocol was the raw JSON `agent-package` route or a direct file-route fetch, never a UI inside the cartridge."
+  ],
+  "rootCauses": [
+    "Two subsystems disagreed about the same canonical state ('which research workspaces may this caller see') without either being individually wrong: the 2026-09-02 server projection was built and tested but never actually wired into the ONE UI surface it exists to serve — an unfinished migration, not a design defect.",
+    "A 2026-07-29 nav-level prune (Locker/Participants both removed from the subTab row 'because Participation's own Locker tab already covers that ground') was never revisited when the operator later decided the opposite IA shape was correct — the two SPEC-declared roles-based gates for the two views were conflated into one blanket prune, so reversing the decision for Locker alone required separating them back out.",
+    "Newly-authorized server capability (the 2026-09-08 Phase 2 scoped-reviewer file-route restoration, and this pass's own readiness-route gate loosening) had no corresponding UI composition step — 'the API now allows it' and 'the UI now offers it' are two different facts, and only the first had been done."
+  ],
+  "resolution": [
+    "Locker restored as a Workspace subTab: `buildResearchWorkspaceTab`'s filter now excludes only `participants` (data/codex-configs.ts) — the existing `PartnerProgrammesTab.tsx` `surface === 'locker'` render case (which already mounted `<LockerTab />`, unforked) simply becomes reachable again, gated by the view registry's own pre-existing `allRolesExcept('research-participant')` role list. The flat Participation → Locker tabs (`irl-passport-locker`, `irl-os-passport-locker`) are `enabled: false` (not deleted) in both the internal and IRL OS cartridges — disabling both, not just IRL OS, avoids the shared-builder change producing a literal duplicate Locker entry on the internal cartridge. `services/constitutional/guidedOnboarding.ts`'s `passportDeepLinks().locker` repointed to the new subTab slug (`irl-os-workspace-locker`), same pattern as the pre-existing `irl-os-workspace` -> `irl-os-welcome` repoint.",
+    "Participation -> Standing decoupled from the Ingestion Factory: `ParticipationStandingTab`'s pre-existing `only` prop (already used by the Horizen journey's Deploy/Standing stage split) is now passed as `only: 'standing'` on the IRL OS Standing tab config — zero component changes, reuses the exact mechanism the operator's own prior instruction established for the same purpose. The Ingestion Factory is not deleted; its already-admin-gated canonical home (`iqube-registry-cartridge` -> Admin -> Intake, `IQubeRegistryIntakeTab`) was unaffected and remains the primary corpus-ingestion surface.",
+    "'My Experiments' unified onto the canonical resolver: new `useResearchWorkspaceAccess` hook (`app/hooks/`) fetches `GET /api/participation/my-experiments` and replaces `scopesGrantedIn` for the research-kind branch of `PartnerProgrammesTab`'s workspace filter ONLY -- the Venture Lab's own `scopesGrantedIn` path is completely untouched (SPEC-IRL-WORKSPACE-001 acceptance criterion 3). Both hooks are called unconditionally (React hook rules); which result gates the filter is chosen by `kind`.",
+    "New generalized (never per-experiment-hardcoded) capability surface: `GET /api/participation/workspace-capabilities?workspaceId=` resolves a workspace's `experimentId`, re-verifies the caller (admin OR `resolveExperimentReviewGrant`) independently of upstream 'my-experiments' filtering, and returns `{documents, readinessAvailable, reviewAgreementAvailable}` -- `documents` via a new `listIrlPackDocumentsForExperiment` (services/research/irlExperimentPathScope.ts), the direct generalization of the prior session's EXP-P1-only `resolveExpP1DocumentResources`, driven purely by `EXPERIMENT_REGISTRY`. `readinessAvailable`/`reviewAgreementAvailable` are named, honest allowlists (readiness genuinely only exists for EXP-P1/P2/P3; a reviewer agreement genuinely only exists where `currentReviewerAgreement` returns one) -- never a further-generalized guess. New `WorkspaceCapabilitiesPanel` (components/research/) composes this into Workspace Overview: mounts the EXISTING `ExpP1ReadinessTab` (unforked) for 'Experimental Readiness', an inline expandable document reader hitting the already-authorized `/api/codex/packs/irl/file` route (never a browser-tab download), and the EXISTING `ReviewerAgreementPanel` (unforked) for 'Review & Countersignature'.",
+    "`app/api/research/readiness/[experimentId]/route.ts` gate loosened from admin-only to admin OR `resolveExperimentReviewGrant` for that experiment -- the SAME pattern the prior session's Phase 2 file-route fix and the agent-package route already use; the tab-level `adminOnly: true` gates (`irl-exp-p1-readiness`, `irl-os-exp-p1-readiness`) are UNCHANGED (already correctly containing the general-public case per the 2026-08-27 containment audit's own canary 6 -- 'EXP-P1 Readiness and Corpus Scout remain enabled:true + adminOnly:true'; this pass adds a SECOND, scoped path for a legitimate reviewer, it does not remove the first).",
+    "Next Milestone / Technical Blockers wired from real state: new `GET /api/participation/workspace-tracking?workspaceId=` calls the pre-existing, previously-unused `listWorkspaceItems` (services/experiments/workspaceTracking.ts) against the real `experiment_workspace_items` table, gated by the SAME `getParticipantResearchWorkspaceAccess` check `my-experiments` uses. `PartnerProgrammesTab`'s Command Center cards now render loading/ready/unwired from this fetch (same three-state honesty pattern the pre-existing 'Open Actions' card already established); `PipelinePanel` also renders the same tracking data. `Health` and `Last Sync` are DELIBERATELY left `NotYetWired` -- confirmed via inventory that no canonical data model exists anywhere in the codebase for either; fabricating one would violate the Command Center's own documented honesty rule.",
+    "16 pre-existing tests updated (not weakened) across `tests/research-lab-workspace.test.ts`, `tests/research-workspace-spec.test.ts`, `tests/lab-tab-restructure-and-locker-ux.test.ts`, `tests/irl-os-access-boundary.test.ts` to assert the NEW correct behaviour (Locker reachable per its own role gate; Participants still pruned; the deep link resolves against subTabs too) -- several of these updates directly FIX a real spec contradiction the 2026-07-29 prune had introduced (the reviewer-reaches-Locker acceptance case). A split constant (`SHARED_NON_ADMIN_TAB_IDS` vs `..._INCLUDING_DISABLED`) resolved a genuine conflict between two different questions the same prior constant was answering (the admin-gate boundary vs. actual reachability) once Locker's Participation mount became disabled-but-still-non-admin-gated.",
+    "17 new tests (`tests/workspace-capabilities-authorization-2026-09-08.test.ts`) prove the Security invariant across all required states for the three routes this pass touches: admin; scoped reviewer; wrong-scope; no active grant (models revoked/expired); anonymous; a cohort/programme workspace with no `experimentId` (OCSGA) returning an honest empty capability set rather than a fabricated one. OS-9 verified: with each route's gate check temporarily removed, exactly the 6 denial-path assertions fail (11 positive/structural assertions unaffected) -- backed up and restored via file copy, `git diff` confirmed byte-identical afterward."
+  ],
+  "rejectedApproaches": [
+    "A new, separate Workspace entitlement table or allowlist -- rejected per explicit operator instruction and `inv.engineering.036/037`; the canonical `getParticipantResearchWorkspaceAccess`/`GET /api/participation/my-experiments` projection already existed (2026-09-02) and needed only to be WIRED into the one UI surface that had not yet adopted it.",
+    "Reordering `RESEARCH_WORKSPACE_VIEWS` to place `locker` immediately before `administration` (matching the operator's own prose enumeration order) -- rejected in favour of leaving the canonical, SPEC-declared array order (`locker` between `working-materials` and `qubetalk`) unchanged; no acceptance criterion in the instruction depends on the exact ordinal position, and the array order is shared, documented SPEC-IRL-WORKSPACE-001 structure that a cosmetic reorder would disturb for no functional gain.",
+    "Building a bespoke, per-EXP-P1 'reviewer capability' component -- rejected; `WorkspaceCapabilitiesPanel` is driven entirely by the generalized `workspace-capabilities` route (EXPERIMENT_REGISTRY-derived document scoping, a named readiness allowlist, `currentReviewerAgreement` lookup) so a future registered experiment with its own protocol folder, readiness pipeline, and reviewer agreement gets the identical card composition with zero new per-experiment code -- directly answering the operator's 'generalized, not hardcoded exceptions' instruction.",
+    "Touching the internal `irl-cartridge`'s Participation -> Standing Ingestion Factory pairing -- rejected as out of this pass's explicitly IRL-OS-scoped title; only the Locker relocation forced a consequential internal-cartridge change (to avoid a literal duplicate once the shared Workspace builder started including Locker for both cartridges), and that consequence is stated explicitly rather than silently applied.",
+    "Changing `app/api/public/irl/doc`'s or `packs/file`'s existing default-deny/404-vs-403 posture, or the EXP-P1 Readiness TAB-level `adminOnly` gate -- rejected; both were already correctly gated by the 2026-08-27 containment audit and this pass's own inventory (confirmed via the audit's own canary 6), so 'gate EXP-P1 Readiness' in this pass means ADDING a scoped reviewer path at the API layer, not removing or loosening the existing tab-level admin gate."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-08-ENTITLEMENT-PROJECTION-SINGLE-SOURCE-001",
+    "CI-2026-09-08-EXPERIMENT-SCOPED-DOCUMENT-ACCESS-DERIVES-FROM-CANONICAL-GRANT-001"
+  ],
+  "canaries": [
+    "tests/research-lab-workspace.test.ts",
+    "tests/research-workspace-spec.test.ts",
+    "tests/lab-tab-restructure-and-locker-ux.test.ts",
+    "tests/irl-os-access-boundary.test.ts",
+    "tests/irl-os-containment.test.ts",
+    "tests/workspace-capabilities-authorization-2026-09-08.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "subsystems-disagreed",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/research-lab-workspace.test.ts",
+      "tests/research-workspace-spec.test.ts",
+      "tests/lab-tab-restructure-and-locker-ux.test.ts",
+      "tests/irl-os-access-boundary.test.ts",
+      "tests/irl-os-containment.test.ts",
+      "tests/irl-experiment-membership-workspace.test.ts",
+      "tests/participation-tab-gate.test.ts",
+      "tests/partner-workspace.test.ts",
+      "tests/irl-os-scoped-restoration-2026-08-27.test.ts",
+      "tests/workspace-capabilities-authorization-2026-09-08.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/irl/foundation/SPEC-IRL-WORKSPACE-001_research-workspace.md §12: \"An invited Autonomi reviewer can inspect the frozen EXP-P1 review package, communicate in scoped QubeTalk, submit an independent review, and access final Locker artefacts without gaining authority to alter, freeze or canonise the experiment\" -- the exact acceptance case the 2026-07-29 Locker prune had silently contradicted.",
+      "Operator instruction, 2026-09-08, verbatim: \"Consolidate IRL OS around Workspace as the single researcher operating surface... This must be generalized — Austin/EXP-P1 and Ian/OCSGA are the acceptance cases, not hardcoded exceptions.\""
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/irl/foundation/SPEC-IRL-WORKSPACE-001_research-workspace.md",
+    "services/passport/participationAccess.ts",
+    "app/api/participation/my-experiments/route.ts",
+    "app/triad/components/codex/tabs/PartnerProgrammesTab.tsx"
+  ],
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

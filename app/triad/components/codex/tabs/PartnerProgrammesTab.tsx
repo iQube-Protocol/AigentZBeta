@@ -95,6 +95,8 @@ import { PilotJourneyTab } from "./PilotJourneyTab";
 import { PassportBureauStewardTab } from "./PassportBureauStewardTab";
 import { useParticipationAccess } from "@/app/hooks/useParticipationAccess";
 import { scopesGrantedIn } from "@/services/passport/participationTabGate";
+import { useResearchWorkspaceAccess } from "@/app/hooks/useResearchWorkspaceAccess";
+import { WorkspaceCapabilitiesPanel } from "@/components/research/WorkspaceCapabilitiesPanel";
 
 // Peer exchange is client-only (clipboard/personaFetch) — same lazy pattern
 // as LockerTab's own mount of it.
@@ -303,6 +305,24 @@ interface AgreementRow {
   capabilityRef: string | null;
   selectedAgentRef: string | null;
 }
+
+interface TrackedMilestone {
+  id: string;
+  title: string;
+  dueDate: string | null;
+}
+interface TrackedBlocker {
+  id: string;
+  title: string;
+  detail: string | null;
+}
+
+/** Live derivation state for Next Milestone / Technical Blockers — same
+ *  loading/ready/unwired shape as AgreementsState. */
+type TrackingState =
+  | { kind: "loading" }
+  | { kind: "ready"; nextMilestone: TrackedMilestone | null; openBlockers: TrackedBlocker[] }
+  | { kind: "unwired" };
 
 /** Live derivation state — 'unwired' renders the honest "Not yet wired". */
 type AgreementsState =
@@ -701,7 +721,7 @@ function BoundaryNote({ surface }: { surface: string }) {
  * (`lifecycleStageIndex` returns -1 for exactly this, and "we do not know" and
  * "it is at the beginning" must not read alike).
  */
-function PipelinePanel({ ws }: { ws: WorkspaceView }) {
+function PipelinePanel({ ws, tracking }: { ws: WorkspaceView; tracking?: TrackingState }) {
   if (!ws.lifecycle) {
     return (
       <div className={`${PANEL} p-4 text-xs text-slate-400`}>
@@ -770,6 +790,28 @@ function PipelinePanel({ ws }: { ws: WorkspaceView }) {
           act performed by the capability that owns the transition and receipted there.
         </p>
       </div>
+      {/* Next milestone + open blockers threaded onto Pipeline too (2026-09-08
+          — Research Journey Spine, same tracking source the Overview
+          Command Center cards consume, not a second derivation). */}
+      {tracking && tracking.kind === "ready" && (
+        <div className={`${PANEL} p-4`}>
+          <h3 className="text-sm font-semibold text-slate-100">Next milestone &amp; blockers</h3>
+          <p className="mt-1 text-[11px] text-slate-500">
+            {tracking.nextMilestone
+              ? `${tracking.nextMilestone.title}${tracking.nextMilestone.dueDate ? ` — due ${tracking.nextMilestone.dueDate}` : ""}`
+              : "No open milestone recorded."}
+          </p>
+          {tracking.openBlockers.length > 0 ? (
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-rose-300">
+              {tracking.openBlockers.map((b) => (
+                <li key={b.id}>{b.title}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-xs italic text-slate-500">No open blockers.</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1536,6 +1578,12 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
   // workspace(s) within that domain the grant actually scopes. Domain-neutral
   // by construction — the same decision, both Labs.
   const access = useParticipationAccess(personaId);
+  // CANONICAL projection for the research Lab specifically (2026-09-08 —
+  // see useResearchWorkspaceAccess's own header for why this replaces
+  // `scopesGrantedIn` here). Called unconditionally (React hook rules) even
+  // though only `kind === "research"` consumes it; the Venture Lab's
+  // `access`/`scopesGrantedIn` path below is completely unchanged.
+  const researchAccess = useResearchWorkspaceAccess(personaId);
   const allWorkspaces = useMemo<WorkspaceView[]>(
     () =>
       kind === "research"
@@ -1544,30 +1592,52 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
     [kind],
   );
   const grantedScopes = scopesGrantedIn(access, accessDomain, Boolean(isAdmin));
+  const researchWorkspaceIds = useMemo(
+    () => new Set(researchAccess.entries.map((e) => e.workspaceId)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [researchAccess.entries.map((e) => e.workspaceId).join("|")],
+  );
   const workspaces = useMemo(() => {
-    // PUBLIC VISIBILITY (IRL OS — Experiment Membership & Artifact Workspace
-    // Restoration, 2026-09-02, spec items 1/5/13): a workspace an admin has
-    // explicitly declared `researchVisibility === 'public'` is visible to
-    // EVERY caller, grant or none — mirrors the server-side resolver
-    // (`getParticipantResearchWorkspaceAccess`,
-    // services/passport/participationAccess.ts). No workspace in the
-    // registry declares `'public'` today, so this is currently a no-op for
-    // every existing entrance — it only ever WIDENS what an admin-authored
-    // `public` declaration reaches, never a grant-independent default.
-    const scoped =
-      grantedScopes === "all"
-        ? allWorkspaces
-        : allWorkspaces.filter(
-            (w) => grantedScopes.includes(w.id) || w.researchVisibility === "public",
-          );
+    let scoped: WorkspaceView[];
+    if (kind === "research") {
+      // The canonical `/api/participation/my-experiments` projection is
+      // already exactly "public workspaces + this caller's own entitled
+      // workspaces, admin sees all, nothing else" — no second filter (e.g.
+      // `w.researchVisibility === 'public'`) is layered on top here, unlike
+      // the venture branch below, because the server projection already
+      // accounts for public visibility and admin (`canViewResearchWorkspace`,
+      // services/passport/participationAccess.ts).
+      scoped = researchAccess.loaded ? allWorkspaces.filter((w) => researchWorkspaceIds.has(w.id)) : [];
+    } else {
+      // PUBLIC VISIBILITY (IRL OS — Experiment Membership & Artifact Workspace
+      // Restoration, 2026-09-02, spec items 1/5/13): a workspace an admin has
+      // explicitly declared `researchVisibility === 'public'` is visible to
+      // EVERY caller, grant or none. No workspace in the venture registry
+      // declares `'public'` today, so this is currently a no-op — it only
+      // ever WIDENS what an admin-authored `public` declaration reaches.
+      scoped =
+        grantedScopes === "all"
+          ? allWorkspaces
+          : allWorkspaces.filter(
+              (w) => grantedScopes.includes(w.id) || w.researchVisibility === "public",
+            );
+    }
     // Locking NARROWS further — a caller whose grant does not reach
     // `lockedWorkspaceId` still lands on the honest empty state below, never
     // on an unscoped workspace this prop tried to force open.
     return lockedWorkspaceId ? scoped.filter((w) => w.id === lockedWorkspaceId) : scoped;
-    // `grantedScopes` is a fresh array each render when scoped; key off its
-    // content so the memo does not thrash and `activeId` stays stable.
+    // `grantedScopes`/`researchWorkspaceIds` are fresh each render when
+    // scoped; key off their content so the memo does not thrash and
+    // `activeId` stays stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allWorkspaces, grantedScopes === "all" ? "all" : grantedScopes.join("|"), lockedWorkspaceId]);
+  }, [
+    kind,
+    allWorkspaces,
+    grantedScopes === "all" ? "all" : grantedScopes.join("|"),
+    researchAccess.loaded,
+    researchWorkspaceIds,
+    lockedWorkspaceId,
+  ]);
   const [activeId, setActiveId] = useState<string | null>(null);
   // activeId tracks the SCOPED list, not the full registry — a caller must
   // never land on a workspace they cannot open just because it's first in
@@ -1597,6 +1667,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
   }, [menuSurface]);
   const [collabView, setCollabView] = useState<CollabView>("invitations");
   const [agreements, setAgreements] = useState<AgreementsState>({ kind: "loading" });
+  const [tracking, setTracking] = useState<TrackingState>({ kind: "loading" });
 
   const ws = useMemo(
     () => workspaces.find((w) => w.id === activeId) ?? workspaces[0] ?? null,
@@ -1624,11 +1695,46 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
     };
   }, []);
 
+  // Next Milestone / Technical Blockers — real derivation from
+  // `experiment_workspace_items` (2026-09-08; previously both cards were
+  // unconditional `NotYetWired`, see PipelinePanel/Command Center honesty
+  // rule). Research kind only — Venture's own workspaces are out of this
+  // pass's scope (SPEC-IRL-WORKSPACE-001 acceptance criterion 3).
+  useEffect(() => {
+    if (kind !== "research" || !ws?.id) return;
+    let alive = true;
+    setTracking({ kind: "loading" });
+    (async () => {
+      try {
+        const res = await personaFetch(
+          `/api/participation/workspace-tracking?workspaceId=${encodeURIComponent(ws.id)}`,
+          { cache: "no-store" },
+        );
+        if (!alive) return;
+        if (!res.ok) {
+          setTracking({ kind: "unwired" });
+          return;
+        }
+        const data = await res.json();
+        setTracking({
+          kind: "ready",
+          nextMilestone: data?.nextMilestone ?? null,
+          openBlockers: Array.isArray(data?.openBlockers) ? data.openBlockers : [],
+        });
+      } catch {
+        if (alive) setTracking({ kind: "unwired" });
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [kind, ws?.id]);
+
   if (!ws) {
     // Honest, distinct empty states (gaps are reported, not dropped) — an
     // empty registry, a not-yet-loaded grant, and a genuinely unscoped grant
     // are three different facts and must not read as the same message.
-    if (!isAdmin && !access.loaded) {
+    if (!isAdmin && (kind === "research" ? !researchAccess.loaded : !access.loaded)) {
       return <div className="p-8 text-center text-sm text-slate-500">Checking your workspace access…</div>;
     }
     if (!isAdmin && allWorkspaces.length > 0) {
@@ -1736,8 +1842,23 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
           >
             {ws.phaseLabel ?? <NotYetWired />}
           </MetricCard>
-          <MetricCard label="Next Milestone" accent={commandAccent}>
-            <NotYetWired />
+          <MetricCard
+            label="Next Milestone"
+            detail={
+              tracking.kind === "ready" && tracking.nextMilestone?.dueDate
+                ? `due ${tracking.nextMilestone.dueDate}`
+                : undefined
+            }
+            accent={commandAccent}
+          >
+            {tracking.kind === "loading" && <span className="text-xs text-slate-500">Loading…</span>}
+            {tracking.kind === "unwired" && <NotYetWired />}
+            {tracking.kind === "ready" &&
+              (tracking.nextMilestone ? (
+                <span className="text-xs text-slate-200">{tracking.nextMilestone.title}</span>
+              ) : (
+                <span className="text-xs italic text-slate-500">None open</span>
+              ))}
           </MetricCard>
           <MetricCard label="Owner" detail={ws.ownerAgentId ?? undefined} accent={commandAccent}>
             {ownerName ?? <NotYetWired />}
@@ -1760,7 +1881,9 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
             {agreements.kind === "unwired" && <NotYetWired />}
           </MetricCard>
           <MetricCard label="Technical Blockers" accent={commandAccent}>
-            <NotYetWired />
+            {tracking.kind === "loading" && <span className="text-xs text-slate-500">Loading…</span>}
+            {tracking.kind === "unwired" && <NotYetWired />}
+            {tracking.kind === "ready" && <span>{tracking.openBlockers.length}</span>}
           </MetricCard>
           <MetricCard label="Last Sync" accent={commandAccent}>
             <NotYetWired />
@@ -1812,6 +1935,11 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
               ))}
             </ul>
           </div>
+          {/* Role-projected experiment capabilities (2026-09-08) — generalised
+              across any qualifying experiment, never an EXP-P1-only branch
+              here; see WorkspaceCapabilitiesPanel's own header. Research kind
+              only (venture workspaces have no `experimentId` concept). */}
+          {kind === "research" && <WorkspaceCapabilitiesPanel workspaceId={ws.id} personaId={personaId} />}
           <div className={`${PANEL} p-4`} style={commandAccent ? { borderLeftColor: commandAccent, borderLeftWidth: 2 } : undefined}>
             <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-100">
               <AccentDot color={commandAccent} />
@@ -2008,7 +2136,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
       )}
 
       {/* ── Pipeline (SPEC §7) ── */}
-      {surface === "pipeline" && <PipelinePanel ws={ws} />}
+      {surface === "pipeline" && <PipelinePanel ws={ws} tracking={tracking} />}
 
       {/* ── Review — the IRL-REVIEW-001 front end (SPEC §7) ── */}
       {surface === "review" && (
