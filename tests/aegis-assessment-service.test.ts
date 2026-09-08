@@ -10,6 +10,18 @@ vi.mock('@/services/receipts/activityReceiptService', () => ({
   createActivityReceipt: vi.fn(async () => ({ id: 'receipt-stub' })),
 }));
 
+// DiDQube Phase 4 item 2 (2026-09-07): createAssessment's optional
+// subjectIdentity path calls resolveDiDQube, which reads via its OWN
+// getSupabaseServer() call — not the `admin` parameter passed to
+// createAssessment. Mocking getSupabaseServer to return the SAME
+// per-test fake admin instance (assigned in beforeEach below) is what lets
+// resolveDiDQube see the agent_root_identity/agent_didqubes/didqubes rows
+// a test seeds directly into that instance.
+let currentAdmin: ReturnType<typeof makeFakeAdmin>;
+vi.mock('@/app/api/_lib/supabaseServer', () => ({
+  getSupabaseServer: () => currentAdmin,
+}));
+
 import { createAssessment, beginRunning, requireReview, ratifyAssessment, failAssessment, addFinding, AegisAssessmentError } from '@/services/aegis/aegisAssessmentService';
 
 async function runToReview(admin: any, subjectRef: string, requestedByAgentRef = 'aigent-factor') {
@@ -30,6 +42,7 @@ describe('aegisAssessmentService', () => {
   let admin: ReturnType<typeof makeFakeAdmin>;
   beforeEach(() => {
     admin = makeFakeAdmin();
+    currentAdmin = admin;
   });
 
   it('refuses to assess a candidate that is the requester itself (Factor cannot assess itself)', async () => {
@@ -173,5 +186,106 @@ describe('aegisAssessmentService', () => {
     expect(firstRow.superseded_by).toBe(second.assessment_id);
     expect(firstRow.decision).toBe('insufficient_evidence'); // untouched
     expect(second.supersedes_assessment_id).toBe(first.assessment_id);
+  });
+});
+
+describe('DiDQube Phase 4 item 2 (2026-09-07) — optional subjectIdentity resolution, additive and never blocking', () => {
+  let admin: ReturnType<typeof makeFakeAdmin>;
+  beforeEach(() => {
+    admin = makeFakeAdmin();
+    currentAdmin = admin;
+  });
+
+  it('with no subjectIdentity supplied, every subject_didqube_*/identity_resolution_snapshot_hash field stays null — never fabricated', async () => {
+    const created = await createAssessment(admin, {
+      subjectType: 'factor_case',
+      subjectRef: 'case-no-identity',
+      policyVersion: 'v1',
+      evidenceSnapshot: {},
+      requestedByAgentRef: 'aigent-factor',
+      actorPersonaId: 'persona-1',
+    });
+    expect(created.subject_didqube_id).toBeNull();
+    expect(created.subject_didqube_class).toBeNull();
+    expect(created.subject_resolution_commitment).toBeNull();
+    expect(created.identity_resolution_snapshot_hash).toBeNull();
+  });
+
+  it('a subjectIdentity that resolves cleanly populates all four fields plus a stable identity-resolution snapshot hash', async () => {
+    admin.table('agent_root_identity').push({
+      id: 'root-1',
+      agent_id: 'polity-bound:aletheon',
+      did_uri: 'did:agent:root:aletheon',
+      agent_class: 'polity_bound',
+      display_name: 'Aletheon',
+      description: 'A test agent',
+      agent_card_url: 'https://dev-beta.aigentz.me/api/agents/aletheon/agent-card.json',
+      agent_card_slug: 'aletheon',
+      bound_passport_id: null,
+    });
+    admin.table('didqubes').push({ didqube_id: 'didqube-1', subject_class: 'agent', lifecycle_state: 'active', superseded_by: null });
+    admin.table('agent_didqubes').push({ didqube_id: 'didqube-1', agent_root_identity_id: 'root-1', subject_class: 'agent' });
+
+    const created = await createAssessment(admin, {
+      subjectType: 'factor_case',
+      subjectRef: 'case-with-identity',
+      policyVersion: 'v1',
+      evidenceSnapshot: {},
+      requestedByAgentRef: 'aigent-factor',
+      actorPersonaId: 'persona-1',
+      subjectIdentity: { kind: 'agent_root_identity_id', agentRootIdentityId: 'root-1' },
+    });
+    expect(created.subject_didqube_id).toBe('didqube-1');
+    expect(created.subject_didqube_class).toBe('agent');
+    expect(created.subject_resolution_commitment).toBeTruthy();
+    expect(created.subject_resolution_commitment_version).toBe('v1');
+    expect(created.identity_resolution_snapshot_hash).toBeTruthy();
+  });
+
+  it('an unresolvable subjectIdentity (no anchor exists) leaves the fields null but still creates the assessment — additive evidence never blocks', async () => {
+    const created = await createAssessment(admin, {
+      subjectType: 'factor_case',
+      subjectRef: 'case-unresolvable-identity',
+      policyVersion: 'v1',
+      evidenceSnapshot: {},
+      requestedByAgentRef: 'aigent-factor',
+      actorPersonaId: 'persona-1',
+      subjectIdentity: { kind: 'agent_root_identity_id', agentRootIdentityId: 'root-does-not-exist' },
+    });
+    expect(created.state).toBe('evidence_locked');
+    expect(created.subject_didqube_id).toBeNull();
+    expect(created.identity_resolution_snapshot_hash).toBeNull();
+  });
+
+  it('the identity-resolution snapshot is written once at creation and is NEVER touched by ratification', async () => {
+    admin.table('agent_root_identity').push({
+      id: 'root-2',
+      agent_id: 'polity-bound:knightfall',
+      did_uri: 'did:agent:root:knightfall',
+      agent_class: 'polity_bound',
+      display_name: 'Knightfall',
+      description: 'A test agent',
+      agent_card_url: 'https://dev-beta.aigentz.me/api/agents/knightfall/agent-card.json',
+      agent_card_slug: 'knightfall',
+      bound_passport_id: null,
+    });
+    admin.table('didqubes').push({ didqube_id: 'didqube-2', subject_class: 'agent', lifecycle_state: 'active', superseded_by: null });
+    admin.table('agent_didqubes').push({ didqube_id: 'didqube-2', agent_root_identity_id: 'root-2', subject_class: 'agent' });
+
+    const created = await createAssessment(admin, {
+      subjectType: 'factor_case',
+      subjectRef: 'case-snapshot-immutable',
+      policyVersion: 'v1',
+      evidenceSnapshot: {},
+      requestedByAgentRef: 'aigent-factor',
+      actorPersonaId: 'persona-1',
+      subjectIdentity: { kind: 'agent_root_identity_id', agentRootIdentityId: 'root-2' },
+    });
+    const snapshotHashAtCreation = created.identity_resolution_snapshot_hash;
+    await beginRunning(admin, created.assessment_id);
+    await requireReview(admin, created.assessment_id);
+    const ratified = await ratifyAssessment(admin, { assessmentId: created.assessment_id, decision: 'admissible', ratifiedByPersonaId: 'persona-moneypenny' });
+    expect(ratified.identity_resolution_snapshot_hash).toBe(snapshotHashAtCreation);
+    expect(ratified.subject_didqube_id).toBe('didqube-2');
   });
 });
