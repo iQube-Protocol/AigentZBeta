@@ -936,6 +936,98 @@ agreement acceptance (`services/constitutional/agreementProviders.ts`).
   `admin-action-centre-citizen-auto-issuance.test.ts` + `agent-passport-atomic-issuance.test.ts`):
   104/104 passing.
 
+#### Item 6 — the T0/T1 wallet-vs-DiDQube authority ruling and passport_id's privacy classification — IMPLEMENTED (2026-09-07)
+
+The brief (`2026-09-07_t0-t1-wallet-authority-decision-brief.md`) named `polity_passport_records.passport_id`'s
+exposure via `/api/polity-passport/wallet` as the one unreconciled tension the prior architecture
+audit flagged. The general §1 question — wallet-proof feeds a lookup, T1/DiDQube is the actual
+authority, a wallet must never become the constitutional subject merely because it authenticated a
+session — is **ratified as a general rule for all future identity-resolution code**: it already
+matches what `resolvePassportPrincipal` and the DiDQube resolver do structurally (brief §2a), and no
+code change was needed there. `issuePassportSession`'s session-minting SCOPE (brief §2b) remains a
+separate, narrower open question the operator has not yet ruled on; it is not blocking.
+
+The brief's own §2d/§3 recommendation (Option 3 — codify an owner-scoped exception plus a canary)
+was **superseded before implementation** by the operator's ruling on `passport_id` specifically,
+issued in three successive refinements in this same tranche:
+
+1. First ruling: remove `passport_id` from the browser entirely, replace with a short-lived opaque
+   capability reference. Implementation begun (`services/passport/passportWalletRef.ts`), then
+   reverted before completion.
+2. Correction: `passport_id` is public non-secret metadata, safe to retain verbatim in the browser
+   provided every consuming route independently authenticates and checks ownership server-side.
+3. Final correction, ratified: neither of the above is the right classification. `passport_id` is
+   **holder-visible, privacy-sensitive credential metadata** — analogous to a private account/
+   membership number, not a private key (disclosure does not grant control; it need not be rotated on
+   exposure) and not a generally public identifier either (the platform must minimize its circulation
+   and never let it become a routine public-correlation handle).
+
+**What classification (3) requires, and what was found on audit:**
+
+- Keep it visible and copyable in the authenticated wallet — **already true**: `LockerTab.tsx` and
+  `SmartWalletDrawer.tsx` (both edited earlier in this tranche, before the final classification
+  landed, to add an explicit reveal-toggle + copy-to-clipboard control for the full id) needed no
+  further change.
+- Never use it as authentication or proof of ownership — **already true everywhere**: every
+  consequential route accepting `passportId` (`credential/[passportId]` POST, `verify-worldid` POST,
+  `repair-legacy-linkage`, `attest/[type]`, `sponsored-agents`, `review/decide`,
+  `applications/submit`, `homecoming/agent/issue-passport`, `venture/workspace/.../agent-claim`)
+  independently calls `getActivePersona` and checks ownership or admin role server-side before
+  acting; the two unauthenticated GET routes (`registry`, the credential preview) are intentionally
+  public-projection or capability-URL by design. Proved behaviorally, not just by reading:
+  `tests/passport-claim-ownership-boundary.test.ts` shows a real, valid `passportId` supplied by an
+  authenticated caller who does not own it is refused (403) by both the claim route and the
+  World-ID-verify route, and that an unauthenticated caller is refused (401) regardless of what
+  `passportId` it supplies.
+- Do NOT expose it in public profiles, URLs, analytics, logs, receipts, DVN payloads, or routine
+  browser telemetry — **audit found three real, pre-existing violations, now fixed**:
+  1. `/api/polity-passport/registry` — a fully unauthenticated public listing of every issued
+     Passport — selected and returned every row's raw `passport_id`; `PassportRegistryTab.tsx`
+     rendered it directly and used it as its own/not-own correlation key. Fixed: `passport_id`
+     dropped from the route's SELECT and response; the client now correlates a public row to the
+     caller's own holding via `(personaPublicRef, passportClass)` (personaPublicRef added to the
+     wallet route's response for this purpose), and the claim/World-ID-upgrade actions now source the
+     real id from the owner-scoped `own` match, never from the public row.
+  2. Three DVN-anchorable activity-receipt call sites embedded the raw `passport_id` in the receipt
+     `summary` string, which rides verbatim into the on-chain DVN payload
+     (`services/dvn/activityReceiptDvnPipeline.ts`'s payload construction includes `summary:
+     record.summary` unconditionally for any `ANCHORABLE_ACTION_TYPES` entry):
+     `services/passport/issuanceService.ts`'s issuance receipt (`passport_issued`/
+     `passport_status_changed` — the platform's highest-volume passport-issuance path),
+     `app/api/polity-passport/verify-worldid/route.ts`'s sibling-demotion receipt (embedded TWO raw
+     ids), and `services/passport/legacyPassportLinkageRepair.ts`'s reconciliation receipt (written
+     under an inline comment asserting "public passport_id" — the now-superseded classification (2)
+     above). All three summaries rewritten to carry the same auditable meaning (class, status,
+     event) without the correlatable id; `actionInput.passport_record_id` in the linkage-repair
+     receipt is retained (off-chain, holder-visible only — the receipt's `personaId` is the
+     passport's own owning caller).
+- Use a versioned public commitment / pairwise pseudonymous identifier for external continuity —
+  **already the existing pattern** (`persona_public_ref` / `kybe_did_public_ref`), now also serving
+  as the registry↔wallet correlation key above instead of `passport_id`.
+- Zero-knowledge "holds a valid Passport of class X / meets standing threshold Y" presentation
+  system — **explicitly backlogged** by the operator, not implemented now. This resolution fixes the
+  already-identified concrete leaks; it is not a redesign of the credential-presentation model.
+
+**Recorded as a privacy invariant, not self-promoted to ratified/canonical** per the Resolution →
+Invariant Loop's ladder discipline:
+`codexes/packs/agentiq/resolution-records/records/RES-2026-09-07-DIDQUBE-PHASE-3-PASSPORT-ID-PRIVACY-CLASSIFICATION-001.json`
+and
+`codexes/packs/agentiq/resolution-records/candidate-invariants/CI-2026-09-07-PASSPORT-ID-PRIVACY-SENSITIVE-NOT-PUBLIC-001.json`.
+
+**Full targeted regression** (`passport-credential.test.ts`, `passport-credential-signing.test.ts`,
+`passport-successor-credential.test.ts`, `passport-status-machine.test.ts`, `passport-bureau.test.ts`,
+`agent-passport-atomic-issuance.test.ts`, `constitutional-agreement-rootdid-authority.test.ts`, the new
+`passport-claim-ownership-boundary.test.ts`, plus `legacy-passport-linkage-repair.test.ts` +
+`legacy-passport-linkage-principal-first.test.ts` + `admin-action-centre-citizen-auto-issuance.test.ts`
++ `journey-admission-spine.test.ts` + `research-registry-access.test.ts` +
+`agent-delegation-anchor-repair.test.ts`): all passing except the same pre-existing,
+unrelated failures already present on this branch before this tranche (confirmed via `git stash`
+comparison). **Full-suite phase-closure sweep**: 17 failed files / 65 failed tests — matches the
+established baseline exactly; no new failures introduced.
+
+**Phase 3 is closed.** Items 1-6 are all implemented and verified. `2026-09-07_t0-t1-wallet-authority-decision-brief.md`
+remains as the pre-ruling analysis record; this section is the ratified outcome.
+
 ### Phase 4 — Consumer migration, one subsystem at a time (brief §9-§11, §"Registry and Horizen")
 *Each subsystem migrates independently; none blocks the others. This is where "CTP, DCIR, Factor,
 Aegis, Standing and DVN consume the same resolver" actually happens — but sequenced, not simultaneous.*

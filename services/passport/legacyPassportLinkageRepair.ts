@@ -254,8 +254,16 @@ export async function repairLegacyPassportLinkage(
   }
 
   // 6. Forward-looking reconciliation receipt — best-effort, AFTER the
-  //    write, never gates it. Public passport_id + booleans only — no
-  //    persona/root/kybe/auth ids (T0 discipline).
+  //    write, never gates it. Booleans only in the summary — no persona/
+  //    root/kybe/auth ids (T0 discipline). Privacy invariant (2026-09-07,
+  //    refining the earlier "public passport_id" framing): passport_id is
+  //    holder-visible, privacy-sensitive credential metadata, not a public
+  //    identifier — this receipt type is ANCHORABLE_ACTION_TYPES and its
+  //    `summary` rides verbatim into the DVN chain-bound payload, so the raw
+  //    id must not appear there. It may still ride in `actionInput`
+  //    (off-chain — see services/dvn/activityReceiptDvnPipeline.ts's payload
+  //    field list), which is holder-visible only (this receipt's personaId
+  //    is the passport's own owning caller).
   let receiptId: string | null = null;
   try {
     const receipt = await createActivityReceipt({
@@ -263,7 +271,7 @@ export async function repairLegacyPassportLinkage(
       activeCartridge: 'agentiq',
       actionType: 'legacy_passport_linkage_reconciled',
       summary:
-        `Passport ${passport.passport_id} — legacy personhood linkage reconciled (unlinked → linked). ` +
+        `Passport — legacy personhood linkage reconciled (unlinked → linked). ` +
         `Resolved via the caller's own authenticated person-grade principal; no reissuance, no status change.`,
       actionInput: {
         passport_record_id: passport.passport_id,

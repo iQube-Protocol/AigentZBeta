@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-07-PASSPORT-ID-PRIVACY-SENSITIVE-NOT-PUBLIC-001",
+  "statement": "A Passport's `passport_id` is holder-visible, privacy-sensitive credential metadata -- analogous to a private account/membership number, not a private key and not a generally public identifier. It MUST remain visible and copyable to its own holder inside an authenticated, owner-scoped surface (e.g. the wallet route + LockerTab/SmartWalletDrawer's reveal-and-copy controls). It MUST NOT be used, alone, as proof of authentication or Passport ownership -- every API that accepts it as a parameter must independently authenticate the caller and check ownership/authority server-side (mere possession of the id is never sufficient authority). It MUST NOT be emitted into any public/unauthenticated projection (a public registry listing, a public profile), any DVN-anchored receipt payload (a receipt's `summary` rides verbatim into the chain-bound payload for any ANCHORABLE_ACTION_TYPES entry), or routine analytics/telemetry. Where an external system needs continuity across events without the raw id, use the existing versioned public commitment (`persona_public_ref` / `kybe_did_public_ref`) or a pairwise pseudonymous reference -- never passport_id itself. A zero-knowledge 'holds a valid Passport of class X / meets standing threshold Y' presentation is the correct longer-term mechanism for external eligibility proofs that reveal no specific Passport identity; it is backlogged, not required for this invariant to hold today.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "A privacy-classification invariant distinct from the T0/T1/T2 identifier-tier rule in CLAUDE.md's Identity & Access Spine: passport_id is deliberately NOT T0 (server-internal-only -- it is holder-visible by design) and NOT unconditionally T1/T2-safe either (T1/T2 as defined there admit routine browser/receipt/chain circulation, which this invariant forbids for this specific field). It names a fourth posture -- holder-visible but circulation-minimized -- that the existing three-tier vocabulary does not capture, arrived at only after two earlier, less precise classifications ('opaque reference only' then 'public non-secret metadata') were each superseded by the operator in the same tranche.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/passport-claim-ownership-boundary.test.ts",
+      "assertion": "POST /api/polity-passport/credential/[passportId] (claim) and POST /api/polity-passport/verify-worldid both refuse an authenticated caller who supplies a real, valid passport_id belonging to a DIFFERENT persona (ownership mismatch), and both require authentication at all; GET /api/polity-passport/wallet's own response DOES include passportId (positive holder-visible assertion); GET /api/polity-passport/registry's response does NOT include passportId for any row.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "app/api/polity-passport/registry/route.ts + app/triad/components/codex/tabs/PassportRegistryTab.tsx",
+      "defect": "The fully public, unauthenticated passport registry listing endpoint selected and returned every issued Passport's raw passport_id, and the consuming public tab rendered it directly and used it as its client-side own/not-own correlation key.",
+      "resolutionId": "RES-2026-09-07-DIDQUBE-PHASE-3-PASSPORT-ID-PRIVACY-CLASSIFICATION-001",
+      "evidence": [
+        "app/api/polity-passport/registry/route.ts",
+        "app/triad/components/codex/tabs/PassportRegistryTab.tsx"
+      ]
+    },
+    {
+      "site": "services/passport/issuanceService.ts, app/api/polity-passport/verify-worldid/route.ts, services/passport/legacyPassportLinkageRepair.ts",
+      "defect": "Three separate DVN-anchorable activity-receipt call sites (passport_issued/passport_status_changed on issuance, passport_status_changed on World-ID sibling demotion, legacy_passport_linkage_reconciled) embedded the raw passport_id directly in the receipt `summary` string, which rides verbatim into the on-chain DVN payload per services/dvn/activityReceiptDvnPipeline.ts's payload construction.",
+      "resolutionId": "RES-2026-09-07-DIDQUBE-PHASE-3-PASSPORT-ID-PRIVACY-CLASSIFICATION-001",
+      "evidence": [
+        "services/passport/issuanceService.ts",
+        "app/api/polity-passport/verify-worldid/route.ts",
+        "services/passport/legacyPassportLinkageRepair.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-09-07-DIDQUBE-PHASE-3-PASSPORT-ID-PRIVACY-CLASSIFICATION-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "Two occurrences recorded from a single bounded audit -- this stays at `candidate`, not self-promoted to `validated`/`ratified`, per the ladder discipline; the operator's own explicit ruling in conversation is the kind of act the normal ratification ceremony is for, not something this agent asserts on its own.",
+    "No systematic codebase-wide canary yet enforces 'no future ANCHORABLE_ACTION_TYPES receipt summary may contain a passport_id-shaped token' -- the two occurrences above were found by manually auditing every passport-related entry in ANCHORABLE_ACTION_TYPES, not by an executable grep-based gate. Recommended as a follow-up canary."
+  ]
+}

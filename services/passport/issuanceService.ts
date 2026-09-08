@@ -327,10 +327,16 @@ export async function applyReviewDecision(
 
   const receiptId = await writeReceipt({
     personaId: String(app.persona_id || '') || null,
+    // Privacy invariant (2026-09-07, T0/T1 ruling refinement): passport_id is
+    // holder-visible, privacy-sensitive credential metadata — it must never
+    // appear in a DVN-anchored receipt's summary (this receipt type is
+    // ANCHORABLE_ACTION_TYPES; `summary` rides verbatim into the chain-bound
+    // payload per services/dvn/activityReceiptDvnPipeline.ts). Omit it; class
+    // + status carry the auditable meaning without the correlatable id.
     summary:
       actorType === 'system'
-        ? `Passport issued automatically: ${passportId} (${passportClass}, ${issuedStatus})`
-        : `Passport issued: ${passportId} (${passportClass}, ${issuedStatus})`,
+        ? `Passport issued automatically (${passportClass}, ${issuedStatus})`
+        : `Passport issued (${passportClass}, ${issuedStatus})`,
     actionType: rule.receipt === 'passport_issued' ? 'passport_issued' : 'passport_status_changed',
     /*
      * ATTRIBUTE AN AGENT PASSPORT TO ITS AGENT (operator, 2026-08-03).

@@ -1459,6 +1459,13 @@ export default function SmartWalletDrawer({
   const [personaQubeCollapsed, setPersonaQubeCollapsed] = useState(false);
   const [agentCardCollapsed, setAgentCardCollapsed] = useState<Set<string>>(new Set());
   const [passportVcCopied, setPassportVcCopied] = useState<string | null>(null);
+  // T0/T1 ruling (2026-09-07): passportId is public non-secret metadata (the
+  // credential's own public identifier) — every API that accepts it
+  // independently authenticates the caller and checks ownership server-side,
+  // so there is no security reason to hide it. It was truncated with no way
+  // to actually obtain it; these let the holder reveal and copy the full id.
+  const [passportIdRevealed, setPassportIdRevealed] = useState<Set<string>>(new Set());
+  const [passportIdCopied, setPassportIdCopied] = useState<string | null>(null);
 
   // Sponsored agents — wallet section "Agents I sponsor" (Sprint 3).
   interface SponsoredAgentItem {
@@ -1654,6 +1661,22 @@ export default function SmartWalletDrawer({
     void navigator.clipboard.writeText(JSON.stringify(pq.credential, null, 2)).then(() => {
       setPassportVcCopied(pq.passportId);
       setTimeout(() => setPassportVcCopied((prev) => (prev === pq.passportId ? null : prev)), 2000);
+    });
+  }, []);
+
+  const toggleRevealPassportId = useCallback((passportId: string) => {
+    setPassportIdRevealed((prev) => {
+      const next = new Set(prev);
+      if (next.has(passportId)) next.delete(passportId);
+      else next.add(passportId);
+      return next;
+    });
+  }, []);
+
+  const handleCopyPassportId = useCallback((passportId: string) => {
+    void navigator.clipboard.writeText(passportId).then(() => {
+      setPassportIdCopied(passportId);
+      setTimeout(() => setPassportIdCopied((prev) => (prev === passportId ? null : prev)), 2000);
     });
   }, []);
 
@@ -5976,6 +5999,32 @@ export default function SmartWalletDrawer({
                           <span>Status: <span className="text-emerald-300">{pq.passportStatus}</span></span>
                           {pq.passportGrade && <span>· Grade: {pq.passportGrade}</span>}
                           {pq.claimedAt && <span>· Claimed {new Date(pq.claimedAt).toLocaleDateString()}</span>}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[10px] text-white/50">
+                          <span>Passport ID:</span>
+                          <span className="font-mono text-white/70">
+                            {passportIdRevealed.has(pq.passportId) ? pq.passportId : `${pq.passportId.slice(0, 12)}…`}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => toggleRevealPassportId(pq.passportId)}
+                            title={passportIdRevealed.has(pq.passportId) ? 'Hide Passport ID' : 'Reveal full Passport ID'}
+                            className="text-white/40 hover:text-white/70"
+                          >
+                            {passportIdRevealed.has(pq.passportId) ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyPassportId(pq.passportId)}
+                            title="Copy Passport ID"
+                            className="text-white/40 hover:text-white/70"
+                          >
+                            {passportIdCopied === pq.passportId ? (
+                              <Check className="h-3 w-3 text-emerald-400" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </button>
                         </div>
                         {pq.passportClass === 'citizen' && pq.passportGrade !== 'verified_citizen' && pq.claimedAt && (
                           <div className="flex items-center gap-1.5 flex-wrap">
