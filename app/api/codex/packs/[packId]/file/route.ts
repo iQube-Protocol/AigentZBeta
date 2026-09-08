@@ -34,16 +34,28 @@
  * paths that ARE deliberately public (today: only the shared Participation
  * Overview, consumed by both cartridges' `irl(-os)-participation-overview`
  * tabs, neither of which is admin-gated). Every other `irl`-pack path
- * requires canonical server-resolved admin authority — never a client
- * `isAdmin` query/prop, which this route never reads. Do not widen this
- * allowlist without an explicit operator public-classification decision;
- * see the audit doc's Phase 2 section for the pending classification work.
+ * requires EITHER canonical server-resolved admin authority OR a scoped
+ * research-lab reviewer grant covering the specific experiment the path
+ * belongs to (Phase 2 scoped restoration, 2026-09-08 — see
+ * `docs/security/2026-08-27_irl-os-containment-breach-audit.md` Residual
+ * Risk item 0). Neither path ever reads a client `isAdmin` query/prop.
+ * `experimentIdForIrlPackPath` (services/research/irlExperimentPathScope.ts)
+ * decides which registered experiment (if any) a path belongs to, and
+ * `resolveExperimentReviewGrant` (services/passport/participationAccess.ts)
+ * is the SAME canonical grant check the Validation Programme's JSON Agent
+ * Package already uses — no ad-hoc allowlist, no new grant vocabulary. A
+ * path outside every registered experiment's own folder stays admin-only,
+ * exactly as Phase 1 left it. Do not widen `IRL_PUBLIC_PACK_PATHS` itself
+ * without an explicit operator public-classification decision.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import { corpusReadPackFile } from "@/services/knowledge/packCorpusStore";
 import { getActivePersona } from "@/services/identity/getActivePersona";
+import { getSupabaseServer } from "@/app/api/_lib/supabaseServer";
+import { resolveExperimentReviewGrant } from "@/services/passport/participationAccess";
+import { experimentIdForIrlPackPath } from "@/services/research/irlExperimentPathScope";
 
 const ADMIN_GATED_PACK_PATHS: Array<{ packId: string; pathPrefix: string }> = [
   { packId: "polity-core", pathPrefix: "items/commentary/constitutional-internet/" },
@@ -101,18 +113,42 @@ export async function GET(request: NextRequest, context: { params: Promise<{ pac
     (g) => g.packId === packId && safePath.startsWith(g.pathPrefix),
   );
   // IRL pack — default-deny (2026-08-27 containment): everything requires
-  // canonical admin except the explicit public allowlist above. This is the
+  // canonical admin OR a scoped research-lab reviewer grant (Phase 2, added
+  // 2026-09-08) except the explicit public allowlist above. This is the
   // opposite default from every other pack (which is default-allow, gated
   // only by ADMIN_GATED_PACK_PATHS), because the `irl` pack's collections
   // carry confidential laboratory IP that was never meant to be servable to
   // an unauthenticated caller. `getActivePersona` resolves admin from the
   // authenticated session server-side — this never reads a client `isAdmin`
   // query param or prop.
-  const requiresAdmin = gate || (packId === "irl" && !IRL_PUBLIC_PACK_PATHS.includes(safePath));
-  if (requiresAdmin) {
+  const irlRequiresAuthorization = packId === "irl" && !IRL_PUBLIC_PACK_PATHS.includes(safePath);
+  if (gate || irlRequiresAuthorization) {
     const persona = await getActivePersona(request).catch(() => null);
-    if (!persona?.cartridgeFlags?.isAdmin) {
+    const isAdmin = persona?.cartridgeFlags?.isAdmin === true;
+
+    if (gate && !isAdmin) {
       return NextResponse.json({ ok: false, error: "Admin required." }, { status: 403 });
+    }
+
+    if (irlRequiresAuthorization && !isAdmin) {
+      // Scoped reviewer path: only reachable for a path inside a REGISTERED
+      // experiment's own folder, and only for a persona holding an active
+      // research-lab grant, in a review-readable role, scoped (via
+      // `allowed_experiments`) to THAT experiment — the same check the
+      // Validation Programme's JSON Agent Package already gates on. Never
+      // widens to admin-only paths outside every experiment folder, and
+      // never trusts a client-supplied experiment/scope claim.
+      const experimentId = experimentIdForIrlPackPath(safePath);
+      const admin = getSupabaseServer();
+      const grant = experimentId && persona?.personaId && admin
+        ? await resolveExperimentReviewGrant(admin, persona.personaId, experimentId)
+        : null;
+      if (!grant) {
+        return NextResponse.json(
+          { ok: false, error: "Admin or a scoped research-lab reviewer grant for this experiment is required." },
+          { status: 403 },
+        );
+      }
     }
   }
 

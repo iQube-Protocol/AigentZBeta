@@ -22,15 +22,30 @@
  * same confidential material `/api/codex/packs/irl/file` was independently
  * found leaking. Both routes now share ONE explicit allowlist
  * (`IRL_PUBLIC_DOC_PATHS`) — the few `irl`-pack paths a genuinely public,
- * persona-free reviewer download is intended for. Every other path 404s
- * (never a metadata-revealing 403, since this route never resolves a
- * persona at all — an authenticated admin who needs a gated document uses
- * the cartridge UI / the gated pack-file route instead, which does).
+ * persona-free reviewer download is intended for.
+ *
+ * PHASE 2 SCOPED RESTORATION (2026-09-08 — audit doc Residual Risk item 0):
+ * a path outside that static allowlist is now ALSO servable to an
+ * authenticated persona holding a scoped research-lab reviewer grant for
+ * the specific experiment the path belongs to (`experimentIdForIrlPackPath`
+ * + `resolveExperimentReviewGrant` — the SAME canonical grant check the
+ * Validation Programme's JSON Agent Package already uses; no ad-hoc
+ * allowlist, no new grant vocabulary). This route therefore now resolves a
+ * persona for any NON-allowlisted path — the genuinely anonymous case
+ * (the static allowlist) is unchanged. Every denial (anonymous, wrong
+ * persona, wrong scope, expired/revoked grant) still 404s, never a
+ * metadata-revealing 403 — the containment posture "no existence signal on
+ * denial" is preserved for every unauthorized caller, not just anonymous
+ * ones.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import { corpusReadPackFile } from '@/services/knowledge/packCorpusStore';
+import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { resolveExperimentReviewGrant } from '@/services/passport/participationAccess';
+import { experimentIdForIrlPackPath } from '@/services/research/irlExperimentPathScope';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,6 +55,8 @@ const PACK_ID = 'irl';
  * Default-deny allowlist (2026-08-27 containment) — mirrors
  * IRL_PUBLIC_PACK_PATHS in app/api/codex/packs/[packId]/file/route.ts. Do
  * not widen without an explicit operator public-classification decision.
+ * A path outside this list is not necessarily unreachable — see the Phase 2
+ * scoped-grant check below — but it is never anonymously reachable.
  */
 const IRL_PUBLIC_DOC_PATHS: string[] = [
   'foundation/PARTICIPATION_overview.md',
@@ -72,9 +89,26 @@ export async function GET(request: NextRequest) {
   }
 
   if (!IRL_PUBLIC_DOC_PATHS.includes(safePath)) {
-    // Neutral 404 — never signals whether the path exists (containment
-    // directive: "return no ... existence signals on denial").
-    return NextResponse.json({ ok: false, error: 'File not found.' }, { status: 404 });
+    // Not on the static public allowlist — the ONLY other path to a 200 is a
+    // scoped research-lab reviewer grant for the experiment this path
+    // belongs to. Everything else (anonymous, wrong persona, wrong scope,
+    // a path outside every registered experiment's folder) 404s — neutral,
+    // never a metadata-revealing 403 (containment directive: "return no ...
+    // existence signals on denial"), for EVERY unauthorized caller alike.
+    const persona = await getActivePersona(request).catch(() => null);
+    const isAdmin = persona?.cartridgeFlags?.isAdmin === true;
+    let authorized = isAdmin;
+    if (!authorized && persona?.personaId) {
+      const experimentId = experimentIdForIrlPackPath(safePath);
+      const admin = getSupabaseServer();
+      if (experimentId && admin) {
+        const grant = await resolveExperimentReviewGrant(admin, persona.personaId, experimentId);
+        authorized = grant !== null;
+      }
+    }
+    if (!authorized) {
+      return NextResponse.json({ ok: false, error: 'File not found.' }, { status: 404 });
+    }
   }
 
   // Read through the pack-corpus seam (local FS in dev; the remote in-memory

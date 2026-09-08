@@ -213,15 +213,21 @@ describe('Query-derived authority — isAdmin/personalId are navigation hints on
 });
 
 describe('irl pack — default-deny document routes (root-cause fix)', () => {
-  it('the codex-packs file route gates the irl pack to an explicit allowlist unless admin', () => {
+  it('the codex-packs file route gates the irl pack to an explicit allowlist unless admin OR a scoped research-lab reviewer grant (2026-09-08 Phase 2 scoped restoration)', () => {
     const code = readSource('app/api/codex/packs/[packId]/file/route.ts');
     expect(code).toContain('IRL_PUBLIC_PACK_PATHS');
     expect(code).toMatch(/packId === ["']irl["']/);
+    expect(code).toContain('resolveExperimentReviewGrant');
+    expect(code).toContain('experimentIdForIrlPackPath');
   });
 
-  it('the public irl/doc route gates to an explicit allowlist (no persona bypass — it 404s outright)', () => {
+  it('the public irl/doc route gates to an explicit static allowlist FOR ANONYMOUS CALLERS — a scoped research-lab reviewer grant is the only other path to 200, and every other denial still 404s (2026-09-08 Phase 2 scoped restoration)', () => {
     const code = readSource('app/api/public/irl/doc/route.ts');
     expect(code).toContain('IRL_PUBLIC_DOC_PATHS');
+    expect(code).toContain('resolveExperimentReviewGrant');
+    expect(code).toContain('experimentIdForIrlPackPath');
+    // Every denial branch still resolves to a 404, never a metadata-revealing 403.
+    expect(code).not.toMatch(/status:\s*403/);
   });
 
   it('the shared PARTICIPATION_overview.md path is allowlisted in both routes (the one deliberately-public irl doc)', () => {
