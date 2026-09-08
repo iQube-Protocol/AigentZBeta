@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-07-RPC-GRANTS-REVIEW-BEFORE-SHIP-001",
+  "statement": "Any new Postgres function (RPC) created in a schema exposed to PostgREST (typically `public`) MUST have its grants explicitly reviewed and set before it is considered shipped: `REVOKE EXECUTE` from `PUBLIC`, `anon`, and `authenticated` unless a narrowly justified, deliberately-authenticated invocation is intended, then `GRANT EXECUTE` only to the specific role(s) meant to call it (typically `service_role` for a function only ever invoked by trusted server code). A function's own SQL-level correctness (atomicity, idempotency, business logic) is a SEPARATE property from who can invoke it — testing the former never substitutes for verifying the latter. Additionally: a write-side-effect function should set a fixed `search_path` (e.g. `public, extensions, pg_temp`), and should re-derive identity/authority-bearing parameters from an already-verified source row (e.g. a claimed application) rather than accepting them as caller-supplied values whenever a source of truth already exists in the same transaction.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "A security-boundary omission distinct from inv.engineering.036/037 (duplication) — this is about WHO can invoke an otherwise-correct implementation, not about whether the implementation itself is authoritative. Supabase/Postgres's default grants make a newly-created public-schema function reachable by any PostgREST caller unless explicitly revoked, which is easy to miss because a same-session smoke test (run as the function owner or a superuser) succeeds identically whether or not the grants are safe.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/agent-passport-atomic-issuance-hardening.integration.test.ts",
+      "assertion": "issue_agent_participant_passport_atomic denies execution to anon and authenticated (permission denied over the real PostgREST endpoint), a concurrent duplicate claim against the same application is refused, and a citizen application is refused by this agent-only RPC.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "supabase/migrations/20260930280000_agent_participant_passport_issuance_atomic.sql",
+      "defect": "issue_agent_participant_passport_atomic was created via plain CREATE FUNCTION with no grant management, leaving EXECUTE granted to PUBLIC, anon, and authenticated by Postgres/Supabase default -- callable directly via PostgREST by any client holding an anon or authenticated key, bypassing every TypeScript-side authorization check. The same review also found no concurrency guard, caller-controlled identity/binding parameters (a confused-deputy risk), and a silently-never-populated source column being propagated instead of a freshly-computed value.",
+      "resolutionId": "RES-2026-09-07-DIDQUBE-PHASE-3-RPC-HARDENING-CLOSURE-REVIEW-001",
+      "evidence": [
+        "supabase/migrations/20260930290000_agent_participant_passport_issuance_hardening.sql",
+        "tests/agent-passport-atomic-issuance-hardening.integration.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-09-07-DIDQUBE-PHASE-3-RPC-HARDENING-CLOSURE-REVIEW-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "Only one occurrence recorded so far — this stays at `candidate`, not `validated` (which requires >=2 occurrences or demonstrated regression prevention), per the ladder discipline: a lesson does not become doctrine because a fix worked once.",
+    "A follow-up sweep of every OTHER public-schema Postgres function already shipped in this project's Supabase projects, checking proacl for the same default-grants exposure, is recommended as a separate, explicitly-scoped task — not performed here (the review this candidate derives from was deliberately bounded to the one function under review)."
+  ]
+}

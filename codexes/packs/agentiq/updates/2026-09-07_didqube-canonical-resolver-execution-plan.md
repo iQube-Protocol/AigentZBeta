@@ -512,10 +512,11 @@ DCIR/Standing/Registry-Horizen/DVN code calls the resolver; `services/dvn/activi
 was not touched; no `personas.root_did` elimination was attempted (that is Phase 2.5, a separate,
 subsequent round).
 
-### Phase 2.5 — Eliminate authoritative `personas.root_did` reads (moved ahead per ruling #5)
+### Phase 2.5 — Eliminate authoritative `personas.root_did` reads (moved ahead per ruling #5) — IMPLEMENTED
 *Not deferred to Phase 5 cleanup, as the original plan had it — this now runs before Phase 3/4, since
 it gates a real, currently-live correctness gap (Phase 0 found 2 of 3 `agent_persona` rows already
-unanchored because of it).*
+unanchored because of it). Implemented and verified 2026-09-07 — see "Phase 2.5 — implementation
+record" after this section.*
 
 1. `services/agents/provisionAgentPersona.ts` — replace the `personas.root_did → root_identity.did_uri`
    walk with principal-first resolution from the authenticated `auth_user_id`
@@ -540,6 +541,111 @@ unanchored because of it).*
 tree (grep + a canary added under the existing `CI-2026-08-23-CANONICAL-IDENTITY-CHAIN-OVER-FUZZY-MATCH-001`
 candidate invariant, as a second recorded occurrence in the same file class). Both existing unanchored
 `agent_persona` rows are backfilled or explicitly flagged.
+
+#### Phase 2.5 — implementation record (2026-09-07)
+
+**Full inventory and classification, every site Phase 0 named plus one new discovery:**
+
+| Site | Classification | Action taken |
+|---|---|---|
+| `services/agents/provisionAgentPersona.ts` | authoritative read (broken) | **Fixed** — principal-first via new `sponsorAuthUserId` param + `resolveRootPrincipalForAuthUser` (composed, not re-derived). `allowUnanchored` removed; a human-sponsored call that cannot resolve now fails closed (409). New `isPlatformAuthority` flag (mirrors `sponsorPolityAgent`'s own) covers the one case principal-first cannot: machine-to-machine sponsorship with no human auth session. |
+| `app/api/homecoming/agent/stand-up/route.ts` POST | authoritative read (duplicated walk) + `allowUnanchored: true` | **Fixed** — resolves the caller's own `auth_user_id` via `getCallerIdentityContext`, passes it as `sponsorAuthUserId`; `allowUnanchored` removed. |
+| `app/api/homecoming/agent/stand-up/route.ts` GET preflight | authoritative read, independently hand-rolled duplicate of the same broken walk | **Fixed** — now calls `resolveRootPrincipalForAuthUser` directly (the same walk POST uses), so the preview can never diverge from what POST actually does. |
+| `app/api/identity/persona/agent/route.ts` | authoritative read (via `provisionAgentPersona` call) | **Fixed** — added `getCallerIdentityContext`, passes `sponsorAuthUserId`. |
+| `app/api/ops/agents/provision-platform-agent/route.ts` | `allowUnanchored: true`, no human session (CRON_TRIGGER_TOKEN path) | **Fixed** — passes `isPlatformAuthority: true` instead. |
+| `app/api/admin/identity/sync-persona-evm-addresses/route.ts` | write (synthetic `did:fio:<handle>` placeholder) | **Fixed** — write removed. It never produced a genuine `root_identity.did_uri` link and, once every authoritative reader above was fixed, was provably inert — pure dead weight perpetuating the column's ambiguity. |
+| `services/standing/agentStandingPersona.ts` | flagged in Phase 0 as a write site requiring elimination | **Reclassified as already-safe, no change.** Close reading: `root_did` is used purely as a self-referential match key for an AGENT's OWN already-resolved `agent_root_identity.did_uri` (both read and write), to satisfy the existing `sync_persona_to_crm_persona` trigger's requirements for CRM Standing bridging — never to resolve a HUMAN sponsor's identity. Structurally distinct from the defect class being eliminated. Redesigning this CRM-bridge mechanism is Standing/reputation Phase 4 territory (its own dry-run reconciliation per the plan's own §Phase 4 item 5), not Phase 2.5. |
+| `services/agents/provisionAigentMePersona.ts` / `provisionAgentWalletPersona.ts` | read (comparison) | **Already safe, no change.** Same self-referential agent-identity-match pattern as above. |
+| `services/passport/bureauIdentityService.ts` — `lookupExistingBinding` inside `bindBureauIdentity` | read | **Already safe, no change.** A self-consistency read of its own prior write for the SAME auth account (idempotency check), not a resolution of an unrelated persona's identity. |
+| `services/passport/bureauIdentityService.ts` — exported `resolveRootDidCommitment` | read, consumed by `services/constitutional/constitutionalAgreement.ts` for cross-persona agreement-authorization comparison | **NOT fixed — flagged as a new, more serious finding than Phase 0's original "Medium, needs confirmation" classification.** This is a genuinely consequential (execution-gating) use: equality of two personas' RootDID commitments is what lets a different persona under the same RootDID authorize an agreement a different persona formed. Fixing it needs a persona-id → principal walk that does not cleanly exist yet (unlike every other site above, which resolves the CURRENT caller's own `auth_user_id` — this consumer needs to resolve an ARBITRARY persona's principal). Recorded as an `unresolvedRisk` in the resolution record below; recommended as the immediate next follow-up, reviewed on its own. |
+| `app/api/identity/persona/[id]/route.ts` | read (agent-rename propagation) | **Already safe, no change.** Same self-referential pattern; confirmed `root_did` is never serialized to the client (`toIdentitySafePersona`'s allowlist excludes it). |
+| `app/api/wallet/identity/references/route.ts` | read (display grouping) | **Already safe, no change.** Informational grouping only (which list to render a persona card in), never an authority/ownership decision. |
+| `services/agents/repairDelegationAnchor.ts` | the existing backfill mechanism for the 2 known unanchored rows | **Already correct, no change.** Resolves via `resolvePassportExplicitAnchor(sponsor_passport_id)`, never `personas.root_did`. |
+| 2 existing unanchored `agent_persona` rows | data backfill | **Flagged, not backfilled this pass** — `repairDelegationAnchor.ts` already handles this exact case; running it requires live database access this environment doesn't have. Operator should invoke the existing `POST /api/homecoming/agent/repair-anchor` route. |
+
+**Tests:** `tests/provision-agent-persona-principal-first.test.ts` (new, 7 tests) proves: a conflicting/
+misleading `personas.root_did` cannot override resolution (the fake admin client throws if `personas`
+is ever queried); a populated legacy value cannot rescue a missing canonical lineage (fails closed 409,
+never silently unanchored); valid human-sponsor and platform-authority paths both resolve correctly;
+missing `sponsorAuthUserId` is rejected before any DB read; idempotency short-circuits before principal
+resolution. `tests/agent-homecoming.test.ts` (16 tests, existing file) updated with a
+`getCallerIdentityContext` mock and passes unchanged otherwise — proves stand-up/provisioning/preflight
+share the same resolver rather than duplicated walks. `tests/sync-persona-evm-addresses-no-root-did-write.test.ts`
+(new) proves the admin backfill no longer writes `root_did`. `tests/legacy-passport-linkage-principal-first.test.ts`
+(existing, unchanged) continues to pass, confirming the reference pattern this fix generalizes from is
+undisturbed.
+
+**Regression check:** full suite (`npx vitest run`) — **17 failed files / 65 failed tests, 644 passed
+files / 10,595 passed tests** — matches the Phase 2 implementation record's own documented baseline
+(17/65) exactly. Zero new failures; none of the 17 pre-existing failing files touch any file this pass
+changed. `npx tsc --noEmit` on the whole project: zero new errors in any touched file (grepped the
+full output for each modified filename — no matches).
+
+**Resolution record:** `RES-2026-09-07-DIDQUBE-PHASE-2-5-ROOT-DID-ELIMINATION-001`, registered as a
+second occurrence under the existing candidate invariant
+`CI-2026-08-23-CANONICAL-IDENTITY-CHAIN-OVER-FUZZY-MATCH-001` (per the Phase 0 doc's own instruction to
+track this as a second occurrence of the same principle, not a freestanding new finding).
+
+**What Phase 2.5 deliberately did not do (at the time):** did not touch
+`services/constitutional/constitutionalAgreement.ts` (the newly-discovered consequential
+`resolveRootDidCommitment` consumer — see table above); did not redesign
+`services/standing/agentStandingPersona.ts`'s CRM-bridge mechanism (Phase 4 territory); did not backfill
+the 2 live unanchored `agent_persona` rows (no live DB access from this environment); did not touch DVN
+payloads; did not migrate Factor/Aegis/CTP/DCIR/Standing/Registry-Horizen consumers (Phase 4, unchanged
+sequencing). **The `constitutionalAgreement.ts` gap is now closed — see the follow-up implementation
+record immediately below. Phase 2.5 is now COMPLETE; the other deferrals above remain Phase 4/5
+territory, unchanged.**
+
+#### Phase 2.5 authority closure — implementation record (2026-09-07, follow-up)
+
+Closes the one item Phase 2.5 deliberately deferred: `services/constitutional/constitutionalAgreement.ts`
+and `app/api/constitutional/agreement/route.ts` consumed `resolveRootDidCommitment()`/`personas.root_did`
+for the `authorityBinding: 'ROOT_DID'` cross-persona agreement-authorization comparison. Model applied,
+per operator ruling: **DiDQube is the stable constitutional subject/container; RootDID is a rotatable
+identity primitive WITHIN it.**
+
+- `AgreementPayload` gained `principalDiDQubeCommitment` / `principalDiDQubeCommitmentVersion` — the
+  versioned, stable DiDQube public commitment, pinned once at formation via
+  `resolveDiDQube({ kind: 'auth_user_id', authUserId })` (composed from the Phase 2 canonical resolver,
+  never re-derived). THE authority anchor for agreements formed after this closure. The pre-existing
+  `principalRootDidCommitment` field is retained but is now informational only for new agreements —
+  recorded from the resolved primitive's `currentIdentityPrimitive.didUri`, never from
+  `personas.root_did`.
+- `formAgreement`/`authorizeAgreement` gained a `callerAuthUserId` parameter (mirroring the
+  `sponsorAuthUserId` pattern from the main Phase 2.5 pass), supplied by the route via the EXISTING
+  `getCallerIdentityContext(request)` helper (`services/wallet/personaRepo.ts`) — never a client-supplied
+  value, and only required when `authorityBinding === 'ROOT_DID'` (PERSONA-bound agreements, the
+  overwhelming majority, are completely unaffected and need no auth_user_id at all).
+  `authorizeAgreement`'s ROOT_DID branch now fails closed on any `resolveDiDQube` state other than
+  `resolved` (unresolved/ambiguous/conflicted/unsupported), then compares DiDQube public commitments via
+  the new shared `agreementPrincipalMatches` predicate.
+- **Legacy compatibility verifier** (`legacyRootDidCommitmentBelongsToKybe`): for `ROOT_DID` agreements
+  formed BEFORE this closure (no `principalDiDQubeCommitment` pinned, only the legacy
+  `principalRootDidCommitment`), authorization proves the historical RootDID belonged to the SAME
+  canonically-resolved DiDQube by enumerating every `root_identity` row ever issued under that DiDQube's
+  own `kybe_identity` anchor (`root_identity.kybe_id`) and hash-comparing each `did_uri` — never by
+  reading `personas.root_did`. This also gives legacy agreements RootDID-rotation tolerance they never
+  had under the old literal-hash comparison.
+- `agreementPrincipalMatches` is exported and shared between `authorizeAgreement` (execution-gating) and
+  the `GET /api/constitutional/agreement` listing route's viewer-equivalence check (visibility only) —
+  one predicate, so the two can never disagree about who counts as the same principal
+  (inv.engineering.036/037).
+- Existing signed agreements and their `termsCommitment`/payload content are never mutated by this
+  closure — only the (pre-existing, unrelated) `lifecycle.state` and `provenance.receiptIds` change on
+  authorize, exactly as before.
+- Behavioral tests added/rewritten in `tests/constitutional-agreement-rootdid-authority.test.ts` (16
+  tests, all passing), proving: RootDID rotation inside one DiDQube preserves authorized continuity; a
+  copied RootDID string across a different DiDQube cannot authorize; conflicting/irrelevant
+  `personas.root_did` values have no effect (plus a static-source proof the module never reads
+  `personas.root_did` or imports `resolveRootDidCommitment`); unresolved/ambiguous/conflicted/unsupported
+  resolution is refused on both form and authorize; and legacy agreement payloads/hashes remain
+  byte-for-byte unchanged. Full targeted regression (this file + `financial-services-runtime.test.ts` +
+  `moneypenny-runtime-authority-boundary.test.ts` + `companion-act.test.ts` + `onboarding-substrate.test.ts`
+  + `homecoming.test.ts` + `agent-bench-read-model.test.ts` + `experiment-workspace.test.ts` +
+  `didqube-resolver.test.ts`): 219/219 passing, zero regressions.
+- `resolveRootDidCommitment` itself (`services/passport/bureauIdentityService.ts`) is left in place,
+  unused — it was not deleted, since deleting an exported function is outside this closure's scope and
+  it may still serve future reference; its only production consumer has now been migrated off it.
 
 ### Phase 3 — Passport corrections + existing-Passport reconciliation (brief §6-§8, expanded per rulings #3/#4)
 *First phase that changes observable behavior — Passport issuance and VC shape.*
@@ -587,6 +693,340 @@ correctly class-typed subject, and (for agents) a resolved, non-ambiguous RootDI
 the same transaction. The 3 existing unbound-but-resolvable applications have their back-reference
 filled in; the 3 unresolvable applications are named for the operator, not silently forced. No issued
 credential is mutated — any subject change goes through successor issuance.
+
+#### Phase 3 items 1-2 — implementation record (2026-09-07)
+
+**Agent Passport atomic binding/issuance RPC + agent_card_url resolution — IMPLEMENTED and verified
+against the live 'Aigent Z' Supabase project.**
+
+- New Postgres function `issue_agent_participant_passport_atomic`
+  (`supabase/migrations/20260930280000_agent_participant_passport_issuance_atomic.sql`): one plpgsql
+  function performing the `polity_passport_records` insert, `passport_status_transitions` insert,
+  `polity_passport_applications` update, AND the `agent_root_identity.bound_passport_id` bind
+  (NULL-guarded, idempotent) as ONE transaction. Additive, reversible (`DROP FUNCTION`).
+- `services/passport/issuanceService.ts`: new `resolveAgentRootIdentityForCard` resolves
+  `agent_card_url` to EXACTLY ONE `agent_root_identity` at issuance time (`.limit(2)` + explicit
+  0/1/>1 branching) — refuses (fail closed, no exceptions, per brief §7) on missing or ambiguous
+  resolution. `applyReviewDecision`'s non-citizen approve branch now resolves + calls the atomic RPC
+  instead of the prior 3 separate writes; the citizen branch is byte-for-byte unchanged.
+- `services/homecoming/issueDelegatePassport.ts`: removed the now-redundant separate, best-effort
+  bind step — binding happens atomically inside `applyReviewDecision` for EVERY caller now, including
+  the manual Bureau review path that never bound at all before.
+- Real-Postgres verification: a self-rolling-back transaction against `bsjhfvctmduxhohtllly` proved
+  the RPC binds atomically on first call and the NULL-guard prevents a second call (different
+  passport id) from clobbering the existing bind; zero residue left behind.
+- Behavioral tests: `tests/agent-passport-atomic-issuance.test.ts` (4 tests) — successful atomic
+  issuance, missing-resolution refusal, ambiguous-resolution refusal, and RPC-error surfacing.
+  Targeted regression (this file + `tests/passport-bureau.test.ts` +
+  `tests/admin-action-centre-citizen-auto-issuance.test.ts` + `tests/agent-homecoming.test.ts` +
+  `tests/journey-admission-spine.test.ts`): 153/156 passing, the 3 failures pre-existing and
+  unrelated (confirmed via `git stash` comparison).
+- Resolution record:
+  `codexes/packs/agentiq/resolution-records/records/RES-2026-09-07-DIDQUBE-PHASE-3-AGENT-PASSPORT-ATOMIC-ISSUANCE-001.json`.
+- **Not done in this pass** (separate, subsequent vertical commits per the operator's own sequencing):
+  item 3 (existing-Passport reconciliation — backfilling the 3 known-resolvable applications),
+  item 4 (class-sensitive VC subject construction), item 5 (VC signing remains a stub), item 6 (the
+  T0/T1 wallet-route tension — an unresolved constitutional choice requiring its own operator ruling,
+  deliberately not touched).
+
+#### Phase 3 item 4 — implementation record (2026-09-07)
+
+**Class-sensitive VC subject construction — IMPLEMENTED.**
+
+`services/passport/passportCredential.ts`'s `buildPassportCredential` anchored `credentialSubject.id`
+on `kybe_did_public_ref` UNCONDITIONALLY, for every passport class. Citizens are kybe-anchored
+(personhood, permanent) and this was correct for them — but agent/robot/organization participants
+have NO `kybe_identity` at all, so every non-citizen credential's subject was silently `undefined`.
+
+- New `resolveCredentialSubjectId(record)`: citizen → `kybe_did_public_ref`; every other class →
+  `root_did_public_ref` (brief §8, exactly as specified). A small, surgical change — one function, one
+  call site.
+- `PassportRecordRow` gained `root_did_public_ref`; the two callers that select this shape
+  (`app/api/polity-passport/credential/[passportId]/route.ts`, `app/api/polity-passport/wallet/route.ts`)
+  now select the column too (both the current and legacy-fallback `SELECT_COLS` variants).
+- Applied to NEW issuance / newly-built envelopes only — an already-issued credential is never rebuilt
+  from updated columns; a subject change goes through successor issuance (Phase 3 item 3), untouched
+  here.
+- `tests/passport-credential.test.ts` extended (10 tests, was 6): proves citizen anchors on KybeDID and
+  agent-participant anchors on RootDID even when BOTH refs are present on the row (no accidental
+  cross-class fallback), and that a class with no anchor at all produces `undefined` rather than
+  silently reading the wrong field.
+
+#### Phase 3 item 3 — implementation record (2026-09-07)
+
+**Successor-credential reconciliation, WITHOUT MUTATION — the mechanism IMPLEMENTED.**
+
+`services/passport/issuanceService.ts`'s new `issueSuccessorPassport` is the "design successor
+credential issuance" deliverable (brief §6): when a Passport's subject anchors need to change as a
+result of reconciliation (e.g. the class-sensitive subject fix above would now resolve a different
+value than what was originally issued), it issues a NEW `polity_passport_records` row carrying
+`renewal_of_passport_id` back to the prior one — **the schema's existing renewal/supersession column**
+(`renewed_at`/`renewal_of_passport_id`, present since the original migration but never previously
+implemented in TypeScript), reused rather than inventing a parallel "superseded by" concept
+(inv.engineering.036/037). The prior row is READ ONLY — no `UPDATE` is ever issued against it; every
+field not explicitly reconciled is carried forward unchanged. A `passport_status_transitions` audit
+row records the supersession with `evidence_type: 'successor_credential_reconciliation'` and the
+caller-supplied reason.
+
+- Refuses to issue a successor to an already-revoked passport, and errors (rather than silently
+  orphaning a row) when the prior passport does not exist.
+- Verified against the live 'Aigent Z' Supabase project in a self-rolling-back transaction: the exact
+  INSERT shape the TypeScript function uses is schema-valid (no FK on `renewal_of_passport_id` —
+  confirmed via `pg_constraint`), and the prior row's `root_did_public_ref` is provably unchanged
+  after the successor insert.
+- `tests/passport-successor-credential.test.ts` (6 tests): successor creation with
+  `renewal_of_passport_id` set, zero `UPDATE` calls against `polity_passport_records`, unreconciled
+  fields carried forward, the audit-row shape, revoked-prior refusal, and missing-prior refusal.
+- **Not done in this pass**: the actual backfill of the 3 known-resolvable-but-unbound live
+  applications from Phase 0's original inventory — that dry-run report and its named row IDs were not
+  re-derived or re-verified in this pass (a live report this agent has not independently re-confirmed
+  should not be acted on from memory); the mechanism built here is what that backfill would use once
+  the operator confirms the specific rows. This is intentionally the same discipline the Phase 2.5
+  root-did-elimination pass already applied to its own 2 known-unanchored `agent_persona` rows — the
+  MECHANISM ships, the live write against specific named rows is a deliberate, separate operator-
+  confirmed act.
+
+### Phase 3 closure review (2026-09-07) — bounded, before item 5
+
+Two verification passes over already-shipped Phase 3 work, requested explicitly rather than assumed
+complete. Found and fixed four real gaps in item 1's RPC that its own original tests never exercised;
+item 2's checks were already correct in code but had one real test gap, now closed.
+
+#### Item 1 — atomic Passport issuance RPC: four real gaps found and fixed
+
+`supabase/migrations/20260930290000_agent_participant_passport_issuance_hardening.sql` supersedes
+`issue_agent_participant_passport_atomic` from the item-1 pass:
+
+1. **GRANTS (critical).** The function was created with default privileges intact — `EXECUTE` was
+   granted to `PUBLIC`, `anon`, AND `authenticated`. Confirmed live: `full_acl` showed
+   `postgres=X/postgres, service_role=X/postgres, anon=X/postgres, authenticated=X/postgres`. Since
+   PostgREST exposes every function in the `public` schema the calling role has `EXECUTE` on, **this
+   function was callable directly by any client holding an anon or authenticated key, completely
+   bypassing every TypeScript-side check** (steward gate, World-ID verification, application-status
+   validation) `applyReviewDecision` performs before ever reaching it. Fixed: `REVOKE` from
+   `PUBLIC`/`anon`/`authenticated`, `GRANT` to `service_role` only. Verified live: `SET LOCAL ROLE
+   anon`/`authenticated` both now get `ERROR 42501: permission denied for function`.
+2. **CONCURRENCY.** Nothing prevented two concurrent calls against the same `application_id` from
+   both succeeding — each mints its own unique `passport_id`, so both `INSERT`s would succeed,
+   producing two active Passports for one application. Fixed: the `application_status` `UPDATE` is
+   now the FIRST statement and the concurrency gate (only transitions rows still in an open status);
+   a losing call gets zero rows back and `RAISE`s, rolling back its entire attempted issuance.
+   Verified live: a second call against an already-claimed application raises
+   `... is not an open agent_participant application ...` and exactly one `polity_passport_records`
+   row exists for the application afterward.
+3. **CONFUSED DEPUTY.** The original signature accepted `passport_class`, `persona_id`, and (most
+   seriously) `agent_root_identity_id` as caller-supplied parameters, with nothing forcing them to
+   correspond to the application's own recorded data. Fixed: the function now re-derives every
+   subject/binding field DIRECTLY from the claimed `polity_passport_applications` row and resolves
+   `agent_root_identity` from THAT row's own `agent_card_url` internally (fail closed on 0 or >1
+   matches) — the caller supplies only the passport id to mint and policy inputs (issued status,
+   evidence/receipt type, actor) that legitimately come from the TypeScript status-machine decision.
+   Verified live: an unrelated `agent_root_identity` row planted alongside the correct one is
+   provably never touched.
+4. **UNDEFINED SUBJECT ON ISSUE.** The original version propagated
+   `polity_passport_applications.root_did_public_ref` as-is — but nothing in this codebase writes
+   that column for an agent application, so it was always `null`, meaning the item-4 class-sensitive
+   VC subject fix would resolve every freshly-issued agent Passport's `credentialSubject.id` to
+   `undefined` in practice. Fixed: the RPC now COMPUTES the commitment from the resolved
+   `agent_root_identity`'s own `did_uri` (`sha256`, first 16 hex chars via `pgcrypto`'s `digest()`) —
+   verified live, byte-identical to `services/passport/bureauIdentityService.ts`'s `didPublicRef` for
+   the same input, so every other commitment comparison in this codebase (the Constitutional
+   Agreement legacy compatibility verifier included) stays consistent with what this RPC writes.
+
+Also sets a fixed `search_path = public, extensions, pg_temp` (Postgres best practice for a
+write-side-effect function; `extensions` is where this project's `pgcrypto` lives), and scopes the
+claim to `passport_class = 'agent_participant'` exactly — a citizen, robot, or organization
+application is refused by this RPC (verified live for citizen; robot/organization have no canonical
+root table yet per the DiDQube resolver's own `UnsupportedSubjectClass`, so they must never silently
+borrow this function's `agent_root_identity` resolution).
+
+`services/passport/issuanceService.ts`'s `applyReviewDecision` updated to call the reduced signature;
+the now-fully-superseded `resolveAgentRootIdentityForCard`/`AgentRootIdentityResolution` (added in the
+item-1 pass, made redundant by the RPC's own internal resolution) removed —
+`resolveAgentRefsForCard` (a DIFFERENT, deliberately best-effort function used only for receipt
+attribution) is unaffected. `tests/agent-passport-atomic-issuance.test.ts` updated to the new call
+shape; `tests/agent-passport-atomic-issuance-hardening.integration.test.ts` added (skipped without
+live service-role credentials) to keep the grants/concurrency/scope proofs as a standing regression
+check rather than a one-time manual verification.
+
+#### Item 2 — canonical legacy agreement continuity by subject class: already correct, one test gap closed
+
+All five checks were already true in shipped code (`services/identity/didQubeResolver.ts` +
+`services/constitutional/constitutionalAgreement.ts`'s `agreementPrincipalMatches`):
+
+- Natural-person history resolves through `human_didqubes`/`kybe_identity` — `buildHumanPrimitive`,
+  covered by `tests/didqube-resolver.test.ts`'s "resolved happy paths" suite.
+- Agent history resolves through `agent_root_identity`/`agent_didqubes` — `buildAgentPrimitive`, same
+  file, plus now doubly proven by item 1's own confused-deputy-safe RPC resolution.
+- **No agent RootDID is looked up through a citizen-only table** — `agreementPrincipalMatches`
+  structurally refuses (`constitutionalAnchor.kind !== 'kybe_identity' → return false`) BEFORE it
+  would ever call `legacyRootDidCommitmentBelongsToKybe` (which queries `root_identity`, a
+  citizen-only table). This guard existed in shipped code but had **no test** — added
+  `tests/constitutional-agreement-rootdid-authority.test.ts`'s "an AGENT-anchored acting primitive can
+  never satisfy a legacy natural-person agreement" test, which plants a commitment that WOULD match
+  if `root_identity` were queried against the wrong anchor kind, asserts refusal, AND asserts the
+  `root_identity` query count stays at zero — proving the refusal is structural, not a lucky
+  non-match.
+- Robot and organization classes fail explicitly as `unsupported_subject_class` —
+  `resolveDiDQube`'s `subject_class_hint` entry gate, covered both in `didqube-resolver.test.ts` and
+  in `constitutional-agreement-rootdid-authority.test.ts`'s own non-`resolved`-state refusal tests.
+- Discovery-only references cannot authorize — true, currently VACUOUSLY: grepped every production
+  caller of `resolveDiDQube` and found exactly three (`constitutionalAgreement.ts`'s two branches +
+  the agreement-listing route), all three using `kind: 'auth_user_id'` exclusively. No consequential
+  consumer in this codebase resolves via `kind: 'agent_card_url'` (`trustClass: 'discovery'`) at all
+  yet — that is Phase 4 territory (Factor/CTP), not yet started. The resolver's own tag
+  (`didqube-resolver.test.ts`'s "tagged trustClass 'discovery' — never authoritative alone" test) is
+  the correct and sufficient existing coverage until a discovery-consuming consumer exists to test
+  against.
+
+No refactor beyond the one added test — per instruction, code already correct is documented, not
+touched.
+
+#### Item 5 — asymmetric VC signing — IMPLEMENTED (2026-09-07)
+
+Retires the Phase A HMAC stub (`PolityBureauHmacStub/v0`) for NEW issuance in favor of a real,
+publicly-verifiable Ed25519 signature, mirroring the swappable-provider seam already established for
+agreement acceptance (`services/constitutional/agreementProviders.ts`).
+
+- **New files**: `services/passport/passportCredentialSigningProviders.ts` (canonical, sorted-key
+  payload serialization; the `local-ed25519` provider using Node's native `crypto.sign`/`crypto.verify`
+  — no new dependency; a small known-keys registry so a rotated-out key stays verifiable for what it
+  already signed without being usable for new issuance) and
+  `services/passport/passportCredentialVerification.ts` (a genuinely SEPARATE module from signing —
+  shares no call chain or in-memory state — that dispatches on `proof.type` and handles every proof
+  type this issuer has ever produced: the new Ed25519 suite, the legacy HMAC stub, and the legacy
+  unsigned stub).
+- **Canonical serialization**: `canonicalizeCredentialPayload` recursively sorts object keys (arrays
+  keep position, which is meaningful) so the signed bytes never depend on incidental JS property
+  insertion order — the fragility of the OLD stub's plain `JSON.stringify(credential)`.
+- **Keys are server-side and provider-backed**: signing needs the private key
+  (`PASSPORT_BUREAU_ED25519_PRIVATE_KEY_B64`, server-only); verification needs ONLY the matching public
+  key from the known-keys registry (`PASSPORT_BUREAU_SIGNING_KEYS_JSON`) — a verifier never touches
+  private key material, making verification genuinely independent of issuance. A future KMS/HSM-backed
+  provider is a drop-in addition behind the same interface, exactly how `x409` sits beside `local` in
+  the agreement-acceptance seam — not built here (no real KMS credentials exist to wire).
+- **Proof metadata is bound into the signature**: `proof.created`/`proof.proofPurpose` are included in
+  the signed payload (`buildSignablePayload`) alongside the credential body — `proof.type` and
+  `proof.keyId` are already implicitly protected (a tampered type re-dispatches verification to the
+  wrong/no branch; a tampered keyId selects the wrong public key for the original signature). This
+  means every field in the proof, not just the credential body, is tamper-evident.
+- **Legacy credentials are never re-signed or mutated**: `passportCredentialVerification.ts` verifies
+  an old HMAC-stub credential using the EXACT historical algorithm (plain, non-canonicalized
+  `JSON.stringify`) — never the new sorted-key canonicalization, which would never match a legacy
+  signature. An old unsigned-stub credential is never treated as valid (`unsigned_stub` — it never
+  claimed a signature).
+- **Fails closed** on: unknown `proof.type` (`unknown_algorithm`), an unrecognised `keyId`
+  (`unknown_key`), a malformed public key in the registry (`malformed_key`), a proof missing fields its
+  own declared type requires (`malformed_proof`), an unrecognised `issuer.id` shape (`unknown_issuer`),
+  and a legacy HMAC-stub credential when `PASSPORT_BUREAU_CREDENTIAL_SECRET` is unavailable
+  (`legacy_secret_unavailable` — an inability to check is NEVER treated as valid).
+- **Predecessor reference carried into the signed payload**: `PassportRecordRow` gained
+  `renewal_of_passport_id` (threaded from the two credential-serving routes' `SELECT`s), surfaced as
+  `credentialSubject.supersedesPassportId` when a Passport is a successor
+  (`issueSuccessorPassport`, Phase 3 item 3) — part of the signed body, so tampering it is caught
+  exactly like tampering any other claim.
+- **Tamper matrix tested** (`tests/passport-credential-signing.test.ts`, 23 tests): subject, a claim
+  (`passportGrade`), issuance time (`validFrom`), the predecessor reference
+  (`supersedesPassportId`), and proof metadata (`proof.created`, `proof.proofPurpose`) each
+  independently invalidate an Ed25519-signed credential. Plus: canonical-serialization determinism,
+  the no-key-configured and key-not-in-registry fallback-to-unsigned-stub paths, every fail-closed
+  reason above, and a T0 canary proving a signed credential never serialises the private key.
+  Full targeted regression (this file + `passport-credential.test.ts` +
+  `passport-successor-credential.test.ts` + `passport-bureau.test.ts` +
+  `admin-action-centre-citizen-auto-issuance.test.ts` + `agent-passport-atomic-issuance.test.ts`):
+  104/104 passing.
+
+#### Item 6 — the T0/T1 wallet-vs-DiDQube authority ruling and passport_id's privacy classification — IMPLEMENTED (2026-09-07)
+
+The brief (`2026-09-07_t0-t1-wallet-authority-decision-brief.md`) named `polity_passport_records.passport_id`'s
+exposure via `/api/polity-passport/wallet` as the one unreconciled tension the prior architecture
+audit flagged. The general §1 question — wallet-proof feeds a lookup, T1/DiDQube is the actual
+authority, a wallet must never become the constitutional subject merely because it authenticated a
+session — is **ratified as a general rule for all future identity-resolution code**: it already
+matches what `resolvePassportPrincipal` and the DiDQube resolver do structurally (brief §2a), and no
+code change was needed there. `issuePassportSession`'s session-minting SCOPE (brief §2b) remains a
+separate, narrower open question the operator has not yet ruled on; it is not blocking.
+
+The brief's own §2d/§3 recommendation (Option 3 — codify an owner-scoped exception plus a canary)
+was **superseded before implementation** by the operator's ruling on `passport_id` specifically,
+issued in three successive refinements in this same tranche:
+
+1. First ruling: remove `passport_id` from the browser entirely, replace with a short-lived opaque
+   capability reference. Implementation begun (`services/passport/passportWalletRef.ts`), then
+   reverted before completion.
+2. Correction: `passport_id` is public non-secret metadata, safe to retain verbatim in the browser
+   provided every consuming route independently authenticates and checks ownership server-side.
+3. Final correction, ratified: neither of the above is the right classification. `passport_id` is
+   **holder-visible, privacy-sensitive credential metadata** — analogous to a private account/
+   membership number, not a private key (disclosure does not grant control; it need not be rotated on
+   exposure) and not a generally public identifier either (the platform must minimize its circulation
+   and never let it become a routine public-correlation handle).
+
+**What classification (3) requires, and what was found on audit:**
+
+- Keep it visible and copyable in the authenticated wallet — **already true**: `LockerTab.tsx` and
+  `SmartWalletDrawer.tsx` (both edited earlier in this tranche, before the final classification
+  landed, to add an explicit reveal-toggle + copy-to-clipboard control for the full id) needed no
+  further change.
+- Never use it as authentication or proof of ownership — **already true everywhere**: every
+  consequential route accepting `passportId` (`credential/[passportId]` POST, `verify-worldid` POST,
+  `repair-legacy-linkage`, `attest/[type]`, `sponsored-agents`, `review/decide`,
+  `applications/submit`, `homecoming/agent/issue-passport`, `venture/workspace/.../agent-claim`)
+  independently calls `getActivePersona` and checks ownership or admin role server-side before
+  acting; the two unauthenticated GET routes (`registry`, the credential preview) are intentionally
+  public-projection or capability-URL by design. Proved behaviorally, not just by reading:
+  `tests/passport-claim-ownership-boundary.test.ts` shows a real, valid `passportId` supplied by an
+  authenticated caller who does not own it is refused (403) by both the claim route and the
+  World-ID-verify route, and that an unauthenticated caller is refused (401) regardless of what
+  `passportId` it supplies.
+- Do NOT expose it in public profiles, URLs, analytics, logs, receipts, DVN payloads, or routine
+  browser telemetry — **audit found three real, pre-existing violations, now fixed**:
+  1. `/api/polity-passport/registry` — a fully unauthenticated public listing of every issued
+     Passport — selected and returned every row's raw `passport_id`; `PassportRegistryTab.tsx`
+     rendered it directly and used it as its own/not-own correlation key. Fixed: `passport_id`
+     dropped from the route's SELECT and response; the client now correlates a public row to the
+     caller's own holding via `(personaPublicRef, passportClass)` (personaPublicRef added to the
+     wallet route's response for this purpose), and the claim/World-ID-upgrade actions now source the
+     real id from the owner-scoped `own` match, never from the public row.
+  2. Three DVN-anchorable activity-receipt call sites embedded the raw `passport_id` in the receipt
+     `summary` string, which rides verbatim into the on-chain DVN payload
+     (`services/dvn/activityReceiptDvnPipeline.ts`'s payload construction includes `summary:
+     record.summary` unconditionally for any `ANCHORABLE_ACTION_TYPES` entry):
+     `services/passport/issuanceService.ts`'s issuance receipt (`passport_issued`/
+     `passport_status_changed` — the platform's highest-volume passport-issuance path),
+     `app/api/polity-passport/verify-worldid/route.ts`'s sibling-demotion receipt (embedded TWO raw
+     ids), and `services/passport/legacyPassportLinkageRepair.ts`'s reconciliation receipt (written
+     under an inline comment asserting "public passport_id" — the now-superseded classification (2)
+     above). All three summaries rewritten to carry the same auditable meaning (class, status,
+     event) without the correlatable id; `actionInput.passport_record_id` in the linkage-repair
+     receipt is retained (off-chain, holder-visible only — the receipt's `personaId` is the
+     passport's own owning caller).
+- Use a versioned public commitment / pairwise pseudonymous identifier for external continuity —
+  **already the existing pattern** (`persona_public_ref` / `kybe_did_public_ref`), now also serving
+  as the registry↔wallet correlation key above instead of `passport_id`.
+- Zero-knowledge "holds a valid Passport of class X / meets standing threshold Y" presentation
+  system — **explicitly backlogged** by the operator, not implemented now. This resolution fixes the
+  already-identified concrete leaks; it is not a redesign of the credential-presentation model.
+
+**Recorded as a privacy invariant, not self-promoted to ratified/canonical** per the Resolution →
+Invariant Loop's ladder discipline:
+`codexes/packs/agentiq/resolution-records/records/RES-2026-09-07-DIDQUBE-PHASE-3-PASSPORT-ID-PRIVACY-CLASSIFICATION-001.json`
+and
+`codexes/packs/agentiq/resolution-records/candidate-invariants/CI-2026-09-07-PASSPORT-ID-PRIVACY-SENSITIVE-NOT-PUBLIC-001.json`.
+
+**Full targeted regression** (`passport-credential.test.ts`, `passport-credential-signing.test.ts`,
+`passport-successor-credential.test.ts`, `passport-status-machine.test.ts`, `passport-bureau.test.ts`,
+`agent-passport-atomic-issuance.test.ts`, `constitutional-agreement-rootdid-authority.test.ts`, the new
+`passport-claim-ownership-boundary.test.ts`, plus `legacy-passport-linkage-repair.test.ts` +
+`legacy-passport-linkage-principal-first.test.ts` + `admin-action-centre-citizen-auto-issuance.test.ts`
++ `journey-admission-spine.test.ts` + `research-registry-access.test.ts` +
+`agent-delegation-anchor-repair.test.ts`): all passing except the same pre-existing,
+unrelated failures already present on this branch before this tranche (confirmed via `git stash`
+comparison). **Full-suite phase-closure sweep**: 17 failed files / 65 failed tests — matches the
+established baseline exactly; no new failures introduced.
+
+**Phase 3 is closed.** Items 1-6 are all implemented and verified. `2026-09-07_t0-t1-wallet-authority-decision-brief.md`
+remains as the pre-ruling analysis record; this section is the ratified outcome.
 
 ### Phase 4 — Consumer migration, one subsystem at a time (brief §9-§11, §"Registry and Horizen")
 *Each subsystem migrates independently; none blocks the others. This is where "CTP, DCIR, Factor,
@@ -698,8 +1138,11 @@ first becomes meaningful (not all at the end):
 ## 4. Immediate next step
 
 Phase 0 is complete (conditionally-complete corrections closed per §0.2), Phase 1 is implemented and
-verified against the live database (§"Phase 1 — implementation record"), and Phase 2 (the canonical
-read-only resolver) is implemented and behaviorally verified (§"Phase 2 — implementation record"). CFS-051
+verified against the live database (§"Phase 1 — implementation record"), Phase 2 (the canonical
+read-only resolver) is implemented and behaviorally verified (§"Phase 2 — implementation record"), and
+**Phase 2.5 (eliminating authoritative `personas.root_did` reads, INCLUDING the
+`constitutionalAgreement.ts` authority closure) is implemented and verified — COMPLETE**
+(§"Phase 2.5 — implementation record" + §"Phase 2.5 authority closure — implementation record"). CFS-051
 registration is done.
 
 1. **The DVN-payload go/no-go (Phase 4 step 6) remains explicitly unresolved and ungranted.** Per the
@@ -707,9 +1150,11 @@ registration is done.
    the precise versioned payload diff, compatibility plan and failing-before-fix canary for separate
    approval"), that separate return-and-approve step has not happened yet and is not part of this
    plan's current authorization.
-2. Per requirement #8 (§0.3), this round stops here: **Phase 2.5** (eliminating authoritative
-   `personas.root_did` reads) is the operator's own stated next step in sequence, but is explicitly a
-   separate, subsequent round — not started in this one, awaiting its own go-ahead.
+2. Phase 2.5's one previously-deferred consequential finding (`resolveRootDidCommitment` consumed by
+   `constitutionalAgreement.ts` for cross-persona agreement authorization) is now resolved — see
+   "Phase 2.5 authority closure" above. Phase 3 (Passport corrections) proceeds next, per the operator's
+   own explicit continuation instruction (2026-09-07); all DVN-payload work remains un-started, awaiting
+   its own separate go-ahead per item 1 above.
 3. The disclosed gaps from earlier rounds remain open, flagged, not silently resolved: (a) the
    `didqube.*` (agentiq-wallet) RLS policies still need replacing with explicitly role-scoped ones
    before any grant is added (§0.2 correction #2 — a fix to the OTHER schema, not the new one); (b) no

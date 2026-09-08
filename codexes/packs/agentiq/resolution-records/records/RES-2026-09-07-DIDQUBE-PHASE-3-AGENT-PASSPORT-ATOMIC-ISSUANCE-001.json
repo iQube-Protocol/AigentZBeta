@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-07",
+  "resolutionId": "RES-2026-09-07-DIDQUBE-PHASE-3-AGENT-PASSPORT-ATOMIC-ISSUANCE-001",
+  "capability": "polity-passport-issuance",
+  "milestone": "DiDQube Phase 3, items 1-2: Agent Passport atomic binding/issuance RPC + agent_card_url-to-agent_root_identity resolution at issuance time.",
+  "problem": "services/passport/issuanceService.ts's applyReviewDecision issued a Passport (insert polity_passport_records + passport_status_transitions + update polity_passport_applications) as a sequence of separate, non-transactional Supabase client calls. For agent-participant Passports specifically, the agent_root_identity.bound_passport_id back-reference was written in a SEPARATE, best-effort, non-transactional step -- and only by the one automated caller (services/homecoming/issueDelegatePassport.ts); the manual Bureau review UI path (calling applyReviewDecision directly) never wrote it at all. Phase 0's live inventory found 3 of 10 resolvable, approved agent-participant applications missing this back-reference as a direct result.",
+  "observedFailure": [
+    "Live inventory (DiDQube Phase 0, referenced in the execution plan doc): 3 of 10 resolvable, approved agent_participant Passport applications had no agent_root_identity.bound_passport_id set.",
+    "issueDelegatePassport.ts's own comment named the gap directly: 'Bind the passport to the RootDID... best-effort (non-fatal)' -- a partial failure between passport issuance and the bind was an accepted, silent possibility.",
+    "The manual Bureau review path never called the bind step at all -- it only existed in the one automated homecoming caller."
+  ],
+  "rootCauses": [
+    "Issuance and RootDID binding were treated as two independent acts across two different call sites instead of one atomic transaction owned by the issuance service itself.",
+    "agent_card_url was never resolved to a specific agent_root_identity id AT issuance time inside applyReviewDecision -- the bind (when it happened at all) was looked up separately, by a different caller, using a fuzzy .update().eq('agent_card_url', ...) matching potentially multiple rows with no ambiguity check."
+  ],
+  "resolution": [
+    "New Postgres function issue_agent_participant_passport_atomic (supabase/migrations/20260930280000_agent_participant_passport_issuance_atomic.sql): one plpgsql function performing the polity_passport_records insert, passport_status_transitions insert, polity_passport_applications update, AND the agent_root_identity.bound_passport_id bind (NULL-guarded, idempotent) as ONE transaction. Purely additive (new function only) and reversible (DROP FUNCTION).",
+    "services/passport/issuanceService.ts: added resolveAgentRootIdentityForCard -- resolves agent_card_url to EXACTLY ONE agent_root_identity at issuance time via .limit(2) + explicit 0/1/>1 branching, refusing (fail closed) on missing or ambiguous resolution. applyReviewDecision's non-citizen approve branch now calls this resolver then the atomic RPC instead of the prior 3 separate writes; the citizen branch is untouched (a citizen has no agent_root_identity to bind).",
+    "services/homecoming/issueDelegatePassport.ts: removed the now-redundant separate, best-effort bind step -- binding is no longer this caller's concern at all; it happens atomically inside applyReviewDecision for every caller (automated AND manual Bureau review), closing the gap the manual path always had.",
+    "Verified against the live 'Aigent Z' Supabase project (bsjhfvctmduxhohtllly) in a self-rolling-back transaction: first call binds atomically (bound=true), a second call with a different passport id does NOT clobber the existing bind (already_bound reflects the NULL-guard), and no test rows were left behind."
+  ],
+  "rejectedApproaches": [
+    "Porting the FULL applyReviewDecision function (both citizen and agent-participant paths, VC construction, receipt emission, standing credit) into plpgsql -- rejected as out of scope and unnecessarily risky: the citizen path was working correctly and untouched by the gap this closure addresses; only the two writes that were genuinely racing (passport insert + RootDID bind) needed to become one transaction. Receipt emission and standing credit remain in TypeScript, called after the atomic DB act, exactly as the execution plan specifies ('Receipt emission resumes idempotently after the committed DB act').",
+    "Reusing the existing best-effort resolveAgentRefsForCard (which returns only agent_id via .maybeSingle(), with no ambiguity check) for the bind resolution -- rejected: that function is deliberately best-effort for RECEIPT ATTRIBUTION ONLY (a lookup failure there must never block issuance); the bind resolution is consequential and needed its own fail-closed, ambiguity-checked resolver (resolveAgentRootIdentityForCard)."
+  ],
+  "candidateInvariants": [],
+  "canaries": [
+    "tests/agent-passport-atomic-issuance.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/agent-passport-atomic-issuance.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "services/passport/issuanceService.ts",
+    "services/homecoming/issueDelegatePassport.ts",
+    "supabase/migrations/20260930280000_agent_participant_passport_issuance_atomic.sql",
+    "codexes/packs/agentiq/updates/2026-09-07_didqube-canonical-resolver-execution-plan.md"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "unresolvedRisks": [
+    "The 3 existing live agent_persona applications already missing their back-reference (Phase 0 inventory) are NOT backfilled by this pass -- Phase 3 item 3 (existing-Passport reconciliation) is the next, separate step in the same plan, and explicitly says not to force a binding without confirming resolvability first.",
+    "Class-sensitive VC subject construction (Phase 3 item 4, resolveCredentialSubject: citizen -> kybe_did_public_ref, everything else -> root_did_public_ref) is a separate, subsequent vertical commit -- not touched here."
+  ]
+}

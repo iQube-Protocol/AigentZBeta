@@ -5,6 +5,17 @@
  * Returns ALL polity_passport_records where persona_id matches the caller.
  * Each row includes claim state and (for claimed passports) the lazily-built
  * W3C-VC credential envelope. T1-safe only — never exposes T0 identifiers.
+ *
+ * `passport_id` classification (T0/T1 ruling, ratified 2026-09-07): the
+ * field is holder-visible, privacy-sensitive credential metadata — a
+ * private account/membership number the holder needs, not secret authority
+ * (possession never substitutes for server-side auth + ownership checks)
+ * and not a generally public identifier either. This owner-scoped route
+ * (caller-authenticated, filtered to the caller's own personas) is the
+ * correct surface for it; it must never appear in a PUBLIC projection
+ * (`/api/polity-passport/registry`), an analytics/telemetry event, or a
+ * DVN-anchored receipt summary (see legacyPassportLinkageRepair.ts and
+ * issuanceService.ts for the corresponding receipt-summary fix).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -59,7 +70,7 @@ export async function GET(req: NextRequest) {
     let { data, error } = await admin
       .from('polity_passport_records')
       .select(
-        'passport_id, passport_class, citizen_status, participant_status, passport_grade, kybe_did_public_ref, persona_public_ref, registry_record_id, issuer_id, issued_at, expires_at, revoked, credential_claimed_at',
+        'passport_id, passport_class, citizen_status, participant_status, passport_grade, kybe_did_public_ref, root_did_public_ref, persona_public_ref, registry_record_id, issuer_id, issued_at, expires_at, revoked, credential_claimed_at, renewal_of_passport_id',
       )
       .in('persona_id', scopedPersonaIds);
 
@@ -67,7 +78,7 @@ export async function GET(req: NextRequest) {
       ({ data, error } = await admin
         .from('polity_passport_records')
         .select(
-          'passport_id, passport_class, citizen_status, participant_status, passport_grade, kybe_did_public_ref, persona_public_ref, registry_record_id, issuer_id, issued_at, expires_at, revoked',
+          'passport_id, passport_class, citizen_status, participant_status, passport_grade, kybe_did_public_ref, root_did_public_ref, persona_public_ref, registry_record_id, issuer_id, issued_at, expires_at, revoked, renewal_of_passport_id',
         )
         .in('persona_id', scopedPersonaIds));
     }
@@ -91,6 +102,12 @@ export async function GET(req: NextRequest) {
         passportClass: record.passport_class,
         passportGrade: record.passport_grade,
         passportStatus: record.citizen_status ?? record.participant_status,
+        // Public-safe commitment ref — lets an owner-scoped consumer (e.g.
+        // PassportRegistryTab) correlate a row in the PUBLIC registry
+        // projection to one of the caller's own holdings via
+        // (personaPublicRef, passportClass), without ever needing the raw
+        // passport_id to appear in that public projection.
+        personaPublicRef: record.persona_public_ref,
         issuedAt: record.issued_at,
         claimedAt,
         claimable: claimCheck.claimable,

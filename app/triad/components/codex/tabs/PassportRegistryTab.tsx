@@ -36,10 +36,16 @@ interface WorldIdProofBundle {
 }
 
 interface PublicPassport {
-  passportId: string;
+  // Privacy invariant (2026-09-07, T0/T1 ruling refinement): passport_id is
+  // holder-visible, privacy-sensitive credential metadata, never part of
+  // this PUBLIC projection — /api/polity-passport/registry no longer
+  // selects or serializes it. A row is correlated to the caller's own
+  // holding via (personaPublicRef, passportClass) against `ownPassports`,
+  // never via passportId.
   passportClass: string;
   passportGrade: string | null;
   passportStatus: string | null;
+  personaPublicRef: string | null;
   kybeDidPublicRef: string | null;
   issuedAt: string | null;
   citizenPassportIrrevocable?: boolean;
@@ -50,6 +56,7 @@ interface OwnPassport {
   passportId: string;
   passportClass: string;
   passportGrade: string | null;
+  personaPublicRef: string | null;
   claimedAt: string | null;
   claimable: boolean;
 }
@@ -231,7 +238,7 @@ export function PassportRegistryTab({ personaId }: { personaId?: string }) {
   }, [personaId, sessionPersonas]);
   useEffect(() => { void loadActiveDelegation(); }, [loadActiveDelegation]);
 
-  const ownMap = new Map(ownPassports.map((p) => [p.passportId, p]));
+  const ownMap = new Map(ownPassports.map((p) => [`${p.personaPublicRef ?? ''}::${p.passportClass}`, p]));
   const hasAigentMe = sponsoredAgents.some((a) => a.isAigentMe);
   const citizenPassport = ownPassports.find((p) => p.passportClass === 'citizen');
 
@@ -501,10 +508,10 @@ export function PassportRegistryTab({ personaId }: { personaId?: string }) {
       <div className="space-y-2">
         {passports.map((p) => {
           const isCitizen = p.passportClass === 'citizen';
-          const own = ownMap.get(p.passportId);
+          const own = ownMap.get(`${p.personaPublicRef ?? ''}::${p.passportClass}`);
           return (
             <div
-              key={p.passportId}
+              key={`${p.personaPublicRef ?? 'unknown'}-${p.passportClass}-${p.issuedAt ?? ''}`}
               className="flex items-center justify-between rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3"
             >
               <div className="flex items-center gap-3">
@@ -514,9 +521,11 @@ export function PassportRegistryTab({ personaId }: { personaId?: string }) {
                   <Bot className="h-5 w-5 text-sky-400" />
                 )}
                 <div>
-                  <p className="font-mono text-sm text-slate-200">{p.passportId}</p>
-                  <p className="text-xs text-slate-500">
+                  <p className="font-mono text-sm text-slate-200">
                     {p.passportGrade ?? p.passportClass}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {p.personaPublicRef && `ref:${p.personaPublicRef.slice(0, 12)}…`}
                     {p.kybeDidPublicRef && ` · kybe:${p.kybeDidPublicRef}`}
                     {p.issuedAt && ` · ${new Date(p.issuedAt).toLocaleDateString()}`}
                   </p>
@@ -530,7 +539,7 @@ export function PassportRegistryTab({ personaId }: { personaId?: string }) {
                 )}
                 {own?.claimedAt ? (
                   <button
-                    onClick={() => setClaimTarget({ passportId: p.passportId, passportClass: p.passportClass })}
+                    onClick={() => setClaimTarget({ passportId: own.passportId, passportClass: p.passportClass })}
                     className="flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-xs text-emerald-300 hover:bg-emerald-500/25 transition-colors"
                   >
                     <Wallet className="h-3 w-3" />
@@ -538,7 +547,7 @@ export function PassportRegistryTab({ personaId }: { personaId?: string }) {
                   </button>
                 ) : own?.claimable ? (
                   <button
-                    onClick={() => setClaimTarget({ passportId: p.passportId, passportClass: p.passportClass })}
+                    onClick={() => setClaimTarget({ passportId: own.passportId, passportClass: p.passportClass })}
                     className="flex items-center gap-1 rounded-full bg-violet-500/15 border border-violet-500/30 px-2.5 py-0.5 text-xs text-violet-300 hover:bg-violet-500/25 transition-colors animate-pulse"
                   >
                     <Wallet className="h-3 w-3" />
@@ -560,9 +569,9 @@ export function PassportRegistryTab({ personaId }: { personaId?: string }) {
                 )}
                 {own?.claimedAt && p.passportClass === 'citizen' && own.passportGrade !== 'verified_citizen' && (
                   <WorldIdButton
-                    onProof={(proof) => handleWorldIdProof(p.passportId, proof)}
-                    busy={worldIdBusy === p.passportId}
-                    signal={p.passportId}
+                    onProof={(proof) => handleWorldIdProof(own.passportId, proof)}
+                    busy={worldIdBusy === own.passportId}
+                    signal={own.passportId}
                   />
                 )}
                 <span

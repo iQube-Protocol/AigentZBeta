@@ -205,6 +205,10 @@ export class VelaConfidentialProjectionProvider implements ConfidentialProjectio
         `stateRoot:${result.stateRootHex}`,
         `teeSignature:${result.teeSignatureHex}`,
         `teeSigner:${result.teeSignerAddress}`,
+        // Public on-chain reference (the `stateUpdate` tx), not confidential
+        // data — see the field's doc comment in velaTypes.ts. Lets a later
+        // observer independently locate the finalising transaction.
+        `stateUpdateTx:${result.stateUpdateTxHash}`,
       ],
       attestationMode: this.attestationMode,
     };

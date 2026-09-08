@@ -154,13 +154,18 @@ async function runHardeningSweep(
         transitioned_at: verifiedAt,
       });
 
-    // Activity receipt — rides the canonical anchorable pipeline.
+    // Activity receipt — rides the canonical anchorable pipeline. Privacy
+    // invariant (2026-09-07): passport_id is holder-visible, privacy-sensitive
+    // credential metadata — never in a DVN-anchored receipt's summary
+    // (`passport_status_changed` is ANCHORABLE_ACTION_TYPES; `summary` rides
+    // verbatim into the chain-bound payload). Status + reason carry the
+    // auditable meaning without either correlatable id.
     try {
       await createActivityReceipt({
         personaId: callerPersonaId,
         activeCartridge: 'polity-passport-bureau',
         actionType: 'passport_status_changed',
-        summary: `Citizen Passport ${sibling.passport_id} demoted (superseded_non_canonical) by hardening event on ${verifiedPassportId}`,
+        summary: `Citizen Passport demoted (superseded_non_canonical) by a World ID uniqueness hardening event`,
       });
     } catch (e) {
       console.error('[hardening] receipt write failed:', e);

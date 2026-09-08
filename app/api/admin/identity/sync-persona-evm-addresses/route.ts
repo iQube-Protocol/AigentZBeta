@@ -8,7 +8,10 @@
  * the platform. Once set, SmartWalletDrawer uses this address for on-chain
  * balance queries (so the persona's EVM wallet shows its real Q¢ balance).
  *
- * Also sets root_did from agent_keys or existing persona data if missing.
+ * No longer writes personas.root_did (removed DiDQube Phase 2.5, 2026-09-07)
+ * — that write only ever produced a disposable `did:fio:<handle>` placeholder,
+ * never a genuine root_identity.did_uri link, and perpetuated the column's
+ * ambiguity for no remaining reader.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -72,7 +75,7 @@ export async function POST(req: NextRequest) {
     // Find the persona by fio_handle
     const { data: persona } = await supabase
       .from('personas')
-      .select('id, fio_handle, evm_address, evm_key, root_did')
+      .select('id, fio_handle, evm_address, evm_key')
       .ilike('fio_handle', key.fio_handle)
       .maybeSingle();
 
@@ -88,10 +91,15 @@ export async function POST(req: NextRequest) {
       updates.evm_address = key.evm_address;
     }
 
-    // Set root_did from DID pattern if missing
-    if (!persona.root_did) {
-      updates.root_did = `did:fio:${key.fio_handle}`;
-    }
+    // NO LONGER writes a synthetic `did:fio:<handle>` into personas.root_did
+    // (DiDQube Phase 2.5, 2026-09-07 — CLAUDE.md's "no routine writes that
+    // manufacture... authority into that column"). This never wrote a real
+    // `root_identity.did_uri` — only a disposable placeholder string — and
+    // as of this pass no remaining code path reads personas.root_did
+    // authoritatively (services/agents/provisionAgentPersona.ts and
+    // app/api/homecoming/agent/stand-up/route.ts now resolve principal-first
+    // from auth_user_id instead). The write was inert for its original
+    // purpose and only perpetuated the column's ambiguity.
 
     if (Object.keys(updates).length === 0) {
       results.push({ fioHandle: key.fio_handle, personaId: persona.id, status: 'already_synced' });

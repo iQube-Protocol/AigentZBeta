@@ -34,10 +34,33 @@
         "tests/agent-standing-persona.test.ts",
         "supabase/migrations/20260512030000_crm_personas_auto_mirror.sql"
       ]
+    },
+    {
+      "site": "services/agents/provisionAgentPersona.ts",
+      "defect": "Resolved the sponsoring citizen's delegation anchor (agent_persona.delegation_user_root_id) by matching personas.root_did (a text column with only one genuine root_identity.did_uri writer and many disposable-identifier writers) against root_identity.did_uri, rather than walking the canonical auth_user_id -> root_identity -> kybe_identity chain. Live-DB-confirmed: 2 of 3 agent_persona rows (67%) were unanchored as a direct result, produced by an allowUnanchored escape hatch that silently provisioned NULL anchors on match failure instead of surfacing the defect. app/api/homecoming/agent/stand-up/route.ts independently hand-rolled a second copy of the identical broken walk (both its real POST path and its GET preflight preview).",
+      "resolutionId": "RES-2026-09-07-DIDQUBE-PHASE-2-5-ROOT-DID-ELIMINATION-001",
+      "evidence": [
+        "services/agents/provisionAgentPersona.ts",
+        "app/api/homecoming/agent/stand-up/route.ts",
+        "tests/provision-agent-persona-principal-first.test.ts",
+        "tests/agent-homecoming.test.ts"
+      ]
+    },
+    {
+      "site": "services/constitutional/constitutionalAgreement.ts",
+      "defect": "Cross-persona Constitutional Agreement authorization (authorityBinding: 'ROOT_DID') used services/passport/bureauIdentityService.ts's resolveRootDidCommitment(personaId) -- reading personas.root_did and matching it against root_identity.did_uri -- as the authority anchor letting a different persona under the 'same RootDID' authorize what another persona formed. Because personas.root_did is written once at bind time and never updated on RootDID rotation, the old literal-hash comparison could not distinguish 'the human rotated their RootDID' from 'a different human entirely', and offered no genuine chain-verified continuity guarantee.",
+      "resolutionId": "RES-2026-09-07-DIDQUBE-PHASE-2-5-AUTHORITY-CLOSURE-001",
+      "evidence": [
+        "services/constitutional/constitutionalAgreement.ts",
+        "app/api/constitutional/agreement/route.ts",
+        "tests/constitutional-agreement-rootdid-authority.test.ts"
+      ]
     }
   ],
   "derivedFrom": [
-    "RES-2026-08-23-FSVC-CROSS-AGENT-STATE-AND-RUNTIME-TIER-SPLIT-001"
+    "RES-2026-08-23-FSVC-CROSS-AGENT-STATE-AND-RUNTIME-TIER-SPLIT-001",
+    "RES-2026-09-07-DIDQUBE-PHASE-2-5-ROOT-DID-ELIMINATION-001",
+    "RES-2026-09-07-DIDQUBE-PHASE-2-5-AUTHORITY-CLOSURE-001"
   ],
   "ratifiedSource": null,
   "supersededBy": null,

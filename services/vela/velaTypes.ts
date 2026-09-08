@@ -87,6 +87,16 @@ export interface VelaRequestResult {
   teeSignatureHex: string;
   teeSignerAddress: string;
   /**
+   * The on-chain transaction hash of the `stateUpdate` call that finalised
+   * this request (submitted by the Manager relayer, per
+   * docs/vela/VELA-SIGNER-TOPOLOGY-001.md — an RBAC-authorized submitter, not
+   * the TEE signer). Public chain data, not confidential: recording it lets
+   * evidence be independently looked up on-chain without widening what the
+   * confidential environment discloses. Empty when the finalising
+   * transaction could not be located.
+   */
+  stateUpdateTxHash: string;
+  /**
    * The submitted ciphertext as recorded on-chain (`PendingRequest.payload`).
    * Lets the provider re-derive the payload commitment when fetching evidence
    * statelessly, so evidence is tied to a specific request without the

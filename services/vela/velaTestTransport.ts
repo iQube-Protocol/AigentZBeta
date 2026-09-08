@@ -104,6 +104,10 @@ export class VelaTestTransport implements VelaTransport {
       applicationId: 'test-app',
       stateRootHex: `0x${createHash('sha256').update(submission.payload).digest('hex')}`,
       teeSignatureHex: `0x${'11'.repeat(65)}`,
+      // Deterministic per requestId, matching the shape (not the crypto) of
+      // a real `stateUpdate` transaction hash — proves the provider threads
+      // this field through without the test double faking real chain I/O.
+      stateUpdateTxHash: `0x${createHash('sha256').update(`stateUpdate:${requestId}`).digest('hex')}`,
       teeSignerAddress: signer,
       submittedPayload: submission.payload,
       decryptedUserEventJson: this.opts.verdictFor(submission.plaintext),

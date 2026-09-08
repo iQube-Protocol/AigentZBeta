@@ -58,6 +58,17 @@ vi.mock('@/services/identity/getActivePersona', () => ({
   getActivePersona: (...args: unknown[]) => mockGetActivePersona(...args),
 }));
 
+// DiDQube Phase 2.5 (2026-09-07): the route now resolves the delegation
+// anchor principal-first, from the caller's own authenticated auth_user_id
+// (getCallerIdentityContext), never from personas.root_did. Default resolves
+// for every test in this file; individual tests can override via
+// mockGetCallerIdentityContext.mockResolvedValueOnce(...) if they need to
+// exercise the "identity unresolved" 401 path specifically.
+const mockGetCallerIdentityContext = vi.fn();
+vi.mock('@/services/wallet/personaRepo', () => ({
+  getCallerIdentityContext: (...args: unknown[]) => mockGetCallerIdentityContext(...args),
+}));
+
 // A generic read-only fake admin client: every maybeSingle() resolves to
 // `{ data: null, error: null }` and every directly-awaited chain (the
 // count-query shape) resolves to `{ data: null, count: 0, error: null }`,
@@ -177,6 +188,11 @@ describe('POST /api/homecoming/agent/stand-up — positive stand-up receipt (Ale
     mockAssessDelegate.mockReset().mockResolvedValue(null);
     mockCreateActivityReceipt.mockReset().mockResolvedValue({ id: 'receipt-1' });
     mockGetActivePersona.mockReset().mockResolvedValue(ADMIN_PERSONA);
+    mockGetCallerIdentityContext.mockReset().mockResolvedValue({
+      authProfileId: 'admin-auth-profile-1',
+      email: 'admin@example.test',
+      authUserId: 'admin-auth-user-1',
+    });
   });
 
   it('a fresh (first) stand-up emits exactly one agent_delegate_stood_up receipt', async () => {
@@ -310,6 +326,11 @@ describe('GET /api/homecoming/agent/stand-up — read-only sponsor preflight (Al
   beforeEach(() => {
     mockGetActivePersona.mockReset().mockResolvedValue(ADMIN_PERSONA);
     mockGetPersonaPlan.mockReset().mockResolvedValue({ boundedDelegateLimit: 3 });
+    mockGetCallerIdentityContext.mockReset().mockResolvedValue({
+      authProfileId: 'admin-auth-profile-1',
+      email: 'admin@example.test',
+      authUserId: 'admin-auth-user-1',
+    });
   });
 
   it('requires admin — a non-admin caller is refused before any read', async () => {
