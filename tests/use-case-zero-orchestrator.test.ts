@@ -226,6 +226,23 @@ describe('advanceUseCaseZero — one step per call, always rereads before and af
     expect(result.detail.toLowerCase()).toMatch(/never ratifies|awaiting/);
   });
 
+  it('DiDQube Phase 4 item 2 (2026-09-07): threads subjectIdentity through to createAssessment when the case\'s candidate agent resolves by slug', async () => {
+    mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'registry_ready', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: 'did:example:agent-1' });
+    mocks.getOwnerWalletAddress.mockResolvedValue('0xOWNER');
+    mocks.getBinding.mockResolvedValue({ address: '0xSETTLE', status: 'active' });
+    mocks.getPassportRecordStatus.mockResolvedValue([{ passportId: 'pass-1', passportClass: 'agent_participant', citizenStatus: null, participantStatus: 'approved', issuedAt: '2026-09-01T00:00:00Z' }]);
+    mocks.readActiveGrantForAgent.mockResolvedValue({ grant_id: 'grant-1' });
+    mocks.findAgentRootIdentityBySlug.mockResolvedValue({ agentRootId: 'root-9', agentId: 'polity-bound:factor', didUri: 'did:agent:root:factor' });
+    mocks.createAssessment.mockResolvedValue({ assessment_id: 'assess-1', state: 'evidence_locked', decision: null, conditions: [] });
+    await advanceUseCaseZero({ ...BASE_INPUT, caseId: 'case-1' });
+    expect(mocks.createAssessment).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        subjectIdentity: { kind: 'agent_root_identity_id', agentRootIdentityId: 'root-9' },
+      }),
+    );
+  });
+
   it('requesting admission moves the case to admission_pending and NEVER calls a decision function', async () => {
     mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'registry_ready', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: 'did:example:agent-1' });
     mocks.getOwnerWalletAddress.mockResolvedValue('0xOWNER');

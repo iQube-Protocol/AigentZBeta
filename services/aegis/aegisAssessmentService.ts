@@ -33,6 +33,7 @@ import { randomUUID } from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { commit } from '../factor/canonical';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import { resolveDiDQube, type DiDQubeResolverInput, type DiDQubeSubjectClass } from '@/services/identity/didQubeResolver';
 
 export type AegisAssessmentState = 'draft' | 'evidence_locked' | 'running' | 'review_required' | 'ratified' | 'failed';
 
@@ -81,6 +82,17 @@ export interface AegisAssessmentRow {
   created_at: string;
   updated_at: string;
   ratified_at: string | null;
+  /**
+   * DiDQube Phase 4 item 2 (2026-09-07). Populated ONLY when the caller
+   * supplied `subjectIdentity` at creation AND resolveDiDQube reached
+   * state='resolved' — NULL otherwise (never fabricated). Written once at
+   * INSERT, never updated afterward (see the migration's own comment).
+   */
+  subject_didqube_id: string | null;
+  subject_didqube_class: DiDQubeSubjectClass | null;
+  subject_resolution_commitment: string | null;
+  subject_resolution_commitment_version: string | null;
+  identity_resolution_snapshot_hash: string | null;
 }
 
 export interface CreateAssessmentInput {
@@ -97,6 +109,21 @@ export interface CreateAssessmentInput {
   requestedByAgentRef: string;
   assessedByAgentRef?: string;
   actorPersonaId: string;
+  /**
+   * DiDQube Phase 4 item 2 (2026-09-07, execution plan): optional
+   * identity-resolution input for the SUBJECT this assessment is about.
+   * `subjectRef` itself (a factor_case id or a token_launch id) does not
+   * name a resolvable DiDQube anchor directly, so the caller supplies this
+   * explicitly when it knows which anchor the subject corresponds to —
+   * never guessed or re-derived from subjectRef here. Absent means no
+   * DiDQube resolution is attempted: the four subject_didqube_* columns and
+   * identity_resolution_snapshot_hash stay null, honestly, rather than
+   * fabricating one. Classification: approval-gating per the execution
+   * plan (the assessment's own PASS/FAIL decision gates downstream
+   * approval; resolution or non-resolution of this field never itself
+   * blocks assessment creation or ratification — it is additive evidence).
+   */
+  subjectIdentity?: DiDQubeResolverInput;
 }
 
 /**
@@ -128,6 +155,36 @@ export async function createAssessment(admin: SupabaseClient, input: CreateAsses
   const evidenceSnapshotHash = commit({ v: 'aegis.evidence-set.v1', subjectRef: input.subjectRef, snapshot: input.evidenceSnapshot });
   const assessmentId = `aegis-${input.subjectRef}-${evidenceSnapshotHash.slice(0, 16)}`;
 
+  // DiDQube Phase 4 item 2 (2026-09-07): resolve the subject's identity
+  // ONLY when the caller supplied it — never re-derived from subjectRef,
+  // never blocking assessment creation on anything but 'resolved' (this is
+  // additive evidence, not a gate; approval-gating classification per the
+  // execution plan). unresolved/conflicted/ambiguous/unsupported all leave
+  // every field below null, honestly, rather than guessing.
+  let subjectDidqubeId: string | null = null;
+  let subjectDidqubeClass: DiDQubeSubjectClass | null = null;
+  let subjectResolutionCommitment: string | null = null;
+  let subjectResolutionCommitmentVersion: string | null = null;
+  let identityResolutionSnapshotHash: string | null = null;
+  if (input.subjectIdentity) {
+    const resolution = await resolveDiDQube(input.subjectIdentity);
+    if (resolution.state === 'resolved') {
+      subjectDidqubeId = resolution.primitive.didqubeId;
+      subjectDidqubeClass = resolution.primitive.subjectClass;
+      subjectResolutionCommitment = resolution.primitive.publicCommitment.value;
+      subjectResolutionCommitmentVersion = resolution.primitive.publicCommitment.commitmentVersion;
+      identityResolutionSnapshotHash = commit({
+        v: 'aegis.identity-resolution-snapshot.v1',
+        didqubeId: resolution.primitive.didqubeId,
+        subjectClass: resolution.primitive.subjectClass,
+        constitutionalAnchor: resolution.primitive.constitutionalAnchor,
+        currentIdentityPrimitive: resolution.primitive.currentIdentityPrimitive,
+        passportCredential: resolution.primitive.passportCredential,
+        publicCommitment: resolution.primitive.publicCommitment,
+      });
+    }
+  }
+
   // Retire the prior CURRENT row's superseded_by BEFORE inserting the new
   // row — never the other way around. The partial unique index
   // (subject_type, subject_ref) WHERE superseded_by IS NULL enforces "one
@@ -154,6 +211,11 @@ export async function createAssessment(admin: SupabaseClient, input: CreateAsses
       assessed_by_agent_ref: input.assessedByAgentRef ?? 'aigent-aegis',
       actor_persona_id: input.actorPersonaId,
       supersedes_assessment_id: prior?.assessment_id ?? null,
+      subject_didqube_id: subjectDidqubeId,
+      subject_didqube_class: subjectDidqubeClass,
+      subject_resolution_commitment: subjectResolutionCommitment,
+      subject_resolution_commitment_version: subjectResolutionCommitmentVersion,
+      identity_resolution_snapshot_hash: identityResolutionSnapshotHash,
     })
     .select('*')
     .single();

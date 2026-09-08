@@ -177,6 +177,13 @@ async function stepAegisAssessment(
 ): Promise<Omit<AdvanceUseCaseZeroResult, 'caseId'>> {
   const evidenceItems = await listEvidenceForCase(input.admin, factorCase.case_id, input.tenantId);
   const runtimeAgentId = resolveRegistrableAgent(input.agentSlug)?.runtimeAgentId ?? input.agentSlug;
+  // DiDQube Phase 4 item 2 (2026-09-07): the factor_case subjectRef doesn't
+  // itself name a resolvable DiDQube anchor, so re-resolve the case's own
+  // candidate agent by slug (same lookup didqubeContainer's own step uses)
+  // and pass it through — additive evidence only, never blocking assessment
+  // creation when absent or unresolved (Aegis's own createAssessment
+  // handles that honestly).
+  const candidateRootIdentity = await findAgentRootIdentityBySlug(input.admin, input.agentSlug);
   const assessment = await createAssessment(input.admin, {
     subjectType: 'factor_case',
     subjectRef: factorCase.case_id,
@@ -187,6 +194,9 @@ async function stepAegisAssessment(
     // guard in createAssessment refuses outright if these ever collided.
     requestedByAgentRef: runtimeAgentId,
     actorPersonaId: input.actorPersonaId,
+    ...(candidateRootIdentity
+      ? { subjectIdentity: { kind: 'agent_root_identity_id' as const, agentRootIdentityId: candidateRootIdentity.agentRootId } }
+      : {}),
   });
   return {
     stepTaken: 'aegisAssessment',

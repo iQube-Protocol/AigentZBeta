@@ -16,11 +16,16 @@
   },
   "classification": "A parallel-implementation-avoidance invariant (inv.engineering.036/037's family) specific to the DiDQube Phase 4 migration sequence: the resolver (Phase 2) and the supertype tables (Phase 1) were built and verified before any consumer existed, so every Phase 4 consumer migration independently faces the same temptation to keep its own pre-existing raw-table identity walk rather than adopting the resolver — Factor's own resolveAgentShellLeg is the first documented instance of exactly that temptation, caught only because this migration was explicitly scoped to replace it.",
   "scope": "local",
-  "status": "candidate",
+  "status": "validated",
   "canaries": [
     {
       "path": "tests/use-case-zero-orchestrator.test.ts",
       "assertion": "Factor's didqubeContainer leg calls resolveDiDQube (never treats a bare agent_root_identity row as sufficient), gates progression on its actual resolution state (unresolved/conflicted both block further advancement in the same call), and completes a missing binding ONLY via ensureAgentDiDQubeBinding, never a direct insert.",
+      "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/aegis-assessment-service.test.ts",
+      "assertion": "createAssessment's optional subjectIdentity resolves through resolveDiDQube (never a raw agent_root_identity read treated as sufficient); an unresolved/absent identity leaves the four subject_didqube_*/snapshot fields null and still creates the assessment (additive, never blocking); a resolved identity populates all fields and the snapshot is untouched by later ratification.",
       "verifiedFailingBeforeFix": false
     }
   ],
@@ -34,15 +39,26 @@
         "services/factor/useCaseZeroOrchestrator.ts",
         "services/identity/didQubeResolver.ts"
       ]
+    },
+    {
+      "site": "services/aegis/aegisAssessmentService.ts::createAssessment",
+      "defect": "No mechanism existed for Aegis to record which constitutional identity an assessment's subject corresponded to at all -- subject_ref (a factor_case/token_launch id) never named a resolvable anchor, and nothing filled that gap through the canonical resolver until this migration.",
+      "resolutionId": "RES-2026-09-07-DIDQUBE-PHASE-4-AEGIS-CONSUMER-MIGRATION-001",
+      "evidence": [
+        "services/aegis/aegisAssessmentService.ts",
+        "services/factor/useCaseZeroOrchestrator.ts",
+        "supabase/migrations/20260930310000_aegis_assessments_didqube_resolution_snapshot.sql"
+      ]
     }
   ],
   "derivedFrom": [
-    "RES-2026-09-07-DIDQUBE-PHASE-4-FACTOR-CONSUMER-MIGRATION-001"
+    "RES-2026-09-07-DIDQUBE-PHASE-4-FACTOR-CONSUMER-MIGRATION-001",
+    "RES-2026-09-07-DIDQUBE-PHASE-4-AEGIS-CONSUMER-MIGRATION-001"
   ],
   "ratifiedSource": null,
   "supersededBy": null,
   "notes": [
-    "One occurrence so far (Factor) — stays at `candidate`, not `validated` (requires >=2 occurrences or demonstrated regression prevention), per the ladder discipline. Expected to gain further occurrences as Aegis/CTP/DCIR/Standing/Registry-Horizen are each migrated in their own vertical commits — each should reference this same candidate rather than minting a parallel one, per inv.engineering.036/037.",
-    "Live-verified (2026-09-07, Aigent Z project bsjhfvctmduxhohtllly): all 19 existing agent_root_identity rows already carry an agent_didqubes binding as of this migration — there is no current data gap this invariant is protecting against, only a future one (a new anchor created through a path that never calls ensureAgentDiDQubeBinding)."
+    "Promoted candidate -> validated (2 occurrences: Factor, Aegis) per the ladder's own mechanical criteria (>=2 recorded occurrences) — an agent may reach `validated` (AGENT_MAX_STAGE) but never ratified/canonical, which require a named operator act. Expected to gain further occurrences as CTP/DCIR/Standing/Registry-Horizen are each migrated in their own vertical commits — each should reference this same candidate rather than minting a parallel one, per inv.engineering.036/037.",
+    "Live-verified (2026-09-07, Aigent Z project bsjhfvctmduxhohtllly): all 19 existing agent_root_identity rows already carry an agent_didqubes binding as of the Factor migration — there is no current data gap this invariant is protecting against, only a future one (a new anchor created through a path that never calls ensureAgentDiDQubeBinding)."
   ]
 }
