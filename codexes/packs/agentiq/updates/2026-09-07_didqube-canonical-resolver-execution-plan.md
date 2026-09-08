@@ -1167,6 +1167,32 @@ generalizes rather than being an artifact of the first migration.
 question it needs, with its own tests proving the relevant acceptance criteria (cross-agent isolation,
 no silent Standing transfer on wallet/token change, etc.).
 
+#### Two qualifications carried forward from closure (not reopened)
+
+Recorded here with source references only — no new investigation performed; Phase 4 is not being
+reopened by this note.
+
+1. **Standing's write path (`resolveCanonicalAgentPersonaId`) remains legacy-bound and uncanaried.**
+   Item 5 built a read-only dry-run reconciliation (`services/standing/didQubeReconciliation.ts`,
+   `app/api/ops/journey/standing-didqube-reconciliation/route.ts`) that confirmed zero live
+   discrepancies, but deliberately left the write path
+   (`services/standing/agentStandingPersona.ts::resolveCanonicalAgentPersonaId`, still keyed off the
+   deprecated `personas.root_did` column) unchanged and unprotected by any canary against the
+   `root_did`-authoritative-read pattern Phase 2.5 otherwise eliminated elsewhere. Source:
+   `RES-2026-09-07-DIDQUBE-PHASE-4-STANDING-CONSUMER-MIGRATION-001.json` → `unresolvedRisks[1]`.
+   Per the operator's own gate on this note: Phase 4 is reopened for this item only if the write
+   path is confirmed to actually be legacy-bound in a way that matters (not merely that it reads a
+   deprecated column with no live discrepancy) — that confirmation has not been performed here.
+
+2. **Registry/Horizen's external-presence seam (`resolveAgentExternalPresence`) is not yet wired
+   into any live surface.** Item 7 built the DiDQube-first ordering seam
+   (`services/horizen/agentDiDQubeExternalPresence.ts`) as a standalone, correct, but currently
+   unconsumed capability — no route or UI calls it yet. A future caller must still be checked to
+   confirm it actually calls this seam rather than reading Horizen/Registry state directly and
+   reintroducing the gap this resolution closed. Source:
+   `RES-2026-09-07-DIDQUBE-PHASE-4-REGISTRY-HORIZEN-CONSUMER-MIGRATION-001.json` →
+   `unresolvedRisks[1]`.
+
 ### Phase 5 — Trust hardening and cleanup (brief §12-§13)
 *Only after Phase 3's behavior has been live and stable.*
 
