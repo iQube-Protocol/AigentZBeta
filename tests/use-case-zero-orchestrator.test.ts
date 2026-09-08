@@ -42,6 +42,8 @@ const mocks = vi.hoisted(() => ({
   sponsorPolityAgent: vi.fn(),
   findAgentRootIdentityBySlug: vi.fn(),
   bindCandidateAgentRootDid: vi.fn(),
+  resolveDiDQube: vi.fn(),
+  ensureAgentDiDQubeBinding: vi.fn(),
 }));
 
 vi.mock('@/services/horizen/registrableAgents', () => ({
@@ -86,6 +88,10 @@ vi.mock('@/services/factor/factorCaseService', () => ({
 vi.mock('@/services/agents/sponsorPolityAgent', () => ({
   sponsorPolityAgent: mocks.sponsorPolityAgent,
   findAgentRootIdentityBySlug: mocks.findAgentRootIdentityBySlug,
+}));
+vi.mock('@/services/identity/didQubeResolver', () => ({
+  resolveDiDQube: mocks.resolveDiDQube,
+  ensureAgentDiDQubeBinding: mocks.ensureAgentDiDQubeBinding,
 }));
 vi.mock('@/services/factor/factorConfidentialWorkload', () => ({
   FACTOR_CONFIDENTIAL_ADMISSION_EVIDENCE_KIND: 'confidential_admission_projection',
@@ -179,6 +185,16 @@ beforeEach(() => {
     blockers: [],
   });
   mocks.findAgentRootIdentityBySlug.mockResolvedValue(null);
+  // DiDQube Phase 4 item 1 (2026-09-07): only reached when resolveRegistrableAgent
+  // returns null AND findAgentRootIdentityBySlug returns a row (the
+  // 'bring_own_agent'/'already has a RootDID' shape) — defaults to a clean
+  // resolved state so tests written before this leg existed keep proceeding
+  // past it; the tests that specifically exercise this leg override it.
+  mocks.resolveDiDQube.mockResolvedValue({
+    state: 'resolved',
+    primitive: { didqubeId: 'didqube-1', publicCommitment: { commitmentVersion: 'v1', value: 'commit-1' } },
+  });
+  mocks.ensureAgentDiDQubeBinding.mockResolvedValue({ ok: true, didqubeId: 'didqube-1', created: false });
 });
 
 describe('advanceUseCaseZero — one step per call, always rereads before and after', () => {
@@ -208,6 +224,23 @@ describe('advanceUseCaseZero — one step per call, always rereads before and af
     // confirmed structurally: no such import exists in the module (see
     // the static import list this test file's own mocks mirror).
     expect(result.detail.toLowerCase()).toMatch(/never ratifies|awaiting/);
+  });
+
+  it('DiDQube Phase 4 item 2 (2026-09-07): threads subjectIdentity through to createAssessment when the case\'s candidate agent resolves by slug', async () => {
+    mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'registry_ready', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: 'did:example:agent-1' });
+    mocks.getOwnerWalletAddress.mockResolvedValue('0xOWNER');
+    mocks.getBinding.mockResolvedValue({ address: '0xSETTLE', status: 'active' });
+    mocks.getPassportRecordStatus.mockResolvedValue([{ passportId: 'pass-1', passportClass: 'agent_participant', citizenStatus: null, participantStatus: 'approved', issuedAt: '2026-09-01T00:00:00Z' }]);
+    mocks.readActiveGrantForAgent.mockResolvedValue({ grant_id: 'grant-1' });
+    mocks.findAgentRootIdentityBySlug.mockResolvedValue({ agentRootId: 'root-9', agentId: 'polity-bound:factor', didUri: 'did:agent:root:factor' });
+    mocks.createAssessment.mockResolvedValue({ assessment_id: 'assess-1', state: 'evidence_locked', decision: null, conditions: [] });
+    await advanceUseCaseZero({ ...BASE_INPUT, caseId: 'case-1' });
+    expect(mocks.createAssessment).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        subjectIdentity: { kind: 'agent_root_identity_id', agentRootIdentityId: 'root-9' },
+      }),
+    );
   });
 
   it('requesting admission moves the case to admission_pending and NEVER calls a decision function', async () => {
@@ -664,11 +697,91 @@ describe('RootDID minting primitive (2026-09-06) — agentShell sponsors a NEW a
     mocks.createOrResumeCase.mockResolvedValue({ case: { case_id: 'case-1', state: 'discovered', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: null }, created: true });
     const result = await advanceUseCaseZero(NEW_AGENT_INPUT);
     expect(mocks.sponsorPolityAgent).not.toHaveBeenCalled();
-    // agentShell is already established (RootDID found), so this call falls
-    // through past the special-cased genesis handling into ordinary Step 1
-    // (create/resume the Factor case) — never re-sponsoring.
+    // agentShell is already established (RootDID found) AND its DiDQube
+    // container resolves (beforeEach default) — so this call falls through
+    // past agentShell AND the new didqubeContainer leg into ordinary Step 1
+    // (create/resume the Factor case) — never re-sponsoring, never
+    // re-binding a container that already resolves.
+    expect(mocks.resolveDiDQube).toHaveBeenCalledWith({ kind: 'agent_root_identity_id', agentRootIdentityId: 'root-1' });
+    expect(mocks.ensureAgentDiDQubeBinding).not.toHaveBeenCalled();
     expect(mocks.createOrResumeCase).toHaveBeenCalledTimes(1);
     expect(result.outcome).toBe('advanced');
+  });
+});
+
+describe('DiDQube Phase 4 item 1 (2026-09-07) — didqubeContainer: prepare-gating via the canonical resolveDiDQube resolver', () => {
+  const NEW_AGENT_INPUT = { ...BASE_INPUT, agentSlug: 'aletheon', path: 'create_and_establish' as const };
+
+  const EXISTING_ROOT_IDENTITY = {
+    agentRootId: 'root-1',
+    agentId: 'polity-bound:aletheon',
+    didUri: 'did:agent:root:aletheon',
+    agentClass: 'polity_bound',
+    displayName: 'Aletheon',
+    description: 'A test agent',
+    agentCardUrl: 'https://dev-beta.aigentz.me/api/agents/aletheon/agent-card.json',
+    agentCardSlug: 'aletheon',
+    isAigentMe: false,
+    createdAt: '2026-09-06T00:00:00Z',
+  };
+
+  beforeEach(() => {
+    mocks.resolveRegistrableAgent.mockReturnValue(null);
+    mocks.findAgentRootIdentityBySlug.mockResolvedValue(EXISTING_ROOT_IDENTITY);
+  });
+
+  it('prepare-gating: an unresolved container is a Factor-owned action (missing, not blocking) — attempts to bind, but never reaches case creation in THIS call', async () => {
+    mocks.resolveDiDQube.mockResolvedValue({ state: 'unresolved', reason: 'anchor_absent' });
+    const result = await advanceUseCaseZero(NEW_AGENT_INPUT);
+    expect(result.stepTaken).toBe('didqubeContainer');
+    expect(mocks.ensureAgentDiDQubeBinding).toHaveBeenCalledWith('root-1');
+    // One step per call (file-level contract) — binding the container is
+    // its own step; case creation is a SEPARATE, later call, never chained.
+    expect(mocks.createOrResumeCase).not.toHaveBeenCalled();
+  });
+
+  it('prepare-gating: ensureAgentDiDQubeBinding itself failing (e.g. write error) blocks — never silently treated as bound', async () => {
+    mocks.resolveDiDQube.mockResolvedValue({ state: 'unresolved', reason: 'anchor_absent' });
+    mocks.ensureAgentDiDQubeBinding.mockResolvedValue({ ok: false, error: 'insert failed' });
+    const result = await advanceUseCaseZero(NEW_AGENT_INPUT);
+    expect(result.outcome).toBe('blocked');
+    expect(result.stepTaken).toBe('didqubeContainer');
+    expect(mocks.createOrResumeCase).not.toHaveBeenCalled();
+  });
+
+  it('the didqubeContainer step calls ensureAgentDiDQubeBinding (never resolveDiDQube directly) to bind, writes a LOCAL (non-anchored) receipt, and advances', async () => {
+    mocks.resolveDiDQube.mockResolvedValue({ state: 'unresolved', reason: 'anchor_absent' });
+    mocks.ensureAgentDiDQubeBinding.mockResolvedValue({ ok: true, didqubeId: 'didqube-new-1', created: true });
+    const result = await advanceUseCaseZero({ ...NEW_AGENT_INPUT, caseId: undefined });
+    expect(mocks.ensureAgentDiDQubeBinding).toHaveBeenCalledWith('root-1');
+    expect(mocks.createActivityReceipt).toHaveBeenCalledWith(
+      expect.objectContaining({ actionType: 'agent_didqube_container_bound' }),
+    );
+    expect(result.outcome).toBe('advanced');
+    expect(result.stepTaken).toBe('didqubeContainer');
+  });
+
+  it('a conflicted DiDQube resolution blocks rather than attempting to bind — never papers over a data conflict', async () => {
+    mocks.resolveDiDQube.mockResolvedValue({ state: 'conflicted', detail: 'subject_class mismatch' });
+    const result = await advanceUseCaseZero(NEW_AGENT_INPUT);
+    expect(result.outcome).toBe('blocked');
+    expect(result.stepTaken).toBe('didqubeContainer');
+    expect(mocks.ensureAgentDiDQubeBinding).not.toHaveBeenCalled();
+  });
+
+  it('a REGISTRABLE_AGENTS platform runtime agent never invokes resolveDiDQube at all — the leg reports satisfied and optional (out of scope), never blocking', async () => {
+    mocks.resolveRegistrableAgent.mockReturnValue(AGENT);
+    mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'active', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: 'did:example:agent-1' });
+    mocks.discoverFinancialServicesForConsumer.mockResolvedValue(runtimeDiscovery());
+    mocks.getOwnerWalletAddress.mockResolvedValue('0xOWNER');
+    mocks.getBinding.mockResolvedValue({ address: '0xSETTLE', status: 'active' });
+    mocks.getPassportRecordStatus.mockResolvedValue([{ passportId: 'pass-1', passportClass: 'agent_participant', citizenStatus: null, participantStatus: 'approved', issuedAt: '2026-09-01T00:00:00Z' }]);
+    mocks.readActiveGrantForAgent.mockResolvedValue({ grant_id: 'grant-1' });
+    mocks.getCurrentAssessment.mockResolvedValue({ assessment_id: 'assess-1', state: 'ratified', decision: 'admissible', conditions: [] });
+    mocks.inspectOrProvisionProviderBinding.mockResolvedValue({ id: 'binding-1', status: 'active' });
+    const result = await advanceUseCaseZero({ ...BASE_INPUT, caseId: 'case-1' });
+    expect(mocks.resolveDiDQube).not.toHaveBeenCalled();
+    expect(result.stepTaken).not.toBe('didqubeContainer');
   });
 });
 

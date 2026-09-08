@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-07",
+  "resolutionId": "RES-2026-09-07-DIDQUBE-PHASE-4-AEGIS-CONSUMER-MIGRATION-001",
+  "capability": "aegis-assessment-identity-resolution-snapshot",
+  "milestone": "DiDQube Phase 4 item 2 (execution plan §Phase 4): Aegis is the second real consumer of the canonical resolveDiDQube resolver, gaining an additive identity-resolution snapshot on its assessment records.",
+  "problem": "services/aegis/aegisAssessmentService.ts's createAssessment had no way to record WHICH constitutional identity (DiDQube) an assessment's subject corresponded to. subject_ref itself (a factor_case id or a token_launch id, per the CHECK constraint) does not name a resolvable identity anchor directly, so there was no mechanism -- parallel or canonical -- for Aegis to capture the subject's identity-resolution state at the moment evidence was locked. This is the execution plan's item 2: additive fields plus an evidence-lock resolution snapshot, hashed and immutable once written, mirroring the Phase 3 successor-credential pattern.",
+  "observedFailure": [
+    "Code inspection: AegisAssessmentRow/CreateAssessmentInput carried no identity-resolution fields at all prior to this change; no call site anywhere in the codebase supplied one.",
+    "Factor's own stepAegisAssessment (services/factor/useCaseZeroOrchestrator.ts) -- the only production caller of createAssessment -- passed subjectType: 'factor_case' and subjectRef: factorCase.case_id with no reference to the candidate agent's own resolved identity, even though Factor itself had, by this point in the same migration sequence, already introduced a didqubeContainer leg resolving that exact fact via resolveDiDQube."
+  ],
+  "rootCauses": [
+    "Aegis's assessment engine was built and proven (Journey B/PRD §6.2, then widened for token launches) before the DiDQube resolver existed at all -- there was no canonical mechanism to point at when the table was designed.",
+    "subject_ref's business meaning (a factor_case or token_launch id) is orthogonal to identity resolution by construction -- closing this gap requires an explicit, separately-supplied identity-resolution input, not something derivable from subject_ref alone."
+  ],
+  "resolution": [
+    "supabase/migrations/20260930310000_aegis_assessments_didqube_resolution_snapshot.sql (applied live, verified via information_schema.columns): five additive, nullable columns on aegis_assessments -- subject_didqube_id, subject_didqube_class (CHECK IN natural_person/agent, NULL allowed), subject_resolution_commitment, subject_resolution_commitment_version, identity_resolution_snapshot_hash. No change to any existing column, constraint, or the table's business-subject reference.",
+    "services/aegis/aegisAssessmentService.ts: CreateAssessmentInput gained an optional subjectIdentity: DiDQubeResolverInput field. createAssessment calls resolveDiDQube ONLY when supplied, and ONLY on state='resolved' does it populate the four subject_* columns plus compute identity_resolution_snapshot_hash (via the same commit() helper already used for evidenceSnapshotHash/assessmentHash) over the resolved DiDQubePrimitive's own anchor/current-identity-primitive/passport-credential/public-commitment fields. Any other resolver state (unresolved/conflicted/ambiguous/unsupported) leaves every field null, honestly -- classified approval-gating per the execution plan: this never blocks assessment creation or ratification, it is purely additive evidence.",
+    "Written once at INSERT time and never touched by any subsequent function in the file (moveState/addFinding/ratifyAssessment/failAssessment) -- verified by reading every UPDATE statement in the file; the existing supersedes_assessment_id/superseded_by mechanism is what already implements 'a later identity change requires a new, superseding assessment, never mutating this one', so no new machinery was needed for that half of the requirement.",
+    "services/factor/useCaseZeroOrchestrator.ts's stepAegisAssessment updated to re-resolve the case's candidate agent by slug (findAgentRootIdentityBySlug, already imported for the didqubeContainer step) and pass it through as subjectIdentity -- making this capability genuinely observable end-to-end through the one live production caller, not dormant plumbing.",
+    "4 new tests in tests/aegis-assessment-service.test.ts (absent input leaves fields null; a resolvable subjectIdentity populates all four fields plus a truthy snapshot hash; an unresolvable one still creates the assessment successfully; the snapshot is untouched by ratification) plus 1 new test in tests/use-case-zero-orchestrator.test.ts proving the orchestrator threads subjectIdentity through to createAssessment when the candidate resolves."
+  ],
+  "rejectedApproaches": [
+    "Attempting the execution plan's FULL identity-resolution-snapshot description verbatim (constitutional anchor commitment + active Passport VC + authority/delegation bindings + wallet-control proof status + registry/Horizen bindings + declared capabilities + relevant Standing/DVN evidence + conflicts/unresolved identifiers) in this one pass -- rejected as premature: several of those inputs (Registry/Horizen bindings, Standing/DVN evidence) are THEMSELVES later, not-yet-migrated Phase 4 items (5 and 7) in this same sequence; building Aegis's snapshot around data those items haven't yet formalized would invert the plan's own sequencing and constitute exactly the 'estate-wide audit between consumers' the operator's instruction rules out. This pass's snapshot covers exactly what resolveDiDQube provides today (anchor, current identity primitive, passport credential existence/usability, public commitment); later items are expected to compose additional evidence into the SAME snapshot mechanism as they land, never duplicate it.",
+    "Requiring subjectIdentity on every createAssessment call (a hard gate) -- rejected: the execution plan explicitly classifies this as approval-gating for the assessment's own decision, not for the identity snapshot itself, and Aegis has real, valid subjects (e.g. a token_launch, which is not itself a natural_person/agent identity) for which no DiDQube resolution could ever apply. Making it optional and honest about absence is the correct behavior, not a shortcut."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-07-DIDQUBE-CONSUMER-RESOLVER-NOT-RAW-ANCHOR-001"
+  ],
+  "canaries": [
+    "tests/aegis-assessment-service.test.ts",
+    "tests/use-case-zero-orchestrator.test.ts",
+    "tests/didqube-resolver.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/aegis-assessment-service.test.ts",
+      "tests/use-case-zero-orchestrator.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-07_didqube-canonical-resolver-execution-plan.md",
+    "services/aegis/aegisAssessmentService.ts",
+    "services/factor/useCaseZeroOrchestrator.ts",
+    "supabase/migrations/20260930310000_aegis_assessments_didqube_resolution_snapshot.sql"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "unresolvedRisks": [
+    "The identity-resolution snapshot today covers only what resolveDiDQube itself returns -- the execution plan's fuller evidentiary list (delegation/authority bindings, wallet-control proof, registry/Horizen bindings, declared capabilities, Standing/DVN evidence) is not yet folded in. Each later Phase 4 item (CTP/DCIR/Standing/Registry-Horizen) is expected to extend the SAME snapshot mechanism additively as it lands; if that composition is skipped, Aegis's snapshot will remain a narrower proxy for 'identity resolved' than the plan originally envisioned.",
+    "subjectIdentity is only wired through Factor's stepAegisAssessment today. Any FUTURE caller of createAssessment (e.g. a hypothetical direct token_launch assessment path) that does not also resolve and pass subjectIdentity will silently carry no identity-resolution snapshot -- honest (never fabricated), but worth checking when a new caller is added."
+  ]
+}

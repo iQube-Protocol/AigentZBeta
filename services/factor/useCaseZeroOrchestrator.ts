@@ -44,6 +44,8 @@ import {
 import { resolveRegistrableAgent } from '@/services/horizen/registrableAgents';
 import { sponsorPolityAgent } from '@/services/agents/sponsorPolityAgent';
 import { getCase, createOrResumeCase, transitionCaseState, listEvidenceForCase, bindCandidateAgentRootDid } from '@/services/factor/factorCaseService';
+import { findAgentRootIdentityBySlug } from '@/services/agents/sponsorPolityAgent';
+import { ensureAgentDiDQubeBinding } from '@/services/identity/didQubeResolver';
 import { AgentPurposeWalletService } from '@/services/wallet/agentPurposeWalletService';
 import { establishDirectChain } from '@/services/factor/authorityChain';
 import { validateChainForAction } from '@/services/factor/authorityChain';
@@ -101,6 +103,7 @@ export interface AdvanceUseCaseZeroResult {
  *  delegation/authority before acting). */
 type ActionableStep =
   | 'agentShell'
+  | 'didqubeContainer'
   | 'ownerWallet'
   | 'settlementWallet'
   | 'passport'
@@ -174,6 +177,13 @@ async function stepAegisAssessment(
 ): Promise<Omit<AdvanceUseCaseZeroResult, 'caseId'>> {
   const evidenceItems = await listEvidenceForCase(input.admin, factorCase.case_id, input.tenantId);
   const runtimeAgentId = resolveRegistrableAgent(input.agentSlug)?.runtimeAgentId ?? input.agentSlug;
+  // DiDQube Phase 4 item 2 (2026-09-07): the factor_case subjectRef doesn't
+  // itself name a resolvable DiDQube anchor, so re-resolve the case's own
+  // candidate agent by slug (same lookup didqubeContainer's own step uses)
+  // and pass it through — additive evidence only, never blocking assessment
+  // creation when absent or unresolved (Aegis's own createAssessment
+  // handles that honestly).
+  const candidateRootIdentity = await findAgentRootIdentityBySlug(input.admin, input.agentSlug);
   const assessment = await createAssessment(input.admin, {
     subjectType: 'factor_case',
     subjectRef: factorCase.case_id,
@@ -184,6 +194,9 @@ async function stepAegisAssessment(
     // guard in createAssessment refuses outright if these ever collided.
     requestedByAgentRef: runtimeAgentId,
     actorPersonaId: input.actorPersonaId,
+    ...(candidateRootIdentity
+      ? { subjectIdentity: { kind: 'agent_root_identity_id' as const, agentRootIdentityId: candidateRootIdentity.agentRootId } }
+      : {}),
   });
   return {
     stepTaken: 'aegisAssessment',
@@ -458,6 +471,7 @@ export async function advanceUseCaseZero(input: AdvanceUseCaseZeroInput): Promis
 
 const ACTIONABLE_STEPS = new Set<ActionableStep>([
   'agentShell',
+  'didqubeContainer',
   'ownerWallet',
   'settlementWallet',
   'passport',
@@ -593,6 +607,60 @@ async function advanceUseCaseZeroCore(input: AdvanceUseCaseZeroInput): Promise<O
       stepTaken: step,
       outcome: 'advanced',
       detail: `Agent genesis ${outcome.alreadyExisted ? 'already complete' : 'complete'} — RootDID ${outcome.agent.didUri} (${outcome.agent.agentCardUrl}).`,
+      readiness: await reread(input),
+    };
+  }
+
+  if (step === 'didqubeContainer') {
+    // DiDQube Phase 4 item 1 (2026-09-07): only 'missing' (unresolved/
+    // anchor_absent — no binding yet) has a Factor-owned mutation.
+    // 'blocked'/'unreadable' (a data conflict, ambiguous candidates, or a
+    // failed read) must never be papered over by attempting to bind anyway
+    // — mirrors agentShell's own blocked/awaiting_external_action check
+    // above, never falling through to the write.
+    const didqubeLeg = readiness.legs.find((l) => l.key === 'didqubeContainer');
+    if (didqubeLeg && didqubeLeg.state !== 'missing') {
+      return {
+        stepTaken: step,
+        outcome: 'blocked',
+        detail: didqubeLeg.reason,
+        readiness,
+      };
+    }
+    // ensureAgentDiDQubeBinding is idempotent and never manufactures the
+    // agent_root_identity anchor itself, only completes its constitutional
+    // container binding. Re-resolves the anchor by slug rather than trusting
+    // any caller-supplied id (same discipline as agentShell above).
+    const rootIdentity = await findAgentRootIdentityBySlug(input.admin, input.agentSlug);
+    if (!rootIdentity) {
+      return {
+        stepTaken: step,
+        outcome: 'blocked',
+        detail: 'No agent RootDID exists yet to bind a DiDQube container to — resolve the agent shell first.',
+        readiness,
+      };
+    }
+    const bound = await ensureAgentDiDQubeBinding(rootIdentity.agentRootId);
+    if (!bound.ok) {
+      return {
+        stepTaken: step,
+        outcome: 'blocked',
+        detail: `DiDQube container binding failed: ${bound.error}`,
+        readiness,
+      };
+    }
+    await createActivityReceipt({
+      personaId: input.actorPersonaId,
+      activeCartridge: 'moneypenny',
+      actionType: 'agent_didqube_container_bound',
+      summary: `DiDQube container ${bound.didqubeId} ${bound.created ? 'bound' : 'already bound'} for '${input.agentSlug}'.`,
+      agentsInvoked: [rootIdentity.agentId],
+      actionInput: { agentSlug: input.agentSlug, didqubeId: bound.didqubeId, created: bound.created },
+    });
+    return {
+      stepTaken: step,
+      outcome: 'advanced',
+      detail: `DiDQube container ${bound.created ? 'bound' : 'already existed'} (${bound.didqubeId}).`,
       readiness: await reread(input),
     };
   }
