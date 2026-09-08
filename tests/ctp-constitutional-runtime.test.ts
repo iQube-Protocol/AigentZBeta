@@ -19,6 +19,18 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createFakeSupabase } from './_lib/fakeSupabase';
+
+// DiDQube Phase 4 item 3 (2026-09-07): resolveSubjectDiDQubeSnapshot's own
+// resolveDiDQube call reads via ITS OWN getSupabaseServer() call, not the
+// `admin` this test passes to constitutionalRuntime.execute(). Mocking it
+// to return the SAME per-test fake admin instance is what lets that call
+// see the polity_passport_records/didqubes/agent_didqubes rows a test
+// seeds directly into `tables`.
+let currentAdmin: unknown;
+vi.mock('@/app/api/_lib/supabaseServer', () => ({
+  getSupabaseServer: () => currentAdmin,
+}));
+
 import { constitutionalRuntime } from '@/services/ctp/constitutionalRuntime';
 import { registerPrimitive, __resetRegistryForTests } from '@/services/ctp/registry';
 import type {
@@ -236,6 +248,78 @@ describe('constitutionalRuntime.execute — a success writes a normalized receip
     if (outcome.ok) throw new Error('unreachable');
     expect(outcome.refusal.reasonCode).toBe('IMPLEMENTATION_REFUSED');
     expect(outcome.refusal.reason).toBe('implementation-specific refusal');
+  });
+});
+
+describe('DiDQube Phase 4 item 3 (2026-09-07) — subject identity resolution, additive on every receipt', () => {
+  beforeEach(() => __resetRegistryForTests());
+
+  it('with no resolvable persona -> kybe_identity linkage, the success receipt carries subjectDidqubeId=null honestly (never fabricated)', async () => {
+    const { admin, tables } = createFakeSupabase();
+    currentAdmin = admin;
+    const { primitive } = makeTestPrimitive();
+    registerPrimitive(primitive);
+    const outcome = await constitutionalRuntime.execute(admin, primitive.primitiveId, baseCtx(), {});
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) throw new Error('unreachable');
+    expect(outcome.receipt.subjectDidqubeId).toBeNull();
+    expect(tables[EVIDENCE_TABLE][0].subject_didqube_id).toBeNull();
+  });
+
+  it('a resolvable persona -> kybe_identity -> DiDQube linkage populates all four subject_didqube_* fields on the success receipt', async () => {
+    const { admin, tables } = createFakeSupabase();
+    currentAdmin = admin;
+    tables.polity_passport_records = [{ persona_id: 'persona-caller-1', kybe_identity_id: 'kybe-1' }];
+    tables.kybe_identity = [{ id: 'kybe-1', kybe_did: 'did:kybe:test-1' }];
+    tables.didqubes = [{ didqube_id: 'didqube-ctp-1', subject_class: 'natural_person', lifecycle_state: 'active', superseded_by: null }];
+    tables.human_didqubes = [{ didqube_id: 'didqube-ctp-1', kybe_identity_id: 'kybe-1', subject_class: 'natural_person' }];
+    tables.agent_didqubes = [];
+    tables.root_identity = [];
+    const { primitive } = makeTestPrimitive();
+    registerPrimitive(primitive);
+    const outcome = await constitutionalRuntime.execute(admin, primitive.primitiveId, baseCtx(), {});
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) throw new Error('unreachable');
+    expect(outcome.receipt.subjectDidqubeId).toBe('didqube-ctp-1');
+    expect(outcome.receipt.subjectDidqubeClass).toBe('natural_person');
+    expect(outcome.receipt.subjectResolutionCommitment).toBeTruthy();
+    expect(outcome.receipt.subjectResolutionCommitmentVersion).toBe('v1');
+    expect(tables[EVIDENCE_TABLE][0].subject_didqube_id).toBe('didqube-ctp-1');
+  });
+
+  it('an admin double that does not support the identity read (a caller-supplied minimal stub) never aborts the transition — resolves to null instead of throwing', async () => {
+    const minimalAdmin = { from: () => ({ insert: async () => ({ error: null }) }) };
+    currentAdmin = minimalAdmin;
+    const { primitive, executeSpy } = makeTestPrimitive();
+    registerPrimitive(primitive);
+    const outcome = await constitutionalRuntime.execute(minimalAdmin as never, primitive.primitiveId, baseCtx(), {});
+    expect(outcome.ok).toBe(true);
+    expect(executeSpy).toHaveBeenCalledTimes(1);
+    if (outcome.ok) expect(outcome.receipt.subjectDidqubeId).toBeNull();
+  });
+
+  it('a REFUSED authorization AFTER participant resolution still carries the subject identity snapshot on the refusal evidence', async () => {
+    const { admin, tables } = createFakeSupabase();
+    currentAdmin = admin;
+    tables.polity_passport_records = [{ persona_id: 'persona-caller-1', kybe_identity_id: 'kybe-2' }];
+    tables.kybe_identity = [{ id: 'kybe-2', kybe_did: 'did:kybe:test-2' }];
+    tables.didqubes = [{ didqube_id: 'didqube-ctp-2', subject_class: 'natural_person', lifecycle_state: 'active', superseded_by: null }];
+    tables.human_didqubes = [{ didqube_id: 'didqube-ctp-2', kybe_identity_id: 'kybe-2', subject_class: 'natural_person' }];
+    const { primitive } = makeTestPrimitive();
+    registerPrimitive(primitive);
+    const outcome = await constitutionalRuntime.execute(admin, primitive.primitiveId, baseCtx(), { shouldAuthorize: false });
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) throw new Error('unreachable');
+    expect(outcome.refusal.subjectDidqubeId).toBe('didqube-ctp-2');
+  });
+
+  it('the earliest refusal (unknown primitive, no participants resolved yet) carries no subject identity — never fabricated', async () => {
+    const { admin } = createFakeSupabase();
+    currentAdmin = admin;
+    const outcome = await constitutionalRuntime.execute(admin, 'ctp.does.not.exist', baseCtx(), {});
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) throw new Error('unreachable');
+    expect(outcome.refusal.subjectDidqubeId).toBeNull();
   });
 });
 

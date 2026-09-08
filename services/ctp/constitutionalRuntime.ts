@@ -29,6 +29,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolvePrimitive } from './registry';
 import { writeRefusalEvidence, writeTransitionReceipt } from './evidence';
+import { resolveSubjectDiDQubeSnapshot, type SubjectDiDQubeSnapshot } from './subjectIdentityResolution';
 import type { ConstitutionalContext, ConstitutionalTransitionEvidence } from '@/types/ctp';
 
 export type ConstitutionalExecuteResult<TImplResult = unknown> =
@@ -46,6 +47,10 @@ async function execute<TInput = unknown, TImplResult = unknown>(
     subjectPersonaId: string | null;
     reasonCode: string;
     reason: string;
+    /** DiDQube Phase 4 item 3 (2026-09-07) — passed only by refusal sites
+     *  AFTER participant resolution succeeded; absent (never fabricated)
+     *  on an earlier refusal. */
+    subjectDidqube?: SubjectDiDQubeSnapshot;
   }) =>
     writeRefusalEvidence(admin, {
       primitiveId,
@@ -56,6 +61,7 @@ async function execute<TInput = unknown, TImplResult = unknown>(
       channelSessionRef: ctx.channelSessionRef,
       reasonCode: args.reasonCode,
       reason: args.reason,
+      subjectDidqube: args.subjectDidqube,
     }).then((refusal) => ({ ok: false as const, outcome: 'REFUSED' as const, refusal }));
 
   // 1. Resolve primitive — fails closed for an unknown/inactive primitive
@@ -91,6 +97,13 @@ async function execute<TInput = unknown, TImplResult = unknown>(
   }
   const participants = resolved.participants;
 
+  // DiDQube Phase 4 item 3 (2026-09-07, execution plan): resolve the
+  // subject's constitutional identity ONCE, right after participants
+  // resolve — additive evidence carried onto every subsequent refusal AND
+  // the final receipt, never a gate on authority/authorization/execution
+  // (see subjectIdentityResolution.ts's own doc for why and how).
+  const subjectDidqube = await resolveSubjectDiDQubeSnapshot(admin, participants.subjectPersonaId);
+
   // 3. Resolve authority (durable) — distinct from authorization (charter §8).
   const authority = await primitive.resolveAuthority(admin, participants, input);
   if (authority.result === 'INVALID') {
@@ -99,6 +112,7 @@ async function execute<TInput = unknown, TImplResult = unknown>(
       subjectPersonaId: participants.subjectPersonaId,
       reasonCode: 'AUTHORITY_INVALID',
       reason: authority.reason,
+      subjectDidqube,
     });
   }
   if (participants.actorKind === 'delegate' && !primitive.delegability) {
@@ -107,6 +121,7 @@ async function execute<TInput = unknown, TImplResult = unknown>(
       subjectPersonaId: participants.subjectPersonaId,
       reasonCode: 'DELEGATION_NOT_PERMITTED',
       reason: `'${primitive.primitiveId}' is not delegable — it must be performed by the principal directly.`,
+      subjectDidqube,
     });
   }
 
@@ -125,6 +140,7 @@ async function execute<TInput = unknown, TImplResult = unknown>(
       subjectPersonaId: participants.subjectPersonaId,
       reasonCode: authorization.reasonCode,
       reason: authorization.reason,
+      subjectDidqube,
     });
   }
 
@@ -143,6 +159,7 @@ async function execute<TInput = unknown, TImplResult = unknown>(
       subjectPersonaId: participants.subjectPersonaId,
       reasonCode: 'IMPLEMENTATION_REFUSED',
       reason: executed.error,
+      subjectDidqube,
     });
   }
 
@@ -169,6 +186,7 @@ async function execute<TInput = unknown, TImplResult = unknown>(
     callerPersonaId: ctx.callerPersonaId,
     authorityResolution: authority,
     authorizationResolution: authorization,
+    subjectDidqube,
     priorState,
     projectedConsequence: projection,
     resultingState,
