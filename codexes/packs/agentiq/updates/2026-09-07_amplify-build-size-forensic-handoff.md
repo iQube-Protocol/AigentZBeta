@@ -1,11 +1,23 @@
-# Amplify build-size forensic investigation — handoff (2026-09-07, in progress)
+# Amplify build-size forensic investigation — handoff (2026-09-07, paused)
 
-**Status: IN PROGRESS, not yet resolved.** This doc exists so another agent (or the same agent in a
-fresh session) can pick this up without re-deriving what's already established below. Read this before
-touching `amplify.yml` or `next.config.js` again — see also
-`2026-09-07_amplify-build-size-cap-incident-and-handoff.md` (the prior incident: a bad guess broke
-production; the discipline in THAT doc — never delete anything outside
+**Status: PAUSED, not resolved — diagnosis substantially complete, source-level fix NOT started.** This
+doc exists so another agent (or the same agent in a fresh session) can pick this up without re-deriving
+what's already established below. Read this before touching `amplify.yml` or `next.config.js` again —
+see also `2026-09-07_amplify-build-size-cap-incident-and-handoff.md` (the prior incident: a bad guess
+broke production; the discipline in THAT doc — never delete anything outside
 `.next/standalone/node_modules` without a verified reason — still applies in full here).
+
+**Why paused, not finished**: this sandbox's `/tmp` is a small, RAM-backed mount (separate from the
+much larger root disk) that filled repeatedly during two-full-build reproduction (each build/install
+cycle is multiple GB before cleanup) and eventually caused a cleanup command to delete the two raw
+per-file manifests before their line-by-line sha256 diff could be completed and saved. **The decisive
+aggregate finding survived (see "Final findings" below) and is committed** — only the granular
+per-file diff (which files carry the ~4 KB delta) was lost and was not regenerated, since redoing it
+means two more full ~5-10 minute builds for a result the aggregate numbers already make extremely
+likely to be "a handful of files embedding a build ID/hash/timestamp, nothing structural." Regenerate
+it (see "Reproduction recipe" below) only if genuinely needed — e.g. to fully close item 6 of the
+operator's original ask (attribute a specific enlarged file to its tracing route) — which matters more
+for the SEPARATE ~7 MB local-vs-Amplify gap (see below) than for the passing-vs-failing comparison.
 
 ## Corrected framing (read this first — it changes what "the problem" is)
 
@@ -323,14 +335,122 @@ ships), manually replay the relevant `amplify.yml` `postBuild` command lines aga
    test a few real routes before committing anything.
 9. Commit and push only after all of the above produces a demonstrated (not guessed) cause and fix.
 
+## Final findings from this pass (2026-09-07) — read this before redoing any of the above
+
+1. **Last-passing/first-failing commits**: `0d22e7ea8` (passing) / `3c1144060` (failing), per the
+   operator's own build logs. `package.json`/`package-lock.json` are byte-identical between them — zero
+   dependency change (§2).
+2. **Amplify's real measurement ≈ `.next/standalone` alone**, not raw `.next`. Reproduced with an
+   independent (non-symlinked) `npm install` and `AWS_BRANCH=dev` set, then the full `amplify.yml`
+   postBuild prune replayed:
+
+   | Subtree (post-cleanup) | passing (0d22e7ea8) | failing (3c1144060) |
+   |---|---|---|
+   | `.next/standalone` | 223,669,853 | 223,673,961 |
+   | `.next/server` (top-level) | 119,900,539 | 119,900,599 |
+   | `.next/static` | 40,189,092 | 40,189,094 |
+   | whole `.next` | 384,782,491 | 384,786,661 |
+   | file count | 13,981 | 13,981 |
+
+   `.next/standalone` alone (≈223.67 MB) is within ~7.15 MB of Amplify's actual reported build output
+   (230,822,049 / 230,825,248 bytes) — far closer than standalone+static (~264 MB) or whole `.next`
+   (~385 MB). The residual ~7 MB gap is most plausibly the disclosed Node version mismatch (sandbox:
+   v22.22.2; `amplify.yml` pins 20.18.0) affecting native-binary sizes — NOT confirmed, would need an
+   actual Node-20.18.0 build or a real Amplify log's full composition breakdown to close.
+3. **The two commits are, for practical purposes, size-IDENTICAL**: `.next/standalone` differs by only
+   **4,108 bytes** (0.0018%) — three orders of magnitude below the ~135 KB Amplify overage, and
+   consistent with a handful of files embedding a build ID/timestamp/hash rather than any real
+   structural change. File count is identical in both (13,981). **This confirms, at the artifact-size
+   level, what the source diff already implied: this session's DiDQube Phase 2 work
+   (`services/identity/didQubeResolver.ts` + its test + a doc) did not meaningfully change the build
+   artifact size.**
+4. **Conclusion on "which commit caused the ~135 KB overage": neither, meaningfully.** The real Amplify
+   overage (135,329 / 138,528 bytes against the 230,686,720 cap) is razor-thin — a magnitude
+   `amplify.yml`'s own history documents as recurring, pre-existing build-to-build noise (up to ~180 KB
+   drift at identical source, per its own comments), not something either commit in this pair
+   introduced or could fix by itself. The artifact was already sitting at the very edge of the cap
+   before this session's work began.
+5. **What did NOT get finished, and why**: the per-file sha256 manifest diff (operator ask, items 4-5)
+   was generated for both builds (13,981 files each, identical path sets) but the two raw
+   `*.manifest.tsv` files were accidentally deleted by a cleanup command before their diff was saved,
+   after this sandbox's `/tmp` (a small RAM-backed mount, confirmed via repeated ENOSPC failures — see
+   the incident below) filled up multiple times during the two-build reproduction. Given the aggregate
+   4 KB delta across 223 MB (finding 3), regenerating the full diff was judged not worth two more
+   ~5-10 minute full builds — but if a future agent needs to attribute a specific file to a specific
+   route via `.nft.json` (operator item 6), it is NOT yet done and would need a fresh reproduction (see
+   "Reproduction recipe" below, and the `/tmp`-space warning).
+6. **The 10 MB+ headroom / correct budget gate / source-level fix / runtime smoke test (operator items
+   8, 9 partial, 10, 11, 12) are NOT done.** This pass established WHAT is being measured
+   (`.next/standalone` alone, finding 2) and confirmed this session's commits are not the cause
+   (finding 3), which was the prerequisite for "fix the cause, not guess" — but the actual fix (closing
+   the ~7 MB local/Amplify gap, or otherwise finding real headroom against a correctly-defined budget)
+   has not been attempted. **No byte-size-driven change has been committed** — the only `amplify.yml`
+   change in this whole pass is the independent license/notice fix (§4 above, unrelated to size).
+
+## Sandbox incident — `/tmp` is a small, separate, RAM-backed mount; use the root disk instead
+
+Discovered the hard way during this pass: `/tmp` in this container is NOT the same filesystem as `/`
+(`df -h /` showed 8+ GB free throughout, while `/tmp` independently reported ENOSPC repeatedly) and is
+much smaller — it filled from the two build worktrees' `node_modules`/`.next` content plus the harness's
+own per-command output-capture files living under
+`/tmp/claude-*/*/tasks/*.output`. Symptoms: any Bash command (even `echo hi`) fails with
+`Command output was lost: the temp filesystem ... is full`, and even the `Write` tool failed with a raw
+`ENOSPC` once. **Recovery that worked**: `find <tasks-dir> -type f -delete` (a delete's own success is
+usually reported as a confusing "output file ... ENOENT" rather than a clean confirmation — that ENOENT
+means the delete worked and removed its own about-to-be-written log). **For any future large scratch
+work (builds, big manifests, worktrees) in this environment: use a directory under the main repo's own
+filesystem (e.g. `/home/user/AigentZBeta_scratch/`, created this pass) instead of `/tmp` or the
+"scratchpad" path under it**, and periodically clean up big build artifacts (`git worktree remove`,
+`rm -rf` on old `.next`/`node_modules` copies) as soon as their key numbers are extracted and committed,
+rather than leaving multiple GB-scale copies sitting in the small mount.
+
+## Reproduction recipe (updated, safe version — read the two incidents above first)
+
+```bash
+# Use the root-disk scratch dir, NOT /tmp:
+mkdir -p /home/user/AigentZBeta_scratch/build-repro
+cd /home/user/AigentZBeta
+git worktree add /home/user/AigentZBeta_scratch/build-repro/passing 0d22e7ea8
+git worktree add /home/user/AigentZBeta_scratch/build-repro/failing 3c1144060
+# For EACH worktree (do NOT symlink node_modules — see the incident above):
+cd /home/user/AigentZBeta_scratch/build-repro/<passing|failing>
+# regenerate .env.production.local: every var scripts/create-env-production.js reads, placeholder values
+export AWS_BRANCH=dev NODE_OPTIONS="--max-old-space-size=6144" NEXT_PRIVATE_BUILD_WORKER=1
+npm install --legacy-peer-deps --include=optional
+export $(cat .env.production.local | xargs -d '\n') NODE_ENV=production
+npm run build
+[ -L .next/standalone/node_modules ] && echo "DANGER: symlink, do not prune" || \
+  bash <(awk '/native-binary cleanup ===/,/ARTIFACT LEDGER.*cap ===/' /home/user/AigentZBeta/amplify.yml \
+    | grep -E "^\s*- (find|rm|cp|du|echo|test)" | sed 's/^\s*- //')
+./scripts/build-artifact-manifest.sh /home/user/AigentZBeta_scratch/build-repro/<passing|failing> \
+  /home/user/AigentZBeta_scratch/build-repro/<passing|failing>-manifest
+# Diff (Python, more reliable than bash join/sort for this — see the incident above for why join broke):
+python3 -c "
+def load(p):
+    d={}
+    for l in open(p):
+        parts=l.rstrip(chr(10)).split(chr(9))
+        if len(parts)==3: d[parts[0]]=(parts[1],parts[2])
+    return d
+a=load('/home/user/AigentZBeta_scratch/build-repro/passing-manifest.manifest.tsv')
+b=load('/home/user/AigentZBeta_scratch/build-repro/failing-manifest.manifest.tsv')
+changed=[(p,a[p],b[p]) for p in set(a)&set(b) if a[p]!=b[p]]
+print('only in a:', set(a)-set(b))
+print('only in b:', set(b)-set(a))
+print('changed:', len(changed))
+for p,(s1,h1),(s2,h2) in sorted(changed): print(p, int(s2)-int(s1))
+"
+git worktree remove --force /home/user/AigentZBeta_scratch/build-repro/<passing|failing>  # free space promptly
+```
+
 ## Files touched by this handoff itself
 
 - `scripts/build-artifact-manifest.sh` — new, committed (see above).
 - `amplify.yml` — one independent, low-risk line fixed (the license/notice deletion contradiction, §4
   above). This is the ONLY change to `amplify.yml`/`next.config.js` in this pass; no byte-size-driven
-  prune has been made — the manifest-diff investigation is still in progress (builds running) and per
-  the operator's explicit instruction, no size-driven change should be committed until the cause is
-  demonstrated.
+  prune has been made — per the operator's explicit instruction, no size-driven change should be
+  committed until the cause is demonstrated, and this pass's finding is that neither reproduced commit
+  IS the cause (the overage pre-exists both).
 - This doc — new, committed, registered in `codexes/packs/agentiq/collections.json`'s `col_updates`.
-- The two build-reproduction git worktrees and generated `.env.production.local` live under this
-  container's `/tmp` — NOT committed (ephemeral, disposable, regeneration instructions above).
+- The build-reproduction git worktrees, installs, and builds were all cleaned up / removed at the end
+  of this pass (`git worktree remove`) — nothing heavy left behind in `/tmp` or elsewhere.
