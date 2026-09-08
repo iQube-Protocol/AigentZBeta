@@ -186,6 +186,23 @@ export async function preflightLaunch(admin: SupabaseClient, id: string, tenantI
  * preparing its OWN token cannot also be its assessor (Phase 5's explicit
  * conflict-surfacing requirement — see requestAegisAssessment's caller,
  * which must never pass assessedByAgentRef === requestedByAgentRef).
+ *
+ * SCOPE BOUNDARY for a `token_launch` subject (2026-09-08 correction,
+ * applies to every ratification of an assessment created here, not only a
+ * rehearsal): Aegis's `decision` here evaluates ONLY whether the launch
+ * SPECIFICATION and its governance path (disclosures, authority chain,
+ * evidence completeness — including a simulated preflight's own honesty
+ * about being simulated) are acceptable for continuing this launch through
+ * the pipeline. It does NOT, and structurally cannot, evaluate or conclude
+ * Bankr PROVIDER readiness (whether Bankr itself is configured/reachable —
+ * that is `bankrCapabilityHandlers.ts::assessIssuerReadiness`'s own,
+ * separate fact) or LIVE launch approval (that is MoneyPenny's
+ * `requestApproval`/human-approval act, a different step entirely). A
+ * ratifier reading `admissible`/`admissible_with_conditions` on a
+ * `token_launch` assessment must never treat that as "Bankr is ready" or
+ * "this may now submit" — `submitApprovedLaunch`'s own simulated-preflight/
+ * simulated-binding refusal is the actual, structural gate for that
+ * question, entirely independent of what Aegis concluded here.
  */
 export async function requestAegisAssessment(
   admin: SupabaseClient,
