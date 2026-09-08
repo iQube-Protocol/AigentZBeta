@@ -597,7 +597,14 @@ export type ActivityActionType =
   // already exist and are idempotent; neither wrote its own receipt before
   // this pass. Never carries the private key — only the resulting public
   // address and wallet role.
-  | 'agent_purpose_wallet_provisioned';
+  | 'agent_purpose_wallet_provisioned'
+  // DiDQube Phase 4 item 1 (2026-09-07) — Factor's Use Case Zero orchestrator
+  // binds an existing agent_root_identity into its DiDQube constitutional
+  // container via services/identity/didQubeResolver.ts::ensureAgentDiDQubeBinding.
+  // Local only, deliberately NOT in ANCHORABLE_ACTION_TYPES — the DVN
+  // consumer/payload migration for DiDQube stays behind its own required
+  // standalone approval (execution plan Phase 4 item 6).
+  | 'agent_didqube_container_bound';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

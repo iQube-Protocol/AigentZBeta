@@ -4,9 +4,13 @@
  * Pure, read-only, non-authoritative. It projects the Phase 1 supertype tables
  * (`didqubes`/`human_didqubes`/`agent_didqubes` — see
  * `supabase/migrations/20260930270000_didqube_canonical_supertype.sql`) into a
- * typed resolution; it writes nothing, anchors nothing, and issues nothing.
- * NO consumer (Passport, Factor, Aegis, CTP, DCIR, Standing, Registry/Horizen,
- * DVN) calls this yet — that is Phase 4, deliberately not started here.
+ * typed resolution; `resolveDiDQube` itself writes nothing, anchors nothing,
+ * and issues nothing. `ensureAgentDiDQubeBinding` (below) is the one
+ * exception — a narrow, idempotent write path Phase 4 consumers use to
+ * complete a binding, added when Factor became the first real consumer
+ * (2026-09-07, execution plan Phase 4 item 1). Aegis, CTP, DCIR, Standing,
+ * Registry/Horizen, and DVN are not yet integrated — each migrates
+ * independently, per the execution plan's own sequencing.
  *
  * ── Composition, not re-derivation (inv.engineering.036/037) ────────────────
  *
@@ -296,6 +300,85 @@ export async function resolveDiDQube(input: DiDQubeResolverInput): Promise<DiDQu
     default:
       return { state: 'unresolved', reason: 'anchor_absent' };
   }
+}
+
+// ── Binding creation — the ONE write path this module exposes ────────────────
+//
+// resolveDiDQube itself stays pure/read-only (module doc above). Phase 4
+// consumers (starting with Factor, 2026-09-07) need a way to complete a
+// binding for an agent_root_identity row that predates this consumer's own
+// integration, or that a consumer just minted itself — this is that one,
+// narrow, idempotent write path. It NEVER creates the anchor row itself
+// (agent_root_identity), never touches human bindings (those arise from
+// kybe_identity's own process, out of scope here), and is the ONLY place
+// outside the Phase 0 one-time backfill script
+// (scripts/didqube-phase1-backfill.mjs) that writes a didqubes/
+// agent_didqubes row — every future consumer must call this, never insert
+// directly (Extend, Don't Duplicate — inv.engineering.036/037).
+
+export type EnsureAgentDiDQubeBindingResult =
+  | { ok: true; didqubeId: string; created: boolean }
+  | { ok: false; error: string };
+
+/**
+ * Idempotent: if a binding already exists for this anchor, returns it
+ * unchanged. Requires the anchor row to already exist — never manufactures
+ * one. A race between the existence check and the insert (two concurrent
+ * callers binding the same anchor) is resolved by re-reading after a failed
+ * insert rather than assuming failure — the migration's own UNIQUE
+ * constraint on `agent_root_identity_id` is what actually prevents a
+ * duplicate; this just makes losing that race a normal, non-error outcome
+ * for the caller that lost it.
+ */
+export async function ensureAgentDiDQubeBinding(
+  agentRootIdentityId: string,
+): Promise<EnsureAgentDiDQubeBindingResult> {
+  const supabase = getSupabaseServer();
+  if (!supabase) return { ok: false, error: 'Supabase configuration missing' };
+
+  const { data: existing, error: existingErr } = await supabase
+    .from('agent_didqubes')
+    .select('didqube_id')
+    .eq('agent_root_identity_id', agentRootIdentityId)
+    .maybeSingle();
+  if (existingErr) return { ok: false, error: existingErr.message };
+  if (existing) {
+    return { ok: true, didqubeId: (existing as { didqube_id: string }).didqube_id, created: false };
+  }
+
+  const { data: anchorRow, error: anchorErr } = await supabase
+    .from('agent_root_identity')
+    .select('id')
+    .eq('id', agentRootIdentityId)
+    .maybeSingle();
+  if (anchorErr) return { ok: false, error: anchorErr.message };
+  if (!anchorRow) return { ok: false, error: `agent_root_identity ${agentRootIdentityId} does not exist` };
+
+  const { data: didqubeRow, error: didqubeErr } = await supabase
+    .from('didqubes')
+    .insert({ subject_class: 'agent' })
+    .select('didqube_id')
+    .single();
+  if (didqubeErr) return { ok: false, error: didqubeErr.message };
+  const didqubeId = (didqubeRow as { didqube_id: string }).didqube_id;
+
+  const { error: bindErr } = await supabase
+    .from('agent_didqubes')
+    .insert({ didqube_id: didqubeId, agent_root_identity_id: agentRootIdentityId });
+  if (bindErr) {
+    // Lost a concurrent race — re-check rather than assume failure. The
+    // freshly-inserted didqubes row above becomes a harmless orphan in this
+    // case (never referenced, never surfaced by the resolver, which only
+    // ever reaches a didqubes row via a subtype binding).
+    const { data: raced } = await supabase
+      .from('agent_didqubes')
+      .select('didqube_id')
+      .eq('agent_root_identity_id', agentRootIdentityId)
+      .maybeSingle();
+    if (raced) return { ok: true, didqubeId: (raced as { didqube_id: string }).didqube_id, created: false };
+    return { ok: false, error: bindErr.message };
+  }
+  return { ok: true, didqubeId, created: true };
 }
 
 function mapWalletFailureReason(reason: PrincipalFailure): UnresolvedReason {
