@@ -6,7 +6,7 @@ Protection PARAMOUNT rule, adding/reordering fields in the DVN JSON payload
 requires explicit operator approval BEFORE coding — this is that request,
 not an implementation. This is DiDQube Phase 4 item 6, deliberately excluded
 from the Phase 4 closure (`2026-09-07_didqube-canonical-resolver-execution-plan.md`,
-"Phase 4 — CLOSED") pending exactly this approval.
+"Phase 4 — PARTIAL, NOT closed") pending exactly this approval.
 
 Prepared now, separately from Use Case Zero, per the operator's own
 instruction: "Prepare its precise proposed payload diff separately when Use
@@ -129,4 +129,4 @@ Both fields:
 - Commitment primitive reused: `services/identity/didQubeResolver.ts` (`CommitmentRef`, `publicCommitment`, `didPublicRef`)
 - Precedent (same pattern, different consumer): `RES-2026-09-07-DIDQUBE-PHASE-4-AEGIS-CONSUMER-MIGRATION-001.json`, `RES-2026-09-07-DIDQUBE-PHASE-4-CTP-CONSUMER-MIGRATION-001.json`
 - Governing invariant: `CI-2026-09-07-DIDQUBE-CONSUMER-RESOLVER-NOT-RAW-ANCHOR-001.json`
-- Original scoping (item 6, out of scope pending approval): `2026-09-07_didqube-canonical-resolver-execution-plan.md`, "Phase 4 — CLOSED" section
+- Original scoping (item 6, out of scope pending approval): `2026-09-07_didqube-canonical-resolver-execution-plan.md`, "Phase 4 — PARTIAL, NOT closed" section

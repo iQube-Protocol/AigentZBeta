@@ -1147,15 +1147,27 @@ state rather than aborting the call. Not yet wired into any live route/UI surfac
 "lowest urgency... nothing else in the plan depends on it," the seam exists for the next real caller to
 use, rather than forcing an unrelated refactor of Factor's own already-correct Horizen/Registry reads.
 
-### Phase 4 — CLOSED (2026-09-07)
+### Phase 4 — PARTIAL, NOT closed (2026-09-07, status corrected 2026-09-08)
 
-Items 1 (Factor), 2 (Aegis), 3 (CTP), 5 (Standing dry-run reconciliation), and 7 (Registry/Horizen) are
-implemented and verified — full-suite regression after each held exactly at the established 17-failed-
-file/65-failed-test baseline, with zero new failures. Item 4 (DCIR) closed as boundary-aligned/non-
-consuming — a permanent correct posture, not a deferred integration (see above). Item 6 (DVN receipt
-commitment fields) remains explicitly OUT OF SCOPE, unchanged, pending its own required standalone
-operator approval per the DVN Pipeline Protection PARAMOUNT rule — nothing in this phase touched
-`services/dvn/activityReceiptDvnPipeline.ts`'s payload shape.
+**Correction (2026-09-08): this section previously read "Phase 4 — CLOSED" and implied 6-of-6
+sub-items were fully done. That was wrong and is corrected here — do not cite this phase as
+closed or as 6/6 anywhere downstream.** Items 1 (Factor), 2 (Aegis), and 3 (CTP) are implemented,
+verified, and carry no known residual gap. Item 4 (DCIR) closed as boundary-aligned/non-consuming
+— a permanent correct posture, not a deferred integration (see above), and is the one item that IS
+genuinely done. Items 5 (Standing) and 7 (Registry/Horizen) are **implemented but PARTIAL** — each
+shipped real, tested code, but each also left a load-bearing gap open (see "Two qualifications"
+below): Standing's write path is still legacy-bound and uncanaried, and Registry/Horizen's seam is
+built but wired into no live surface. Neither gap was closed by this phase, and this phase is not
+"done" while they stand open. Item 6 (DVN receipt commitment fields) remains explicitly OUT OF
+SCOPE, unchanged, pending its own required standalone operator approval per the DVN Pipeline
+Protection PARAMOUNT rule — nothing in this phase touched `services/dvn/activityReceiptDvnPipeline.ts`'s
+payload shape (a proposal for it was later prepared separately, 2026-09-08, still unimplemented).
+
+Full-suite regression after each sub-item held exactly at the established 17-failed-file/65-failed-
+test baseline (later 64, after an unrelated dev-side test count shift), with zero new failures from
+any of this phase's own changes — that regression discipline is real and unaffected by this status
+correction. What is corrected is only the completion claim: 3 of 7 items fully closed (1, 2, 3), 1 of
+7 a genuine permanent non-issue (4), 2 of 7 partial with open gaps (5, 7), 1 of 7 out of scope (6).
 
 `CI-2026-09-07-DIDQUBE-CONSUMER-RESOLVER-NOT-RAW-ANCHOR-001` reached `validated` (the agent ceiling)
 after its second occurrence and now carries 5 recorded occurrences across genuinely different consumer
@@ -1167,10 +1179,11 @@ generalizes rather than being an artifact of the first migration.
 question it needs, with its own tests proving the relevant acceptance criteria (cross-agent isolation,
 no silent Standing transfer on wallet/token change, etc.).
 
-#### Two qualifications carried forward from closure (not reopened)
+#### The two open gaps that make Phase 4 partial (not reopened for further work)
 
-Recorded here with source references only — no new investigation performed; Phase 4 is not being
-reopened by this note.
+Recorded here with source references only — no new investigation performed. These are why Phase 4
+is partial rather than closed; per the operator's own gate, this status correction alone does not
+authorize reopening either item for further implementation work.
 
 1. **Standing's write path (`resolveCanonicalAgentPersonaId`) remains legacy-bound and uncanaried.**
    Item 5 built a read-only dry-run reconciliation (`services/standing/didQubeReconciliation.ts`,
