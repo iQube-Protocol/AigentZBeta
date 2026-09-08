@@ -297,6 +297,48 @@ describe('submitApprovedLaunch — the ONE function that calls Bankr\'s write AP
     const submitted = await submitApprovedLaunch(admin, { id: approved.id, tenantId: 'default', actorPersonaId: 'persona-1', idempotencyKey: 'idem-chain-2', authorityChainId: 'chain-with-submit' });
     expect(submitted.state).toBe('submitting');
   });
+
+  it('correction (2026-09-08): a simulated preflight can become valid Aegis evidence, but can NEVER become an executable Bankr authorization', async () => {
+    const admin = makeFakeAdmin();
+    // The SAME simulated preflight that requestAegisAssessment/ratifyAssessment
+    // happily accept as evidence (walkToApproved's own ratifyAdmissibleFor
+    // step, above, already proves this half — an assessment IS created and
+    // ratified against a simulated preflight) must still refuse at the ONE
+    // function that would actually move money.
+    const approved = await walkToApproved(admin);
+    const { data: preApproval } = await admin.from('token_launches').select('*').eq('id', approved.id).maybeSingle();
+    expect((preApproval.bankr_terms as { simulated?: boolean }).simulated).toBe(true);
+    expect(preApproval.aegis_assessment_id).toBeTruthy(); // Aegis evidence WAS accepted
+
+    // Force a mode mismatch: the adapter is (and stays, in this test process)
+    // 'fake', but pretend the stored terms were somehow marked as a real
+    // quote — the exact shape a stale/tampered/incorrectly-reconciled row
+    // would have.
+    await admin.from('token_launches').update({ bankr_terms: { ...approved.bankr_terms, simulated: false } }).eq('id', approved.id);
+    await expect(
+      submitApprovedLaunch(admin, { id: approved.id, tenantId: 'default', actorPersonaId: 'persona-1', idempotencyKey: 'idem-mismatch-1' }),
+    ).rejects.toMatchObject({ code: 'bankr-mode-mismatch-refused' });
+  });
+
+  it('correction (2026-09-08): refuses submission when the bound provider-wallet binding is explicitly marked simulated', async () => {
+    const admin = makeFakeAdmin();
+    const approved = await walkToApproved(admin);
+    await admin.from('provider_wallet_bindings').insert({
+      id: 'binding-simulated-1',
+      tenant_id: 'default',
+      agent_runtime_id: DRAFT_INPUT.beneficiaryAgentRuntimeId,
+      provider: 'bankr',
+      metame_owner_wallet_address: FACTOR_OWNER_ADDRESS,
+      metame_settlement_wallet_address: FACTOR_SETTLEMENT_ADDRESS,
+      status: 'active',
+      verification_evidence: { verified: false, simulated: true, reason: 'rehearsal-only, never a real Bankr account' },
+    });
+    await admin.from('token_launches').update({ provider_wallet_binding_id: 'binding-simulated-1' }).eq('id', approved.id);
+
+    await expect(
+      submitApprovedLaunch(admin, { id: approved.id, tenantId: 'default', actorPersonaId: 'persona-1', idempotencyKey: 'idem-simulated-binding-1' }),
+    ).rejects.toMatchObject({ code: 'simulated-binding-refused' });
+  });
 });
 
 describe('inspectDeploymentStatus — read-only against Bankr; never fabricates a confirmation', () => {

@@ -219,6 +219,56 @@ export async function submitApprovedLaunch(
 ): Promise<TokenLaunchRow> {
   const launch = await getTokenLaunch(admin, input.id, input.tenantId);
 
+  // Simulated-mode-mismatch / simulated-binding refusal (2026-09-08
+  // correction) — scoped to 'approved' exactly like the drift-check just
+  // below (drift, mode-mismatch, and binding-simulation are all only
+  // meaningful questions once a launch has actually been approved; an
+  // unapproved launch is refused by submitTokenLaunch's own state check at
+  // the end of this function regardless, so checking these here for a
+  // draft/preparing/preflighted row would only produce a confusingly-early,
+  // wrongly-coded refusal for a launch that was never going anywhere yet).
+  //
+  // Mode-mismatch: a launch whose FROZEN, approved Bankr terms were captured
+  // under a DIFFERENT transport mode than the adapter is running under RIGHT
+  // NOW must never submit — the concrete danger a rehearsal artifact (or
+  // simply an unconfigured deployment that later gets real credentials)
+  // creates: terms quoted from the deterministic fake transport being
+  // submitted against a now-LIVE Bankr account as if they were real
+  // economics, or vice versa. Preserves the deliberate, documented capability
+  // of rehearsing the ENTIRE lifecycle (including submission/confirmation)
+  // end-to-end against the fake transport ONLY — fake-quoted terms
+  // submitting while the adapter is STILL fake is a self-consistent,
+  // harmless simulation; the refusal fires exactly when the two modes
+  // disagree.
+  //
+  // Simulated-binding: a provider-wallet binding explicitly marked
+  // `simulated: true` in its own verification_evidence (e.g. one inserted
+  // via a rehearsal reconciliation, never through a real Bankr onboarding
+  // call) must never be the binding a real submission proceeds under,
+  // regardless of the launch's own terms.
+  if (launch.state === 'approved') {
+    const adapterModeAtSubmission = createBankrProviderAdapter().getStatus().mode;
+    const bankrTermsSimulated = (launch.bankr_terms as { simulated?: boolean } | null)?.simulated;
+    const storedMode = bankrTermsSimulated === false ? 'live' : bankrTermsSimulated === true ? 'fake' : null;
+    if (storedMode !== adapterModeAtSubmission) {
+      throw new TokenLaunchError(
+        'bankr-mode-mismatch-refused',
+        `Launch ${input.id}'s stored Bankr terms were quoted under mode '${storedMode ?? 'unknown'}' but the adapter is currently '${adapterModeAtSubmission}' — submission refused. ` +
+          're-preflight against the CURRENT adapter before submitting; a launch can never submit under terms quoted from a different transport mode than the one now in force.',
+      );
+    }
+    if (launch.provider_wallet_binding_id) {
+      const binding = await getProviderWalletBinding(admin, input.tenantId, launch.beneficiary_agent_runtime_id, 'bankr');
+      const evidence = binding?.verification_evidence as { simulated?: boolean } | null | undefined;
+      if (evidence?.simulated === true) {
+        throw new TokenLaunchError(
+          'simulated-binding-refused',
+          `Launch ${input.id}'s provider-wallet binding (${binding?.id}) is explicitly marked simulated in its own verification_evidence — submission refused.`,
+        );
+      }
+    }
+  }
+
   if (input.authorityChainId) {
     const validation = await validateChainForAction(admin, {
       chainId: input.authorityChainId,
