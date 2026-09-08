@@ -24,7 +24,9 @@ import type { BankrTokenLaunchTerms } from '@/services/financialServices/provide
 import {
   getProviderWalletBinding,
   provisionProviderWalletBinding,
+  deriveBindingEffectiveState,
   type ProviderWalletBindingRow,
+  type ProviderWalletBindingEffectiveState,
 } from '@/services/financialServices/providers/providerWalletBinding';
 import {
   createDraft,
@@ -48,6 +50,12 @@ export interface BankrIssuerReadiness {
   bankrMode: 'live' | 'fake';
   hasProviderWalletBinding: boolean;
   providerWalletBinding: ProviderWalletBindingRow | null;
+  /** The ONE derived state every consumer must display (2026-09-08
+   *  correction) — see deriveBindingEffectiveState's own doc. Never render
+   *  `providerWalletBinding.status` alone; a lifecycle-`active` binding with
+   *  no real provider verification is `'active-simulated'` here, and must
+   *  read as "Simulated binding", never bare "Active". */
+  bindingEffectiveState: ProviderWalletBindingEffectiveState;
   /** Whether Bankr's own capabilities report token-launch support — a
    *  separate fact from `bankrConfigured`/`hasProviderWalletBinding` (Use
    *  Case Zero correction 4, 2026-09-06: "provider configured", "binding
@@ -87,6 +95,15 @@ export async function assessIssuerReadiness(
     tokenLaunchEnabled = null;
   }
 
+  // Note: bindingEffectiveState is NOT folded into `blockers`/`ready` —
+  // those gate whether a REHEARSAL (fake-transport round trip) may proceed,
+  // and a simulated binding is exactly what every rehearsal has today (no
+  // verification mechanism exists yet to ever produce 'active-verified').
+  // Making 'ready' false for that would break the deliberate rehearsal
+  // capability, not protect it. bindingEffectiveState exists so every
+  // DISPLAY consumer can show "Simulated binding" honestly — the real
+  // submission-time protection lives in submitApprovedLaunch, not here.
+  const bindingEffectiveState = deriveBindingEffectiveState(binding);
   const blockers: string[] = [];
   if (!status.configured) blockers.push('Bankr is not configured for this deployment — no BANKR_*_API_KEY is set (simulated mode only).');
   if (!binding || binding.status !== 'active') blockers.push(`No active Bankr provider-wallet binding exists for ${beneficiaryAgentRuntimeId} — provision one first.`);
@@ -97,6 +114,7 @@ export async function assessIssuerReadiness(
     bankrMode: status.mode,
     hasProviderWalletBinding: Boolean(binding && binding.status === 'active'),
     providerWalletBinding: binding,
+    bindingEffectiveState,
     tokenLaunchEnabled,
     ready: blockers.length === 0,
     blockers,

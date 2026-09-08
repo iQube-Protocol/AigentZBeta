@@ -53,17 +53,32 @@ interface BindingProps {
   onProvision: () => void;
 }
 
-/** (2) Provider-wallet binding — address, status, "provision" when absent. */
+/** (2) Provider-wallet binding — address, EFFECTIVE state, "provision" when
+ *  absent. Never renders `binding.status` alone (2026-09-08 correction) —
+ *  a lifecycle-`active` binding with no real provider verification must
+ *  read as "Simulated binding", never bare "Active". */
 export function ProviderBindingSurface({ readiness, loading, error, onProvision }: BindingProps) {
   const binding = readiness?.providerWalletBinding ?? null;
+  const effectiveState = readiness?.bindingEffectiveState ?? "none";
+  const effectiveLabel =
+    effectiveState === "active-verified"
+      ? "Verified"
+      : effectiveState === "active-simulated"
+        ? "Simulated binding"
+        : effectiveState === "revoked"
+          ? "Revoked"
+          : "None";
   return (
     <BankrSection title="Provider-wallet binding (Bankr)">
       {binding ? (
         <div className="flex flex-col gap-1 text-xs text-slate-300">
           <div className="flex flex-wrap items-center gap-2">
-            <BankrBadge label={binding.status} tone={binding.status === "active" ? "good" : "bad"} />
+            <BankrBadge label={effectiveLabel} tone={effectiveState === "active-verified" ? "good" : effectiveState === "active-simulated" ? "warn" : "bad"} />
             <span className="font-mono text-slate-400">{binding.metame_owner_wallet_address}</span>
           </div>
+          {effectiveState === "active-simulated" && (
+            <p className="text-xs text-amber-200">Never verified against a real Bankr account — this binding cannot authorize a real submission.</p>
+          )}
           {binding.provider_wallet_address && <span className="font-mono text-slate-500">provider wallet: {binding.provider_wallet_address}</span>}
         </div>
       ) : (

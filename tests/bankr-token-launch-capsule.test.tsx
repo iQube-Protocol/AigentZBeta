@@ -35,14 +35,24 @@ class FakeBankrBackend {
   bankrConfigured = false;
 
   readiness() {
+    const bindingActive = Boolean(this.binding && this.binding.status === 'active');
+    const evidence = this.binding?.verification_evidence as { verified?: boolean; simulated?: boolean } | null | undefined;
+    const bindingEffectiveState = !this.binding
+      ? 'none'
+      : this.binding.status === 'revoked'
+        ? 'revoked'
+        : evidence?.simulated === true || evidence?.verified !== true
+          ? 'active-simulated'
+          : 'active-verified';
     return {
       beneficiaryAgentRuntimeId: AGENT_ID,
       bankrConfigured: this.bankrConfigured,
       bankrMode: this.bankrConfigured ? 'live' : 'fake',
-      hasProviderWalletBinding: Boolean(this.binding && this.binding.status === 'active'),
+      hasProviderWalletBinding: bindingActive,
       providerWalletBinding: this.binding,
-      ready: Boolean(this.binding && this.binding.status === 'active'),
-      blockers: this.binding && this.binding.status === 'active' ? [] : [`No active Bankr provider-wallet binding exists for ${AGENT_ID} — provision one first.`],
+      bindingEffectiveState,
+      ready: bindingActive,
+      blockers: bindingActive ? [] : [`No active Bankr provider-wallet binding exists for ${AGENT_ID} — provision one first.`],
     };
   }
 
@@ -182,7 +192,10 @@ describe('BankrTokenLaunchCapsule', () => {
     await waitFor(() => expect(screen.getByText('Provision binding')).toBeInTheDocument());
     fireEvent.click(screen.getByText('Provision binding'));
 
-    await waitFor(() => expect(screen.getByText('active')).toBeInTheDocument());
+    // The binding's verification_evidence is null (never verified) — the
+    // surface must show "Simulated binding", never bare "active" (2026-09-08
+    // correction: a lifecycle-active binding is not the same as a verified one).
+    await waitFor(() => expect(screen.getByText('Simulated binding')).toBeInTheDocument());
     expect(screen.getByText(/0xProviderWallet/)).toBeInTheDocument();
   });
 

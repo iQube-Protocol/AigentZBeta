@@ -201,6 +201,31 @@ export async function provisionProviderWalletBinding(
   return data as ProviderWalletBindingRow;
 }
 
+/**
+ * Effective binding state — the ONE derivation every consumer (readiness
+ * projections, receipts, UI surfaces) must use instead of reading
+ * `binding.status` alone (2026-09-08 correction). `status` is a LIFECYCLE
+ * value only (`active` vs `revoked`, per the schema's own CHECK constraint —
+ * there is no third lifecycle value); it says nothing about whether the
+ * binding was ever actually verified against a real provider account.
+ * `verification_evidence.simulated`/`verified` is the SEPARATE, orthogonal
+ * fact this function folds in: a binding can be lifecycle-`active` and
+ * simultaneously carry zero real provider verification (e.g. one inserted
+ * by a rehearsal, or simply provisioned while Bankr is unconfigured).
+ * Never displayed/reported as "Active" alone when this returns
+ * 'active-simulated' — that reads as a confirmed real provider relationship
+ * when none exists.
+ */
+export type ProviderWalletBindingEffectiveState = 'none' | 'active-verified' | 'active-simulated' | 'revoked';
+
+export function deriveBindingEffectiveState(binding: ProviderWalletBindingRow | null): ProviderWalletBindingEffectiveState {
+  if (!binding) return 'none';
+  if (binding.status === 'revoked') return 'revoked';
+  const evidence = binding.verification_evidence as { verified?: boolean; simulated?: boolean } | null;
+  const simulated = evidence?.simulated === true || evidence?.verified !== true;
+  return simulated ? 'active-simulated' : 'active-verified';
+}
+
 export async function getProviderWalletBinding(
   admin: SupabaseClient,
   tenantId: string,

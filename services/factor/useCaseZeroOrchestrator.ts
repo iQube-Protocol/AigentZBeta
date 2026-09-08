@@ -52,6 +52,7 @@ import { validateChainForAction } from '@/services/factor/authorityChain';
 import { readActiveGrantForAgent } from '@/services/delegation/delegationGrantStore';
 import { createAssessment } from '@/services/aegis/aegisAssessmentService';
 import { inspectOrProvisionProviderBinding, preflightLaunch } from '@/services/factor/bankrCapabilityHandlers';
+import { deriveBindingEffectiveState } from '@/services/financialServices/providers/providerWalletBinding';
 import { runAdmissionPacketPolicyEvaluation } from '@/services/factor/factorConfidentialWorkload';
 import { createOrResumeDraft, claimDraftForPreflight, type CreateDraftInput } from '@/services/factor/tokenLaunchService';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
@@ -240,10 +241,14 @@ async function stepRequestAdmission(
 
 async function stepBankrBinding(input: AdvanceUseCaseZeroInput, runtimeAgentId: string): Promise<Omit<AdvanceUseCaseZeroResult, 'caseId'>> {
   const binding = await inspectOrProvisionProviderBinding(input.admin, input.tenantId, runtimeAgentId, input.actorPersonaId);
+  // Effective-state display (2026-09-08 correction) — never report `binding.status`
+  // ("active") alone; deriveBindingEffectiveState folds in verification_evidence
+  // so a never-verified binding reads as Simulated, not "active".
+  const effectiveState = deriveBindingEffectiveState(binding);
   return {
     stepTaken: 'bankrBinding',
     outcome: 'advanced',
-    detail: `Bankr provider-wallet binding ${binding.id} status: ${binding.status} (simulated unless live BANKR_*_API_KEY is configured).`,
+    detail: `Bankr provider-wallet binding ${binding.id}: ${effectiveState === 'active-verified' ? 'verified' : effectiveState === 'active-simulated' ? 'Simulated (never verified against a real Bankr account)' : effectiveState}.`,
     readiness: await reread(input),
   };
 }
