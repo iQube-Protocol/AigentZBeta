@@ -23,6 +23,7 @@ import type {
   CTPChannel,
   CTPStateSnapshot,
 } from '@/types/ctp';
+import type { SubjectDiDQubeSnapshot } from './subjectIdentityResolution';
 
 const EVIDENCE_TABLE = 'ctp_transition_evidence';
 
@@ -54,6 +55,8 @@ export interface WriteTransitionReceiptInput {
   projectedConsequence: ConsequenceProjection;
   resultingState: CTPStateSnapshot;
   realizedConsequence: Record<string, unknown> | null;
+  /** DiDQube Phase 4 item 3 (2026-09-07) — see subjectIdentityResolution.ts. */
+  subjectDidqube?: SubjectDiDQubeSnapshot;
 }
 
 export interface WriteRefusalEvidenceInput {
@@ -65,6 +68,10 @@ export interface WriteRefusalEvidenceInput {
   channelSessionRef: string | null;
   reasonCode: string;
   reason: string;
+  /** DiDQube Phase 4 item 3 (2026-09-07) — present only for a refusal that
+   *  occurred AFTER participant resolution succeeded (subjectPersonaId is
+   *  known); absent on an earlier refusal, honestly, never fabricated. */
+  subjectDidqube?: SubjectDiDQubeSnapshot;
 }
 
 /**
@@ -105,6 +112,10 @@ export async function writeTransitionReceipt(
     reasonCode: null,
     reason: null,
     timestamp,
+    subjectDidqubeId: input.subjectDidqube?.subjectDidqubeId ?? null,
+    subjectDidqubeClass: input.subjectDidqube?.subjectDidqubeClass ?? null,
+    subjectResolutionCommitment: input.subjectDidqube?.subjectResolutionCommitment ?? null,
+    subjectResolutionCommitmentVersion: input.subjectDidqube?.subjectResolutionCommitmentVersion ?? null,
   };
   const { error } = await admin.from(EVIDENCE_TABLE).insert(toRow(evidence));
   if (error) {
@@ -147,6 +158,10 @@ export async function writeRefusalEvidence(
     reasonCode: input.reasonCode,
     reason: input.reason,
     timestamp,
+    subjectDidqubeId: input.subjectDidqube?.subjectDidqubeId ?? null,
+    subjectDidqubeClass: input.subjectDidqube?.subjectDidqubeClass ?? null,
+    subjectResolutionCommitment: input.subjectDidqube?.subjectResolutionCommitment ?? null,
+    subjectResolutionCommitmentVersion: input.subjectDidqube?.subjectResolutionCommitmentVersion ?? null,
   };
   // Refusal evidence is the ONLY write this path performs — no protected
   // state is ever touched on a refusal (charter §11).
@@ -186,5 +201,9 @@ function toRow(e: ConstitutionalTransitionEvidence): Record<string, unknown> {
     reason_code: e.reasonCode,
     reason: e.reason,
     created_at: e.timestamp,
+    subject_didqube_id: e.subjectDidqubeId,
+    subject_didqube_class: e.subjectDidqubeClass,
+    subject_resolution_commitment: e.subjectResolutionCommitment,
+    subject_resolution_commitment_version: e.subjectResolutionCommitmentVersion,
   };
 }
