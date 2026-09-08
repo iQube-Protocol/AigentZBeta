@@ -103,7 +103,22 @@ import { getEnabledTabs } from '@/app/hooks/useCodexConfig';
 import type { ParticipationAccessState } from '@/services/passport/participationTabGate';
 import { RESEARCH_WORKSPACES } from '@/services/research/researchWorkspace';
 
-/** See the file header's "NOT touched, and deliberately so" section. */
+/**
+ * See the file header's "NOT touched, and deliberately so" section.
+ *
+ * 'irl-passport-locker' is now `enabled: false` (2026-09-08, IRL OS
+ * Workspace consolidation -- Locker relocated to a subTab of
+ * 'irl-workspace') but STILL carries no `adminOnly` gate of its own. That
+ * makes it a genuinely different fact from every other member here:
+ *   - it still belongs in the ADMIN-GATE boundary (tests below that filter
+ *     by `!adminOnly` only -- test 6's exhaustive canary) -- see
+ *     `SHARED_NON_ADMIN_TAB_IDS_INCLUDING_DISABLED`.
+ *   - it no longer belongs in the REACHABILITY set (tests that check actual
+ *     `getEnabledTabs(...).has(id)` -- tests 2 and 3) -- `enabled: false`
+ *     makes it unreachable by ANY caller, admin included, independent of the
+ *     admin gate. `SHARED_NON_ADMIN_TAB_IDS` (this one) stays the
+ *     reachability set; do not put a disabled tab back into it.
+ */
 const SHARED_NON_ADMIN_TAB_IDS = new Set([
   'irl-exchange',
   'irl-workspace',
@@ -111,6 +126,14 @@ const SHARED_NON_ADMIN_TAB_IDS = new Set([
   'irl-participation-standing',
   'irl-passport-apply',
   'irl-passport-delegation',
+]);
+
+/** Same set, PLUS the disabled-but-still-non-admin 'irl-passport-locker' --
+ *  see the doc comment on `SHARED_NON_ADMIN_TAB_IDS` above for why these two
+ *  sets must differ by exactly that one id. Used only by the admin-gate
+ *  boundary canaries (test 6), never by a reachability assertion. */
+const SHARED_NON_ADMIN_TAB_IDS_INCLUDING_DISABLED = new Set([
+  ...SHARED_NON_ADMIN_TAB_IDS,
   'irl-passport-locker',
 ]);
 
@@ -250,7 +273,7 @@ describe('3. Non-admin direct access to metaMe IRL internal-lab tabs is refused/
     const enabled = new Set(getEnabledTabs(IRL_CARTRIDGE, false).map((t) => t.id));
     expect(enabled.has('irl-exchange')).toBe(true);
     expect(enabled.has('irl-workspace')).toBe(false);
-    for (const id of ['irl-participation-overview', 'irl-participation-standing', 'irl-passport-apply', 'irl-passport-delegation', 'irl-passport-locker']) {
+    for (const id of ['irl-participation-overview', 'irl-participation-standing', 'irl-passport-apply', 'irl-passport-delegation']) {
       expect(enabled.has(id), `'${id}' has no gate of its own -- reachable even signed out, unchanged by this pass`).toBe(true);
     }
   });
@@ -341,7 +364,7 @@ describe('5. Existing IRL OS participation flows remain unchanged', () => {
 describe('6. Exhaustive canary -- every metaMe IRL tab outside the shared-infrastructure list is adminOnly', () => {
   it('no tab silently escapes the boundary (fails red the moment a new IRL_CARTRIDGE tab omits adminOnly)', () => {
     const offenders = IRL_CARTRIDGE.tabs
-      .filter((t) => !SHARED_NON_ADMIN_TAB_IDS.has(t.id))
+      .filter((t) => !SHARED_NON_ADMIN_TAB_IDS_INCLUDING_DISABLED.has(t.id))
       .filter((t) => !t.adminOnly);
     expect(
       offenders.map((t) => t.id),
@@ -351,7 +374,7 @@ describe('6. Exhaustive canary -- every metaMe IRL tab outside the shared-infras
 
   it('the exception list is EXACTLY irl-exchange + irl-workspace + the Participation group -- nothing more', () => {
     const nonAdminTabs = IRL_CARTRIDGE.tabs.filter((t) => !t.adminOnly).map((t) => t.id);
-    expect(new Set(nonAdminTabs)).toEqual(SHARED_NON_ADMIN_TAB_IDS);
+    expect(new Set(nonAdminTabs)).toEqual(SHARED_NON_ADMIN_TAB_IDS_INCLUDING_DISABLED);
   });
 
   it('irl-exchange itself is confirmed unchanged -- not admin-gated, still the real IRLExchangeTab', () => {

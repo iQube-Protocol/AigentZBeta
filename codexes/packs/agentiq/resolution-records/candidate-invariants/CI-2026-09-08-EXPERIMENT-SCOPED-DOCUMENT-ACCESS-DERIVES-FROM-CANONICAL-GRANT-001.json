@@ -37,6 +37,22 @@
       "evidence": [
         "tests/irl-reviewer-scoped-access-2026-09-08.test.ts"
       ]
+    },
+    {
+      "site": "app/api/research/readiness/[experimentId]/route.ts",
+      "defect": "The Readiness dashboard route was hard admin-only despite its own header comment already claiming 'a reviewer can also hit it directly' — a scoped, non-admin EXP-P1 reviewer had no path to Experimental Readiness anywhere, in Workspace or otherwise. Fixed by the SAME admin-OR-`resolveExperimentReviewGrant(experimentId)` pattern as the first occurrence — no new gate vocabulary.",
+      "resolutionId": "RES-2026-09-08-IRL-OS-WORKSPACE-CONSOLIDATION-001",
+      "evidence": [
+        "tests/workspace-capabilities-authorization-2026-09-08.test.ts"
+      ]
+    },
+    {
+      "site": "app/api/participation/workspace-capabilities/route.ts",
+      "defect": "New route generalizing the same admission pattern to a workspace's Reviewer Kit/protocol documents and its readiness/review-agreement availability flags, keyed off `EXPERIMENT_REGISTRY`/`resolveExperimentReviewGrant` rather than a per-experiment special case — the pattern applied to a genuinely new capability class (composed Workspace cards), not merely reapplied to an existing one.",
+      "resolutionId": "RES-2026-09-08-IRL-OS-WORKSPACE-CONSOLIDATION-001",
+      "evidence": [
+        "tests/workspace-capabilities-authorization-2026-09-08.test.ts"
+      ]
     }
   ],
   "family": "engineering",

@@ -54,3 +54,36 @@ export function experimentIdForIrlPackPath(safePath: string): string | null {
   }
   return null;
 }
+
+/** Whether `experimentId` has a registered `irl`-pack protocol directory at
+ *  all — i.e. whether {@link listIrlPackDocumentsForExperiment} can ever
+ *  return anything non-empty for it. Used to decide whether a Workspace
+ *  capability card has a "Reviewer Kit & Protocol" section to show. */
+export function irlExperimentHasPackDocuments(experimentId: string): boolean {
+  return EXPERIMENT_PATH_PREFIXES.some((p) => p.id === experimentId);
+}
+
+/**
+ * Every `col_experiments` item (from the real `codexes/packs/irl/collections.json`,
+ * never a hand-copied list) that resolves to `experimentId` via
+ * {@link experimentIdForIrlPackPath} — the GENERALISED form of the
+ * EXP-P1-only `resolveExpP1DocumentResources` helper in
+ * `app/api/journey/validation-programme/agent-package/route.ts` (which stays
+ * as-is; this is additive, not a replacement of that route's own EXP-P1
+ * package). Works for ANY `EXPERIMENT_REGISTRY` entry with a matching
+ * `protocolRef` — Austin/EXP-P1 is one instance, never a hardcoded case.
+ */
+export async function listIrlPackDocumentsForExperiment(experimentId: string): Promise<string[]> {
+  if (!irlExperimentHasPackDocuments(experimentId)) return [];
+  try {
+    const { corpusReadPackFile } = await import('@/services/knowledge/packCorpusStore');
+    const raw = await corpusReadPackFile('irl', 'collections.json');
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as { collections?: Array<{ id: string; items?: string[] }> };
+    const collection = parsed.collections?.find((c) => c.id === 'col_experiments');
+    const items = collection?.items ?? [];
+    return items.filter((p) => experimentIdForIrlPackPath(p) === experimentId);
+  } catch {
+    return [];
+  }
+}

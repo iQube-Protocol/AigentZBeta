@@ -257,18 +257,17 @@ describe('the first acceptance case — an invited Autonomi reviewer', () => {
     // POSITIVE REACHABILITY FIRST (ruling C). Every denial below is only
     // meaningful because this passes.
     //
-    // RE-POINTED 2026-07-29: Locker is no longer offered as a Workspace
-    // subTab for ANY role (operator instruction, same day — pruned from the
-    // nav row because Participation's own Locker tab already covers that
-    // ground). The reviewer's SCOPE still covers Locker-gated DATA
-    // (`satisfiesWorkspaceScope`/`workspaceSurfaceAuthority('locker')` are
-    // untouched by this nav change) — what changed is that this cartridge no
-    // longer offers a clickable tab for it.
+    // RE-POINTED 2026-09-08 (IRL OS Workspace consolidation — Locker moved
+    // FROM Participation INTO Workspace, reversing the 2026-07-29 prune that
+    // removed it from the nav row for every role). A reviewer is not the
+    // one role SPEC §10 excludes (`research-participant`), so the reviewer
+    // now reaches Locker as a real Workspace subTab — exactly the acceptance
+    // case's own "access final Locker artefacts" requirement (SPEC §12).
     const slugs = await reachable(reviewer);
     expect(slugs).toContain('irl-workspace-review');
     expect(slugs).toContain('irl-workspace-qubetalk');
     expect(slugs).toContain('irl-workspace-overview');
-    expect(slugs, 'Locker is pruned from the nav for every role, reviewer included').not.toContain(
+    expect(slugs, 'reviewer must reach Locker — SPEC §12: "access final Locker artefacts"').toContain(
       'irl-workspace-locker',
     );
     // …and the workspace behind those tabs actually opens for the SAME caller.
@@ -432,12 +431,16 @@ describe('AC-7 — a student reaches only their assigned project', () => {
   ]);
 
   it('POSITIVE — reaches their project and the surfaces they work in', async () => {
-    // RE-POINTED 2026-07-29: Locker is pruned from the Workspace nav for
-    // every role (operator instruction, same day) — the student's scoped
-    // access to Locker-gated DATA is untouched; no nav tab offers it any more.
+    // RE-POINTED 2026-09-08: Locker is restored to the Workspace nav
+    // (reversing the 2026-07-29 prune) and role-gated per SPEC §10
+    // (`allRolesExcept('research-participant')`) — `student-researcher` is
+    // not the excluded role, so a student reaches Locker for their own
+    // assigned project, same as every role except the Institutional Observer.
     const slugs = await reachable(student);
     expect(slugs).toContain('irl-workspace-materials');
-    expect(slugs, 'Locker is pruned from the nav for every role').not.toContain('irl-workspace-locker');
+    expect(slugs, 'a student must reach Locker for their own assigned project — SPEC §10').toContain(
+      'irl-workspace-locker',
+    );
     expect(slugs).toContain('irl-workspace-qubetalk');
     expect(satisfiesWorkspaceScope(student, 'research-lab', CS_PROJECT, false)).toBe(true);
   });
@@ -675,22 +678,24 @@ describe('AC-12 — every workspace has a reachable entrance', () => {
     }
   });
 
-  it('the shipped Workspace subTabs ARE six of the eight views plus Tier 0, in spec order', async () => {
-    // RE-POINTED 2026-07-29, TWICE. First, the research half moved from a
-    // `workspace` GROUP of top-level tabs to the `irl-workspace` TAB's
-    // `subTabs`, one tier deeper. Second, the SAME DAY, Locker and
-    // Participants were pruned from that subTab row (operator instruction —
-    // "the surrounding Participation tab already covers that ground"). The
-    // REGISTRY (`RESEARCH_WORKSPACE_VIEWS`) is UNCHANGED — still all eight,
-    // still spec-exact, asserted by the spec-parity canaries elsewhere in
-    // this file — only the SHIPPED SUBSET differs from it here.
+  it('the shipped Workspace subTabs ARE seven of the eight views plus Tier 0, in spec order', async () => {
+    // RE-POINTED 2026-07-29 then 2026-09-08. First, the research half moved
+    // from a `workspace` GROUP of top-level tabs to the `irl-workspace`
+    // TAB's `subTabs`, one tier deeper; the SAME DAY, Locker and Participants
+    // were pruned from that subTab row. 2026-09-08 (IRL OS Workspace
+    // consolidation) reversed HALF of that prune: Locker is restored as a
+    // shipped subTab (Participants stays pruned — see the block comment
+    // above `EVERY_VIEW` in tests/research-lab-workspace.test.ts for why).
+    // The REGISTRY (`RESEARCH_WORKSPACE_VIEWS`) was always UNCHANGED — still
+    // all eight, still spec-exact, asserted by the spec-parity canaries
+    // elsewhere in this file — only the SHIPPED SUBSET differs from it here.
     const { IRL_CARTRIDGE } = await import('../data/codex-configs');
     const parent = IRL_CARTRIDGE.tabs.find((t: { id: string }) => t.id === 'irl-workspace') as
       | { subTabs?: Array<{ slug: string; adminOnly?: boolean; participationDomain?: string; participationRoles?: string[] }> }
       | undefined;
     const tabs = parent?.subTabs ?? [];
     expect(tabs.map((t) => t.slug)).toEqual([
-      ...RESEARCH_WORKSPACE_VIEWS.filter((v) => v.id !== 'locker' && v.id !== 'participants').map(
+      ...RESEARCH_WORKSPACE_VIEWS.filter((v) => v.id !== 'participants').map(
         (v) => v.slug,
       ),
       RESEARCH_WORKSPACE_ADMIN_VIEW.slug,
