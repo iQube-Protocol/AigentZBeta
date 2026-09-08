@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "A governed execution whose total work exceeds what one synchronous HTTP request can complete within the hosting gateway's timeout ceiling must be structured as: (1) a fast 'start' phase that creates a durable run identity and does no heavy work, followed by (2) one or more bounded 'step'/'checkpoint' phases, each completing well inside the gateway ceiling, each idempotent with respect to work already recorded on the run.",
+    "Idempotency is the load-bearing property, not merely a nice-to-have: a step must compute 'what remains' by diffing the run's OWN persisted progress against the full expected-work list, never by trusting a client-supplied notion of what has or hasn't happened yet. This is what makes a duplicate client request (a genuine retry, a double-click, a resumed poll after a dropped connection) safe to send at any time, including after a 504 or any other ambiguous client-observed failure.",
+    "The completion signal (a receipt, in this codebase's DVN-pipeline discipline) must be written EXACTLY ONCE, at the single call site that observes all expected work as done — never at the 'start' phase, and never more than once even if the finalizing checkpoint call is itself invoked multiple times (e.g. by a client resuming after already seeing 'executed').",
+    "Concurrency within a single step/checkpoint call must be explicitly bounded (a fixed batch size), never scaled implicitly by the total size of the work (e.g. 'every task times every arm, all at once') — the bound is what keeps a single request's provider-call fan-out under the gateway ceiling regardless of how large the overall job grows.",
+    "Discovered via EXP-P1's execution-rehearsal 2026-09-08 incident: a one-shot design (create + execute + persist, all in one HTTP request) caused a client-observed HTTP 504 while the server-side Lambda continued running and persisting to completion — an execution outcome invisible to the client and, on any naive retry, at risk of either being silently duplicated or silently lost. This invariant generalizes the fix so the next long-running governed action in this codebase (any future EXP-* execution rehearsal, any other Lambda-hosted multi-step governed act) does not have to rediscover the same failure mode from a fresh incident."
+  ],
+  "canaries": [
+    {
+      "path": "tests/exp-p1-execution-rehearsal.test.ts",
+      "assertion": "startExpP1ExecutionRehearsal creates a durable run WITHOUT calling the model at all (Phase 1 is always fast and cheap); stepExpP1ExecutionRehearsal never re-executes a task already present in the run's persisted results (idempotent resume — calling step twice on the same run, or resuming after simulated interruption, produces no duplicate model calls); a single step processes at most DEFAULT_STEP_BATCH_SIZE tasks — never the full unbounded task set in one call; calling step again on an already-executed run is a pure no-op (same receipt, no new model calls, no re-finalization); a second start call against an in-flight run resumes the SAME runId (with its true already-done count) rather than creating a duplicate run, while a start call against an already-executed run correctly creates a genuinely NEW run.",
+      "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/exp-p1-execution-rehearsal-route.test.ts",
+      "assertion": "the route splits action:'start' and action:'step' to two distinct functions — start never calls the step runner and step never calls the start runner — so a client cannot accidentally trigger execution work from the fast start call, and cannot accidentally create a duplicate run from a step call.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "candidateId": "CI-2026-09-08-LONG-RUNNING-GOVERNED-EXECUTION-MUST-BE-CHECKPOINTED-RESUMABLE-001",
+  "statement": "Any governed execution whose total work may exceed the hosting gateway's request-duration ceiling must be split into a fast, model-call-free 'start' phase (creates a durable run identity, records the full expected-work list) and one or more bounded 'step' phases (each processes a fixed, small batch of remaining work and checkpoints the result). Each step must compute its own remaining work by diffing the run's persisted progress against the expected-work list — never from client-supplied state — so that resuming an interrupted run, or a client duplicating a request after an ambiguous failure (e.g. a 504), never re-executes already-completed work and never fabricates or loses a result. The one completion signal (e.g. a receipt) is written exactly once, at the single checkpoint call that first observes all expected work as done; every later call against an already-completed run is a pure no-op. Per-call concurrency is explicitly bounded (a fixed batch size), never implicitly scaled by total job size.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-09-08-EXP-P1-EXECUTION-APPARATUS-504-DURABILITY-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/expP1ExecutionRehearsal.ts::startExpP1ExecutionRehearsal, ::stepExpP1ExecutionRehearsal; services/research/artifacts.ts::startExecutionRun, ::checkpointExecutionRun",
+      "defect": "The prior one-shot `runExpP1ExecutionRehearsal` held one HTTP response open across up to 64 concurrent model calls plus synchronous persistence, exceeding the ~30s Amplify SSR gateway ceiling and causing a client-observed 504 while the Lambda continued running/persisting server-side (2026-09-08).",
+      "resolutionId": "RES-2026-09-08-EXP-P1-EXECUTION-APPARATUS-504-DURABILITY-001",
+      "evidence": [
+        "tests/exp-p1-execution-rehearsal.test.ts",
+        "tests/exp-p1-execution-rehearsal-route.test.ts"
+      ]
+    }
+  ],
+  "family": "engineering",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
+}
