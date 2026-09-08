@@ -32,6 +32,11 @@
       "path": "tests/ctp-constitutional-runtime.test.ts",
       "assertion": "The Constitutional Runtime resolves the subject's DiDQube via resolveDiDQube (never a raw table read) exactly once per invocation, threads it onto both the success receipt and any refusal that already knows the subject, and an admin double that cannot support the read resolves to null rather than aborting the transition.",
       "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/standing-didqube-reconciliation.test.ts",
+      "assertion": "Standing's dry-run reconciliation classifies every canonical agent Standing identity's underlying anchor via resolveDiDQube (never treating a raw root_did/agent_root_identity match as sufficient on its own), distinguishes every discrepancy shape honestly, and never writes to any table.",
+      "verifiedFailingBeforeFix": false
     }
   ],
   "occurrences": [
@@ -64,18 +69,29 @@
         "services/ctp/subjectIdentityResolution.ts",
         "supabase/migrations/20260930320000_ctp_transition_evidence_didqube_resolution.sql"
       ]
+    },
+    {
+      "site": "services/standing/agentStandingPersona.ts",
+      "defect": "Every canonical agent Standing identity was resolved purely by matching personas.root_did against agent_root_identity.did_uri as a raw string equality, with no DiDQube-container awareness at all -- correct in every currently-existing case (live-verified, zero discrepancies across 5 agents), but with no mechanism to ever detect a FUTURE case where the anchor exists but its container is unbound/conflicted.",
+      "resolutionId": "RES-2026-09-07-DIDQUBE-PHASE-4-STANDING-CONSUMER-MIGRATION-001",
+      "evidence": [
+        "services/standing/didQubeReconciliation.ts",
+        "app/api/ops/journey/standing-didqube-reconciliation/route.ts"
+      ]
     }
   ],
   "derivedFrom": [
     "RES-2026-09-07-DIDQUBE-PHASE-4-FACTOR-CONSUMER-MIGRATION-001",
     "RES-2026-09-07-DIDQUBE-PHASE-4-AEGIS-CONSUMER-MIGRATION-001",
-    "RES-2026-09-07-DIDQUBE-PHASE-4-CTP-CONSUMER-MIGRATION-001"
+    "RES-2026-09-07-DIDQUBE-PHASE-4-CTP-CONSUMER-MIGRATION-001",
+    "RES-2026-09-07-DIDQUBE-PHASE-4-STANDING-CONSUMER-MIGRATION-001"
   ],
   "ratifiedSource": null,
   "supersededBy": null,
   "notes": [
     "Promoted candidate -> validated (2 occurrences: Factor, Aegis) per the ladder's own mechanical criteria (>=2 recorded occurrences) — an agent may reach `validated` (AGENT_MAX_STAGE) but never ratified/canonical, which require a named operator act. Gained a third occurrence (CTP) confirming the pattern generalizes cleanly across genuinely different consumer shapes (a readiness projection, an assessment table, a generic invocation runtime). Expected to gain further occurrences as DCIR/Standing/Registry-Horizen are each migrated in their own vertical commits — each should reference this same candidate rather than minting a parallel one, per inv.engineering.036/037.",
     "Live-verified (2026-09-07, Aigent Z project bsjhfvctmduxhohtllly): all 19 existing agent_root_identity rows already carry an agent_didqubes binding as of the Factor migration — there is no current data gap this invariant is protecting against, only a future one (a new anchor created through a path that never calls ensureAgentDiDQubeBinding).",
-    "CTP's own occurrence surfaced a second, related lesson worth carrying forward explicitly: a persona->identity mapping that LOOKS obviously available on the calling context (ctx.callerAuthProfileId) can be a subtly WRONG value for a different table's similarly-named column (root_identity.auth_user_id) — verify the actual join empirically before wiring it, never assume same-sounding column names are the same value space."
+    "CTP's own occurrence surfaced a second, related lesson worth carrying forward explicitly: a persona->identity mapping that LOOKS obviously available on the calling context (ctx.callerAuthProfileId) can be a subtly WRONG value for a different table's similarly-named column (root_identity.auth_user_id) — verify the actual join empirically before wiring it, never assume same-sounding column names are the same value space.",
+    "Standing's occurrence (the fourth) is the first purely-diagnostic, dry-run-only application of this invariant — no additive schema, no write-path change, because the plan's own item-5 text asked for a reconciliation report FIRST and the live report came back clean. This confirms the invariant applies even when 'consuming the resolver' means only detecting future drift, not changing today's behavior at all."
   ]
 }
