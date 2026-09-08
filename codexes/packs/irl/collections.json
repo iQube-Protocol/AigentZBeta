@@ -183,6 +183,15 @@
         "foundation/experiments/isr-001-invariant-software-reduction/STAGE-0_freeze-and-invariant-discovery.md",
         "foundation/experiments/isr-001-invariant-software-reduction/STAGE-0b_discovery-convergence.md"
       ]
+    },
+    {
+      "id": "col_capstone_briefings",
+      "title": "Capstone Briefings",
+      "description": "Student-facing State of the Estate briefings for Lehigh Computer Science and Master of Financial Engineering capstones operating through the IRL OS Workspace.",
+      "items": [
+        "foundation/capstones/2026-08-26_cs-capstone-state-of-estate.md",
+        "foundation/capstones/2026-09-08_mfe-capstone-state-of-estate.md"
+      ]
     }
   ]
 }
