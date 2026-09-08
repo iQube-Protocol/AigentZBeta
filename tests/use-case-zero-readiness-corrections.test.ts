@@ -485,6 +485,47 @@ describe('item 5 correction — Registry/Horizen restored as required externally
   });
 });
 
+describe('correction (2026-09-08) — launch-spec preparation and preflight are evidence-producing, non-consequential acts: reachable BEFORE case admission, never gated behind it', () => {
+  it('a case still at "registry_ready" (no case-level Aegis ratified, no MoneyPenny admission decided) already reports an established rehearsal leg once a preflighted launch exists — admission is NOT a precondition', async () => {
+    mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'registry_ready', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: null });
+    mocks.findLatestTokenLaunchForCase.mockResolvedValue({ id: 'launch-1', state: 'preflighted', bankr_terms: { simulated: true } });
+    const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
+    const rehearsal = findLeg(result.legs, 'governedOperationRehearsal');
+    expect(rehearsal.state).toBe('established');
+    // Case-level admission genuinely has NOT happened — this proves the
+    // rehearsal leg's own established-ness is independent of it, never a
+    // side effect of case activation.
+    expect(findLeg(result.legs, 'moneypennyAdmission').state).not.toBe('established');
+  });
+
+  it('a case still at "discovered" (earliest possible state, freshly created) can still prepare and preflight — only a bound case + resolved runtime agent id are required, never full activation', async () => {
+    mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'discovered', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: null });
+    mocks.findLatestTokenLaunchForCase.mockResolvedValue(null);
+    const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
+    const rehearsal = findLeg(result.legs, 'governedOperationRehearsal');
+    // Not yet established (no launch exists), but critically NOT refused for
+    // lack of activation — the reason names the real precondition, never
+    // "runtime activation must complete first" (the corrected, removed gate).
+    expect(rehearsal.state).toBe('missing');
+    expect(rehearsal.reason.toLowerCase()).not.toContain('runtime activation must complete');
+  });
+
+  it('bankrBinding and governedOperationRehearsal are ordered BEFORE aegisAssessment and moneypennyAdmission in the legs array — the sequence the projection itself computes', async () => {
+    mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'registry_ready', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: null });
+    const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
+    const keys = result.legs.map((l) => l.key);
+    const bankrIdx = keys.indexOf('bankrBinding');
+    const rehearsalIdx = keys.indexOf('governedOperationRehearsal');
+    const aegisIdx = keys.indexOf('aegisAssessment');
+    const admissionIdx = keys.indexOf('moneypennyAdmission');
+    expect(bankrIdx).toBeGreaterThanOrEqual(0);
+    expect(bankrIdx).toBeLessThan(aegisIdx);
+    expect(rehearsalIdx).toBeLessThan(aegisIdx);
+    expect(bankrIdx).toBeLessThan(admissionIdx);
+    expect(rehearsalIdx).toBeLessThan(admissionIdx);
+  });
+});
+
 describe('item 3/4 correction — governed-operation rehearsal leg reflects the canonical token-launch aggregate; mode derived, never hardcoded', () => {
   it('no existing launch for this tenant+beneficiary is "missing" once runtime is active', async () => {
     mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'active', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: null });

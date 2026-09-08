@@ -146,12 +146,25 @@ export class BankrProviderAdapter {
 
   async getTokenLaunchQuote(input: BankrTokenLaunchQuoteRequest): Promise<BankrTokenLaunchTerms> {
     const retrievedAt = new Date().toISOString();
-    const raw = await this.request<Record<string, unknown>>({
+    const rawResponse = await this.request<Record<string, unknown>>({
       method: 'POST',
       path: '/token-launches/quote',
       keyClass: 'read-only',
       body: { ...input },
     });
+    // `simulated` is stamped HERE, authoritatively, from the transport's own
+    // mode — never trusted from the provider's raw response (2026-09-08
+    // correction: Bankr's real API has no reason to ever include a
+    // `simulated` field itself, so leaving it to `rawResponse` would mean a
+    // genuine live quote stores `simulated: undefined` — indistinguishable
+    // from "unknown" rather than the honest, explicit `false` that
+    // downstream consumers (services/factor/useCaseZeroReadinessProjection.ts's
+    // rehearsal-mode display, services/factor/bankrCapabilityHandlers.ts's
+    // submitApprovedLaunch simulated-preflight refusal) both require to ever
+    // treat a launch as real. The fake transport already sets this itself;
+    // stamping it again here is a no-op for that path and the single source
+    // of truth for every other transport, present or future.
+    const raw = { ...rawResponse, simulated: this.transport.mode === 'fake' };
     return {
       chain: String(raw.chain ?? input.chain),
       feeBps: typeof raw.feeBps === 'number' ? raw.feeBps : null,

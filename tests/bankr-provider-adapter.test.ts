@@ -106,6 +106,37 @@ describe('simulated vs live are visibly distinct', () => {
     const adapter = new BankrProviderAdapter(config, new BankrLiveTransport(config));
     expect(adapter.getStatus().mode).toBe('live');
   });
+
+  it('correction (2026-09-08): a live quote is stamped simulated:false EVEN THOUGH Bankr\'s own real response never includes a simulated field at all', async () => {
+    // A real Bankr response has no reason to ever send a "simulated" key —
+    // that is our own bookkeeping field, not theirs. Without the adapter
+    // stamping it explicitly, a genuine live quote would store
+    // `simulated: undefined` — indistinguishable from "unknown" rather than
+    // the honest, explicit `false` every downstream consumer (the readiness
+    // projection's rehearsal-mode display, submitApprovedLaunch's
+    // mode-mismatch refusal) requires to ever treat a launch as real.
+    const config = baseConfig({ readOnlyApiKey: 'ro-key' });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      json: async () => ({
+        chain: 'base',
+        feeBps: 250,
+        creatorVestingSupported: true,
+        partnerKeySellsFullSupply: false,
+        pairedAssetOptions: ['USDC'],
+        sourceUrl: 'https://api.bankr.bot/token-launches/quote/abc123',
+        // deliberately NO `simulated` field — a real Bankr response shape
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const adapter = new BankrProviderAdapter(config, new BankrLiveTransport(config));
+    const quote = await adapter.getTokenLaunchQuote({ chain: 'base', tokenName: 'Test', tokenSymbol: 'TST' }) as { raw: { simulated?: boolean; feeBps?: number } };
+    expect(quote.raw.simulated).toBe(false);
+    expect(quote.raw.feeBps).toBe(250); // the real response's own fields pass through untouched
+    vi.unstubAllGlobals();
+  });
 });
 
 describe('token-launch submission — idempotency', () => {

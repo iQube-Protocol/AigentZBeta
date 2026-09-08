@@ -216,6 +216,18 @@ describe('advanceUseCaseZero — one step per call, always rereads before and af
     mocks.getBinding.mockResolvedValue({ address: '0xSETTLE', status: 'active' });
     mocks.getPassportRecordStatus.mockResolvedValue([{ passportId: 'pass-1', passportClass: 'agent_participant', citizenStatus: null, participantStatus: 'approved', issuedAt: '2026-09-01T00:00:00Z' }]);
     mocks.readActiveGrantForAgent.mockResolvedValue({ grant_id: 'grant-1' });
+    // Correction (2026-09-08): bankrBinding/governedOperationRehearsal now sit
+    // BEFORE case-level aegisAssessment in the sequence — launch-spec
+    // preparation and preflight are evidence-producing, non-consequential
+    // acts and must be reachable before the case's own admission decision.
+    // This test targets the CASE-level Aegis step specifically, so both must
+    // already be established for firstOutstanding to reach it.
+    mocks.assessIssuerReadiness.mockResolvedValue({
+      beneficiaryAgentRuntimeId: 'aigent-factor', bankrConfigured: false, bankrMode: 'fake',
+      hasProviderWalletBinding: true, providerWalletBinding: { id: 'binding-1', status: 'active' },
+      tokenLaunchEnabled: true, ready: true, blockers: [],
+    });
+    mocks.findLatestTokenLaunchForCase.mockResolvedValue({ id: 'launch-1', state: 'preflighted', bankr_terms: { simulated: true } });
     mocks.createAssessment.mockResolvedValue({ assessment_id: 'assess-1', state: 'evidence_locked', decision: null, conditions: [] });
     const result = await advanceUseCaseZero({ ...BASE_INPUT, caseId: 'case-1' });
     expect(result.stepTaken).toBe('aegisAssessment');
@@ -233,6 +245,12 @@ describe('advanceUseCaseZero — one step per call, always rereads before and af
     mocks.getPassportRecordStatus.mockResolvedValue([{ passportId: 'pass-1', passportClass: 'agent_participant', citizenStatus: null, participantStatus: 'approved', issuedAt: '2026-09-01T00:00:00Z' }]);
     mocks.readActiveGrantForAgent.mockResolvedValue({ grant_id: 'grant-1' });
     mocks.findAgentRootIdentityBySlug.mockResolvedValue({ agentRootId: 'root-9', agentId: 'polity-bound:factor', didUri: 'did:agent:root:factor' });
+    mocks.assessIssuerReadiness.mockResolvedValue({
+      beneficiaryAgentRuntimeId: 'aigent-factor', bankrConfigured: false, bankrMode: 'fake',
+      hasProviderWalletBinding: true, providerWalletBinding: { id: 'binding-1', status: 'active' },
+      tokenLaunchEnabled: true, ready: true, blockers: [],
+    });
+    mocks.findLatestTokenLaunchForCase.mockResolvedValue({ id: 'launch-1', state: 'preflighted', bankr_terms: { simulated: true } });
     mocks.createAssessment.mockResolvedValue({ assessment_id: 'assess-1', state: 'evidence_locked', decision: null, conditions: [] });
     await advanceUseCaseZero({ ...BASE_INPUT, caseId: 'case-1' });
     expect(mocks.createAssessment).toHaveBeenCalledWith(
@@ -249,6 +267,12 @@ describe('advanceUseCaseZero — one step per call, always rereads before and af
     mocks.getBinding.mockResolvedValue({ address: '0xSETTLE', status: 'active' });
     mocks.getPassportRecordStatus.mockResolvedValue([{ passportId: 'pass-1', passportClass: 'agent_participant', citizenStatus: null, participantStatus: 'approved', issuedAt: '2026-09-01T00:00:00Z' }]);
     mocks.readActiveGrantForAgent.mockResolvedValue({ grant_id: 'grant-1' });
+    mocks.assessIssuerReadiness.mockResolvedValue({
+      beneficiaryAgentRuntimeId: 'aigent-factor', bankrConfigured: false, bankrMode: 'fake',
+      hasProviderWalletBinding: true, providerWalletBinding: { id: 'binding-1', status: 'active' },
+      tokenLaunchEnabled: true, ready: true, blockers: [],
+    });
+    mocks.findLatestTokenLaunchForCase.mockResolvedValue({ id: 'launch-1', state: 'preflighted', bankr_terms: { simulated: true } });
     mocks.getCurrentAssessment.mockResolvedValue({ assessment_id: 'assess-1', state: 'ratified', decision: 'admissible', conditions: [] });
     mocks.transitionCaseState.mockResolvedValue({ case_id: 'case-1', state: 'admission_pending', tenant_id: 'tenant-1' });
     const result = await advanceUseCaseZero({ ...BASE_INPUT, caseId: 'case-1' });
@@ -293,6 +317,39 @@ describe('advanceUseCaseZero — one step per call, always rereads before and af
     expect(mocks.preflightLaunch).toHaveBeenCalledWith(expect.anything(), 'launch-1', 'tenant-1', expect.anything());
     expect(result.detail.toLowerCase()).toMatch(/rehearsal stops here/);
     expect(result.detail.toLowerCase()).toMatch(/preflighted/);
+  });
+
+  it('correction (2026-09-08): a case NOT yet admitted (registry_ready — no case-level Aegis ratified, no MoneyPenny decision) can still run the full prepare+preflight rehearsal — admission is never a precondition for an evidence-producing, non-consequential act', async () => {
+    mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'registry_ready', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: 'did:example:agent-1' });
+    mocks.getOwnerWalletAddress.mockResolvedValue('0xOWNER');
+    mocks.getBinding.mockResolvedValue({ address: '0xSETTLE', status: 'active' });
+    mocks.getPassportRecordStatus.mockResolvedValue([{ passportId: 'pass-1', passportClass: 'agent_participant', citizenStatus: null, participantStatus: 'approved', issuedAt: '2026-09-01T00:00:00Z' }]);
+    mocks.readActiveGrantForAgent.mockResolvedValue({ grant_id: 'grant-1' });
+    // Deliberately NOT set: getCurrentAssessment / a case-level ratified
+    // Aegis decision. transitionCaseState is never mocked to succeed for
+    // 'admission_pending' either. If the orchestrator required admission
+    // first, this call would stall long before reaching the rehearsal step.
+    mocks.assessIssuerReadiness.mockResolvedValue({
+      beneficiaryAgentRuntimeId: 'aigent-factor', bankrConfigured: false, bankrMode: 'fake',
+      hasProviderWalletBinding: true, providerWalletBinding: { id: 'binding-1', status: 'active' },
+      tokenLaunchEnabled: true, ready: true, blockers: [],
+    });
+    mocks.createOrResumeDraft.mockResolvedValue({ launch: { id: 'launch-1', state: 'draft' }, created: true, superseded: false });
+    mocks.claimDraftForPreflight.mockResolvedValue({ claimed: true, launch: { id: 'launch-1', state: 'preparing' } });
+    mocks.preflightLaunch.mockResolvedValue({ launch: { id: 'launch-1', state: 'preflighted' }, bankrTerms: { raw: { simulated: true, feeBps: 100 }, sourceUrl: null, retrievedAt: '2026-09-06T00:00:00Z' } });
+
+    const result = await advanceUseCaseZero({
+      ...BASE_INPUT,
+      caseId: 'case-1',
+      launchSpec: { chain: 'base-sepolia', tokenName: 'Test', tokenSymbol: 'TST' },
+    });
+    expect(result.stepTaken).toBe('governedOperationRehearsal');
+    expect(result.outcome).toBe('advanced');
+    expect(mocks.preflightLaunch).toHaveBeenCalledTimes(1);
+    // The hard stop is still preserved: reaching rehearsal never touched
+    // ratification or admission machinery.
+    expect(mocks.createAssessment).not.toHaveBeenCalled();
+    expect(mocks.transitionCaseState).not.toHaveBeenCalled();
   });
 
   it('without a launchSpec, the rehearsal step reports awaiting_input rather than inventing token fields', async () => {
@@ -411,6 +468,10 @@ describe('item 1 correction — Vela step threshold excludes velaReadiness/runti
       hasProviderWalletBinding: true, providerWalletBinding: { id: 'binding-1', status: 'active' },
       tokenLaunchEnabled: true, ready: true, blockers: [],
     });
+    // Correction (2026-09-08): governedOperationRehearsal now sits before
+    // velaReadiness in the sequence, so it too must be established for this
+    // call to reach the Vela step.
+    mocks.findLatestTokenLaunchForCase.mockResolvedValue({ id: 'launch-1', state: 'preflighted', bankr_terms: { simulated: true } });
     mocks.listEvidenceForCase.mockResolvedValue([]); // no vela evidence yet — this call IS the vela step
     mocks.runAdmissionPacketPolicyEvaluation.mockResolvedValue({ disposition: 'ACCEPTABLE', attestationMode: 'NO_ATTESTATION_LOCAL' });
 
@@ -473,11 +534,16 @@ describe('item 1 correction — STRICT SEQUENCE: a required external stage halts
     primeEverythingExceptRegistryHorizen();
     mocks.getAsset.mockResolvedValue({ id: 'aigentqube-factor' });
     mocks.resolveAgentRegistrationState.mockResolvedValue({ registered: true, tokenId: 'token-1', network: 'base-sepolia', evidenceRefs: [], source: 'onchain', settled: true, auditGaps: [] });
-    mocks.createAssessment.mockResolvedValue({ assessment_id: 'assess-1', state: 'evidence_locked', decision: null, conditions: [] });
+    // Correction (2026-09-08): bankrBinding now sits before case-level
+    // aegisAssessment in the sequence, so it — not aegisAssessment — is the
+    // next real Factor-owned handler reached here.
+    mocks.inspectOrProvisionProviderBinding.mockResolvedValue({ id: 'binding-1', status: 'active' });
 
     const result = await advanceUseCaseZero({ ...BASE_INPUT, caseId: 'case-1' });
     expect(result.outcome).not.toBe('awaiting_external_action');
-    expect(result.stepTaken).toBe('aegisAssessment');
+    expect(result.stepTaken).toBe('bankrBinding');
+    expect(mocks.inspectOrProvisionProviderBinding).toHaveBeenCalledTimes(1);
+    expect(mocks.createAssessment).not.toHaveBeenCalled();
     expect(result.stepTaken).toBe(result.readiness.presentlyActionableStep ?? result.stepTaken);
   });
 });

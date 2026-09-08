@@ -1066,8 +1066,11 @@ Recommended order, easiest/lowest-risk first:
    Requires read access to `getActivePersona`/`evaluateAccess` outputs — coordinate with the protected-file
    owners rather than editing those files directly; extend by composition per CLAUDE.md's existing rule
    for that subsystem.
-4. **DCIR** — add `subjectDidQubeRef`/actor/principal DiDQube refs and resolution commitment to each
-   consequential transition record. Additive columns on the decision record.
+4. **DCIR — boundary-aligned / non-consuming (2026-09-07 finding, see item-4 closure below).**
+   ~~Add `subjectDidQubeRef`/actor/principal DiDQube refs and resolution commitment to each
+   consequential transition record. Additive columns on the decision record.~~ Superseded: DCIR
+   carries no such record at all (see below) — this was never a deferred integration, it is DCIR's
+   correct, permanent posture.
 5. **Standing/reputation** reconciliation (§"Standing and reputation") — the highest-care item in this
    phase: must preserve existing attribution exactly (supersession preserves history, never rewrites
    past attribution). Build and run a dry-run reconciliation report before writing anything, and get
@@ -1080,9 +1083,128 @@ Recommended order, easiest/lowest-risk first:
 7. **Registry/Horizen bindings** as external-presence records inside the agent DiDQube — lowest urgency,
    do last; nothing else in the plan depends on it.
 
+#### Item 4 — DCIR: boundary-aligned / non-consuming, not a deferred integration (2026-09-07)
+
+This item's original description ("add `subjectDidQubeRef`/actor/principal DiDQube refs and resolution
+commitment to each consequential transition record — additive columns on the decision record") assumed
+DCIR persists a "decision record" analogous to Aegis's assessments or CTP's transition evidence. It does
+not. `services/dcir/` (Dynamic Constitutional Interaction Runtime, CFS-020) is, by its own D0/D2
+contract, explicitly **ephemeral and in-session-only** — `services/dcir/stateEngine.ts`'s own header:
+"NO persistence, NO cross-session memory... Persisting patterns or mining across sessions builds
+behavioural memory of the operator — that is its own ratification... not a rider on this module." There
+is no `dcir_*` database table anywhere in this codebase to add columns to.
+
+More load-bearing than the missing table: CFS-020 already carries its own **non-negotiable, ratified**
+identifier-tier rule for the event stream (`types/dcir.ts`'s own doc comment): *"The event stream is
+identifier-tier-disciplined from birth: T0 identifiers (personaId, authProfileId, rootDid) NEVER appear
+in a DcirEvent — events carry T2-safe summaries and T1 display context only."* A `DiDQubePrimitive` is
+T0 throughout by the resolver's own doc ("T0 throughout — every field is server-internal; never
+serialize further than this object"). Adding a raw DiDQube ref to `DcirEvent` as originally described
+would have meant either violating CFS-020's own ratified T0-exclusion rule, or inventing a persistence
+layer DCIR was deliberately designed not to have — neither is a "migration," both are architectural
+regressions dressed up as one.
+
+**Ruling (operator, 2026-09-07):** DCIR is reclassified **boundary-aligned / non-consuming** — a
+permanent, correct posture, not a postponed item. Canonical DiDQube resolution happens at DCIR's
+**ingress/authority boundary**: whatever surface calls into DCIR (a route, a tab, a service) has already
+resolved identity — via `resolveDiDQube`, `getActivePersona`, or the relevant Phase 4-migrated consumer
+— *before* it ever touches the event stream. DCIR's own event constructors never re-resolve or carry
+that identity; they take category-level labels only (capsule names, agent/specialist display names,
+invariant refs, evidence summaries), exactly as CFS-020 already requires. No code change was made or is
+needed for this item.
+
+**Behavioral verification (not just the type contract) that no leak exists today:**
+- Every `DcirEvent`-constructing function in `services/dcir/eventStream.ts` (grep-audited, all ~30
+  constructors) accepts only category-level string parameters (capsule/stage/tool/specialist/asset
+  labels, invariant refs, free-text evidence summaries) — none accept or interpolate a personaId,
+  authProfileId, rootDid, `didqubeId`, `passport_id`, or any DiDQube `constitutionalAnchor` field.
+- Every real call site (`AigentMeWelcomeSplitTab.tsx`, `DevCommandCenterTab.tsx`, `ComposerStudio.tsx`,
+  `AssetDetailPanel.tsx`, `services/devCommandCenter/invariantEvidence.ts`) passes exactly the
+  innocuous values those signatures expect (a specialist id, an affordance label, a skill kind, an
+  asset name, an invariant ref + evidence string) — none pass a raw identity value.
+- `services/dcir/affordances.ts` and `services/dcir/useDcirSeam.ts` contain no identity-field
+  references beyond the same doc-comment restating the rule (verified via grep, not assumed from the
+  comments alone).
+- No other surface in `app/`/`components/` constructs a `DcirEvent` object directly, bypassing
+  `emitDcirEvent` — the one canonical construction path is the only one in use.
+
+**Conclusion:** no privacy fix was required. DCIR remains exactly as it is; this closure record is the
+deliverable for Phase 4 item 4.
+
+#### Item 7 — Registry/Horizen: external-presence records inside the agent DiDQube — IMPLEMENTED (2026-09-07)
+
+New `services/horizen/agentDiDQubeExternalPresence.ts::resolveAgentExternalPresence` composes the
+EXISTING `resolveAgentRegistrationState` (Horizen/ERC-8004) and `getAsset` (iQube Registry) reads —
+never re-deriving either — behind one ordering rule that is this item's own testing-matrix line made
+executable: **external identifiers cannot redefine constitutional identity.** `resolveDiDQube` is
+called FIRST; Horizen/Registry are read only once it reaches `state: 'resolved'` — an unresolved,
+conflicted, or ambiguous DiDQube short-circuits before either external read runs, so a Horizen tokenId
+or Registry asset id can never stand in for a constitutional anchor that was never itself established.
+5 new tests (`tests/agent-didqube-external-presence.test.ts`) prove the short-circuit on every
+non-resolved DiDQube state, that both external facts are reported honestly (present or absent, never
+fabricated) once the DiDQube resolves, and that a thrown Horizen read degrades to an honest unresolved
+state rather than aborting the call. Not yet wired into any live route/UI surface — per this item's own
+"lowest urgency... nothing else in the plan depends on it," the seam exists for the next real caller to
+use, rather than forcing an unrelated refactor of Factor's own already-correct Horizen/Registry reads.
+
+### Phase 4 — PARTIAL, NOT closed (2026-09-07, status corrected 2026-09-08)
+
+**Correction (2026-09-08): this section previously read "Phase 4 — CLOSED" and implied 6-of-6
+sub-items were fully done. That was wrong and is corrected here — do not cite this phase as
+closed or as 6/6 anywhere downstream.** Items 1 (Factor), 2 (Aegis), and 3 (CTP) are implemented,
+verified, and carry no known residual gap. Item 4 (DCIR) closed as boundary-aligned/non-consuming
+— a permanent correct posture, not a deferred integration (see above), and is the one item that IS
+genuinely done. Items 5 (Standing) and 7 (Registry/Horizen) are **implemented but PARTIAL** — each
+shipped real, tested code, but each also left a load-bearing gap open (see "Two qualifications"
+below): Standing's write path is still legacy-bound and uncanaried, and Registry/Horizen's seam is
+built but wired into no live surface. Neither gap was closed by this phase, and this phase is not
+"done" while they stand open. Item 6 (DVN receipt commitment fields) remains explicitly OUT OF
+SCOPE, unchanged, pending its own required standalone operator approval per the DVN Pipeline
+Protection PARAMOUNT rule — nothing in this phase touched `services/dvn/activityReceiptDvnPipeline.ts`'s
+payload shape (a proposal for it was later prepared separately, 2026-09-08, still unimplemented).
+
+Full-suite regression after each sub-item held exactly at the established 17-failed-file/65-failed-
+test baseline (later 64, after an unrelated dev-side test count shift), with zero new failures from
+any of this phase's own changes — that regression discipline is real and unaffected by this status
+correction. What is corrected is only the completion claim: 3 of 7 items fully closed (1, 2, 3), 1 of
+7 a genuine permanent non-issue (4), 2 of 7 partial with open gaps (5, 7), 1 of 7 out of scope (6).
+
+`CI-2026-09-07-DIDQUBE-CONSUMER-RESOLVER-NOT-RAW-ANCHOR-001` reached `validated` (the agent ceiling)
+after its second occurrence and now carries 5 recorded occurrences across genuinely different consumer
+shapes — a readiness projection, an assessment table, a generic invocation runtime, a read-only
+diagnostic tool, and an external-presence composition — confirming the resolver-consumption pattern
+generalizes rather than being an artifact of the first migration.
+
 **Exit check per sub-item:** each subsystem independently reads from `resolveDiDQube` for the specific
 question it needs, with its own tests proving the relevant acceptance criteria (cross-agent isolation,
 no silent Standing transfer on wallet/token change, etc.).
+
+#### The two open gaps that make Phase 4 partial (not reopened for further work)
+
+Recorded here with source references only — no new investigation performed. These are why Phase 4
+is partial rather than closed; per the operator's own gate, this status correction alone does not
+authorize reopening either item for further implementation work.
+
+1. **Standing's write path (`resolveCanonicalAgentPersonaId`) remains legacy-bound and uncanaried.**
+   Item 5 built a read-only dry-run reconciliation (`services/standing/didQubeReconciliation.ts`,
+   `app/api/ops/journey/standing-didqube-reconciliation/route.ts`) that confirmed zero live
+   discrepancies, but deliberately left the write path
+   (`services/standing/agentStandingPersona.ts::resolveCanonicalAgentPersonaId`, still keyed off the
+   deprecated `personas.root_did` column) unchanged and unprotected by any canary against the
+   `root_did`-authoritative-read pattern Phase 2.5 otherwise eliminated elsewhere. Source:
+   `RES-2026-09-07-DIDQUBE-PHASE-4-STANDING-CONSUMER-MIGRATION-001.json` → `unresolvedRisks[1]`.
+   Per the operator's own gate on this note: Phase 4 is reopened for this item only if the write
+   path is confirmed to actually be legacy-bound in a way that matters (not merely that it reads a
+   deprecated column with no live discrepancy) — that confirmation has not been performed here.
+
+2. **Registry/Horizen's external-presence seam (`resolveAgentExternalPresence`) is not yet wired
+   into any live surface.** Item 7 built the DiDQube-first ordering seam
+   (`services/horizen/agentDiDQubeExternalPresence.ts`) as a standalone, correct, but currently
+   unconsumed capability — no route or UI calls it yet. A future caller must still be checked to
+   confirm it actually calls this seam rather than reading Horizen/Registry state directly and
+   reintroducing the gap this resolution closed. Source:
+   `RES-2026-09-07-DIDQUBE-PHASE-4-REGISTRY-HORIZEN-CONSUMER-MIGRATION-001.json` →
+   `unresolvedRisks[1]`.
 
 ### Phase 5 — Trust hardening and cleanup (brief §12-§13)
 *Only after Phase 3's behavior has been live and stable.*

@@ -1171,14 +1171,24 @@ async function resolveRehearsalLeg(
   // governed-financial-request object today is a token-launch draft
   // (services/factor/tokenLaunchService.ts). This leg reports that
   // boundary honestly rather than claiming a general rehearsal capability.
-  const activated = factorCase?.state === 'active';
-  if (!activated || !runtimeAgentId) {
+  //
+  // Correction (2026-09-08, operator directive): this leg previously required
+  // `factorCase.state === 'active'` (full runtime activation, itself gated
+  // behind the case's own Aegis ratification + MoneyPenny admission decision)
+  // before a rehearsal could even be attempted. That conflated an
+  // evidence-producing, non-consequential act (preparing a launch spec and
+  // running Bankr's deterministic preflight — services/factor/tokenLaunchService.ts's
+  // own `createOrResumeDraft`/`claimDraftForPreflight`/`preflightLaunch` never
+  // check case state at all) with the case's genuinely consequential admission
+  // decision. The only real requirement is a case to bind the draft to
+  // (`case_ref`) and a resolved runtime agent id — nothing about admission.
+  if (!factorCase || !runtimeAgentId) {
     return leg({
       key: 'governedOperationRehearsal',
       label: 'Governed financial-operation rehearsal',
       state: 'missing',
       mode: 'n/a',
-      reason: 'Runtime activation must complete before a governed-operation rehearsal can be prepared.',
+      reason: 'A Factor case and a resolved runtime agent id are required before a governed-operation rehearsal can be prepared.',
       source: 'services/factor/tokenLaunchService.ts (capability boundary)',
     });
   }
@@ -1271,16 +1281,26 @@ export async function projectUseCaseZeroReadiness(input: UseCaseZeroReadinessInp
     runtimeAgentId
       ? await resolvePulsePnlLeg(runtimeAgentId, input.journeyProfile === 'financial_intelligence')
       : leg({ key: 'pulsePnl', label: 'Pulse/P&L status', state: 'missing', mode: 'n/a', reason: 'No runtime agent id resolved yet.', source: 'services/horizen/pnlEvidenceRead.ts', required: input.journeyProfile === 'financial_intelligence' }),
+    // Correction (2026-09-08, operator directive): bankrBinding and
+    // governedOperationRehearsal moved AHEAD of the case-level aegisAssessment/
+    // moneypennyAdmission legs below. Launch-spec preparation and provider
+    // preflight are evidence-producing, non-consequential acts (they write a
+    // draft/preflight row, never ratify anything or move money) — they must
+    // never be gated behind the CASE's own admission decision, which is a
+    // separate, later, genuinely consequential act. The hard stop this
+    // orchestrator preserves is still real: it sits at launch-specific Aegis
+    // ratification / MoneyPenny approval / signing / submission / broadcast,
+    // never here.
+    runtimeAgentId
+      ? await resolveBankrLeg(input.admin, input.tenantId, runtimeAgentId)
+      : leg({ key: 'bankrBinding', label: 'Bankr/provider binding', state: 'missing', mode: 'n/a', reason: 'No runtime agent id resolved yet.', source: 'services/financialServices/providers/providerWalletBinding.ts' }),
+    await resolveRehearsalLeg(input.admin, input.tenantId, runtimeAgentId, factorCase),
     await resolveAegisLeg(input.admin, input.caseId),
     factorCaseUnreadable
       ? leg({ key: 'moneypennyAdmission', label: 'MoneyPenny admission', state: 'unreadable', mode: 'n/a', reason: 'Factor case read failed.', source: 'services/factor/factorCaseService.ts' })
       : await resolveAdmissionLeg(input.admin, factorCase, input.tenantId),
-    runtimeAgentId
-      ? await resolveBankrLeg(input.admin, input.tenantId, runtimeAgentId)
-      : leg({ key: 'bankrBinding', label: 'Bankr/provider binding', state: 'missing', mode: 'n/a', reason: 'No runtime agent id resolved yet.', source: 'services/financialServices/providers/providerWalletBinding.ts' }),
     await resolveVelaLeg(input.admin, input.caseId, input.tenantId),
     await resolveRuntimeActivationLeg(input.admin, input.actorPersonaId, runtimeAgentId, factorCase, admissionConditions),
-    await resolveRehearsalLeg(input.admin, input.tenantId, runtimeAgentId, factorCase),
   ];
 
   const completedSteps = legs.filter((l) => l.state === 'established').map((l) => l.key);

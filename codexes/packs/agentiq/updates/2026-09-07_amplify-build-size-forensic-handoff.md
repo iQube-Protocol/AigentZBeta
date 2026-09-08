@@ -452,6 +452,27 @@ newly introduced — and the ~7 MB local-vs-Amplify gap is a separate, second-or
 version or similar) worth flagging to the operator rather than something this investigation can close
 without an actual Node-20.18.0 environment or a real Amplify build log's full composition breakdown.
 
+**FOLLOW-UP FINDING — the two commits produce virtually IDENTICAL artifact sizes.** The `failing`
+(3c1144060) commit's build, same independent-install/AWS_BRANCH-set/postBuild-replay process:
+
+| Subtree | passing (0d22e7ea8) | failing (3c1144060) | delta |
+|---|---|---|---|
+| `.next/standalone` | 223,669,853 | 223,673,961 | **+4,108 bytes** |
+| `.next/server` | 119,900,539 | 119,900,599 | +60 bytes |
+| `.next/static` | 40,189,092 | 40,189,094 | +2 bytes |
+
+A ~4 KB difference in `.next/standalone` — three orders of magnitude smaller than the ~135 KB Amplify
+overage, and easily explained by a handful of files that embed a build ID, content hash, or timestamp
+(expected to differ between any two builds regardless of source changes) rather than any new or
+enlarged file. **This confirms what §3 predicted from the source diff alone: this session's DiDQube
+Phase 2 commits did not meaningfully change the artifact size in any measurable way.** The manifest
+diff (next step, in progress) will name the exact ~handful of files carrying that 4 KB, for completeness
+and to rule out (not just presume) a real per-file change. Given this, the ~135 KB Amplify overage on
+`3c1144060`'s real build is best explained as: the artifact was ALREADY within a hair of the cap at (or
+before) `0d22e7ea8` — build-to-build noise (`amplify.yml`'s own history documents up to ~180 KB of this)
+occasionally lets a build slip under, occasionally not, and neither commit in this pair "caused" or
+"fixed" anything structurally.
+
 **Standing safety rule for any future postBuild-replay in this investigation**: before running
 `/tmp/postbuild-commands.txt` (or any `find .../node_modules ... -delete` / `rm -rf .../node_modules/...`
 command) against a worktree's `.next`, verify `.next/standalone/node_modules` is a REAL directory, not a
