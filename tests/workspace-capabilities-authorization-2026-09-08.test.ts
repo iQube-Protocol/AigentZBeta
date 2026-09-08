@@ -28,19 +28,48 @@ vi.mock('@/services/identity/getActivePersona', () => ({
 /** Rows `access_grants` would return for the currently-mocked caller — same
  *  shape/pattern as tests/irl-reviewer-scoped-access-2026-09-08.test.ts. */
 let grantRows: Array<{ role: string; allowed_experiments: string[] | null }> = [];
+/** Rows `reciprocal_exchanges` would return for the currently-mocked caller
+ *  (services/research/reciprocalExchange.ts::listMyExchanges — the caller's
+ *  own exchanges as either party). */
+let exchangeRows: Array<{
+  id: string;
+  exchange_type?: string;
+  title: string;
+  purpose: string;
+  initiator_persona_id: string;
+  counterparty_persona_id?: string | null;
+  status: string;
+  disclosure_policy: string;
+  confidentiality_class: string;
+  permitted_purpose: string;
+  ownership_declaration: string;
+  parent_experiment_id: string | null;
+  created_at: string;
+}> = [];
 vi.mock('@/app/api/_lib/supabaseServer', () => ({
   getSupabaseServer: () => ({
     from: (table: string) => {
-      if (table !== 'access_grants') throw new Error(`unexpected table ${table}`);
-      return {
-        select: () => ({
-          eq: () => ({
+      if (table === 'access_grants') {
+        return {
+          select: () => ({
             eq: () => ({
-              eq: async () => ({ data: grantRows, error: null }),
+              eq: () => ({
+                eq: async () => ({ data: grantRows, error: null }),
+              }),
             }),
           }),
-        }),
-      };
+        };
+      }
+      if (table === 'reciprocal_exchanges') {
+        return {
+          select: () => ({
+            or: () => ({
+              order: async () => ({ data: exchangeRows, error: null }),
+            }),
+          }),
+        };
+      }
+      throw new Error(`unexpected table ${table}`);
     },
   }),
 }));
@@ -55,6 +84,10 @@ const mockCorpusReadPackFile = vi.fn(async (packId: string, relPath: string) => 
           items: [
             'foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md',
             'foundation/experiments/exp-p1-representation-runtime-gauntlet/AUSTIN_REVIEWER_KIT.md',
+            // HELD, non-operative (IRE-6 HOLD, unresolved) — must never appear
+            // in the resolved operative document list. See
+            // isHeldNonOperativeIrlPath's own header for the full trace.
+            'foundation/experiments/exp-p1-representation-runtime-gauntlet/STAGE-0_HANDOFF.md',
             'foundation/experiments/exp-011-structural-invariance/README.md',
           ],
         },
@@ -111,6 +144,7 @@ function persona(opts: { personaId: string | null; isAdmin?: boolean }) {
 
 beforeEach(() => {
   grantRows = [];
+  exchangeRows = [];
   mockGetActivePersona.mockReset();
   mockListWorkspaceItems.mockReset();
   mockListWorkspaceItems.mockResolvedValue([]);
@@ -147,6 +181,10 @@ describe('GET /api/participation/workspace-capabilities', () => {
     expect(body.experimentId).toBe(EXP_P1_EXPERIMENT_ID);
     expect(body.documents.length).toBeGreaterThan(0);
     expect(body.documents.every((d: { path: string }) => d.path.includes('exp-p1-representation-runtime-gauntlet'))).toBe(true);
+    // Stage-0/IRE-6 HOLD exclusion (2026-09-08, gap 2): the held, non-operative
+    // Stage-0 handoff must never appear in the resolved reviewer package, even
+    // though it is path-colocated inside the EXP-P1 experiment folder.
+    expect(body.documents.some((d: { path: string }) => d.path.includes('STAGE-0_HANDOFF'))).toBe(false);
     expect(body.readinessAvailable).toBe(true);
     expect(body.reviewAgreementAvailable).toBe(true);
   });
@@ -159,6 +197,8 @@ describe('GET /api/participation/workspace-capabilities', () => {
     const body = await res.json();
     expect(body.experimentId).toBe(EXP_P1_EXPERIMENT_ID);
     expect(body.documents.length).toBeGreaterThan(0);
+    // Same exclusion must hold for a scoped (non-admin) reviewer, not just admin.
+    expect(body.documents.some((d: { path: string }) => d.path.includes('STAGE-0_HANDOFF'))).toBe(false);
   });
 
   it('a caller scoped to a DIFFERENT experiment only is denied — wrong scope', async () => {
@@ -175,9 +215,10 @@ describe('GET /api/participation/workspace-capabilities', () => {
     expect(res.status).toBe(403);
   });
 
-  it('a cohort/programme workspace with no experimentId (OCSGA) returns an honest empty set, never a fabricated one', async () => {
+  it('a cohort/programme workspace with no experimentId (OCSGA) returns an honest empty set when the caller has no exchange either', async () => {
     mockGetActivePersona.mockResolvedValue(persona({ personaId: 'p4', isAdmin: false }));
     grantRows = [{ role: 'research-participant', allowed_experiments: [OCSGA_WORKSPACE_ID] }];
+    exchangeRows = [];
     const res = await capabilitiesGET(makeRequest(`https://x.test/api/participation/workspace-capabilities?workspaceId=${OCSGA_WORKSPACE_ID}`));
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -185,6 +226,82 @@ describe('GET /api/participation/workspace-capabilities', () => {
     expect(body.documents).toEqual([]);
     expect(body.readinessAvailable).toBe(false);
     expect(body.reviewAgreementAvailable).toBe(false);
+    expect(body.exchangeAvailable).toBe(false);
+    expect(body.exchangeIds).toEqual([]);
+  });
+
+  it('a workspace-BOUND capability (Reciprocal Artifact Exchange) resolves for OCSGA with NO experimentId at all — the generalization', async () => {
+    mockGetActivePersona.mockResolvedValue(persona({ personaId: 'ian-shaped', isAdmin: false }));
+    grantRows = [{ role: 'reviewer', allowed_experiments: [OCSGA_WORKSPACE_ID] }];
+    exchangeRows = [
+      {
+        id: 'exch-1',
+        title: 'OCSGA Architecture Comparison',
+        purpose: 'Compare architectures',
+        initiator_persona_id: 'ian-shaped',
+        counterparty_persona_id: 'counterparty-1',
+        status: 'EXCHANGED',
+        disclosure_policy: 'mutual',
+        confidentiality_class: 'restricted',
+        permitted_purpose: 'Compare architectures',
+        ownership_declaration: 'each party owns their own artifact',
+        parent_experiment_id: OCSGA_WORKSPACE_ID,
+        created_at: '2026-08-01T00:00:00Z',
+      },
+      // A DIFFERENT workspace's exchange for the same caller — must NOT leak
+      // into this workspace's capability response (workspaceId-scoped, not a
+      // caller-wide dump).
+      {
+        id: 'exch-unrelated',
+        title: 'Unrelated exchange',
+        purpose: 'Unrelated',
+        initiator_persona_id: 'ian-shaped',
+        counterparty_persona_id: null,
+        status: 'DRAFT',
+        disclosure_policy: 'mutual',
+        confidentiality_class: 'restricted',
+        permitted_purpose: 'Unrelated',
+        ownership_declaration: 'n/a',
+        parent_experiment_id: 'some-other-workspace',
+        created_at: '2026-08-01T00:00:00Z',
+      },
+    ];
+    const res = await capabilitiesGET(makeRequest(`https://x.test/api/participation/workspace-capabilities?workspaceId=${OCSGA_WORKSPACE_ID}`));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.experimentId).toBeNull();
+    expect(body.documents).toEqual([]);
+    expect(body.readinessAvailable).toBe(false);
+    expect(body.reviewAgreementAvailable).toBe(false);
+    expect(body.exchangeAvailable).toBe(true);
+    expect(body.exchangeIds).toEqual(['exch-1']);
+  });
+
+  it('an EXP-P1 experiment-bound workspace also resolves its (empty) exchange binding independently', async () => {
+    mockGetActivePersona.mockResolvedValue(persona({ personaId: 'reviewer-2', isAdmin: false }));
+    grantRows = [{ role: 'reviewer', allowed_experiments: [EXP_P1_EXPERIMENT_ID] }];
+    exchangeRows = [];
+    const res = await capabilitiesGET(makeRequest(`https://x.test/api/participation/workspace-capabilities?workspaceId=${EXP_P1_WORKSPACE_ID}`));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.experimentId).toBe(EXP_P1_EXPERIMENT_ID);
+    expect(body.documents.length).toBeGreaterThan(0);
+    expect(body.exchangeAvailable).toBe(false);
+  });
+
+  it('a caller with workspace membership but NO grant for a specific experiment still denies the experiment-bound capabilities (workspace membership is necessary but not sufficient)', async () => {
+    // Admin-preview-shaped: not admin, but somehow has workspace-level
+    // visibility (public workspace) with zero research-lab grants at all —
+    // experiment-bound capabilities must stay empty; workspace-bound ones
+    // are independent and still resolve.
+    mockGetActivePersona.mockResolvedValue(persona({ personaId: 'no-exp-grant', isAdmin: false }));
+    grantRows = [];
+    exchangeRows = [];
+    // No grant at all means no workspace membership either (research-lab
+    // reach is empty) -- the PRIMARY gate itself denies before the
+    // experiment-bound question is ever reached.
+    const res = await capabilitiesGET(makeRequest(`https://x.test/api/participation/workspace-capabilities?workspaceId=${EXP_P1_WORKSPACE_ID}`));
+    expect(res.status).toBe(403);
   });
 });
 

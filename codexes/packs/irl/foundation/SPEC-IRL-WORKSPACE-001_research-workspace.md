@@ -86,6 +86,38 @@ Lehigh: Programmes → MFE Capstone (Risk, Value, Price) + CS Capstone
 
 The MFE ordering is constitutional, not cosmetic: **price is established by balancing risk and value**.
 
+## 6A — Navigation model (ratified 2026-09-08)
+
+Two layers, never conflated, never duplicated:
+
+- **Left rail — the entitlement-derived programme/experiment navigator ("My Experiments").**
+  Built from `getParticipantResearchWorkspaceAccess` (the canonical projection served at
+  `GET /api/participation/my-experiments`), never a hand-rolled or partial re-derivation. Empty
+  for a caller with zero entitlement reach (no admin flag, no active research-lab grant, no
+  workspace declared `visibility: 'public'`) — an honest empty state, not a broken-looking list.
+  Updates the instant the underlying grant changes: a fresh read of the resolver reflects a new
+  grant or a revocation immediately, with no separate cache to invalidate (see
+  `tests/irl-experiment-membership-workspace.test.ts`'s "revocation … removes every private
+  workspace from the projection immediately").
+- **Workspace submenu — the views of the ONE selected workspace** (§7's eight views, plus the
+  Tier-0 `Administration` space for the two roles the spec grants access authority). Selecting a
+  workspace in the left rail mounts this submenu against that workspace's own state; it is never a
+  second, independent navigator.
+
+**No redundant "Experiments" submenu is added merely to restate the left rail's own concept in
+submenu form.** The left rail already IS the experiment/programme navigator; a second submenu
+entry duplicating that would be the exact two-things-own-one-concept defect the Companion Menu
+System invariants (MS-1, "one navigation") name for the copilot and which applies here for the
+identical reason. (A pre-existing, disabled, unrelated `Experiments` tab elsewhere in the platform
+— the admin-only "run the Foundational Series live" surface — is a different capability, not a
+navigator over research workspaces, and is not a second left rail.)
+
+Both cartridges that mount a Research Workspace tab (`irl-cartridge`, `irl-os-cartridge`) build it
+through the SAME `buildResearchWorkspaceTab` call — never a hand-copied second tab object — so this
+navigation model cannot silently drift between the internal and public-facing editions (see
+`tests/research-lab-workspace.test.ts`'s "`buildResearchWorkspaceTab` should be CALLED exactly
+twice — once per cartridge").
+
 ## 7 — The eight views
 
 | View | What it holds |

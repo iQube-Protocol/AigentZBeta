@@ -249,7 +249,20 @@ function ArtifactCard({ label, artifact }: { label: string; artifact: ArtifactVi
   );
 }
 
-export function IRLExchangeTab() {
+export interface IRLExchangeTabProps {
+  /**
+   * Optional canonical research-workspace/programme scope (2026-09-08,
+   * Workspace capability generalization) — when set, narrows the caller's
+   * own exchange list to those tagged with this `parentExperimentId` (the
+   * SAME free-text workspace/programme tag `listExchangesByParentExperiment`
+   * filters on server-side; see `GET /api/research/exchanges`'s own optional
+   * query param). Omitted (the default, every existing mount) shows every
+   * exchange the caller is a party to, unchanged.
+   */
+  workspaceScopeId?: string;
+}
+
+export function IRLExchangeTab({ workspaceScopeId }: IRLExchangeTabProps = {}) {
   const [list, setList] = useState<ExchangeSummary[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [view, setView] = useState<ExchangeViewPayload | null>(null);
@@ -292,13 +305,16 @@ export function IRLExchangeTab() {
 
   const loadList = useCallback(async () => {
     try {
-      const res = await personaFetch("/api/research/exchanges", { cache: "no-store" });
+      const url = workspaceScopeId
+        ? `/api/research/exchanges?parentExperimentId=${encodeURIComponent(workspaceScopeId)}`
+        : "/api/research/exchanges";
+      const res = await personaFetch(url, { cache: "no-store" });
       const data = await res.json();
       setList(data?.exchanges ?? []);
     } catch {
       setList([]);
     }
-  }, []);
+  }, [workspaceScopeId]);
 
   const loadView = useCallback(async (id: string) => {
     try {

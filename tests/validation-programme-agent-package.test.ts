@@ -155,11 +155,29 @@ describe('GET validation-programme/agent-package', () => {
     const paths = json.package.documentResources.map((d: { path: string }) => d.path);
     expect(paths).toEqual([
       'foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md',
-      'foundation/experiments/exp-p1-representation-runtime-gauntlet/STAGE-0_HANDOFF.md',
     ]);
     for (const d of json.package.documentResources) {
       expect(d.url).toContain('/api/codex/packs/irl/file?path=');
     }
+  });
+
+  /**
+   * Gap 2 (operator instruction, 2026-09-08): the unresolved Stage-0/IRE-6
+   * HOLD does not gate EXP-P1, but the held Stage-0 handoff must also never be
+   * presented as OPERATIVE EXP-P1 reviewer material just because it is
+   * path-colocated inside the same experiment folder. This is the exact
+   * regression the test above used to assert as correct — see
+   * isHeldNonOperativeIrlPath's header in irlExperimentPathScope.ts for the
+   * full mechanical trace justifying the exclusion. The HOLD itself is left
+   * untouched; only its presentation inside this package is corrected.
+   */
+  it('never presents the held, non-operative Stage-0 handoff as operative EXP-P1 reviewer material', async () => {
+    mockGetActivePersona.mockResolvedValue({ personaId: 'persona-reviewer-2b', cartridgeFlags: {} });
+    grantRows = [{ role: 'reviewer', allowed_experiments: null }];
+    const res = await agentPackageRoute(makeRequest());
+    const json = await res.json();
+    const paths = json.package.documentResources.map((d: { path: string }) => d.path);
+    expect(paths.some((p: string) => p.includes('STAGE-0_HANDOFF'))).toBe(false);
   });
 
   it('points the Crystal Review endpoint at the real crystal route for EXP-P1', async () => {
