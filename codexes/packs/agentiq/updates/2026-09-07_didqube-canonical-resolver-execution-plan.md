@@ -1066,8 +1066,11 @@ Recommended order, easiest/lowest-risk first:
    Requires read access to `getActivePersona`/`evaluateAccess` outputs — coordinate with the protected-file
    owners rather than editing those files directly; extend by composition per CLAUDE.md's existing rule
    for that subsystem.
-4. **DCIR** — add `subjectDidQubeRef`/actor/principal DiDQube refs and resolution commitment to each
-   consequential transition record. Additive columns on the decision record.
+4. **DCIR — boundary-aligned / non-consuming (2026-09-07 finding, see item-4 closure below).**
+   ~~Add `subjectDidQubeRef`/actor/principal DiDQube refs and resolution commitment to each
+   consequential transition record. Additive columns on the decision record.~~ Superseded: DCIR
+   carries no such record at all (see below) — this was never a deferred integration, it is DCIR's
+   correct, permanent posture.
 5. **Standing/reputation** reconciliation (§"Standing and reputation") — the highest-care item in this
    phase: must preserve existing attribution exactly (supersession preserves history, never rewrites
    past attribution). Build and run a dry-run reconciliation report before writing anything, and get
@@ -1079,6 +1082,54 @@ Recommended order, easiest/lowest-risk first:
    without a separate, explicit go-ahead**, even after this overall plan is approved.
 7. **Registry/Horizen bindings** as external-presence records inside the agent DiDQube — lowest urgency,
    do last; nothing else in the plan depends on it.
+
+#### Item 4 — DCIR: boundary-aligned / non-consuming, not a deferred integration (2026-09-07)
+
+This item's original description ("add `subjectDidQubeRef`/actor/principal DiDQube refs and resolution
+commitment to each consequential transition record — additive columns on the decision record") assumed
+DCIR persists a "decision record" analogous to Aegis's assessments or CTP's transition evidence. It does
+not. `services/dcir/` (Dynamic Constitutional Interaction Runtime, CFS-020) is, by its own D0/D2
+contract, explicitly **ephemeral and in-session-only** — `services/dcir/stateEngine.ts`'s own header:
+"NO persistence, NO cross-session memory... Persisting patterns or mining across sessions builds
+behavioural memory of the operator — that is its own ratification... not a rider on this module." There
+is no `dcir_*` database table anywhere in this codebase to add columns to.
+
+More load-bearing than the missing table: CFS-020 already carries its own **non-negotiable, ratified**
+identifier-tier rule for the event stream (`types/dcir.ts`'s own doc comment): *"The event stream is
+identifier-tier-disciplined from birth: T0 identifiers (personaId, authProfileId, rootDid) NEVER appear
+in a DcirEvent — events carry T2-safe summaries and T1 display context only."* A `DiDQubePrimitive` is
+T0 throughout by the resolver's own doc ("T0 throughout — every field is server-internal; never
+serialize further than this object"). Adding a raw DiDQube ref to `DcirEvent` as originally described
+would have meant either violating CFS-020's own ratified T0-exclusion rule, or inventing a persistence
+layer DCIR was deliberately designed not to have — neither is a "migration," both are architectural
+regressions dressed up as one.
+
+**Ruling (operator, 2026-09-07):** DCIR is reclassified **boundary-aligned / non-consuming** — a
+permanent, correct posture, not a postponed item. Canonical DiDQube resolution happens at DCIR's
+**ingress/authority boundary**: whatever surface calls into DCIR (a route, a tab, a service) has already
+resolved identity — via `resolveDiDQube`, `getActivePersona`, or the relevant Phase 4-migrated consumer
+— *before* it ever touches the event stream. DCIR's own event constructors never re-resolve or carry
+that identity; they take category-level labels only (capsule names, agent/specialist display names,
+invariant refs, evidence summaries), exactly as CFS-020 already requires. No code change was made or is
+needed for this item.
+
+**Behavioral verification (not just the type contract) that no leak exists today:**
+- Every `DcirEvent`-constructing function in `services/dcir/eventStream.ts` (grep-audited, all ~30
+  constructors) accepts only category-level string parameters (capsule/stage/tool/specialist/asset
+  labels, invariant refs, free-text evidence summaries) — none accept or interpolate a personaId,
+  authProfileId, rootDid, `didqubeId`, `passport_id`, or any DiDQube `constitutionalAnchor` field.
+- Every real call site (`AigentMeWelcomeSplitTab.tsx`, `DevCommandCenterTab.tsx`, `ComposerStudio.tsx`,
+  `AssetDetailPanel.tsx`, `services/devCommandCenter/invariantEvidence.ts`) passes exactly the
+  innocuous values those signatures expect (a specialist id, an affordance label, a skill kind, an
+  asset name, an invariant ref + evidence string) — none pass a raw identity value.
+- `services/dcir/affordances.ts` and `services/dcir/useDcirSeam.ts` contain no identity-field
+  references beyond the same doc-comment restating the rule (verified via grep, not assumed from the
+  comments alone).
+- No other surface in `app/`/`components/` constructs a `DcirEvent` object directly, bypassing
+  `emitDcirEvent` — the one canonical construction path is the only one in use.
+
+**Conclusion:** no privacy fix was required. DCIR remains exactly as it is; this closure record is the
+deliverable for Phase 4 item 4.
 
 **Exit check per sub-item:** each subsystem independently reads from `resolveDiDQube` for the specific
 question it needs, with its own tests proving the relevant acceptance criteria (cross-agent isolation,
