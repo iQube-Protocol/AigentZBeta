@@ -210,6 +210,13 @@ export function LockerTab({ visibleSections = ALL_LOCKER_SECTIONS }: LockerTabPr
   const [passportVcsLoading, setPassportVcsLoading] = useState(true);
   const [passportVcExpanded, setPassportVcExpanded] = useState<string | null>(null);
   const [passportVcCopied, setPassportVcCopied] = useState<string | null>(null);
+  // T0/T1 ruling (2026-09-07): passportId is public non-secret metadata (the
+  // credential's own public identifier) — every API that accepts it
+  // independently authenticates the caller and checks ownership server-side,
+  // so there is no security reason to hide it. It was truncated with no way
+  // to actually obtain it; these let the holder reveal and copy the full id.
+  const [passportIdRevealed, setPassportIdRevealed] = useState<Set<string>>(new Set());
+  const [passportIdCopied, setPassportIdCopied] = useState<string | null>(null);
   // COLLAPSED BY DEFAULT, every panel (operator ruling, 2026-07-28). The
   // Locker opens on "My Credentials & Relationships" — the holder's own record
   // — with every panel shut, so the surface reads as an index the holder opens
@@ -665,6 +672,22 @@ export function LockerTab({ visibleSections = ALL_LOCKER_SECTIONS }: LockerTabPr
     });
   }, []);
 
+  const toggleRevealPassportId = useCallback((passportId: string) => {
+    setPassportIdRevealed((prev) => {
+      const next = new Set(prev);
+      if (next.has(passportId)) next.delete(passportId);
+      else next.add(passportId);
+      return next;
+    });
+  }, []);
+
+  const handleCopyPassportId = useCallback((passportId: string) => {
+    void navigator.clipboard.writeText(passportId).then(() => {
+      setPassportIdCopied(passportId);
+      setTimeout(() => setPassportIdCopied((prev) => (prev === passportId ? null : prev)), 2000);
+    });
+  }, []);
+
   const [worldIdBusy, setWorldIdBusy] = useState<string | null>(null);
   const [worldIdError, setWorldIdError] = useState<Record<string, string | null>>({});
 
@@ -804,7 +827,31 @@ export function LockerTab({ visibleSections = ALL_LOCKER_SECTIONS }: LockerTabPr
                           </span>
                         )}
                       </div>
-                      <span className="text-[10px] text-slate-500 font-mono">{pq.passportId.slice(0, 12)}…</span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          {passportIdRevealed.has(pq.passportId) ? pq.passportId : `${pq.passportId.slice(0, 12)}…`}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => toggleRevealPassportId(pq.passportId)}
+                          title={passportIdRevealed.has(pq.passportId) ? 'Hide Passport ID' : 'Reveal full Passport ID'}
+                          className="text-slate-500 hover:text-slate-300"
+                        >
+                          <Eye className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyPassportId(pq.passportId)}
+                          title="Copy Passport ID"
+                          className="text-slate-500 hover:text-slate-300"
+                        >
+                          {passportIdCopied === pq.passportId ? (
+                            <Check className="h-3 w-3 text-emerald-400" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 text-[10px] text-slate-500 flex-wrap">
                       <span>Status: <span className="text-emerald-300">{pq.passportStatus}</span></span>

@@ -1,8 +1,18 @@
 # T0/T1 Constitutional Decision Brief — Wallet Control vs. DiDQube Authority
 
-**Status:** Awaiting operator ruling. Not implemented. Prepared per explicit instruction: "Do not
-implement item 6 yet... Claude should present the exact affected code paths before we canonize
-that."
+**Status: RATIFIED AND IMPLEMENTED (2026-09-07).** This document is preserved as the pre-ruling
+analysis record. The ratified outcome — and it differs from this brief's own §3/§4 recommendation
+for `passport_id`, superseded by the operator's final classification — is recorded in
+`2026-09-07_didqube-canonical-resolver-execution-plan.md`'s "Item 6" section. Summary: the general
+§1 principle (T0 present-control feeds a lookup; T1/DiDQube is the actual authority) is ratified
+exactly as this brief recommended, matching what `resolvePassportPrincipal` and the DiDQube resolver
+already do structurally — no code change needed there. `passport_id` itself was NOT resolved via
+this brief's Option 3 (owner-scoped exception + canary); the operator instead classified it, after
+two intermediate corrections, as **holder-visible, privacy-sensitive credential metadata** — visible
+and copyable in the authenticated wallet, never usable as authentication/ownership proof on its own,
+and never emitted into a public projection, DVN-anchored receipt, or routine telemetry. See the
+execution plan's Item 6 section for the audit findings (a real public-registry leak and three
+DVN-payload leaks, all fixed) and the corresponding resolution record / candidate invariant.
 
 **This is Phase 3 item 6** from `2026-09-07_didqube-canonical-resolver-execution-plan.md`'s Phase 3
 plan, originally scoped narrowly ("Resolve the T0/T1 tension the prior audit flagged —
