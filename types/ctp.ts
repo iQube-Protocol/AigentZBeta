@@ -124,6 +124,18 @@ export interface ConstitutionalTransitionEvidence {
   reasonCode: string | null;
   reason: string | null;
   timestamp: string;
+  /**
+   * DiDQube Phase 4 item 3 (2026-09-07, execution plan). Additive evidence
+   * only — resolved via services/ctp/subjectIdentityResolution.ts, itself
+   * composed from services/identity/didQubeResolver.ts::resolveDiDQube.
+   * Null whenever subjectPersonaId is null (participant resolution never
+   * reached), or the walk from persona -> kybe_identity did not reach
+   * state='resolved'. Never gates authority, authorization, or execution.
+   */
+  subjectDidqubeId: string | null;
+  subjectDidqubeClass: 'natural_person' | 'agent' | null;
+  subjectResolutionCommitment: string | null;
+  subjectResolutionCommitmentVersion: string | null;
 }
 
 /**

@@ -27,6 +27,11 @@
       "path": "tests/aegis-assessment-service.test.ts",
       "assertion": "createAssessment's optional subjectIdentity resolves through resolveDiDQube (never a raw agent_root_identity read treated as sufficient); an unresolved/absent identity leaves the four subject_didqube_*/snapshot fields null and still creates the assessment (additive, never blocking); a resolved identity populates all fields and the snapshot is untouched by later ratification.",
       "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/ctp-constitutional-runtime.test.ts",
+      "assertion": "The Constitutional Runtime resolves the subject's DiDQube via resolveDiDQube (never a raw table read) exactly once per invocation, threads it onto both the success receipt and any refusal that already knows the subject, and an admin double that cannot support the read resolves to null rather than aborting the transition.",
+      "verifiedFailingBeforeFix": false
     }
   ],
   "occurrences": [
@@ -49,16 +54,28 @@
         "services/factor/useCaseZeroOrchestrator.ts",
         "supabase/migrations/20260930310000_aegis_assessments_didqube_resolution_snapshot.sql"
       ]
+    },
+    {
+      "site": "services/ctp/constitutionalRuntime.ts",
+      "defect": "No mechanism existed for the Constitutional Runtime (the single canonical seam every CTP primitive executes through) to record which constitutional identity a transition's subject persona corresponded to -- ctp_transition_evidence carried subjectPersonaId only, with no DiDQube resolution anywhere in the chain.",
+      "resolutionId": "RES-2026-09-07-DIDQUBE-PHASE-4-CTP-CONSUMER-MIGRATION-001",
+      "evidence": [
+        "services/ctp/constitutionalRuntime.ts",
+        "services/ctp/subjectIdentityResolution.ts",
+        "supabase/migrations/20260930320000_ctp_transition_evidence_didqube_resolution.sql"
+      ]
     }
   ],
   "derivedFrom": [
     "RES-2026-09-07-DIDQUBE-PHASE-4-FACTOR-CONSUMER-MIGRATION-001",
-    "RES-2026-09-07-DIDQUBE-PHASE-4-AEGIS-CONSUMER-MIGRATION-001"
+    "RES-2026-09-07-DIDQUBE-PHASE-4-AEGIS-CONSUMER-MIGRATION-001",
+    "RES-2026-09-07-DIDQUBE-PHASE-4-CTP-CONSUMER-MIGRATION-001"
   ],
   "ratifiedSource": null,
   "supersededBy": null,
   "notes": [
-    "Promoted candidate -> validated (2 occurrences: Factor, Aegis) per the ladder's own mechanical criteria (>=2 recorded occurrences) — an agent may reach `validated` (AGENT_MAX_STAGE) but never ratified/canonical, which require a named operator act. Expected to gain further occurrences as CTP/DCIR/Standing/Registry-Horizen are each migrated in their own vertical commits — each should reference this same candidate rather than minting a parallel one, per inv.engineering.036/037.",
-    "Live-verified (2026-09-07, Aigent Z project bsjhfvctmduxhohtllly): all 19 existing agent_root_identity rows already carry an agent_didqubes binding as of the Factor migration — there is no current data gap this invariant is protecting against, only a future one (a new anchor created through a path that never calls ensureAgentDiDQubeBinding)."
+    "Promoted candidate -> validated (2 occurrences: Factor, Aegis) per the ladder's own mechanical criteria (>=2 recorded occurrences) — an agent may reach `validated` (AGENT_MAX_STAGE) but never ratified/canonical, which require a named operator act. Gained a third occurrence (CTP) confirming the pattern generalizes cleanly across genuinely different consumer shapes (a readiness projection, an assessment table, a generic invocation runtime). Expected to gain further occurrences as DCIR/Standing/Registry-Horizen are each migrated in their own vertical commits — each should reference this same candidate rather than minting a parallel one, per inv.engineering.036/037.",
+    "Live-verified (2026-09-07, Aigent Z project bsjhfvctmduxhohtllly): all 19 existing agent_root_identity rows already carry an agent_didqubes binding as of the Factor migration — there is no current data gap this invariant is protecting against, only a future one (a new anchor created through a path that never calls ensureAgentDiDQubeBinding).",
+    "CTP's own occurrence surfaced a second, related lesson worth carrying forward explicitly: a persona->identity mapping that LOOKS obviously available on the calling context (ctx.callerAuthProfileId) can be a subtly WRONG value for a different table's similarly-named column (root_identity.auth_user_id) — verify the actual join empirically before wiring it, never assume same-sounding column names are the same value space."
   ]
 }
