@@ -31,10 +31,11 @@ I'm sending over the EXP-P1 Reviewer Kit for your independent review as protocol
 
 **One thing this note deliberately does NOT do:** it does not touch, resolve, or ask anything about the earlier Stage-0 (IRE/IPV) package you already have open — that package's `⚠ HOLD — do not send` correction notice (IRE-6, 2026-07-27) is untouched and remains pending on its own separate rerun. This EXP-P1 package has no dependency on that result; the frozen Arm B selector's own code does not use the coordinate/projection mechanism that defect affects. I'm keeping the two packages distinct rather than bundling them, precisely so a hold on one is never mistaken for a hold on the other.
 
-Attached:
+Your existing Research Lab reviewer access already covers this — no new invitation needed. Sign in and open the Lab here:
 
-* EXP-P1 Reviewer Kit
-* EXP-P1 Protocol
+**[Invariant Research Lab →](https://dev-beta.aigentz.me/triad/embed/codex/irl-os-cartridge)**
+
+The EXP-P1 Reviewer Kit and the registered protocol will be listed there under your reviewer scope.
 
 Best,
 Dele
@@ -60,4 +61,25 @@ Both are registered in `codexes/packs/irl/collections.json`'s `col_experiments`,
 
 ## Do NOT send this note yet
 
-Sending requires: (1) operator approval of this note's text, (2) an actual invitation/grant issued to Austin's persona (scoped `research-lab`, role `reviewer`, `allowed_experiments: ['EXP-P1']`, per `services/passport/participationAccess.ts::createAccessInvitation`), and (3) the deployed scoped-restoration verified end-to-end. See the accompanying chat report for current status of each.
+**2026-09-08 discovery — no new invitation is needed.** A live `access_grants` lookup (during
+disposable-persona verification, this date) found Austin's persona (`austinambrozi@polity`)
+already holds an **active** `research-lab` / `reviewer` grant —
+`access_grants.id = 19d67c72-2194-45ab-8310-c48fba242c32`, sourced from invitation
+`0a42ffd7-78a6-406a-8947-31c0a37629db` ("Foundational and P1 Experiments", claimed 2026-08-12),
+`allowed_experiments` including `EXP-P1` among several others (EXP-001–006, EXP-P2/P2A/P2B/P3/P4,
+`irl-validation-programme-vp1`, the `autonomi-review-*` set). Never revoked, no expiry. Under the
+Phase 2 scoped-restoration deployed 2026-09-08, this existing grant is sufficient — by itself,
+with no further action — for Austin's own authenticated session to read the EXP-P1 Reviewer Kit and
+the registered protocol through both `/api/journey/validation-programme/agent-package` and the two
+file-serving routes.
+
+**Consequence:** issuing Austin a second `research-lab`/`reviewer` invitation would be redundant
+and contrary to the 2026-08-02 operator ruling's own discipline (revoke-then-reissue when broken,
+never stack two invitations for the same purpose). There is no access-issuing action left to
+prepare for this send — only the cover note above, sent as an ordinary email.
+
+Sending requires only: (1) operator approval of this note's text, and (2) the operator (or
+whoever holds the send channel) pasting it into an email to Austin. There is no in-repo automated
+send action for this — the 2026-07-19 precedent (`2026-07-19_accession-invitation-page-and-austin-email.md`)
+established this as a manual copy-paste-send act, and that remains true here. See the accompanying
+chat report for the full discovery and its evidence.
