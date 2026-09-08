@@ -59,7 +59,7 @@ const IRLExchangeTab = dynamic(
   { ssr: false, loading: () => <span className="text-[10px] text-slate-400">Loading exchange…</span> },
 );
 
-interface WorkspaceDocument {
+export interface WorkspaceDocument {
   path: string;
   url: string;
 }
@@ -85,7 +85,7 @@ export interface WorkspaceCapabilitiesPanelProps {
 
 const PANEL = "rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm";
 
-function DocumentRow({ doc }: { doc: WorkspaceDocument }) {
+export function DocumentRow({ doc }: { doc: WorkspaceDocument }) {
   const [open, setOpen] = useState(false);
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);

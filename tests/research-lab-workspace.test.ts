@@ -159,6 +159,14 @@ async function reachableWorkspaceSlugs(
 // one that admits everyone. The separate canary that checks the matrix against
 // the SPEC DOCUMENT is what stops the two literals drifting together.
 const OVERVIEW = 'irl-workspace-overview';
+/**
+ * ADDED as an offered subTab (2026-09-08, second navigation-model pass —
+ * operator instruction superseding the same-day earlier "no redundant
+ * Experiments submenu" ruling, see SPEC §6A's own "Superseded ruling" note).
+ * `roles: allRolesExcept()` on the registry entry — every role reaches it,
+ * same shape as OVERVIEW/PIPELINE/QUBETALK/ACTIVITY below.
+ */
+const EXPERIMENTS = 'irl-workspace-experiments';
 const PIPELINE = 'irl-workspace-pipeline';
 const REVIEW = 'irl-workspace-review';
 const MATERIALS = 'irl-workspace-materials';
@@ -183,9 +191,10 @@ const ACTIVITY = 'irl-workspace-evidence';
 const PARTICIPANTS = 'irl-workspace-participants';
 const TIER_0_SLUG = 'irl-workspace-administration';
 
-/** The SEVEN views offered as subTabs (2026-09-08 — Locker restored;
- *  Participants remains excluded, see the block comment above). */
-const EVERY_VIEW = [OVERVIEW, PIPELINE, REVIEW, MATERIALS, LOCKER, QUBETALK, ACTIVITY].sort();
+/** The EIGHT views offered as subTabs (2026-09-08 — Locker restored, then
+ *  Experiments added same day; Participants remains excluded, see the block
+ *  comment above). */
+const EVERY_VIEW = [OVERVIEW, EXPERIMENTS, PIPELINE, REVIEW, MATERIALS, LOCKER, QUBETALK, ACTIVITY].sort();
 const TIER_0 = [TIER_0_SLUG];
 const EVERY_TAB = [...EVERY_VIEW, ...TIER_0].sort();
 
@@ -214,16 +223,17 @@ const EVERY_TAB = [...EVERY_VIEW, ...TIER_0].sort();
  * survivor" pattern CLAUDE.md warns against.
  */
 const REACHES: Record<string, string[]> = {
-  'principal-investigator': [OVERVIEW, PIPELINE, REVIEW, MATERIALS, LOCKER, QUBETALK, ACTIVITY].sort(),
-  'research-steward': [OVERVIEW, PIPELINE, REVIEW, MATERIALS, LOCKER, QUBETALK, ACTIVITY].sort(),
-  reviewer: [OVERVIEW, PIPELINE, REVIEW, LOCKER, QUBETALK, ACTIVITY].sort(),
+  'principal-investigator': [OVERVIEW, EXPERIMENTS, PIPELINE, REVIEW, MATERIALS, LOCKER, QUBETALK, ACTIVITY].sort(),
+  'research-steward': [OVERVIEW, EXPERIMENTS, PIPELINE, REVIEW, MATERIALS, LOCKER, QUBETALK, ACTIVITY].sort(),
+  reviewer: [OVERVIEW, EXPERIMENTS, PIPELINE, REVIEW, LOCKER, QUBETALK, ACTIVITY].sort(),
   // `research-participant` is the ONE role LOCKER's own `roles: allRolesExcept('research-participant')`
   // excludes (SPEC §10) — the Institutional Observer reaches agreed materials
-  // and comments, never the artefact store.
-  'research-participant': [OVERVIEW, PIPELINE, QUBETALK, ACTIVITY].sort(),
-  'faculty-lead': [OVERVIEW, PIPELINE, REVIEW, MATERIALS, LOCKER, QUBETALK, ACTIVITY].sort(),
-  'student-researcher': [OVERVIEW, PIPELINE, MATERIALS, LOCKER, QUBETALK, ACTIVITY].sort(),
-  researcher: [OVERVIEW, PIPELINE, REVIEW, MATERIALS, LOCKER, QUBETALK, ACTIVITY].sort(),
+  // and comments, never the artefact store. EXPERIMENTS carries no such
+  // exclusion (`allRolesExcept()`) — every role, including this one, reaches it.
+  'research-participant': [OVERVIEW, EXPERIMENTS, PIPELINE, QUBETALK, ACTIVITY].sort(),
+  'faculty-lead': [OVERVIEW, EXPERIMENTS, PIPELINE, REVIEW, MATERIALS, LOCKER, QUBETALK, ACTIVITY].sort(),
+  'student-researcher': [OVERVIEW, EXPERIMENTS, PIPELINE, MATERIALS, LOCKER, QUBETALK, ACTIVITY].sort(),
+  researcher: [OVERVIEW, EXPERIMENTS, PIPELINE, REVIEW, MATERIALS, LOCKER, QUBETALK, ACTIVITY].sort(),
 };
 
 /** The roles that reach NOTHING — the fail-closed path, and it must stay real. */
