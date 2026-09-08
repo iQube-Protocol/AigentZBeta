@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "When a canonical, tested, server-side entitlement projection is built for a specific question ('which of these objects may this caller see'), building it is not the same milestone as WIRING it into the one UI surface that question exists to serve — a resolution/report closing on 'the resolver exists and is tested' without also closing on 'and the UI now calls it' leaves the old, divergent path live and reachable.",
+    "Two implementations of the same entitlement question drift in observationally dangerous ways even when neither is individually broken: one may resolve a grant by object id only, the other also by a named alias of that object (e.g. the raw experiment id an EXP-P1-shaped grant carries) — under-showing entitled objects, not over-showing them, so the defect reads as 'my access doesn't work' rather than tripping any security alarm. Similarly, the SAME empty-scope value can mean opposite things across two implementations ('unrestricted' in one, 'deny everything' in the other) if one was extended after a later, stricter cohort-isolation ruling and the other was not updated in step.",
+    "The fix is not 'pick the stricter one' or 'reconcile field-by-field' — it is: identify which implementation is the single, tested, canonical projection for this exact question, and make every other UI/consumer of the same question call THAT one, deleting the parallel path's role in this particular decision (not necessarily the code itself, if it still serves an unrelated purpose elsewhere).",
+    "A UI-level nav prune made for one reason (moving a capability to live in a different tab group) can silently outlive that reason once the operator later reverses the underlying decision — the capability's own role-based SPEC gate (which never changed) is the correct authority to fall back to once the prune is lifted, not a fresh ad-hoc decision about who should see it.",
+    "Discovered 2026-09-08 auditing the IRL OS Workspace's 'My Experiments' nav: `getParticipantResearchWorkspaceAccess`/`GET /api/participation/my-experiments` was built and tested 2026-09-02 as 'the canonical answer to which research workspaces may this caller see... both Workspace and Participation should consume this projection' but `PartnerProgrammesTab.tsx` (Workspace's own nav) never actually called it — it still used an older client path (`useParticipationAccess` + `scopesGrantedIn`) that (a) never checked a workspace's own `experimentId` field the way the canonical resolver's `canViewResearchWorkspace` does, and (b) treated an empty `allowedScopes` as deny-by-default (a later, 2026-07-28 cohort-isolation ruling for venture-lab specifically) rather than the research-lab convention of 'empty = unrestricted' every EXP-P1-shaped reviewer grant relies on."
+  ],
+  "canaries": [
+    {
+      "path": "tests/irl-experiment-membership-workspace.test.ts",
+      "assertion": "`getParticipantResearchWorkspaceAccess` (the canonical server projection) is directly tested: admin sees all; anonymous sees only explicitly public workspaces; an OCSGA-scoped persona sees only that workspace; an Austin-shaped grant sees both EXP-P1 and Validation Programme but never OCSGA; revocation removes access immediately.",
+      "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/research-lab-workspace.test.ts",
+      "assertion": "the full role x view reachability matrix for the Workspace nav, now exercised against the client filter that actually calls the canonical `/api/participation/my-experiments` projection for research-kind workspaces rather than the older `scopesGrantedIn` path.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "candidateId": "CI-2026-09-08-ENTITLEMENT-PROJECTION-SINGLE-SOURCE-001",
+  "statement": "When a canonical, server-side entitlement projection exists for a specific 'which objects may this caller see' question, EVERY UI surface that answers that same question for the caller must call that ONE projection — never a parallel, independently-derived client-side filter, even one that predates the canonical projection and was never deliberately wrong. Building or extending the canonical projection is not complete until every existing consumer of the same question has been migrated onto it; a resolution that stops at 'the resolver is implemented and tested' while an old path remains live and reachable has not closed the gap it set out to close. Where two implementations of the same entitlement question must temporarily coexist during a migration, their divergence (object-id matching completeness, empty-scope semantics, any other decision axis) must be enumerated and resolved explicitly, never left to accumulate silently — because under-showing entitled objects reads as a user-facing access bug, not a security alarm, and can go unnoticed far longer than an over-permissive defect would.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-09-08-IRL-OS-WORKSPACE-CONSOLIDATION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "app/triad/components/codex/tabs/PartnerProgrammesTab.tsx",
+      "defect": "The Workspace 'My Experiments' nav filtered via an older client path (`useParticipationAccess` + `scopesGrantedIn`) instead of the canonical `getParticipantResearchWorkspaceAccess`/`GET /api/participation/my-experiments` projection built 2026-09-02 for exactly this question — missing the canonical resolver's `experimentId` fallback and disagreeing with it about what an empty scope means.",
+      "resolutionId": "RES-2026-09-08-IRL-OS-WORKSPACE-CONSOLIDATION-001",
+      "evidence": [
+        "tests/research-lab-workspace.test.ts",
+        "tests/irl-experiment-membership-workspace.test.ts"
+      ]
+    }
+  ],
+  "family": "engineering",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
+}

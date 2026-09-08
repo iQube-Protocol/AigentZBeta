@@ -133,7 +133,12 @@ export function passportDeepLinks(opts: DeepLinkOptions = {}): {
     apply: buildCodexUrl('irl-os-cartridge', { ...base, tab: 'irl-os-passport-apply' }),
     delegation: buildCodexUrl('irl-os-cartridge', { ...base, tab: 'irl-os-passport-delegation' }),
     registry: buildCodexUrl('agentiq-os-cartridge', { ...base, tab: 'os-passport-registry' }),
-    locker: buildCodexUrl('irl-os-cartridge', { ...base, tab: 'irl-os-passport-locker' }),
+    // Repointed 2026-09-08 (IRL OS Workspace consolidation): Locker moved
+    // from Participation into Workspace as a subTab of `irl-os-workspace`
+    // (`buildResearchWorkspaceTab`, data/codex-configs.ts) — same pattern as
+    // the `irl-os-workspace` → `irl-os-welcome` repoint above, a dangling
+    // `?tab=` must never be reintroduced.
+    locker: buildCodexUrl('irl-os-cartridge', { ...base, tab: 'irl-os-workspace-locker' }),
   };
 }
 

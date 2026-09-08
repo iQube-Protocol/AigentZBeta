@@ -208,7 +208,15 @@ describe('C — the Passport Registry left both Labs, and left no dangling link'
       // simulation of the embed route's resolution that let that bug ship.
       const codex = CODEX_DEFINITIONS.find((c) => c.slug === slug || c.id === slug);
       expect(codex, `passportDeepLinks().${name} targets unknown codex '${slug}'`).toBeTruthy();
-      const tab = codex!.tabs.find((t) => t.slug === tabSlug && t.enabled);
+      // Search subTabs too (2026-09-08) — `locker` now targets a Workspace
+      // subTab (`irl-os-workspace-locker`, one tier deeper than the
+      // top-level `tabs` array), the same real depth the embed route itself
+      // resolves a `?tab=` deep link against.
+      const tab =
+        codex!.tabs.find((t) => t.slug === tabSlug && t.enabled) ??
+        codex!.tabs
+          .flatMap((t) => (t as { subTabs?: Array<{ slug: string; enabled: boolean }> }).subTabs ?? [])
+          .find((t) => t.slug === tabSlug && t.enabled);
       expect(tab, `passportDeepLinks().${name} targets unknown/disabled tab '${tabSlug}' in '${slug}'`).toBeTruthy();
     }
   });
@@ -269,24 +277,27 @@ describe('D — the Steward surfaces are already invisible to non-admins (verifi
       // `workspace` group instead (see the long comment on
       // `IRL_CARTRIDGE.tabGroups` in data/codex-configs.ts) — it is no
       // longer a member of `participation`, so it does not appear here.
+      // 'irl-passport-locker' left the SAME WAY on 2026-09-08 (IRL OS
+      // Workspace consolidation) — disabled here, restored as a Workspace
+      // subTab (`irl-workspace-locker`) instead of this flat Participation
+      // mount; see data/codex-configs.ts's own comment on that tab.
       openSlugs: [
         'irl-participation-overview',
         'irl-participation-standing',
         'irl-passport-apply',
         'irl-passport-delegation',
-        'irl-passport-locker',
       ],
     },
     {
       codex: IRL_OS_CARTRIDGE,
       group: 'participation',
       id: 'irl-os-passport-steward',
+      // Same 2026-09-08 Locker relocation as the internal cartridge above.
       openSlugs: [
         'irl-os-participation-overview',
         'irl-os-participation-standing',
         'irl-os-passport-apply',
         'irl-os-passport-delegation',
-        'irl-os-passport-locker',
       ],
     },
   ];
