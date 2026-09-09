@@ -1,6 +1,6 @@
 # Compliance enforcement through authority, mandate and control
 
-Version: 0.1
+Version: 0.2
 Date: 9 September 2026
 Status: proposed application of the existing operating model; implementation requirements, not a legal opinion or certification of compliance.
 Scope: MoneyPenny / Factor / Aegis / Vela Use Case Zero, including MetaProof and every participating principal, provider and agent.
@@ -9,13 +9,13 @@ Scope: MoneyPenny / Factor / Aegis / Vela Use Case Zero, including MetaProof and
 
 Compliance enforcement is an application of the existing authority, mandate and control framework throughout the consequential chain. It does not require a second constitutional system. External legal permissions and firm policies become evidenced constraints within the same framework that already governs delegated action.
 
-Authority establishes the legitimate basis and scope for an activity. Mandate specifies the particular assignment and its limits. Control establishes who actually configures, supervises, constrains, stops and remains accountable for the agent. These are working mappings to existing constructs, not replacement canonical definitions.
+Authority establishes the legitimate basis and scope for an activity. Mandate specifies the particular assignment and its limits. Control applies authority and mandate to the live execution perimeter: whether the proposed action may proceed under the conditions that actually hold now. Operational ownership and supervision identify who maintains those controls; they are not the definition of control. These are working mappings to existing constructs, not replacement canonical definitions.
 
 A pilot can demonstrate enforcement of specified, evidenced requirements. Passing that demonstration does not prove that every applicable legal obligation has been identified or satisfied. Policy correctness, evidence completeness and the actual operating arrangement require separate review.
 
 ## 2. Apply the framework to everyone
 
-| Actor | Authority and mandate | Required control boundary |
+| Actor | Authority and mandate | Operational responsibility and execution control |
 |---|---|---|
 | MetaProof | Contracted technology scope and permissions appropriate to its actual activities | Control its software, service conduct, data access and compensation; do not assume a software label excludes advisory or intermediary obligations. |
 | Client principal | Authority over its own assets/interests and lawful delegation | Set objectives, scope, liquidity/risk limits and revocation rights. |
@@ -37,6 +37,22 @@ A compensated personalized securities recommendation may itself be advisory acti
 FINRA states that securities-law and supervisory obligations continue to apply when member firms use AI agents. A delegated agent must operate within a substantive supervisory arrangement; a signature or nominal partner relationship is insufficient. [FINRA observations on AI agents](https://www.finra.org/media-center/blog/observations-on-ai-agents).
 
 The applicable US perimeter must be reviewed for the exact activities, assets, states, clients, fund structure, control rights and fee arrangements. This note does not conclude that MetaProof is exempt from registration.
+
+## Execution-perimeter control — operator clarification
+
+Authority: on what legitimate basis may this actor act? Mandate: which assignment and limits govern it? Control: may this exact act proceed now, given current conditions at the execution perimeter?
+
+A robot authorized and mandated to move a box from A to B must inhibit or safely stop movement when a human enters the protected zone. Authority and mandate can remain valid while control denies execution. Clearance requires fresh evaluation; it does not automatically justify blind resumption.
+
+In the financial pilot, a changed balance, consumed reservation, expired quote, adverse price movement beyond the mandate, lost provider readiness or changed shared exposure can block an otherwise authorized act. These are execution conditions, not merely questions of organizational supervision.
+
+Vela evaluates a frozen snapshot with no live network lookup. The execution adapter must obtain relevant fresh facts outside Vela and compare state/version, validity bounds and control predicates immediately before commitment. Material changes to confidential operands require a new frozen envelope and confidential projection. Never relabel the old signed result as covering new facts.
+
+Record the control observation time, evidence freshness, predicates evaluated, action/input/state binding, decision and reason reference. Unknown or stale essential state prevents execution. Use atomic reservations or conditional execution where supported to close the check-to-act race; where unavailable, explicitly bound and evaluate the remaining risk. Do not claim a software check makes external settlement atomic.
+
+For long-running or staged actions, control applies at subsequent consequential boundaries and during execution where the actuator supports monitoring and safe interruption. Halt must respect the physical or financial action's reversibility. Separate authority revoked, mandate exceeded, control inhibited, and evidence unresolved in the causal record, while mapping to existing canonical statuses.
+
+Add pilot tests where authority and mandate remain valid but context changes between projection and invocation; assert no execution, preserved reason/evidence, and fresh evaluation before any retry. This is an application of the existing model, not a replacement authorization engine.
 
 ## 4. Evidence mapped into existing authority records
 

@@ -1563,6 +1563,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
     // Start Here lives under Development so the aigentZ group has a single
     // tab (Command Center) and the sub-menu row auto-hides — same
     // screen-space treatment as the aigentMe tab.
+    { id: 'constitutional-pilot-development', label: 'Constitutional Yield & Risk', slug: 'constitutional-pilot-development', enabled: true, adminOnly: true, group: 'development', order: 2.5, type: 'static', config: { component: 'ConstitutionalPilotDocumentsTab', props: { developmentOnly: true } }, metadata: { icon: 'BookOpen', description: 'Constitutional Financial Services / Vela pilot documents', color: 'amber' } },
     {
       id: 'start',
       label: 'Start Here',
@@ -3316,6 +3317,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
         color: 'violet'
       }
     },
+    { id: 'constitutional-pilot', label: 'Constitutional Yield & Risk', slug: 'constitutional-pilot', enabled: true, adminOnly: true, group: 'administer', order: 2.5, type: 'static', config: { component: 'ConstitutionalPilotDocumentsTab', props: { developmentOnly: false } }, metadata: { icon: 'BookOpen', description: 'Constitutional Financial Services / Vela pilot documents', color: 'amber' } },
     {
       id: 'alpha-docs',
       label: 'α Docs',

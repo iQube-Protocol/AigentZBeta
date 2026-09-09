@@ -239,6 +239,7 @@ const nextConfig = {
     // are NOT under codexes/packs). The route's ~18 pack updates .md are now read
     // via the corpus store (route branches on codexes/packs/ prefix).
     "/api/admin/registry/docs": [
+      "./docs/vela/accelerator/constitutional-financial-services/*.{md,json}",
       "./docs/iqube-agent-legibility-profile.md",
       "./docs/iqube-score-derivation.md",
     ],

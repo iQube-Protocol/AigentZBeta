@@ -60,13 +60,13 @@
     },
     {
       "file": "11_COMPLIANCE_ENFORCEMENT_AUTHORITY_MANDATE_CONTROL_v0.1.md",
-      "sha256": "ac826b2be1943e3e85e166e07802ab9a99fbda7693ccc99f5d6b9bd15a3749b2",
-      "bytes": 14323
+      "sha256": "3a4a880f9ce50ddd6143b24d29011eb36875e1a2a41db335ad32b9d020cc9d16",
+      "bytes": 16853
     },
     {
       "file": "README.md",
-      "sha256": "21b27137e368741bf6948bc028a69e2781e64b6ddafa7abd2dd144337fef692e",
-      "bytes": 7672
+      "sha256": "5ddbf6b34ecb69290f9ba7fc9dfd3b52f4ee446de9df616af95ff8d2be36ba4d",
+      "bytes": 7890
     }
   ],
   "publicationAuthorization": "Operator authorized public AigentZBeta repository publication on 2026-09-09",

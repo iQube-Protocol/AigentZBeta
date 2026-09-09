@@ -84,3 +84,5 @@ The proposed schema is a semantic design aid, not a replacement for canonical ty
 ## Compliance enforcement extension — 9 September 2026
 
 The package now contains 13 artifacts, including [Compliance enforcement through authority, mandate and control](11_COMPLIANCE_ENFORCEMENT_AUTHORITY_MANDATE_CONTROL_v0.1.md). This applies the existing operating model to every party, including MetaProof; it maps current enforcement seams and the proposed activity-specific regulatory checks. It is a demonstration specification, not a certification of legal compliance.
+
+Control clarification: control is the live execution-perimeter filter applying authority and mandate to current conditions. See document 11, revision 0.2. Ownership and supervision remain supporting responsibilities.
