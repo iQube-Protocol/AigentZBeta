@@ -20,7 +20,7 @@
     },
     {
       "file": "03_MONEYPENNY_DISCLOSURE_AND_RISK_ARCHITECTURE_v0.1.md",
-      "sha256": "eab9fd67d43f42ab0686ec5d0ab4f2632de9de6204fca6205682cbfdfb76fcb8",
+      "sha256": "be58a3a06674d70611537be5735361e4d1a4ff8a582fa9e9fc475de9b04d67af",
       "bytes": 12515
     },
     {
@@ -30,7 +30,7 @@
     },
     {
       "file": "05_ACCELERATOR_USE_CASE_ZERO_SPEC_v0.1.md",
-      "sha256": "63c4b8d50243c83eda8ce36e4c307f0b62607ea83660f5d10db7a4d128bad904",
+      "sha256": "f2e800610c8805e7cf6a7bfbf9844a420d16e551067860994858123e066f1b7c",
       "bytes": 12015
     },
     {
@@ -50,7 +50,7 @@
     },
     {
       "file": "09_CLAUDE_IMPLEMENTATION_HANDOFF.md",
-      "sha256": "eda819eff35fa7074a9f256b82f28dbc0179ef9b8b611932641dc47825f1c000",
+      "sha256": "1b8b0fc7b40cfbd5b63392e3dc36ebd1709b24967872748ca0b614c2e362d704",
       "bytes": 13608
     },
     {
@@ -60,7 +60,7 @@
     },
     {
       "file": "README.md",
-      "sha256": "d0df5ebc9c82aec427485e4fae12a1e71ab328ea46154fe21f2a6e8ed5502d94",
+      "sha256": "10596348e0fdcec41c3abfede1a32225cc874f41ef03e4077c0345703a67df42",
       "bytes": 7193
     }
   ],

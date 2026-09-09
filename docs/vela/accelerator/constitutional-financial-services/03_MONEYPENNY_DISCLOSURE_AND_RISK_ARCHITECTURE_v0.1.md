@@ -78,7 +78,7 @@ Sovereign information objects:
 - permit private contribution of party-specific information;
 - provide a basis for purpose, scope and recipient restrictions.
 
-### CubeTalk
+### QubeTalk
 Collaborative information-sharing / negotiation surface:
 - allows parties to disclose information intentionally to each other;
 - can coordinate shared or negotiated context;
@@ -99,7 +99,7 @@ Verified confidential execution substrate:
 Parties intentionally share information with one another.
 
 Primary mechanisms:
-- CubeTalk;
+- QubeTalk;
 - shared iQube contexts;
 - explicit disclosure rights;
 - purpose/recipient constraints;
@@ -259,7 +259,7 @@ Initial function family:
 ↓  
 **metaMe authority + MoneyPenny mandate**  
 ↓  
-**Tier 1: CubeTalk/iQube collaborative disclosure**  
+**Tier 1: QubeTalk/iQube collaborative disclosure**  
 ↓  
 **Tier 2: bounded confidential contributions**  
 ↓  
@@ -292,7 +292,7 @@ This architecture does not claim:
 
 One coordinated portfolio holds private participant accounts. Each action has a frozen participation schedule containing participant handle, deployed amount, authority/mandate evidence and maximum accepted exposure. The collective balance is a view, not authority to spend any contributor's assets.
 
-Tier 1 shares the objective and agreed operating rules through CubeTalk/iQubes. Tier 2 receives contribution amounts, private mandates and output permissions. Tier 3 supplies the same narrow kernel with one confidential envelope retaining those distinctions. The baseline protects contributors from counterparties; MoneyPenny's authorized assembly path may see plaintext. Runtime-blind multi-sender assembly is a separate capability requiring Vela confirmation.
+Tier 1 shares the objective and agreed operating rules through QubeTalk/iQubes. Tier 2 receives contribution amounts, private mandates and output permissions. Tier 3 supplies the same narrow kernel with one confidential envelope retaining those distinctions. The baseline protects contributors from counterparties; MoneyPenny's authorized assembly path may see plaintext. Runtime-blind multi-sender assembly is a separate capability requiring Vela confirmation.
 
 Evaluate every affected interest, including nonparticipants exposed through shared custody, collateral, liquidity, fees or settlement. Verified independence permits selective execution. A known breach is unacceptable; missing dependency evidence is unresolved. If the schedule changes, freeze a new envelope and obtain fresh evaluation and authorization. Never silently remove a participant from an already authorized action.
 

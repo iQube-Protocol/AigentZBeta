@@ -81,7 +81,7 @@ Returns follow action-specific deployed capital under an accepted rule, not init
 ## 5. Three-tier information flow
 
 ### Tier 1 — Collaborative
-Counterparties intentionally share agreed information through CubeTalk/iQubes.
+Counterparties intentionally share agreed information through QubeTalk/iQubes.
 
 ### Tier 2 — Bounded confidential
 Each party contributes protected information without exposing all underlying data to the other parties.

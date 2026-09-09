@@ -37,7 +37,7 @@ It is intentionally split into:
 **MoneyPenny = Financial Services Runtime and coordination/orchestration plane**  
 **Factor = economic discovery, party/service assembly and network expansion**  
 **Aegis = independent trust/admission membrane**  
-**iQubes + CubeTalk = selective disclosure and sovereign information-sharing plane**  
+**iQubes + QubeTalk = selective disclosure and sovereign information-sharing plane**  
 **Vela = verified confidential deterministic execution substrate**
 
 The first Vela application should be a narrow MoneyPenny workload, not metaMe itself:

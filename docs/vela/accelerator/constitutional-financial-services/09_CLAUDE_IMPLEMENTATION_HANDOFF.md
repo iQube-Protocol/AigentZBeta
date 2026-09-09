@@ -19,7 +19,7 @@ This is not authorization to implement a speculative insurance platform. It is a
 - **MoneyPenny** = Financial Services Runtime/orchestrator.
 - **Factor** = agent/service/counterparty discovery and economic coordination.
 - **Aegis** = independent assessment/admission.
-- **iQubes + CubeTalk** = disclosure and sovereign information-sharing plane.
+- **iQubes + QubeTalk** = disclosure and sovereign information-sharing plane.
 - **Vela** = confidential deterministic execution substrate.
 
 First Vela application/workload:
@@ -43,7 +43,7 @@ Before changing code:
    - Vela signer/privacy/attestation docs;
    - MoneyPenny orchestration;
    - Factor/Aegis current implementation;
-   - iQube/CubeTalk primitives already available;
+   - iQube/QubeTalk primitives already available;
    - Risk, Value & Price Engine integration points;
    - Golden Cycle record / experiment telemetry if already coded.
 
