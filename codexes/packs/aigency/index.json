@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-05T21:39:23.969Z",
+  "last_updated": "2026-09-09T06:45:27.320Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "72c692dc7b0da25ad53cfd0c9d72ed7052fbfb72",
-  "latest_commit_short": "72c692d",
-  "latest_commit_title": "Add Crystal-wide internal-pilot execution designation (frozen generations are immutable; lineages are evolutionary)",
+  "latest_commit": "768035a79449467151a8c70ed70c24cf7566f946",
+  "latest_commit_short": "768035a",
+  "latest_commit_title": "docs: capture multi-party constitutional portfolio Vela pilot",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "768035a",
+      "full_sha": "768035a79449467151a8c70ed70c24cf7566f946",
+      "title": "docs: capture multi-party constitutional portfolio Vela pilot",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-09T02:43:21-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-768035a.md"
+    },
     {
       "sha": "72c692d",
       "full_sha": "72c692dc7b0da25ad53cfd0c9d72ed7052fbfb72",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T13:14:31Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-0790e69.md"
-    },
-    {
-      "sha": "fea3a52",
-      "full_sha": "fea3a52eaae2c3e46463972da7fc646a99505b14",
-      "title": "Wire MoneyPenny copilot-to-capsule loop + corrected AC crosswalk [merge spec/moneypenny-mpy2-3]",
-      "author": "Claude",
-      "timestamp": "2026-09-02T13:14:48Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-fea3a52.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

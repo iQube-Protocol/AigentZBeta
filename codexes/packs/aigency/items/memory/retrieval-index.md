@@ -5549,3 +5549,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-72c692d.md](../build_/COMMITS/COMMIT-72c692d.md)
 - Message: Add Crystal-wide internal-pilot execution designation (frozen generations are immutable; lineages are evolutionary)
+
+## Commit `768035a` — 2026-09-09T02:43:21-04:00
+- Type: `docs`
+- Brief: [COMMIT-768035a.md](../build_/COMMITS/COMMIT-768035a.md)
+- Message: docs: capture multi-party constitutional portfolio Vela pilot
