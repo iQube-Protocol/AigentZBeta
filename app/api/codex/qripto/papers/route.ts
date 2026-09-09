@@ -18,6 +18,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createHash } from 'crypto';
 
 export const runtime = 'nodejs';
 // Force per-request execution so freshly-uploaded rows surface
@@ -99,6 +100,7 @@ const COVER_KINDS = new Set(['cover_image', 'cover_pdf']);
 // listing QriptopianAdminTab reads) still includes them so admin/upload
 // surfaces retain full visibility.
 const CONSUMER_HIDDEN_SCOPES = new Set(['papers/protocols']);
+const MAX_PUBLIC_DOCUMENT_BYTES = 20 * 1024 * 1024;
 
 /**
  * Parse the series scope out of a storage URL like
@@ -137,6 +139,55 @@ function assetDeliveryUrl(row: AssetRow): string | null {
     : `/api/content/media/${encodeURIComponent(row.id)}`;
 }
 
+function trustedPublicAssetUrl(value: string, requestOrigin: string): string | null {
+  if (value.startsWith('/')) return `${requestOrigin}${value}`;
+  try {
+    const candidate = new URL(value);
+    const configured = process.env.NEXT_PUBLIC_SUPABASE_URL
+      ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL)
+      : null;
+    // Historical public Qriptopian PDFs live in this project's Supabase
+    // storage. Never turn a database value into a general-purpose SSRF seam.
+    return configured && candidate.origin === configured.origin ? candidate.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+async function readPublicPaper(row: AssetRow, requestOrigin: string) {
+  const scope = resolvePaperScope(row);
+  if (
+    row.is_shareable === false ||
+    !scope ||
+    (!(scope.startsWith('papers/')) && !(scope.startsWith('magazines/'))) ||
+    CONSUMER_HIDDEN_SCOPES.has(scope) ||
+    COVER_KINDS.has(row.asset_kind ?? '') ||
+    row.mime_type !== 'application/pdf'
+  ) return null;
+
+  const delivery = assetDeliveryUrl(row);
+  const trustedUrl = delivery ? trustedPublicAssetUrl(delivery, requestOrigin) : null;
+  if (!trustedUrl) return null;
+  const response = await fetch(trustedUrl, { cache: 'no-store', signal: AbortSignal.timeout(15_000) });
+  if (!response.ok) throw new Error(`Public document delivery failed (${response.status}).`);
+  const declaredLength = Number(response.headers.get('content-length') || 0);
+  if (declaredLength > MAX_PUBLIC_DOCUMENT_BYTES) throw new Error('Public document exceeds the 20 MB extraction limit.');
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (bytes.byteLength > MAX_PUBLIC_DOCUMENT_BYTES) throw new Error('Public document exceeds the 20 MB extraction limit.');
+  const pdfParse = (await import('pdf-parse')).default as (input: Buffer) => Promise<{ text: string }>;
+  const parsed = await pdfParse(bytes);
+  const text = parsed.text.trim();
+  if (!text) throw new Error('The public PDF contains no extractable text.');
+  return {
+    id: row.id,
+    title: row.supabase_title || row.title || 'Untitled',
+    scope,
+    scopeLabel: SCOPE_LABELS[scope] || scope,
+    text,
+    sha256: createHash('sha256').update(text, 'utf8').digest('hex'),
+  };
+}
+
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
@@ -150,6 +201,27 @@ export async function GET(req: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { persistSession: false } },
     );
+
+    const readId = url.searchParams.get('read');
+    if (readId) {
+      const { data: row, error: readError } = await supabase
+        .from('codex_media_assets')
+        .select('id, title, supabase_title, asset_kind, mime_type, auto_drive_cid, cover_thumb_url, created_at, series_scope, is_shareable')
+        .eq('id', readId)
+        .eq('series', 'qriptopian')
+        .eq('status', 'active')
+        .maybeSingle();
+      if (readError) return NextResponse.json({ error: readError.message }, { status: 500 });
+      if (!row) return NextResponse.json({ error: 'Public document not found.' }, { status: 404 });
+      try {
+        const document = await readPublicPaper(row as AssetRow, url.origin);
+        return document
+          ? NextResponse.json({ document })
+          : NextResponse.json({ error: 'Document is not publicly readable.' }, { status: 404 });
+      } catch (error) {
+        return NextResponse.json({ error: (error as Error).message }, { status: 502 });
+      }
+    }
 
     const { data, error } = await supabase
       .from('codex_media_assets')

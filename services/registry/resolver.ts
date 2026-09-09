@@ -40,7 +40,7 @@ import type {
 } from '@/types/registry-canonical';
 import type { ActivePersonaContext } from '@/types/access';
 
-import { adapterForPrimitive, adapterForSource, syntheticIQubeId } from './adapters';
+import { adapterForPrimitive, adapterForSource, adaptersForPrimitive, syntheticIQubeId } from './adapters';
 import { projectAdmin } from './projections/admin';
 import { projectCartridge } from './projections/cartridge';
 import { projectPublic } from './projections/public';
@@ -242,6 +242,7 @@ export interface ListIQubesFilter {
   source?: IQubeIdMapSource;
   cartridge?: string;
   limit?: number;
+  offset?: number;
 }
 
 export interface ListIQubesResult {
@@ -253,18 +254,35 @@ export async function listIQubes(filter: ListIQubesFilter = {}): Promise<ListIQu
   // primitive enumeration delegates to adapter.list() for richer filters
   // (cartridge scope, visibility).
   if (filter.primitive_type) {
-    const adapter = adapterForPrimitive(filter.primitive_type as any);
-    if (adapter) {
-      const result = await adapter.list({
+    const adapters = adaptersForPrimitive(filter.primitive_type as any);
+    if (adapters.length) {
+      const results = await Promise.all(adapters.map((adapter) => adapter.list({
         cartridge: filter.cartridge,
-        limit: filter.limit,
-      });
-      return { entries: result.entries };
+        limit: filter.limit ? filter.limit + (filter.offset ?? 0) : undefined,
+      })));
+      const deduped = new Map<string, IQubeIdMapEntry>();
+      for (const result of results) {
+        for (const entry of result.entries) deduped.set(entry.iqube_id, entry);
+      }
+      const offset = filter.offset ?? 0;
+      const limit = filter.limit ?? 200;
+      const entries = [...deduped.values()]
+        .sort((a, b) => a.iqube_id.localeCompare(b.iqube_id))
+        .slice(offset, offset + limit);
+      return { entries };
     }
   }
 
   const sb = client();
-  let query = sb.from('iqube_id_map').select('*').limit(filter.limit ?? 200);
+  let query = sb
+    .from('iqube_id_map')
+    .select('*')
+    .order('iqube_id', { ascending: true })
+    .limit(filter.limit ?? 200);
+  if (filter.offset && filter.offset > 0) {
+    const limit = filter.limit ?? 200;
+    query = query.range(filter.offset, filter.offset + limit - 1);
+  }
   if (filter.source) query = query.eq('source', filter.source);
 
   const { data } = await query;
@@ -369,7 +387,10 @@ async function callerOwnsViaSpine(
 ): Promise<boolean | undefined> {
   try {
     const { userOwnsAsset } = await import('@/services/rewards/assetOwnership');
-    const result = await userOwnsAsset(persona.personaId, record.iqube_id);
+    const result = await userOwnsAsset(
+      persona.personaId,
+      record.source_resource_id ?? record.content_qube_id ?? record.iqube_id,
+    );
     return result.owned;
   } catch {
     // Fail-closed: undefined ('unknown'), not false (which UI may treat as 'denied').
@@ -386,16 +407,19 @@ async function callerCanReadViaSpine(
     const credential = record.required_credentials?.[0]
       ?? (record.cartridge_bindings[0] ? `member:${record.cartridge_bindings[0]}` : undefined);
     const isOpen = record.gating.includes('open');
+    const isOwnership = record.access_policy_id === 'persona-ownership-or-room-membership';
     const isCredential = record.gating.some((g) =>
       g === 'persona' || g === 'did' || g === 'allowlist' || g === 'role' || g === 'custom',
     );
-    const assetId = record.content_qube_id ?? record.iqube_id;
+    const assetId = record.source_resource_id ?? record.content_qube_id ?? record.iqube_id;
     const decision = await previewAccess(persona, {
       assetId,
       contentClass: 'other',
       state: isOpen ? 'A_open_unqubed' : 'D_gated_canonical_pool',
       gating: isOpen
         ? { kind: 'free', reason: 'registry-open' }
+        : isOwnership
+          ? { kind: 'ownership', reason: record.access_policy_id }
         : isCredential
           ? { kind: 'credential', credential, reason: 'registry-credential' }
           : { kind: 'payment', reason: 'registry-ownership' },

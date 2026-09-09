@@ -206,6 +206,24 @@ async function loadLiquidUiTemplateRows(): Promise<SourceRow[]> {
     }));
 }
 
+async function loadLockerAssetRows(): Promise<SourceRow[]> {
+  const { data } = await client().from('asset_records').select('id');
+  return (data ?? []).map((row: any) => ({
+    source_id: row.id,
+    primitive_type: 'ContentQube' as IQubePrimitiveType,
+    synthetic: false,
+  }));
+}
+
+async function loadRoomQubeRows(): Promise<SourceRow[]> {
+  const { data } = await client().from('roomqubes').select('id');
+  return (data ?? []).map((row: any) => ({
+    source_id: row.id,
+    primitive_type: 'ClusterQube' as IQubePrimitiveType,
+    synthetic: false,
+  }));
+}
+
 const SOURCE_LOADERS: Record<IQubeIdMapSource, SourceLoader | null> = {
   triad_meta: loadTrinityMetaRows,
   triad_blak: null,            // Implied via triad_meta; not separately backfilled
@@ -220,6 +238,8 @@ const SOURCE_LOADERS: Record<IQubeIdMapSource, SourceLoader | null> = {
   'code:toolQubeSource': loadToolQubeCodeRows,
   'code:liquidui-template': loadLiquidUiTemplateRows,
   'code:chainTemplate': loadChainTemplateRows,
+  locker_asset: loadLockerAssetRows,
+  roomqube: loadRoomQubeRows,
 };
 
 // ── Backfill execution ────────────────────────────────────────────────────
@@ -315,6 +335,8 @@ export async function backfillAll(): Promise<BackfillReport> {
     'code:aigentQubeSource',
     'code:toolQubeSource',
     'code:liquidui-template',
+    'locker_asset',
+    'roomqube',
   ];
 
   const perSource: BackfillSourceReport[] = [];

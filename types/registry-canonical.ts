@@ -360,6 +360,15 @@ export interface CanonicalIQubeInternalRecord {
   primitive_type: IQubePrimitiveType;
   instance_type: 'template' | 'instance';
   template_lineage?: Array<{ parent_id: string; version: string }>;
+  /** Native-system display metadata. T1-safe and projected consistently. */
+  display_name?: string;
+  display_description?: string;
+  /**
+   * Server-only source binding used by the canonical access/delivery spine.
+   * It is never emitted by a public/cartridge projection.
+   */
+  source_resource_id?: string;
+  source_system?: string;
 
   // ── Triad references (the cryptographic spine — ID references only) ──
   meta_qube_id: string;
@@ -563,7 +572,9 @@ export type IQubeIdMapSource =
   // as synthetic ToolQube primitives so they appear in the registry plane.
   // Full canonization to WorkflowQube/ToolQube is deferred follow-on work.
   // See AGENTIQ_INTENT_CHAINS_SPEC.md §6.6.
-  | 'code:chainTemplate';
+  | 'code:chainTemplate'
+  | 'locker_asset'
+  | 'roomqube';
 
 export interface IQubeIdMapEntry {
   iqube_id: string;
