@@ -22,6 +22,12 @@ import { crossingReceipt, welcomePayload, WELCOME_MESSAGE } from './welcome';
 import type { IrlAdapter } from './irlAdapter';
 import type { PublicCartridgeId, PublicKnowledgeAdapter } from './publicKnowledge';
 import type { CompanionInstallBrief } from '../companion/extensionArtifact';
+import type {
+  AccessibleIQubeQuery,
+  getAccessibleIQube,
+  listAccessibleIQubes,
+  readAccessibleIQubeText,
+} from './personaIQubeProjection';
 import { supportedBridgeIds, type NavigatorState } from './constitutionalNavigator';
 import {
   fingerprintExchangeArtifact,
@@ -97,6 +103,17 @@ export interface GatewayContext {
    * — see `supportedBridgeIds()` for what's wired.
    */
   resolveNavigatorState?: (opts?: { bridge?: string }) => Promise<NavigatorState | null>;
+  /** Persona-scoped global iQube projection. Each call revalidates the live
+   *  crossing agreement and delegates the resource decision to the Registry
+   *  access spine; this context contains no independent authorization logic. */
+  iqubeProjection?: {
+    list: (query?: AccessibleIQubeQuery) => ReturnType<typeof listAccessibleIQubes>;
+    get: (iqubeId: string) => ReturnType<typeof getAccessibleIQube>;
+    readText: (
+      iqubeId: string,
+      opts?: { offset?: number; limit?: number },
+    ) => ReturnType<typeof readAccessibleIQubeText>;
+  };
   /**
    * MCP-completable constitutional rituals for the OCSGA / Boundary
    * Research Journey Spine (Surface Independence, 2026-08-26) — injected by
@@ -263,6 +280,48 @@ export function listTools() {
       inputSchema: {
         type: 'object',
         properties: { bridge: { type: 'string', description: 'Which bridge/journey to resolve against (currently: "ocsga"). Defaults to the session\'s initiating service.' } },
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'list_accessible_iqubes',
+      description:
+        'List iQubes this crossing persona may read, globally across primitive types and cartridge placements. Requires iqube.read. Access is decided per iQube by the canonical Persona Spine and Registry policy; the connected agent cannot select or union personas.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          primitiveType: { type: 'string', enum: ['DataQube', 'ContentQube', 'ToolQube', 'ModelQube', 'AigentQube', 'ClusterQube'] },
+          cartridge: { type: 'string', description: 'Optional placement filter; never treated as the access boundary.' },
+          query: { type: 'string', description: 'Optional case-insensitive metadata filter.' },
+          offset: { type: 'number' },
+          limit: { type: 'number', description: 'Defaults to 25; maximum 100.' },
+        },
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'get_accessible_iqube',
+      description:
+        'Resolve the authorized, agent-safe manifest for one iQube. Requires iqube.read and a live persona+agent crossing agreement. Missing and unauthorized iQubes deliberately return the same response.',
+      inputSchema: {
+        type: 'object',
+        properties: { iqubeId: { type: 'string' } },
+        required: ['iqubeId'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'read_accessible_iqube_text',
+      description:
+        'Read a bounded agent-readable text rendition for an iQube after the same persona-scoped access decision used by native surfaces. Never returns storage URLs, encryption material, or raw identity identifiers. Requires iqube.read.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          iqubeId: { type: 'string' },
+          offset: { type: 'number' },
+          limit: { type: 'number', description: 'Defaults to 8000 characters; maximum 50000.' },
+        },
+        required: ['iqubeId'],
         additionalProperties: false,
       },
     },
@@ -522,6 +581,9 @@ export const HANDSHAKE_TOOLS = new Set([
   'authenticate_principal',
   'get_crossing_status',
   'get_navigator_state',
+  'list_accessible_iqubes',
+  'get_accessible_iqube',
+  'read_accessible_iqube_text',
   'get_exchange_state',
   'deposit_exchange_artifact',
   'confirm_operator_assisted_artifact',
@@ -552,6 +614,9 @@ export const HANDSHAKE_TOOLS = new Set([
 const AUTHENTICATED_TOOLS = new Set([
   'get_crossing_status',
   'get_navigator_state',
+  'list_accessible_iqubes',
+  'get_accessible_iqube',
+  'read_accessible_iqube_text',
   'get_exchange_state',
   'deposit_exchange_artifact',
   'confirm_operator_assisted_artifact',
@@ -756,6 +821,43 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
         note:
           'This is a NAVIGATOR over the journey, not the journey itself — it never advances or authorizes anything. `nextAct` (when present) names the single next stage and who performs it (PRINCIPAL/DELEGATE/EITHER); a constitutional act (Passport, delegation, freeze, signature) is always the principal\'s own — you may explain and prepare it, never perform it.',
       });
+    }
+
+    if (
+      name === 'list_accessible_iqubes' ||
+      name === 'get_accessible_iqube' ||
+      name === 'read_accessible_iqube_text'
+    ) {
+      if (!hasScope(s, 'iqube.read')) {
+        return {
+          ...text(
+            'This action needs the iqube.read projection capability. It grants no content by itself; your principal must authorize it in a fresh Threshold crossing, and every iQube is still evaluated independently.',
+          ),
+          isError: true,
+        };
+      }
+      if (!ctx.iqubeProjection) {
+        return { ...text('The persona-scoped iQube projection is unavailable on this gateway.'), isError: true };
+      }
+      if (name === 'list_accessible_iqubes') {
+        const result = await ctx.iqubeProjection.list({
+          primitiveType: typeof args.primitiveType === 'string' ? args.primitiveType : undefined,
+          cartridge: typeof args.cartridge === 'string' ? args.cartridge : undefined,
+          query: typeof args.query === 'string' ? args.query : undefined,
+          offset: typeof args.offset === 'number' ? args.offset : undefined,
+          limit: typeof args.limit === 'number' ? args.limit : undefined,
+        });
+        return result.ok ? text(result) : { ...text(result.error), isError: true };
+      }
+      const iqubeId = typeof args.iqubeId === 'string' ? args.iqubeId.trim() : '';
+      if (!iqubeId) return { ...text('iqubeId is required.'), isError: true };
+      const result = name === 'get_accessible_iqube'
+        ? await ctx.iqubeProjection.get(iqubeId)
+        : await ctx.iqubeProjection.readText(iqubeId, {
+            offset: typeof args.offset === 'number' ? args.offset : undefined,
+            limit: typeof args.limit === 'number' ? args.limit : undefined,
+          });
+      return result.ok ? text(result) : { ...text(result.error), isError: true };
     }
 
     // ── OCSGA / Boundary Research MCP-completable rituals (Surface Independence, 2026-08-26) ──
