@@ -5564,3 +5564,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-69ced0f.md](../build_/COMMITS/COMMIT-69ced0f.md)
 - Message: docs: apply authority mandate and control to compliance enforcement
+
+## Commit `3f71b8a` — 2026-09-09T07:57:20-04:00
+- Type: `feat`
+- Brief: [COMMIT-3f71b8a.md](../build_/COMMITS/COMMIT-3f71b8a.md)
+- Message: feat: project constitutional pilot docs into Venture Lab and AgentiQ; clarify execution control

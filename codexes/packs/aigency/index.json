@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-09T07:31:59.639Z",
+  "last_updated": "2026-09-09T11:59:33.495Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "69ced0ff6cecba12589a6cf7d1eda6d53a1369c4",
-  "latest_commit_short": "69ced0f",
-  "latest_commit_title": "docs: apply authority mandate and control to compliance enforcement",
+  "latest_commit": "3f71b8a74fe67453dc3eb45386a4cc2d3ded91f8",
+  "latest_commit_short": "3f71b8a",
+  "latest_commit_title": "feat: project constitutional pilot docs into Venture Lab and AgentiQ; clarify execution control",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "3f71b8a",
+      "full_sha": "3f71b8a74fe67453dc3eb45386a4cc2d3ded91f8",
+      "title": "feat: project constitutional pilot docs into Venture Lab and AgentiQ; clarify execution control",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-09T07:57:20-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-3f71b8a.md"
+    },
     {
       "sha": "69ced0f",
       "full_sha": "69ced0ff6cecba12589a6cf7d1eda6d53a1369c4",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T13:36:47Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-fb80497.md"
-    },
-    {
-      "sha": "e2ac273",
-      "full_sha": "e2ac27372238cf2fa2faa847233f2f968b12f4b2",
-      "title": "feat(qriptopian): one-card Reading and Research editions for Thresholds 006",
-      "author": "Kn0w1",
-      "timestamp": "2026-09-02T09:17:35-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-e2ac273.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
