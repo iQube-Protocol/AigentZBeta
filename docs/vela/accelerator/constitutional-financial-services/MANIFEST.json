@@ -1,0 +1,69 @@
+{
+  "package": "constitutional_financial_services_accelerator_package_2026-09-08",
+  "revision": "0.3",
+  "created": "2026-09-08",
+  "updated": "2026-09-09",
+  "status": "WORKING_UNRATIFIED_PUBLICATION_AUTHORIZED",
+  "revisionSummary": "Selective participation; private multi-party mandates; action-specific risk and value allocations across all 12 artifacts.",
+  "schemaRevision": "0.2",
+  "filenamePolicy": "Original filenames retained; internal versions authoritative.",
+  "files": [
+    {
+      "file": "01_CONSTITUTIONAL_YIELD_AND_RISK_THESIS_v0.2.md",
+      "sha256": "229e1039489cd1629538256db0e102ba62cccd20e3f559fbc7b0405b61905ab6",
+      "bytes": 9892
+    },
+    {
+      "file": "02_CONSTITUTIONAL_RISK_CANDIDATE_INVARIANTS_v0.1.md",
+      "sha256": "7b6fcd2e03543cefa94b4d07133b8ecf9a1e79868770aa4e7e700cb13a9c8c7e",
+      "bytes": 6734
+    },
+    {
+      "file": "03_MONEYPENNY_DISCLOSURE_AND_RISK_ARCHITECTURE_v0.1.md",
+      "sha256": "eab9fd67d43f42ab0686ec5d0ab4f2632de9de6204fca6205682cbfdfb76fcb8",
+      "bytes": 12515
+    },
+    {
+      "file": "04_VELA_MASTERCLASS_ARCHITECTURE_DELTA_v0.1.md",
+      "sha256": "a60ee4de2eb484fa5f6ab3a583bb2003447838abdf2ebe5105542827529d2f54",
+      "bytes": 10892
+    },
+    {
+      "file": "05_ACCELERATOR_USE_CASE_ZERO_SPEC_v0.1.md",
+      "sha256": "63c4b8d50243c83eda8ce36e4c307f0b62607ea83660f5d10db7a4d128bad904",
+      "bytes": 12015
+    },
+    {
+      "file": "06_EXP_P1_P4_ALIGNMENT_EXTENSION_v0.1.md",
+      "sha256": "c2aac21931790cf2da5a29c2449878280763b4ebd8822bd70b9428bb6db13386",
+      "bytes": 7496
+    },
+    {
+      "file": "07_CONSTITUTIONAL_RISK_MARKETS_VENTURE_INCUBATION_v0.1.md",
+      "sha256": "85165f1164b08b5eaf159b5770ca408874041540743bf74a760f9d64d2ca7090",
+      "bytes": 5198
+    },
+    {
+      "file": "08_VELA_OFFICE_HOURS_QUESTIONS_2026-09-09.md",
+      "sha256": "8836967b9153888308d8ade27c499065edff8fcd45c959ace4254114fb891d76",
+      "bytes": 10248
+    },
+    {
+      "file": "09_CLAUDE_IMPLEMENTATION_HANDOFF.md",
+      "sha256": "eda819eff35fa7074a9f256b82f28dbc0179ef9b8b611932641dc47825f1c000",
+      "bytes": 13608
+    },
+    {
+      "file": "10_constitutional-risk-envelope.schema.v0.1.json",
+      "sha256": "fbaefc22f687fcac86c09c457bbaf650c7634cb2c01cc7fe359cadc5dcfa5e99",
+      "bytes": 23187
+    },
+    {
+      "file": "README.md",
+      "sha256": "d0df5ebc9c82aec427485e4fae12a1e71ab328ea46154fe21f2a6e8ed5502d94",
+      "bytes": 7193
+    }
+  ],
+  "publicationAuthorization": "Operator authorized public AigentZBeta repository publication on 2026-09-09",
+  "repositoryBaseline": "d12f55b54"
+}
