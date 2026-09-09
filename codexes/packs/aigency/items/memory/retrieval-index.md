@@ -5559,3 +5559,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-495bc4b.md](../build_/COMMITS/COMMIT-495bc4b.md)
 - Message: docs: standardize QubeTalk spelling and record dictation rule
+
+## Commit `69ced0f` — 2026-09-09T03:29:58-04:00
+- Type: `docs`
+- Brief: [COMMIT-69ced0f.md](../build_/COMMITS/COMMIT-69ced0f.md)
+- Message: docs: apply authority mandate and control to compliance enforcement

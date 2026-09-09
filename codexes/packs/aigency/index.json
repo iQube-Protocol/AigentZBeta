@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-09T06:53:11.627Z",
+  "last_updated": "2026-09-09T07:31:59.639Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "495bc4ba9e308de8e7a358f8c60c4ffed4dc994c",
-  "latest_commit_short": "495bc4b",
-  "latest_commit_title": "docs: standardize QubeTalk spelling and record dictation rule",
+  "latest_commit": "69ced0ff6cecba12589a6cf7d1eda6d53a1369c4",
+  "latest_commit_short": "69ced0f",
+  "latest_commit_title": "docs: apply authority mandate and control to compliance enforcement",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "69ced0f",
+      "full_sha": "69ced0ff6cecba12589a6cf7d1eda6d53a1369c4",
+      "title": "docs: apply authority mandate and control to compliance enforcement",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-09T03:29:58-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-69ced0f.md"
+    },
     {
       "sha": "495bc4b",
       "full_sha": "495bc4ba9e308de8e7a358f8c60c4ffed4dc994c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T09:17:35-04:00",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-e2ac273.md"
-    },
-    {
-      "sha": "51e9e21",
-      "full_sha": "51e9e21c00713d163e5eded8b72425378b3906a4",
-      "title": "Import authoritative MoneyPenny three-spec handoff + reconciliation crosswalk",
-      "author": "Claude",
-      "timestamp": "2026-09-02T13:03:02Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-51e9e21.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

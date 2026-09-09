@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`69ced0f`](https://github.com/iQube-Protocol/AigentZBeta/commit/69ced0ff6cecba12589a6cf7d1eda6d53a1369c4) [docs] docs: apply authority mandate and control to compliance enforcement (Kn0w1, 2026-09-09T03:29:58-04:00)
 - [`495bc4b`](https://github.com/iQube-Protocol/AigentZBeta/commit/495bc4ba9e308de8e7a358f8c60c4ffed4dc994c) [docs] docs: standardize QubeTalk spelling and record dictation rule (Kn0w1, 2026-09-09T02:51:16-04:00)
 - [`768035a`](https://github.com/iQube-Protocol/AigentZBeta/commit/768035a79449467151a8c70ed70c24cf7566f946) [docs] docs: capture multi-party constitutional portfolio Vela pilot (Kn0w1, 2026-09-09T02:43:21-04:00)
 - [`72c692d`](https://github.com/iQube-Protocol/AigentZBeta/commit/72c692dc7b0da25ad53cfd0c9d72ed7052fbfb72) [feat] Add Crystal-wide internal-pilot execution designation (frozen generations are immutable; lineages are evolutionary) (Claude, 2026-09-05T21:37:39Z)
