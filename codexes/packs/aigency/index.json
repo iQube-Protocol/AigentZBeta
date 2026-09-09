@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-09T06:45:27.320Z",
+  "last_updated": "2026-09-09T06:53:11.627Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "768035a79449467151a8c70ed70c24cf7566f946",
-  "latest_commit_short": "768035a",
-  "latest_commit_title": "docs: capture multi-party constitutional portfolio Vela pilot",
+  "latest_commit": "495bc4ba9e308de8e7a358f8c60c4ffed4dc994c",
+  "latest_commit_short": "495bc4b",
+  "latest_commit_title": "docs: standardize QubeTalk spelling and record dictation rule",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "495bc4b",
+      "full_sha": "495bc4ba9e308de8e7a358f8c60c4ffed4dc994c",
+      "title": "docs: standardize QubeTalk spelling and record dictation rule",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-09T02:51:16-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-495bc4b.md"
+    },
     {
       "sha": "768035a",
       "full_sha": "768035a79449467151a8c70ed70c24cf7566f946",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T13:03:02Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-51e9e21.md"
-    },
-    {
-      "sha": "0790e69",
-      "full_sha": "0790e6957b6f0b22b51d17a364cfd4a2746c9fc9",
-      "title": "Wire MoneyPenny copilot-to-capsule loop (C-02) + corrected AC-C/B/A crosswalk",
-      "author": "Claude",
-      "timestamp": "2026-09-02T13:14:31Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-0790e69.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

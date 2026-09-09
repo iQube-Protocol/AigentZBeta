@@ -5554,3 +5554,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-768035a.md](../build_/COMMITS/COMMIT-768035a.md)
 - Message: docs: capture multi-party constitutional portfolio Vela pilot
+
+## Commit `495bc4b` — 2026-09-09T02:51:16-04:00
+- Type: `docs`
+- Brief: [COMMIT-495bc4b.md](../build_/COMMITS/COMMIT-495bc4b.md)
+- Message: docs: standardize QubeTalk spelling and record dictation rule
