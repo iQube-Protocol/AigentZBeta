@@ -321,3 +321,7 @@ Baseline inspected: `d12f55b54` on `origin/dev` (9 September 2026). This is a do
 | `docs/vela/VELA-PRIVACY-BOUNDARY-001.md` | Existing privacy boundary remains authoritative; richer participant receipts require an explicitly reviewed extension. |
 
 The proposed schema is a semantic design aid, not a replacement for canonical types. Implementers must re-inspect the then-current branch. Do not describe the existing projector as a custody or settlement engine, and do not put rich participant results into its existing coarse-verdict channel.
+
+## Compliance-enforcement application
+
+Read [11_COMPLIANCE_ENFORCEMENT_AUTHORITY_MANDATE_CONTROL_v0.1.md](11_COMPLIANCE_ENFORCEMENT_AUTHORITY_MANDATE_CONTROL_v0.1.md) before extending regulatory routing. Reuse authority, mandate, control and admission machinery. Audit recommendation activities on read-only paths; preserve Aegis assessment/admission separation. The new document specifies simulated acceptance scenarios and records the current code boundary.

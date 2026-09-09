@@ -1,10 +1,10 @@
 {
   "package": "constitutional_financial_services_accelerator_package_2026-09-08",
-  "revision": "0.3",
+  "revision": "0.4",
   "created": "2026-09-08",
   "updated": "2026-09-09",
   "status": "WORKING_UNRATIFIED_PUBLICATION_AUTHORIZED",
-  "revisionSummary": "Selective participation; private multi-party mandates; action-specific risk and value allocations across all 12 artifacts.",
+  "revisionSummary": "Adds compliance-enforcement application of authority, mandate and control; 13 artifacts.",
   "schemaRevision": "0.2",
   "filenamePolicy": "Original filenames retained; internal versions authoritative.",
   "files": [
@@ -50,8 +50,8 @@
     },
     {
       "file": "09_CLAUDE_IMPLEMENTATION_HANDOFF.md",
-      "sha256": "1b8b0fc7b40cfbd5b63392e3dc36ebd1709b24967872748ca0b614c2e362d704",
-      "bytes": 13608
+      "sha256": "dba7030932a31ea385a579fea71a601f83ef5a35be2a8f98f710093e99226b38",
+      "bytes": 14069
     },
     {
       "file": "10_constitutional-risk-envelope.schema.v0.1.json",
@@ -59,9 +59,14 @@
       "bytes": 23187
     },
     {
+      "file": "11_COMPLIANCE_ENFORCEMENT_AUTHORITY_MANDATE_CONTROL_v0.1.md",
+      "sha256": "ac826b2be1943e3e85e166e07802ab9a99fbda7693ccc99f5d6b9bd15a3749b2",
+      "bytes": 14323
+    },
+    {
       "file": "README.md",
-      "sha256": "10596348e0fdcec41c3abfede1a32225cc874f41ef03e4077c0345703a67df42",
-      "bytes": 7193
+      "sha256": "21b27137e368741bf6948bc028a69e2781e64b6ddafa7abd2dd144337fef692e",
+      "bytes": 7672
     }
   ],
   "publicationAuthorization": "Operator authorized public AigentZBeta repository publication on 2026-09-09",
