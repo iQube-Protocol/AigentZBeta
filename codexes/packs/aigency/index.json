@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-09T11:59:33.495Z",
+  "last_updated": "2026-09-09T17:25:09.959Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "3f71b8a74fe67453dc3eb45386a4cc2d3ded91f8",
-  "latest_commit_short": "3f71b8a",
-  "latest_commit_title": "feat: project constitutional pilot docs into Venture Lab and AgentiQ; clarify execution control",
+  "latest_commit": "8100320501aef5077a578fbb789908841b884def",
+  "latest_commit_short": "8100320",
+  "latest_commit_title": "feat: project persona iQube access through Threshold MCP",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "8100320",
+      "full_sha": "8100320501aef5077a578fbb789908841b884def",
+      "title": "feat: project persona iQube access through Threshold MCP",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-09T09:27:03-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-8100320.md"
+    },
+    {
+      "sha": "ff034c1",
+      "full_sha": "ff034c1a80265e57913cada5276df60973611c76",
+      "title": "docs: hand off persona iQube MCP projection",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-09T13:22:15-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-ff034c1.md"
+    },
     {
       "sha": "3f71b8a",
       "full_sha": "3f71b8a74fe67453dc3eb45386a4cc2d3ded91f8",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-09-02T14:05:52Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-12b8048.md"
-    },
-    {
-      "sha": "3ce33d2",
-      "full_sha": "3ce33d2e5b67cd4048ff4bbab2db94c1eaa6897b",
-      "title": "Close SC-04 task/context versioning + complete C-01/C-03 MoneyPenny shell",
-      "author": "Claude",
-      "timestamp": "2026-09-02T13:36:33Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-3ce33d2.md"
-    },
-    {
-      "sha": "fb80497",
-      "full_sha": "fb8049782e24092c6ab74d0ee7acab174d275a5a",
-      "title": "Close SC-04 versioning + complete C-01/C-03 MoneyPenny shell [merge spec/moneypenny-mpy2-3]",
-      "author": "Claude",
-      "timestamp": "2026-09-02T13:36:47Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-fb80497.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

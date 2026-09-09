@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`8100320`](https://github.com/iQube-Protocol/AigentZBeta/commit/8100320501aef5077a578fbb789908841b884def) [feat] feat: project persona iQube access through Threshold MCP (Kn0w1, 2026-09-09T09:27:03-04:00)
+- [`ff034c1`](https://github.com/iQube-Protocol/AigentZBeta/commit/ff034c1a80265e57913cada5276df60973611c76) [docs] docs: hand off persona iQube MCP projection (Kn0w1, 2026-09-09T13:22:15-04:00)
 - [`3f71b8a`](https://github.com/iQube-Protocol/AigentZBeta/commit/3f71b8a74fe67453dc3eb45386a4cc2d3ded91f8) [feat] feat: project constitutional pilot docs into Venture Lab and AgentiQ; clarify execution control (Kn0w1, 2026-09-09T07:57:20-04:00)
 - [`69ced0f`](https://github.com/iQube-Protocol/AigentZBeta/commit/69ced0ff6cecba12589a6cf7d1eda6d53a1369c4) [docs] docs: apply authority mandate and control to compliance enforcement (Kn0w1, 2026-09-09T03:29:58-04:00)
 - [`495bc4b`](https://github.com/iQube-Protocol/AigentZBeta/commit/495bc4ba9e308de8e7a358f8c60c4ffed4dc994c) [docs] docs: standardize QubeTalk spelling and record dictation rule (Kn0w1, 2026-09-09T02:51:16-04:00)

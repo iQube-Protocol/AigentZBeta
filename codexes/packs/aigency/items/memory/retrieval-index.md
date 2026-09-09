@@ -5569,3 +5569,13 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-3f71b8a.md](../build_/COMMITS/COMMIT-3f71b8a.md)
 - Message: feat: project constitutional pilot docs into Venture Lab and AgentiQ; clarify execution control
+
+## Commit `ff034c1` — 2026-09-09T13:22:15-04:00
+- Type: `docs`
+- Brief: [COMMIT-ff034c1.md](../build_/COMMITS/COMMIT-ff034c1.md)
+- Message: docs: hand off persona iQube MCP projection
+
+## Commit `8100320` — 2026-09-09T09:27:03-04:00
+- Type: `feat`
+- Brief: [COMMIT-8100320.md](../build_/COMMITS/COMMIT-8100320.md)
+- Message: feat: project persona iQube access through Threshold MCP
