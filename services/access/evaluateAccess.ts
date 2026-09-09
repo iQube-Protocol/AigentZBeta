@@ -154,6 +154,22 @@ export async function evaluateAccess(
   return decision;
 }
 
+/**
+ * Canonical read-only decision preview for discovery/catalogue surfaces.
+ * Uses the exact same decision function as evaluateAccess but deliberately
+ * does not emit an access receipt because no payload has been delivered yet.
+ * Actual delivery must call evaluateAccess (or a canonical resolver that does)
+ * and emit the normal receipt.
+ */
+export async function previewAccess(
+  context: ActivePersonaContext,
+  descriptor: ContentAccessDescriptor,
+  action: AccessAction,
+  opts: EvaluateAccessOptions = {},
+): Promise<AccessDecision> {
+  return runDecision(context, descriptor, action, opts);
+}
+
 async function runDecision(
   context: ActivePersonaContext,
   descriptor: ContentAccessDescriptor,

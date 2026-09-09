@@ -29,6 +29,11 @@ import { buildCompanionInstallBrief } from '@/services/companion/extensionArtifa
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { resolveConstitutionalNavigatorState } from '@/services/threshold/constitutionalNavigator';
 import {
+  getAccessibleIQube,
+  listAccessibleIQubes,
+  readAccessibleIQubeText,
+} from '@/services/threshold/personaIQubeProjection';
+import {
   getExchangeStateForMcp,
   depositExchangeArtifactViaMcp,
   confirmOperatorAssistedArtifactViaMcp,
@@ -245,6 +250,13 @@ export async function POST(request: NextRequest) {
           const admin = getSupabaseServer();
           if (!admin) return null;
           return resolveConstitutionalNavigatorState(admin, session, opts);
+        }
+      : undefined,
+    iqubeProjection: session
+      ? {
+          list: (query) => listAccessibleIQubes(session, query),
+          get: (iqubeId) => getAccessibleIQube(session, iqubeId),
+          readText: (iqubeId, opts) => readAccessibleIQubeText(session, iqubeId, opts),
         }
       : undefined,
     mcpActs: session

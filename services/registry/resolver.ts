@@ -381,10 +381,30 @@ async function callerCanReadViaSpine(
   persona: ActivePersonaContext,
   record: CanonicalIQubeInternalRecord,
 ): Promise<boolean | undefined> {
-  // For Stage 2 we approximate with an ownership check. Stage 4 wires the
-  // full evaluateAccess() path with a synthesised ContentAccessDescriptor
-  // for the iqube_id. Until then 'caller_can_read' is an alias for
-  // 'caller_owns' OR free-gated.
-  if (record.gating.includes('open')) return true;
-  return callerOwnsViaSpine(persona, record);
+  try {
+    const { previewAccess } = await import('@/services/access/evaluateAccess');
+    const credential = record.required_credentials?.[0]
+      ?? (record.cartridge_bindings[0] ? `member:${record.cartridge_bindings[0]}` : undefined);
+    const isOpen = record.gating.includes('open');
+    const isCredential = record.gating.some((g) =>
+      g === 'persona' || g === 'did' || g === 'allowlist' || g === 'role' || g === 'custom',
+    );
+    const assetId = record.content_qube_id ?? record.iqube_id;
+    const decision = await previewAccess(persona, {
+      assetId,
+      contentClass: 'other',
+      state: isOpen ? 'A_open_unqubed' : 'D_gated_canonical_pool',
+      gating: isOpen
+        ? { kind: 'free', reason: 'registry-open' }
+        : isCredential
+          ? { kind: 'credential', credential, reason: 'registry-credential' }
+          : { kind: 'payment', reason: 'registry-ownership' },
+      receiptEligible: !isOpen,
+    }, 'read');
+    return decision.allow;
+  } catch {
+    // Unreadable authority is not denial and is never permission. Callers
+    // treat undefined as unknown/fail-closed.
+    return undefined;
+  }
 }

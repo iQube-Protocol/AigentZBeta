@@ -157,7 +157,23 @@ function skuCoversAsset(sku: StoreSku, meta: AssetMeta): boolean {
 /**
  * Does the persona own the asset, either directly or via an SKU grant?
  */
-export async function userOwnsAsset(personaId: string, assetId: string): Promise<{ owned: boolean; via: 'direct' | 'sku' | null }> {
+export async function userOwnsAsset(personaId: string, assetId: string): Promise<{ owned: boolean; via: 'direct' | 'edition' | 'sku' | null }> {
+  // ContentQube editions are persona-scoped ownership records in their own
+  // right. The generic Registry and MCP projection address the ContentQube by
+  // its canonical UUID, so this check must happen before legacy entitlement /
+  // SKU expansion. released_at marks a relinquished activation/edition.
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(assetId)) {
+    const { data: edition } = await supa()
+      .from('content_qube_editions')
+      .select('id')
+      .eq('content_qube_id', assetId)
+      .eq('persona_id', personaId)
+      .is('released_at', null)
+      .limit(1)
+      .maybeSingle();
+    if (edition) return { owned: true, via: 'edition' };
+  }
+
   const ents = await getEntitlementService().getPersonaEntitlements(personaId);
 
   // 1. Direct grant

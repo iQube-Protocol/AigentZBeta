@@ -35,6 +35,7 @@ import {
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { getCartridgeAdminGrants } from '@/services/access/cartridgeAdminGrants';
 import { AIGENT_ME_APP_ORIGIN } from '@/services/agents/provisionAigentMePersona';
+import { resolvePersonaIdByPublicRef } from '@/services/identity/personaReferences';
 
 import type {
   ActivePersonaContext,
@@ -463,5 +464,56 @@ export async function getActivePersona(
     cohortMemberships,
     fioHandle: personaRow?.fio_handle ?? null,
     source,
+  };
+}
+
+/**
+ * Resolve the active persona bound to a verified Threshold gateway session.
+ *
+ * The caller supplies only the persisted T2 public reference carried by the
+ * server-resolved ScopedSession. A client-provided persona UUID is never
+ * accepted. The returned T0 context remains server-local and is built through
+ * the same flag/membership helpers as getActivePersona(), preserving the
+ * Persona Spine as the sole context authority across browser and MCP surfaces.
+ */
+export async function getActivePersonaByPublicRef(
+  publicRef: string,
+): Promise<ActivePersonaContext | null> {
+  const admin = getAdminClient();
+  const personaId = await resolvePersonaIdByPublicRef(admin, publicRef);
+  if (!personaId) return null;
+
+  const { data: personaRow, error } = await admin
+    .from('personas')
+    .select('id, auth_profile_id, default_identity_state, fio_handle, status')
+    .eq('id', personaId)
+    .eq('status', 'active')
+    .maybeSingle();
+  if (error || !personaRow?.auth_profile_id) return null;
+
+  const authProfileId = String(personaRow.auth_profile_id);
+  const linkedAuthProfileIds = await getMergedLinkedAuthProfileIds(authProfileId).catch(() => []);
+  const [isAdmin, adminGrants, cartridgeMemberships] = await Promise.all([
+    resolveAdminFlag(authProfileId, linkedAuthProfileIds, null),
+    getCartridgeAdminGrants(authProfileId, linkedAuthProfileIds, null).catch(() => ({
+      isGlobalAdmin: false,
+      cartridgeSlugs: [] as string[],
+    })),
+    resolveCartridgeMemberships(personaId),
+  ]);
+
+  return {
+    personaId,
+    authProfileId,
+    identifiability: normaliseIdentifiability(personaRow.default_identity_state),
+    cartridgeFlags: {
+      isAdmin: isAdmin || adminGrants.isGlobalAdmin,
+      isPartner: resolvePartnerFlag(),
+      adminCartridges: adminGrants.cartridgeSlugs,
+      cartridgeMemberships,
+    },
+    cohortMemberships: [],
+    fioHandle: personaRow.fio_handle ?? null,
+    source: 'api-key',
   };
 }
