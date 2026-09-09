@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`0a41efd`](https://github.com/iQube-Protocol/AigentZBeta/commit/0a41efd7a1409a98faeab7d60e6beb5419bc2f8b) [feat] feat: federate Locker and RoomQube access through MCP (Kn0w1, 2026-09-09T14:48:15-04:00)
 - [`8100320`](https://github.com/iQube-Protocol/AigentZBeta/commit/8100320501aef5077a578fbb789908841b884def) [feat] feat: project persona iQube access through Threshold MCP (Kn0w1, 2026-09-09T09:27:03-04:00)
 - [`ff034c1`](https://github.com/iQube-Protocol/AigentZBeta/commit/ff034c1a80265e57913cada5276df60973611c76) [docs] docs: hand off persona iQube MCP projection (Kn0w1, 2026-09-09T13:22:15-04:00)
 - [`3f71b8a`](https://github.com/iQube-Protocol/AigentZBeta/commit/3f71b8a74fe67453dc3eb45386a4cc2d3ded91f8) [feat] feat: project constitutional pilot docs into Venture Lab and AgentiQ; clarify execution control (Kn0w1, 2026-09-09T07:57:20-04:00)

@@ -5579,3 +5579,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-8100320.md](../build_/COMMITS/COMMIT-8100320.md)
 - Message: feat: project persona iQube access through Threshold MCP
+
+## Commit `0a41efd` — 2026-09-09T14:48:15-04:00
+- Type: `feat`
+- Brief: [COMMIT-0a41efd.md](../build_/COMMITS/COMMIT-0a41efd.md)
+- Message: feat: federate Locker and RoomQube access through MCP

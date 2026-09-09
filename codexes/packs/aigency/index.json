@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-09T17:25:09.959Z",
+  "last_updated": "2026-09-09T19:12:57.283Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "8100320501aef5077a578fbb789908841b884def",
-  "latest_commit_short": "8100320",
-  "latest_commit_title": "feat: project persona iQube access through Threshold MCP",
+  "latest_commit": "0a41efd7a1409a98faeab7d60e6beb5419bc2f8b",
+  "latest_commit_short": "0a41efd",
+  "latest_commit_title": "feat: federate Locker and RoomQube access through MCP",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "0a41efd",
+      "full_sha": "0a41efd7a1409a98faeab7d60e6beb5419bc2f8b",
+      "title": "feat: federate Locker and RoomQube access through MCP",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-09T14:48:15-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-0a41efd.md"
+    },
     {
       "sha": "8100320",
       "full_sha": "8100320501aef5077a578fbb789908841b884def",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T14:05:39Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-d48ae5c.md"
-    },
-    {
-      "sha": "12b8048",
-      "full_sha": "12b8048fc81984be80e1d5bbe9e7376460f25401",
-      "title": "Harden SC-04, deliver full-screen HFT takeover, verify entry continuity [merge spec/moneypenny-mpy2-3]",
-      "author": "Claude",
-      "timestamp": "2026-09-02T14:05:52Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-12b8048.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
