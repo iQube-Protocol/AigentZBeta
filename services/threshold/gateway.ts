@@ -295,6 +295,7 @@ export function listTools() {
           query: { type: 'string', description: 'Optional case-insensitive metadata filter.' },
           offset: { type: 'number' },
           limit: { type: 'number', description: 'Defaults to 25; maximum 100.' },
+          scanOffset: { type: 'number', description: 'Registry scan cursor. Continue with nextScanOffset when scanComplete is false.' },
         },
         additionalProperties: false,
       },
@@ -846,6 +847,7 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
           query: typeof args.query === 'string' ? args.query : undefined,
           offset: typeof args.offset === 'number' ? args.offset : undefined,
           limit: typeof args.limit === 'number' ? args.limit : undefined,
+          scanOffset: typeof args.scanOffset === 'number' ? args.scanOffset : undefined,
         });
         return result.ok ? text(result) : { ...text(result.error), isError: true };
       }

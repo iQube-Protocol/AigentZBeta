@@ -226,7 +226,24 @@ async function runDecision(
     return denyDecision('credential-required', descriptor, receipt);
   }
 
-  // 3. Payment-gated content — entitlement check.
+  // 3. Persona ownership / explicit shared-surface membership. This is
+  // deliberately distinct from payment: Locker assets and RoomQubes may be
+  // private without being commercial. userOwnsAsset is the canonical resolver
+  // for direct ownership plus governed RoomQube membership.
+  if (descriptor.gating.kind === 'ownership') {
+    const ownership = await userOwnsAsset(context.personaId, descriptor.assetId);
+    if (ownership.owned) {
+      return {
+        allow: true,
+        reason: 'owned',
+        deliveryMode: deriveDeliveryMode(descriptor),
+        receipt,
+      };
+    }
+    return denyDecision('access-grant-required', descriptor, receipt);
+  }
+
+  // 4. Payment-gated content — entitlement check.
   //    State D/E will additionally check TokenQube ownership in Phase 4.
   //    For now, the entitlement table is the canonical answer.
   const ownership = await userOwnsAsset(context.personaId, descriptor.assetId);

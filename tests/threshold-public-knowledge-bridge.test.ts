@@ -246,6 +246,35 @@ describe('publicKnowledge.ts — Qriptopian: field mapping matches the REAL rout
     expect(result.ok).toBe(true);
     expect(result.page!.text).toBe('full essay text');
   });
+
+  it('falls through to the canonical public PDF reader for a paper id', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.includes('/machine')) return new Response('not found', { status: 404 });
+        if (url.includes('/papers?read=p1')) {
+          return new Response(JSON.stringify({
+            document: {
+              id: 'p1',
+              title: 'Paper One',
+              scopeLabel: 'The Polity',
+              text: 'full PDF paper text',
+              sha256: createHash('sha256').update('full PDF paper text').digest('hex'),
+            },
+          }), { status: 200, headers: { 'content-type': 'application/json' } });
+        }
+        return new Response('not found', { status: 404 });
+      }),
+    );
+    const adapter = makePublicKnowledgeAdapter({ origin: 'http://localhost:3000' });
+    const result = await adapter.readDocument('qriptopian', 'p1');
+    expect(result.ok).toBe(true);
+    expect(result.page).toMatchObject({
+      title: 'Paper One',
+      series: 'The Polity',
+      text: 'full PDF paper text',
+    });
+  });
 });
 
 describe('publicKnowledge.ts — Qriptopian multi-edition default resolution (live-discovered bug, 2026-09-03)', () => {

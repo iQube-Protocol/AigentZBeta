@@ -19,6 +19,8 @@ import {
 import { listIQubes, resolveIQube } from '@/services/registry/resolver';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { resolveContentQube } from '@/services/content/resolveContentQube';
+import { evaluateAccess } from '@/services/access/evaluateAccess';
+import { StorageAdapterFactory } from '@/services/content/storageAdapter';
 import type {
   CanonicalIQubeInternalRecord,
   RegistryCartridgeView,
@@ -28,6 +30,7 @@ const OPEN_AGREEMENT_STATES = new Set(['authorized', 'executed', 'settled', 'rec
 const MAX_PAGE = 100;
 const MAX_SCAN = 500;
 const MAX_TEXT_PAGE = 50_000;
+const MAX_SOURCE_BYTES = 20 * 1024 * 1024;
 
 export interface AccessibleIQubeQuery {
   primitiveType?: string;
@@ -35,6 +38,8 @@ export interface AccessibleIQubeQuery {
   query?: string;
   offset?: number;
   limit?: number;
+  /** Registry scan cursor. Continue with nextScanOffset when scanComplete=false. */
+  scanOffset?: number;
 }
 
 export type PersonaIQubeProjectionResult =
@@ -90,11 +95,12 @@ export async function listAccessibleIQubes(
   const authority = await resolvePersonaIQubeAuthority(session);
   if (!authority.ok) return authority;
 
-  const listed = await listIQubes({
-    primitive_type: query.primitiveType,
-    cartridge: query.cartridge,
-    limit: MAX_SCAN,
-  });
+  // Scan the global map and filter after hydration. Primitive-specific adapter
+  // enumeration predates federated sources and may otherwise omit a second
+  // source that projects to the same primitive (for example Locker assets as
+  // ContentQubes).
+  const scanOffset = safePage(query.scanOffset, 0, Number.MAX_SAFE_INTEGER);
+  const listed = await listIQubes({ limit: MAX_SCAN, offset: scanOffset });
   const candidates = listed.entries.slice(0, MAX_SCAN);
   const resolved = await Promise.all(candidates.map((entry) =>
     resolveIQube(entry.iqube_id, {
@@ -105,7 +111,12 @@ export async function listAccessibleIQubes(
   ));
   const accessible = resolved
     .filter((row): row is RegistryCartridgeView => Boolean(row && 'caller_can_read' in row))
-    .filter((row) => row.caller_can_read === true && matchesQuery(row, query.query));
+    .filter((row) =>
+      row.caller_can_read === true
+      && (!query.primitiveType || row.primitive_type === query.primitiveType)
+      && (!query.cartridge || row.cartridge_bindings.includes(query.cartridge))
+      && matchesQuery(row, query.query),
+    );
   const offset = safePage(query.offset, 0, accessible.length);
   const limit = safePage(query.limit, 25, MAX_PAGE) || 25;
 
@@ -117,6 +128,8 @@ export async function listAccessibleIQubes(
     limit,
     hasMore: offset + limit < accessible.length,
     scanned: candidates.length,
+    scanOffset,
+    nextScanOffset: listed.entries.length < MAX_SCAN ? null : scanOffset + candidates.length,
     scanComplete: listed.entries.length < MAX_SCAN,
   };
 }
@@ -156,6 +169,23 @@ export async function readAccessibleIQubeText(
     projection: 'internal',
     allowPrivate: true,
   }).catch(() => null) as CanonicalIQubeInternalRecord | null;
+  if (internal?.source_system === 'locker_asset' && internal.source_resource_id) {
+    const authority = await resolvePersonaIQubeAuthority(session);
+    if (!authority.ok) return authority;
+    const decision = await evaluateAccess(authority.persona, {
+      assetId: internal.source_resource_id,
+      contentClass: 'other',
+      state: 'D_gated_canonical_pool',
+      gating: internal.gating.includes('open')
+        ? { kind: 'free', reason: 'locker-public' }
+        : { kind: 'ownership', reason: 'persona-ownership-or-room-membership' },
+      receiptEligible: !internal.gating.includes('open'),
+    }, 'read');
+    if (!decision.allow) {
+      return { ok: false as const, error: 'iQube not found or not authorized for this persona.' };
+    }
+    return readLockerAssetText(access.iqube, internal.source_resource_id, opts);
+  }
   if (!internal?.content_qube_id) {
     return { ok: false as const, error: 'The ContentQube has no native content binding.' };
   }
@@ -194,5 +224,91 @@ export async function readAccessibleIQubeText(
     totalLength: fullText.length,
     hasMore: offset + limit < fullText.length,
     sha256OfFullText: createHash('sha256').update(fullText).digest('hex'),
+  };
+}
+
+async function readLockerAssetText(
+  iqube: RegistryCartridgeView,
+  assetId: string,
+  opts: { offset?: number; limit?: number },
+) {
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false as const, error: 'The content store is unavailable.' };
+  const { data } = await admin
+    .from('asset_renditions')
+    .select('storage_provider, storage_uri, mime_type, size_bytes, content_hash, is_primary, created_at')
+    .eq('asset_id', assetId)
+    .order('is_primary', { ascending: false })
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return { ok: false as const, error: 'This iQube currently has no agent-readable rendition.' };
+  const rendition = data as {
+    storage_provider: string;
+    storage_uri: string;
+    mime_type: string | null;
+    size_bytes: number | null;
+    content_hash: string | null;
+  };
+  if (rendition.storage_provider !== 'supabase') {
+    return { ok: false as const, error: `No secure text provider is registered for ${rendition.storage_provider} renditions.` };
+  }
+  if (rendition.size_bytes !== null && rendition.size_bytes > MAX_SOURCE_BYTES) {
+    return { ok: false as const, error: 'The source rendition exceeds the bounded extraction size.' };
+  }
+
+  let downloaded;
+  try {
+    downloaded = await StorageAdapterFactory.getAdapter('supabase')
+      .download('locker-assets', rendition.storage_uri);
+  } catch {
+    return { ok: false as const, error: 'The authorized rendition could not be retrieved.' };
+  }
+  if (downloaded.sizeBytes > MAX_SOURCE_BYTES) {
+    return { ok: false as const, error: 'The source rendition exceeds the bounded extraction size.' };
+  }
+  const bytes = downloaded.data instanceof Blob
+    ? Buffer.from(await downloaded.data.arrayBuffer())
+    : Buffer.from(downloaded.data);
+  const sha256 = createHash('sha256').update(bytes).digest('hex');
+  if (rendition.content_hash && rendition.content_hash !== sha256) {
+    return { ok: false as const, error: 'The rendition failed its content-integrity check.' };
+  }
+
+  const mime = (rendition.mime_type || downloaded.contentType || '').toLowerCase();
+  let fullText = '';
+  try {
+    if (mime.startsWith('text/') || mime === 'application/json' || mime === 'application/xml') {
+      fullText = bytes.toString('utf8');
+    } else if (mime === 'application/pdf') {
+      // pdf-parse is already the repository's canonical server-side PDF
+      // extraction dependency (uploads/uploadIndexer + VSP upload).
+      const pdfParse = (await import('pdf-parse')).default as (input: Buffer) => Promise<{ text: string }>;
+      fullText = (await pdfParse(bytes)).text;
+    } else if (
+      mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ) {
+      const mammoth = await import('mammoth');
+      fullText = (await mammoth.extractRawText({ buffer: bytes })).value;
+    } else {
+      return { ok: false as const, error: 'This rendition type has no agent-readable text provider.' };
+    }
+  } catch {
+    return { ok: false as const, error: 'The authorized rendition could not be converted to text.' };
+  }
+  if (!fullText.trim()) {
+    return { ok: false as const, error: 'This rendition contains no extractable text.' };
+  }
+  const offset = safePage(opts.offset, 0, fullText.length);
+  const limit = safePage(opts.limit, 8_000, MAX_TEXT_PAGE) || 8_000;
+  return {
+    ok: true as const,
+    iqube,
+    text: fullText.slice(offset, offset + limit),
+    offset,
+    totalLength: fullText.length,
+    hasMore: offset + limit < fullText.length,
+    sha256OfFullText: createHash('sha256').update(fullText).digest('hex'),
+    sourceIntegritySha256: sha256,
   };
 }

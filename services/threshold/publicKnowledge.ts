@@ -408,6 +408,37 @@ export function makePublicKnowledgeAdapter(opts: { origin: string; irl?: IrlAdap
         }
       }
     }
+    // Published PDF papers use the same canonical Qriptopian route. The
+    // route validates publication status and extracts text server-side from
+    // its own trusted asset record, so MCP never follows a caller-provided
+    // URL or exposes the backing storage reference.
+    const paperRes = await get(`/api/codex/qripto/papers?read=${encodeURIComponent(id)}`);
+    if (paperRes.ok) {
+      const body = paperRes.body as {
+        document?: { title?: string; scopeLabel?: string; text?: string; sha256?: string };
+      } | null;
+      const document = body?.document;
+      if (document?.text) {
+        const sliced = slicePage(document.text, offset, limit);
+        return {
+          ok: true,
+          page: {
+            id,
+            cartridge: 'qriptopian',
+            title: document.title ?? id,
+            series: document.scopeLabel,
+            status: 'published',
+            canonicalLink: `/api/codex/qripto/papers?read=${encodeURIComponent(id)}`,
+            text: sliced.text,
+            offset: sliced.offset,
+            limit: sliced.limit,
+            totalLength: sliced.totalLength,
+            hasMore: sliced.hasMore,
+            sha256OfFullText: document.sha256 ?? sha256(document.text),
+          },
+        };
+      }
+    }
     return { ok: false, error: `Qriptopian document "${id}" was not found or has no readable text (edition "${edition ?? 'default'}").` };
   }
 

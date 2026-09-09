@@ -114,6 +114,13 @@ describe('Threshold persona-scoped iQube projection', () => {
     expect(JSON.stringify({ ark, aigentZ })).not.toContain('persona-aigent-z');
   });
 
+  it('uses an explicit Registry scan cursor for catalogues larger than one batch', async () => {
+    const result = await listAccessibleIQubes(session('ark-public-ref'), { scanOffset: 500 });
+    expect(result.ok).toBe(true);
+    expect(mocks.listIQubes).toHaveBeenCalledWith({ limit: 500, offset: 500 });
+    expect(result).toMatchObject({ scanOffset: 500, scanComplete: true, nextScanOffset: null });
+  });
+
   it('fails closed when scope, persona binding, or exact agent binding is absent', async () => {
     expect((await resolvePersonaIQubeAuthority(session('ark-public-ref', { scope: [] }))).ok).toBe(false);
     expect((await resolvePersonaIQubeAuthority(session('unknown-ref'))).ok).toBe(false);

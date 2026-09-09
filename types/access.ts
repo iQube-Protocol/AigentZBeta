@@ -290,7 +290,7 @@ export type ContentClass =
   | 'other';
 
 /** Gating kind classification — single source of truth in services/rewards/contentGating.ts */
-export type GatingKind = 'free' | 'payment' | 'credential';
+export type GatingKind = 'free' | 'payment' | 'credential' | 'ownership';
 
 export interface ContentGatingDescriptor {
   kind: GatingKind;
@@ -463,6 +463,7 @@ export type AccessAction =
 export type AccessDecisionReason =
   | 'free'
   | 'owned'
+  | 'access-grant-required'
   | 'credential-met'
   | 'token-proof-verified'
   | 'payment-required'

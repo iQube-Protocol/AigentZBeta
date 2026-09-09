@@ -28,10 +28,10 @@ describe('ContentQube edition ownership', () => {
 
   it('recognizes an active persona edition before legacy entitlement expansion', async () => {
     const editionQuery = query({ id: 'edition-1' });
+    const noRows = query(null);
     mocks.createClient.mockReturnValue({
       from: vi.fn((table: string) => {
-        expect(table).toBe('content_qube_editions');
-        return editionQuery;
+        return table === 'content_qube_editions' ? editionQuery : noRows;
       }),
     });
     const { userOwnsAsset } = await import('@/services/rewards/assetOwnership');

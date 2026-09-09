@@ -21,8 +21,8 @@ export function projectAdmin(rec: CanonicalIQubeInternalRecord): RegistryAdminVi
     iqube_id: rec.iqube_id,
     primitive_type: rec.primitive_type,
     tool_subtype: rec.tool?.tool_subtype,
-    display_name: rec.aigent?.root_agent_id ?? rec.content_qube_id ?? rec.iqube_id, // Resolver overrides via record; this is a fallback
-    display_description: undefined,
+    display_name: rec.display_name ?? rec.aigent?.root_agent_id ?? rec.content_qube_id ?? rec.iqube_id,
+    display_description: rec.display_description,
     cover_url: undefined,
 
     internal_lifecycle: rec.internal_lifecycle,
