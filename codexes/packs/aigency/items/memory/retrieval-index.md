@@ -5594,3 +5594,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-194414c.md](../build_/COMMITS/COMMIT-194414c.md)
 - Message: feat: constitute EXP-P1 and EXP-P2 as ClusterQubes
+
+## Commit `298b830` — 2026-09-10T02:42:05-04:00
+- Type: `chore`
+- Brief: [COMMIT-298b830.md](../build_/COMMITS/COMMIT-298b830.md)
+- Message: chore: retrigger dev deployment for OCSGA content recovery

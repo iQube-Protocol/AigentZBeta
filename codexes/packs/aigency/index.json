@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-10T05:52:10.058Z",
+  "last_updated": "2026-09-10T06:49:06.182Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "194414cdc48a0becd53bc9e98ebc1c9ed9ebaa4b",
-  "latest_commit_short": "194414c",
-  "latest_commit_title": "feat: constitute EXP-P1 and EXP-P2 as ClusterQubes",
+  "latest_commit": "298b830cce611f993fe1e55aedea9bab20d9a028",
+  "latest_commit_short": "298b830",
+  "latest_commit_title": "chore: retrigger dev deployment for OCSGA content recovery",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "298b830",
+      "full_sha": "298b830cce611f993fe1e55aedea9bab20d9a028",
+      "title": "chore: retrigger dev deployment for OCSGA content recovery",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T02:42:05-04:00",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-298b830.md"
+    },
     {
       "sha": "194414c",
       "full_sha": "194414cdc48a0becd53bc9e98ebc1c9ed9ebaa4b",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T23:27:25Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-2b4733d.md"
-    },
-    {
-      "sha": "8678fc5",
-      "full_sha": "8678fc53c6dbd1ee05542c91a6a512af32f9d336",
-      "title": "Close infra handoff, add MoneyPenny educational video (C-15/A3), fix Prepare empty-state gap [merge spec/moneypenny-mpy2-3]",
-      "author": "Claude",
-      "timestamp": "2026-09-02T19:18:35Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-8678fc5.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

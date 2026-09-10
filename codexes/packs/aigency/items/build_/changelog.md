@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`298b830`](https://github.com/iQube-Protocol/AigentZBeta/commit/298b830cce611f993fe1e55aedea9bab20d9a028) [chore] chore: retrigger dev deployment for OCSGA content recovery (Kn0w1, 2026-09-10T02:42:05-04:00)
 - [`194414c`](https://github.com/iQube-Protocol/AigentZBeta/commit/194414cdc48a0becd53bc9e98ebc1c9ed9ebaa4b) [feat] feat: constitute EXP-P1 and EXP-P2 as ClusterQubes (Kn0w1, 2026-09-09T20:18:53-04:00)
 - [`9fd55c6`](https://github.com/iQube-Protocol/AigentZBeta/commit/9fd55c64cec374dca0ad1eadbc689f2ad8f890f4) [feat] feat: recover OCSGA artifacts through persona MCP (Kn0w1, 2026-09-10T01:14:13-04:00)
 - [`0a41efd`](https://github.com/iQube-Protocol/AigentZBeta/commit/0a41efd7a1409a98faeab7d60e6beb5419bc2f8b) [feat] feat: federate Locker and RoomQube access through MCP (Kn0w1, 2026-09-09T14:48:15-04:00)
