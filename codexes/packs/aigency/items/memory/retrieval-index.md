@@ -5619,3 +5619,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-d8e74aa.md](../build_/COMMITS/COMMIT-d8e74aa.md)
 - Message: fix: restore threshold gateway and navigator database context
+
+## Commit `c524acc` — 2026-09-10T18:11:09-04:00
+- Type: `push`
+- Brief: [COMMIT-c524acc.md](../build_/COMMITS/COMMIT-c524acc.md)
+- Message: Deploy Threshold persona recross state and agent discovery manifest
