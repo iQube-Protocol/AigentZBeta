@@ -47,5 +47,6 @@ export function projectCartridge(
     caller_can_read: callerCanRead,
 
     cartridge_bindings: rec.cartridge_bindings,
+    cluster: rec.cluster,
   };
 }

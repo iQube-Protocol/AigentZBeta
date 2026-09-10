@@ -44,6 +44,7 @@ import {
   type confirmOperatorAssistedArtifactViaMcp,
   type resolveExchangeWriteAuthority,
 } from './mcpConstitutionalActs';
+import { decodeBase64Strict } from './uploadContentAsset';
 
 // ── Context injected by the route (keeps this module I/O-light + testable) ──
 
@@ -1137,6 +1138,10 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
         '.webp': 'image/webp',
         '.gif': 'image/gif',
         '.pdf': 'application/pdf',
+        '.md': 'text/markdown',
+        '.txt': 'text/plain',
+        '.json': 'application/json',
+        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         '.mp4': 'video/mp4',
         '.webm': 'video/webm',
         '.mp3': 'audio/mpeg',
@@ -1148,13 +1153,12 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
       // Decode file (from base64 or already-decoded buffer)
       let fileBytes: ArrayBuffer;
       try {
-        if (fileBase64) {
-          // JSON-RPC path: decode from base64
-          fileBytes = Buffer.from(fileBase64, 'base64').buffer;
-        } else if (file) {
-          // Connector action path: file is already a base64-encoded representation of bytes
-          // (from multipart adapter that encoded the binary before calling)
-          fileBytes = Buffer.from(file, 'base64').buffer;
+        if (fileBase64 || file) {
+          const decoded = decodeBase64Strict(fileBase64 || file || '');
+          fileBytes = decoded.buffer.slice(
+            decoded.byteOffset,
+            decoded.byteOffset + decoded.byteLength,
+          ) as ArrayBuffer;
         } else {
           return {
             ...text('Invalid file parameter.'),

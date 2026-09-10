@@ -528,6 +528,9 @@ export interface RegistryCartridgeView {
 
   cartridge_bindings: string[];
 
+  /** T1-safe composition manifest; member payloads remain independently gated. */
+  cluster?: CanonicalClusterBlock;
+
   /**
    * Trust/Validation scores. Undefined when iqube_scores has no row for
    * this iqube_id — UI renders placeholder dots. Per 2026-05-31 operator
@@ -574,7 +577,13 @@ export type IQubeIdMapSource =
   // See AGENTIQ_INTENT_CHAINS_SPEC.md §6.6.
   | 'code:chainTemplate'
   | 'locker_asset'
-  | 'roomqube';
+  | 'roomqube'
+  | 'research_experiment'
+  | 'research_document'
+  | 'research_object'
+  | 'experiment_result'
+  | 'reciprocal_exchange'
+  | 'exchange_artifact';
 
 export interface IQubeIdMapEntry {
   iqube_id: string;

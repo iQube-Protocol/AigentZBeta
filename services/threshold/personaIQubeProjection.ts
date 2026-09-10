@@ -21,6 +21,9 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { resolveContentQube } from '@/services/content/resolveContentQube';
 import { evaluateAccess } from '@/services/access/evaluateAccess';
 import { StorageAdapterFactory } from '@/services/content/storageAdapter';
+import { corpusReadPackFile } from '@/services/knowledge/packCorpusStore';
+import { createAutoDriveApi } from '@autonomys/auto-drive';
+import { decryptContent, unwrapKeyWithMasterKey } from '@/server/services/encryptionService';
 import type {
   CanonicalIQubeInternalRecord,
   RegistryCartridgeView,
@@ -161,14 +164,28 @@ export async function readAccessibleIQubeText(
 ) {
   const access = await getAccessibleIQube(session, iqubeId);
   if (!access.ok) return access;
-  if (access.iqube.primitive_type !== 'ContentQube') {
-    return { ok: false as const, error: 'No text rendition provider is registered for this iQube primitive.' };
-  }
 
   const internal = await resolveIQube(iqubeId, {
     projection: 'internal',
     allowPrivate: true,
   }).catch(() => null) as CanonicalIQubeInternalRecord | null;
+  if (internal?.source_system === 'research_document' && internal.source_resource_id) {
+    const { pathForResearchDocumentSource } = await import('@/services/research/experimentIQubeSources');
+    const { corpusReadPackFile } = await import('@/services/knowledge/packCorpusStore');
+    const sourcePath = pathForResearchDocumentSource(internal.source_resource_id);
+    const fullText = sourcePath ? await corpusReadPackFile('irl', sourcePath) : null;
+    if (fullText === null) return { ok: false as const, error: 'The authorized research artifact could not be retrieved.' };
+    return pageText(access.iqube, fullText, opts);
+  }
+  if (
+    (internal?.source_system === 'research_object' || internal?.source_system === 'experiment_result')
+    && internal.source_resource_id
+  ) {
+    return readResearchDataQubeText(access.iqube, internal.source_system, internal.source_resource_id, opts);
+  }
+  if (access.iqube.primitive_type !== 'ContentQube') {
+    return { ok: false as const, error: 'No text rendition provider is registered for this iQube primitive.' };
+  }
   if (internal?.source_system === 'locker_asset' && internal.source_resource_id) {
     const authority = await resolvePersonaIQubeAuthority(session);
     if (!authority.ok) return authority;
@@ -185,6 +202,9 @@ export async function readAccessibleIQubeText(
       return { ok: false as const, error: 'iQube not found or not authorized for this persona.' };
     }
     return readLockerAssetText(access.iqube, internal.source_resource_id, opts);
+  }
+  if (internal?.source_system === 'exchange_artifact' && internal.source_resource_id) {
+    return readExchangeArtifactText(access.iqube, internal.source_resource_id, opts);
   }
   if (!internal?.content_qube_id) {
     return { ok: false as const, error: 'The ContentQube has no native content binding.' };
@@ -225,6 +245,122 @@ export async function readAccessibleIQubeText(
     hasMore: offset + limit < fullText.length,
     sha256OfFullText: createHash('sha256').update(fullText).digest('hex'),
   };
+}
+
+function pageText(
+  iqube: RegistryCartridgeView,
+  fullText: string,
+  opts: { offset?: number; limit?: number },
+) {
+  const offset = safePage(opts.offset, 0, fullText.length);
+  const limit = safePage(opts.limit, 8_000, MAX_TEXT_PAGE) || 8_000;
+  return {
+    ok: true as const,
+    iqube,
+    text: fullText.slice(offset, offset + limit),
+    offset,
+    totalLength: fullText.length,
+    hasMore: offset + limit < fullText.length,
+    sha256OfFullText: createHash('sha256').update(fullText).digest('hex'),
+  };
+}
+
+async function readResearchDataQubeText(
+  iqube: RegistryCartridgeView,
+  sourceSystem: 'research_object' | 'experiment_result',
+  sourceId: string,
+  opts: { offset?: number; limit?: number },
+) {
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false as const, error: 'The research store is unavailable.' };
+  const query = sourceSystem === 'research_object'
+    ? admin.from('research_objects').select('object_kind, object_id, payload, lifecycle_state, receipt_id, created_at, updated_at').eq('id', sourceId)
+    : admin.from('experiment_results').select('experiment, provider, model, aggregates, results_json, content_hash, receipt_id, created_at, visibility').eq('id', sourceId);
+  const { data } = await query.maybeSingle();
+  if (!data) return { ok: false as const, error: 'The authorized research evidence could not be retrieved.' };
+  return pageText(iqube, JSON.stringify(data, null, 2), opts);
+}
+
+async function extractBoundedText(bytes: Buffer, mimeType: string): Promise<string | null> {
+  const mime = mimeType.toLowerCase();
+  if (mime.startsWith('text/') || mime === 'application/json' || mime === 'application/xml') return bytes.toString('utf8');
+  if (mime === 'application/pdf') {
+    const pdfParse = (await import('pdf-parse')).default as (input: Buffer) => Promise<{ text: string }>;
+    return (await pdfParse(bytes)).text;
+  }
+  if (mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+    const mammoth = await import('mammoth');
+    return (await mammoth.extractRawText({ buffer: bytes })).value;
+  }
+  return null;
+}
+
+async function readExchangeArtifactText(
+  iqube: RegistryCartridgeView,
+  artifactId: string,
+  opts: { offset?: number; limit?: number },
+) {
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false as const, error: 'The content store is unavailable.' };
+  const { data, error } = await admin.from('exchange_artifacts')
+    .select('source_type,source_reference,repository_commit,storage_reference,mime_type,content_hash')
+    .eq('id', artifactId).maybeSingle();
+  if (error || !data) return { ok: false as const, error: 'The authorized exchange artifact could not be resolved.' };
+
+  let bytes: Buffer;
+  try {
+    if (data.source_type === 'repository-commit') {
+      const rel = String(data.source_reference || '').replace(/^codexes\/packs\/irl\//, '');
+      if (!String(data.source_reference || '').startsWith('codexes/packs/irl/') || rel.includes('..')) {
+        return { ok: false as const, error: 'The exchange artifact repository reference is outside the IRL corpus boundary.' };
+      }
+      const body = await corpusReadPackFile('irl', rel);
+      if (body === null) return { ok: false as const, error: 'The authorized repository artifact is unavailable.' };
+      bytes = Buffer.from(body, 'utf8');
+    } else {
+      const match = /^autodrive:([^:]+):(.+)$/.exec(String(data.storage_reference || ''));
+      if (!match) return { ok: false as const, error: 'The authorized artifact payload has not yet been recovered.' };
+      const [, assetId, cid] = match;
+      const { data: asset } = await admin.from('codex_media_assets')
+        .select('id,auto_drive_cid,file_size,encryption_iv,encryption_auth_tag,token_qube_id')
+        .eq('id', assetId).eq('auto_drive_cid', cid).maybeSingle();
+      if (!asset?.token_qube_id || !asset.encryption_iv || !asset.encryption_auth_tag) {
+        return { ok: false as const, error: 'The authorized artifact payload is incomplete.' };
+      }
+      const { data: token } = await admin.from('iq_token_qubes')
+        .select('key_ciphertext,key_wrapping_alg').eq('id', asset.token_qube_id).maybeSingle();
+      if (!token?.key_ciphertext || !token.key_wrapping_alg || !process.env.AUTONOMYS_API_KEY) {
+        return { ok: false as const, error: 'The authorized artifact payload cannot currently be decrypted.' };
+      }
+      const stream = await createAutoDriveApi({ apiKey: process.env.AUTONOMYS_API_KEY, network: 'mainnet' }).downloadFile(cid);
+      const chunks: Buffer[] = [];
+      for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+      bytes = decryptContent({
+        ciphertext: Buffer.concat(chunks),
+        iv: asset.encryption_iv,
+        authTag: asset.encryption_auth_tag,
+        key: unwrapKeyWithMasterKey({ keyCiphertext: token.key_ciphertext, wrappingAlgorithm: token.key_wrapping_alg }),
+      });
+      if (asset.file_size != null && Number(asset.file_size) !== bytes.length) {
+        return { ok: false as const, error: 'The recovered artifact failed its size-integrity check.' };
+      }
+    }
+  } catch {
+    return { ok: false as const, error: 'The authorized artifact payload could not be retrieved.' };
+  }
+
+  if (bytes.length > MAX_SOURCE_BYTES) return { ok: false as const, error: 'The source rendition exceeds the bounded extraction size.' };
+  const sha256 = createHash('sha256').update(bytes).digest('hex');
+  if (data.content_hash && data.content_hash !== sha256) {
+    return { ok: false as const, error: 'The exchange artifact failed its content-integrity check.' };
+  }
+  try {
+    const fullText = await extractBoundedText(bytes, String(data.mime_type || 'application/octet-stream'));
+    if (!fullText?.trim()) return { ok: false as const, error: 'This exchange artifact has no agent-readable text rendition.' };
+    return { ...pageText(iqube, fullText, opts), sourceIntegritySha256: sha256 };
+  } catch {
+    return { ok: false as const, error: 'The authorized exchange artifact could not be converted to text.' };
+  }
 }
 
 async function readLockerAssetText(

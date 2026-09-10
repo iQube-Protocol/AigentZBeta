@@ -3,7 +3,8 @@ import { createHash } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { isCartridgeAdmin } from '@/services/access/requireCartridgeAdmin';
-import { registerArtifactOperatorAssisted } from '@/services/research/reciprocalExchange';
+import { getExchangeView, registerArtifactOperatorAssisted } from '@/services/research/reciprocalExchange';
+import { decodeBase64Strict, executeThresholdContentUpload } from '@/services/threshold/uploadContentAsset';
 
 const OCSGA_V13_FINGERPRINT = '9f33939112351d811337475c3ed4ebcb78bb993d066232ab06d187098f7c1331';
 
@@ -75,7 +76,7 @@ export async function POST(
     }
 
     // Decode artifact bytes and compute SHA-256
-    const artifactBuffer = Buffer.from(artifactBytes, 'base64');
+    const artifactBuffer = decodeBase64Strict(artifactBytes);
     const contentHash = createHash('sha256').update(artifactBuffer).digest('hex');
 
     // Verify fingerprint matches OCSGA v1.3
@@ -113,6 +114,63 @@ export async function POST(
       );
     }
 
+    const existingView = await getExchangeView(admin, {
+      exchangeId,
+      personaId: boundPrincipalId,
+    });
+    if (!existingView.ok) {
+      return NextResponse.json({ ok: false, error: existingView.error }, { status: 400 });
+    }
+    const existing = existingView.view.yourArtifact;
+    if (existing && existing.contentHash !== contentHash) {
+      return NextResponse.json(
+        { ok: false, error: 'bound principal already has a different deposited artifact' },
+        { status: 409 },
+      );
+    }
+    if (existing?.storageReference) {
+      return NextResponse.json({ ok: true, artifact: existing, contentHash, alreadyStored: true });
+    }
+
+    // Preserve the supplied bytes as the canonical encrypted AutoDrive payload
+    // before registering/binding the exchange reference. Never place document
+    // bytes in Git and never discard them after hashing.
+    const upload = await executeThresholdContentUpload({
+      bytes: artifactBuffer,
+      mimeType,
+      fileName: 'OCSGA Constitutional Master v1.3.docx',
+      domain: 'ocsga-boundary-research',
+      role: 'attachment',
+      origin: new URL(req.url).origin,
+      bind: false,
+      bundleId: `ocsga-boundary-exchange-${exchangeId}`,
+      bundleLabel: 'OCSGA Boundary Research Canonical Artifacts',
+      bundleType: 'constitutional-exchange',
+      bundleOrder: 2,
+      assetUse: 'canonical-party-b-constitution',
+    });
+    if (!upload.assetId || !upload.cid || upload.sha256 !== contentHash) {
+      return NextResponse.json({ ok: false, error: 'canonical upload receipt failed integrity validation' }, { status: 502 });
+    }
+    const storageReference = `autodrive:${upload.assetId}:${upload.cid}`;
+
+    // Recovery is idempotent for the historical OCSGA deposit: bind the exact
+    // matching artifact rather than creating a replacement/version.
+    if (existing?.id) {
+      const { data: recovered, error: recoveryError } = await admin
+        .from('exchange_artifacts')
+        .update({ storage_reference: storageReference })
+        .eq('id', existing.id)
+        .eq('content_hash', contentHash)
+        .is('storage_reference', null)
+        .select('*')
+        .single();
+      if (recoveryError || !recovered) {
+        return NextResponse.json({ ok: false, error: recoveryError?.message || 'payload binding failed' }, { status: 500 });
+      }
+      return NextResponse.json({ ok: true, artifact: recovered, contentHash, upload, recovered: true });
+    }
+
     // Register artifact via canonical service. boundPrincipalPersonaId is
     // re-verified for real inside the service — it refuses 'not-a-party' if
     // this persona is not the exchange's currently bound Party B.
@@ -124,8 +182,9 @@ export async function POST(
       title: 'OCSGA v1.3 — Operator-Registered Boundary Research Artifact',
       artifactClass: 'operator-registered-deposit',
       sourceType: 'immutable-reference',
-      sourceReference: 'operator-assisted-registration',
+      sourceReference: upload.cid,
       contentHash,
+      storageReference,
       mimeType,
       ownershipDeclaration:
         'Registered via operator-assisted workflow under boundary research exchange admission protocol.',
@@ -143,6 +202,7 @@ export async function POST(
     return NextResponse.json({
       ok: true,
       artifact: result.artifact,
+      upload,
       contentHash,
       boundPrincipalId,
       registeringOperatorPersonaId: caller.personaId,
