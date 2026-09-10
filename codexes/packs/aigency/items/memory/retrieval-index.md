@@ -5624,3 +5624,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c524acc.md](../build_/COMMITS/COMMIT-c524acc.md)
 - Message: Deploy Threshold persona recross state and agent discovery manifest
+
+## Commit `2029c53` — 2026-09-10T18:41:54-04:00
+- Type: `push`
+- Brief: [COMMIT-2029c53.md](../build_/COMMITS/COMMIT-2029c53.md)
+- Message: Expose canonical invariant registry through Threshold MCP

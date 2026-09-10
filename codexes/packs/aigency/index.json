@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-10T22:13:10.951Z",
+  "last_updated": "2026-09-10T22:43:57.333Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c524acc95684cf1193f720b4d6bc0ab838f4465a",
-  "latest_commit_short": "c524acc",
-  "latest_commit_title": "Deploy Threshold persona recross state and agent discovery manifest",
+  "latest_commit": "2029c53c21ce89314f787ed1c26221147fc1fe35",
+  "latest_commit_short": "2029c53",
+  "latest_commit_title": "Expose canonical invariant registry through Threshold MCP",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "2029c53",
+      "full_sha": "2029c53c21ce89314f787ed1c26221147fc1fe35",
+      "title": "Expose canonical invariant registry through Threshold MCP",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T18:41:54-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-2029c53.md"
+    },
     {
       "sha": "c524acc",
       "full_sha": "c524acc95684cf1193f720b4d6bc0ab838f4465a",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T18:03:59Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c36e5ed.md"
-    },
-    {
-      "sha": "506610b",
-      "full_sha": "506610b66020c4a8db2cf2df0f740307eb3ca347",
-      "title": "Close infra handoff, add MoneyPenny educational video (C-15/A3), fix Prepare empty-state gap",
-      "author": "Claude",
-      "timestamp": "2026-09-02T19:18:35Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-506610b.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
