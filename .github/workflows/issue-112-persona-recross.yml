@@ -10,6 +10,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: read
 
 jobs:
   implement:
@@ -22,34 +23,36 @@ jobs:
           ref: aigentz/issue-112-persona-recross
           fetch-depth: 0
 
+      - name: Verify Claude execution credential
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::ANTHROPIC_API_KEY is unavailable to this workflow"
+            exit 1
+          fi
+          echo "ANTHROPIC_API_KEY is available (value not printed)"
+
+      - name: Materialize Issue 112
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue view 112 --repo iQube-Protocol/AigentZBeta --json title,body > /tmp/issue112.json
+
       - name: Claude Code — implement Issue 112
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           show_full_output: true
           prompt: |
-            Implement GitHub Issue #112: "Threshold MCP: add bounded persona discovery + human-authorized persona re-crossing" on the CURRENT branch only.
+            Implement GitHub Issue #112 on the CURRENT branch only. Read /tmp/issue112.json for the complete title, requirements, invariants, acceptance tests, exclusions, and delivery requirements. Read CLAUDE.md and docs/platform-ontology.md FIRST and obey them exactly. Perform the mandatory resolution/invariant preflight before coding. Extend existing identity, Threshold, OAuth/PKCE, Constitutional Agreement, and iQube access sources of truth; never create parallel authority or inventory logic.
 
-            Read CLAUDE.md first and obey it exactly. Inspect the current dev-derived code before changing anything. Preserve all existing Constitutional Agreement, iqube.read, Registry/Persona access, and Party A repository-hash verification checks. Do not weaken protected boundaries. If CLAUDE.md marks a required file protected, do not modify it; implement everything legally possible and state the exact blocked item in the PR.
+            Preserve all existing Constitutional Agreement, iqube.read, Registry/Persona access, and Party A pinned repository hash-verification checks. Do not touch Party B/AutoDrive/upload transport, replace exchange artifacts, use raw SQL authority overrides, expose T0 identifiers, mutate principal_public_ref in place, union persona visibility, or carry old service agreements/admin scope into a new persona session.
 
-            Required MCP surface:
-            1. get_persona_state — authenticated/read-only. Return only T2/owner-safe fields: current principalPublicRef, safe active persona label/FIO, resolution status, safe agreement id/status, granted scope, and switchRequiresReauthorization:true. Never emit raw persona UUID, auth profile id, RootDID, keys, secrets, or service-private ids.
-            2. list_available_personas — authenticated/read-only. Reuse/refactor the SAME ownership/visibility policy used by /api/wallet/personas; no second inventory policy. Return personaPublicRef (T2), display name, own FIO where appropriate, app origin/status if useful, and isCurrent. Never raw T0 persona ids.
-            3. request_persona_switch — authenticated PREPARATION only. Input T2 personaPublicRef; reject raw UUID. Resolve only owner-visible/legitimate targets. Create a short-lived switch authorization request and return authorizeUrl. No mutation of current principal_public_ref and no silent switch.
-            4. Human browser approval must show source persona, target persona, connected agent, and requested capability scope. On approval, create a fresh target-persona-bound Constitutional Agreement/crossing session; use the normal authorization-code + PKCE flow where applicable; supersede/invalidate old session; never union two persona views.
-            5. Do not carry serviceAgreements or admin-only scope. Recompute target granted scope. content.asset.upload exists only if target independently qualifies.
+            Add the focused regression tests required by Issue #112 and run those tests plus appropriate type/build checks for every file touched. Report validation exactly; do not claim unrun tests.
 
-            Governing invariants: Personhood != Identity; Principal != Persona; Eligibility != Authority; Authority != Access; Access != Disclosure; persona switch is re-authorization, not pointer mutation; one live crossing session resolves to one persona; no persona visibility union; no carry-over of service agreements/admin scope.
-
-            Party A acceptance: after a valid re-crossing, intended persona can list/read the existing OCSGA Party A ContentQube through existing list_accessible_iqubes/read_accessible_iqube_text; pinned full-text SHA remains exactly 41fb47c6cd7c3022a0fc17046166f6b9a988d6d07a569c1fb2106ef6f5a60f35; unauthorized persona gets the existing nondisclosing not-found-or-not-authorized response; no T0 ids in MCP output. Party A artifact id is 4179ac57-5562-434b-91ed-80896665e5fb. Do NOT touch AutoDrive/Party B/upload transport/exchange replacement/raw SQL authority overrides.
-
-            Add focused regression tests proving: discovery leaks no raw UUID/RootDID/auth profile id; outside-inventory target rejected; switch request alone does not mutate session; approval creates fresh persona-bound agreement/session; old service agreements absent; old admin capability does not transfer to non-admin target; existing resolvePersonaIQubeAuthority owner-commitment test still passes; Party A repository hash verification still passes.
-
-            Run the focused tests plus type/build checks appropriate to every file touched. Report exactly what passed and any known baseline failures.
-
-            Before your final implementation commit, delete .github/workflows/issue-112-persona-recross.yml so the one-shot dispatcher itself is NOT part of the PR diff. Commit focused changes, push the CURRENT branch, and open a PR to dev. NEVER push directly to dev/main. NEVER merge or enable auto-merge.
+            Before the final implementation commit, delete .github/workflows/issue-112-persona-recross.yml so this one-shot dispatcher is absent from the PR diff. Commit focused changes, push the CURRENT branch, and open a PR to dev. NEVER push to dev/main, merge, or enable auto-merge.
           claude_args: |
             --max-turns 40
-            --allowedTools "Bash(git:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(npx:*),Bash(node:*),Bash(npm:*),Read,Write,Edit,Glob,Grep"
+            --allowedTools "Bash(git:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh issue view:*),Bash(npx:*),Bash(node:*),Bash(npm:*),Read,Write,Edit,Glob,Grep"
         env:
           GH_TOKEN: ${{ github.token }}
