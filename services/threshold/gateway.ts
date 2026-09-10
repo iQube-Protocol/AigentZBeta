@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 21569)
-Total output lines: 1447
-
 /**
  * gateway.ts — the metaMe Threshold Gateway catalogue + read-only dispatch
  * (PRD-THR-001 §8). This is the MCP surface the Threshold Companion (the user's
