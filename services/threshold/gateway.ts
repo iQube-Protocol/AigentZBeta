@@ -214,6 +214,52 @@ export function listTools() {
         additionalProperties: false,
       },
     },
+    {
+      name: 'list_invariants',
+      description: 'Browse the canonical public IRL invariant registry. Supports namespace, status, and domain filters plus bounded pagination over the published snapshot. Public + read-only; registry visibility does not imply access to restricted experimental evidence.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          namespace: { type: 'string', description: 'Optional canonical invariant namespace.' },
+          status: { type: 'string', description: 'Optional comma-separated invariant status filter.' },
+          domain: { type: 'string', description: 'Optional invariant-context domain.' },
+          offset: { type: 'number', minimum: 0 },
+          limit: { type: 'number', minimum: 1, maximum: 100 },
+        },
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'get_invariant',
+      description: 'Read one canonical public invariant by database id or stable seed id (for example inv.constitutional.018), including its status, version, provenance, Standing and Reach. Public + read-only.',
+      inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'], additionalProperties: false },
+    },
+    {
+      name: 'search_invariants',
+      description: 'Keyword-search canonical public invariant statements, optionally filtered by namespace/status, with bounded pagination. Reports searchMode:"keyword"; it is not semantic search. Public + read-only.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          query: { type: 'string' },
+          namespace: { type: 'string' },
+          status: { type: 'string' },
+          offset: { type: 'number', minimum: 0 },
+          limit: { type: 'number', minimum: 1, maximum: 100 },
+        },
+        required: ['query'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'list_invariants_for_experiment',
+      description: 'Resolve the governing invariant ids declared by a canonical IRL experiment and return their public registry records. This reports governance linkage, not access to the experiment payload. Public + read-only.',
+      inputSchema: { type: 'object', properties: { experimentId: { type: 'string' } }, required: ['experimentId'], additionalProperties: false },
+    },
+    {
+      name: 'get_invariant_lineage',
+      description: 'Return recorded supersession and the public enables/constrains/contradicts neighbourhood for one invariant. The response states its limited lineage scope and never presents this consequence graph as complete provenance. Public + read-only.',
+      inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'], additionalProperties: false },
+    },
     // ── Public knowledge & discovery layer (2026-09-03) — Qriptopian, IRL OS,
     // AgentiQ OS, Polity Core. Public + read-only; no crossing required. Grants
     // no execution authority and reveals no private/restricted content — every
@@ -721,6 +767,50 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
     if (!ctx.irl) return { ...text('The IRL results surface is unavailable on this gateway.'), isError: true };
     const experiment = typeof args.experiment === 'string' ? args.experiment.trim() : undefined;
     return text(await ctx.irl.readResults(experiment));
+  }
+
+  if (name === 'list_invariants') {
+    if (!ctx.irl) return { ...text('The IRL invariant registry is unavailable on this gateway.'), isError: true };
+    return text(await ctx.irl.listInvariants({
+      namespace: typeof args.namespace === 'string' ? args.namespace : undefined,
+      status: typeof args.status === 'string' ? args.status : undefined,
+      domain: typeof args.domain === 'string' ? args.domain : undefined,
+      offset: typeof args.offset === 'number' ? args.offset : undefined,
+      limit: typeof args.limit === 'number' ? args.limit : undefined,
+    }));
+  }
+
+  if (name === 'get_invariant') {
+    if (!ctx.irl) return { ...text('The IRL invariant registry is unavailable on this gateway.'), isError: true };
+    const id = typeof args.id === 'string' ? args.id.trim() : '';
+    if (!id) return { ...text('An invariant id is required.'), isError: true };
+    return text(await ctx.irl.getInvariant(id));
+  }
+
+  if (name === 'search_invariants') {
+    if (!ctx.irl) return { ...text('The IRL invariant registry is unavailable on this gateway.'), isError: true };
+    const query = typeof args.query === 'string' ? args.query.trim() : '';
+    if (!query) return { ...text('A search query is required.'), isError: true };
+    return text(await ctx.irl.searchInvariants(query, {
+      namespace: typeof args.namespace === 'string' ? args.namespace : undefined,
+      status: typeof args.status === 'string' ? args.status : undefined,
+      offset: typeof args.offset === 'number' ? args.offset : undefined,
+      limit: typeof args.limit === 'number' ? args.limit : undefined,
+    }));
+  }
+
+  if (name === 'list_invariants_for_experiment') {
+    if (!ctx.irl) return { ...text('The IRL invariant registry is unavailable on this gateway.'), isError: true };
+    const experimentId = typeof args.experimentId === 'string' ? args.experimentId.trim() : '';
+    if (!experimentId) return { ...text('An experiment id is required.'), isError: true };
+    return text(await ctx.irl.listInvariantsForExperiment(experimentId));
+  }
+
+  if (name === 'get_invariant_lineage') {
+    if (!ctx.irl) return { ...text('The IRL invariant registry is unavailable on this gateway.'), isError: true };
+    const id = typeof args.id === 'string' ? args.id.trim() : '';
+    if (!id) return { ...text('An invariant id is required.'), isError: true };
+    return text(await ctx.irl.getInvariantLineage(id));
   }
 
   if (name === 'inspect_threshold_link') {

@@ -672,6 +672,15 @@ export function makePublicKnowledgeAdapter(opts: { origin: string; irl?: IrlAdap
           cartridge: 'irl-os',
           capabilities: [
             {
+              name: 'Canonical invariant registry',
+              purpose: 'Browse, search, resolve experiment governance links, and inspect bounded public lineage without inferring restricted evidence access.',
+              owningCartridge: 'irl-os',
+              status: 'live',
+              mutating: false,
+              authorizationRequired: null,
+              invocation: 'list_invariants / get_invariant / search_invariants / list_invariants_for_experiment / get_invariant_lineage',
+            },
+            {
               name: 'IRL research overview',
               purpose: 'Public, persona-free summary of IRL research programme state.',
               owningCartridge: 'irl-os',

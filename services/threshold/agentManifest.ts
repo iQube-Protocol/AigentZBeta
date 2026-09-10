@@ -70,10 +70,10 @@ const components: DiscoveryDescriptor[] = [
   {
     id: 'irl-os', name: 'IRL OS and Invariant Registry', layer: 'research',
     description: 'Research methodology, experiments, evidence, and canonical invariant records. Public registry metadata is distinct from restricted experimental payloads.',
-    openness: ['public-registry', 'public-document', 'cohort-restricted', 'confidential-bilateral'], maturity: ['operational', 'experimental'], mcpExposure: 'preview',
+    openness: ['public-registry', 'public-document', 'cohort-restricted', 'confidential-bilateral'], maturity: ['operational', 'experimental'], mcpExposure: 'available-now',
     canonicalSources: [{ label: 'IRL public corpus', ref: 'list_public_documents(cartridge:"irl-os")', authority: 'experimental-evidence' }],
-    mcpRoutes: ['list_shared_documents', 'read_shared_document', 'explain_primitive'], accessRequirements: ['none for public evidence', 'service and resource entitlement for restricted material'],
-    implementationNote: 'Canonical invariant APIs exist natively; direct bulk MCP registry tools are planned and must adapt those APIs rather than duplicate them.',
+    mcpRoutes: ['list_invariants', 'get_invariant', 'search_invariants', 'list_invariants_for_experiment', 'get_invariant_lineage', 'list_shared_documents', 'read_shared_document', 'explain_primitive'], accessRequirements: ['none for public registry/evidence', 'service and resource entitlement for restricted material'],
+    implementationNote: 'The MCP invariant tools adapt the canonical native public registry APIs. Restricted experiment inputs and participant-level evidence remain outside this public projection.',
   },
   {
     id: 'qriptopian', name: 'Qriptopian', layer: 'public-knowledge',
