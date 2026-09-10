@@ -592,7 +592,154 @@ export function listPrompts() {
     },
     {
       name: 'constitutional_welcome',
-      description: 'Deliver the Constitutional Welcome the moment a crossing succeeds: congratulate the principal, tell them they are now a citizen of the Polity, offer the two orientation explanations (Constitutional Internet, citizenship + its limits), present the crossing receipt (service authority: none yet), and lead into the five journeys. Re…1569 tokens truncated…alreadyCrossed: info.onboarded,
+      description: 'Deliver the Constitutional Welcome the moment a crossing succeeds: congratulate the principal, tell them they are now a citizen of the Polity, offer the two orientation explanations (Constitutional Internet, citizenship + its limits), present the crossing receipt (service authority: none yet), and lead into the five journeys. Read metame://welcome for the canonical copy.',
+      arguments: [],
+    },
+    {
+      name: 'choose_your_journey',
+      description: 'After the Polity Passport is issued, help the principal choose one of the five constitutional journeys (Citizen, Entrepreneur, Researcher, Creative, Technical). Present each as a goal with its Sovereignty Ladder, and let the principal pick a purpose — the services follow from the journey.',
+      arguments: [],
+    },
+    {
+      name: 'explore_public_knowledge',
+      description: 'Help the principal explore the public knowledge layer (Qriptopian, IRL OS, AgentiQ OS, Polity Core) BEFORE any crossing — read metame://public-knowledge first, then use list_public_cartridges/list_public_documents/read_public_document/search_public_knowledge. Always state each document\'s own status (ratified/explanatory/proposed/etc.) rather than presenting commentary as binding law.',
+      arguments: [{ name: 'query', description: 'What the principal wants to learn about, if known.', required: false }],
+    },
+  ];
+}
+
+// ── Read-only dispatch ────────────────────────────────────────────────────────
+
+/** Tools that require the Constitutional Handshake (a valid scoped bearer). Until
+ *  the Companion has crossed via the OAuth flow, the MCP route answers a call to
+ *  one of these with an HTTP 401 + WWW-Authenticate challenge (the spec trigger
+ *  for the client to run the crossing); if the transport still reaches dispatch,
+ *  callTool returns an honest "handshake required". */
+export const HANDSHAKE_TOOLS = new Set([
+  'begin_handshake',
+  'authenticate_principal',
+  'get_crossing_status',
+  'get_persona_state',
+  'list_available_personas',
+  'request_persona_switch',
+  'get_navigator_state',
+  'list_accessible_iqubes',
+  'get_accessible_iqube',
+  'read_accessible_iqube_text',
+  'get_exchange_state',
+  'deposit_exchange_artifact',
+  'confirm_operator_assisted_artifact',
+  'fingerprint_exchange_artifact',
+  'declare_artifact_freeze',
+  'sign_exchange_instrument',
+  'establish_delegation',
+  'get_passport_status',
+  'create_or_link_agent_card',
+  'request_agent_passport',
+  'activate_agent_passport',
+  'propose_delegation',
+  'request_service_capabilities',
+  'get_companion_install',
+  'enter_service',
+  'accept_lab_invitation',
+  'list_shared_documents',
+  'read_shared_document',
+  'submit_review',
+  'send_qubetalk_message',
+  'upload_content_asset',
+]);
+
+/** Authenticated tools IMPLEMENTED in this increment. They are a subset of
+ *  HANDSHAKE_TOOLS (so the route still 401-challenges a bearer-less call); with a
+ *  valid session, callTool executes them instead of the "handshake required"
+ *  fallback. The remaining HANDSHAKE_TOOLS land in later increments. */
+const AUTHENTICATED_TOOLS = new Set([
+  'get_crossing_status',
+  'get_persona_state',
+  'list_available_personas',
+  'request_persona_switch',
+  'get_navigator_state',
+  'list_accessible_iqubes',
+  'get_accessible_iqube',
+  'read_accessible_iqube_text',
+  'get_exchange_state',
+  'deposit_exchange_artifact',
+  'confirm_operator_assisted_artifact',
+  'fingerprint_exchange_artifact',
+  'declare_artifact_freeze',
+  'sign_exchange_instrument',
+  'establish_delegation',
+  'request_service_capabilities',
+  'propose_delegation',
+  'get_companion_install',
+  'list_shared_documents',
+  'read_shared_document',
+  'submit_review',
+  'upload_content_asset',
+]);
+
+function text(value: unknown) {
+  return {
+    content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) }],
+  };
+}
+
+function handshakeRequired() {
+  return {
+    ...text(
+      'This action requires the Constitutional Handshake — a scoped session your principal grants by crossing the Threshold. ' +
+        'Discover the crossing at /.well-known/oauth-protected-resource and run the OAuth authorization-code flow: your principal ' +
+        'signs in and authorizes a bounded delegation in the browser, then you present the resulting bearer here. Only the human authorizes.',
+    ),
+    isError: true,
+  };
+}
+
+export async function callTool(name: string, args: Record<string, unknown>, ctx: GatewayContext) {
+  if (name === 'list_journeys') {
+    return text(journeyRegistrySnapshot());
+  }
+
+  if (name === 'list_services') {
+    return text(serviceRegistrySnapshot());
+  }
+
+  if (name === 'explain_primitive') {
+    const term = typeof args.term === 'string' ? args.term.trim() : '';
+    if (!term) return { ...text('A term to define is required (e.g. "standing", "delegation", "Polity Passport").'), isError: true };
+    if (!ctx.irl) return { ...text('The constitutional canon is unavailable on this gateway.'), isError: true };
+    return text(await ctx.irl.definePrimitive(term));
+  }
+
+  if (name === 'read_experiment_results') {
+    if (!ctx.irl) return { ...text('The IRL results surface is unavailable on this gateway.'), isError: true };
+    const experiment = typeof args.experiment === 'string' ? args.experiment.trim() : undefined;
+    return text(await ctx.irl.readResults(experiment));
+  }
+
+  if (name === 'inspect_threshold_link') {
+    const code = typeof args.code === 'string' ? args.code.trim() : '';
+    if (!code) return { ...text('A Threshold Link code is required.'), isError: true };
+    if (!ctx.resolveInvitation) return { ...text('Invitation resolution is unavailable on this gateway.'), isError: true };
+    const info = await ctx.resolveInvitation(code);
+    if (!info) return { ...text('That Threshold Link was not found or has expired.'), isError: true };
+    const manifest: ThresholdLinkManifest = buildThresholdLink({
+      invitationId: info.invitationId,
+      initiatingService: info.initiatingService,
+      institution: info.institution,
+      requestedRole: info.requestedRole,
+      requestedCapabilities: info.requestedCapabilities,
+      gatewayUrl: ctx.gatewayUrl,
+      expiresAt: info.expiresAt ?? null,
+    });
+    return text({
+      crossing: {
+        institution: info.institution ?? null,
+        initiatingService: info.initiatingService,
+        requestedRole: info.requestedRole,
+        requestedCapabilities: info.requestedCapabilities,
+        status: info.status,
+        alreadyCrossed: info.onboarded,
       },
       constitutionalBoundary:
         'You (the agent) may inspect, prepare, and explain. Establishing personhood, claiming the invitation, and authorizing delegation are HUMAN constitutional acts performed by the signed-in principal.',
