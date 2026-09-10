@@ -1,8 +1,8 @@
 # Accelerator Use Case Zero
 ## Constitutional Risk — Confidential Programmable Underwriting for Agentic Financial Services
 
-**Version:** 0.2  
-**Date:** 9 September 2026  
+**Version:** 0.3
+**Date:** 10 September 2026
 **Status:** Accelerator build specification; bounded MVP  
 **Primary runtime:** MoneyPenny  
 **Confidential substrate:** Vela  
@@ -264,3 +264,15 @@ For split amounts use integer arithmetic: floor each proportional share, then al
 Suggested six-week sequencing, conditional on actual accelerator access: weeks 1–2 reconcile types, establish synthetic fixtures and admission/mandate gates; weeks 3–4 implement allocation and privacy paths with local deterministic kernel; week 5 integrate supported Vela evidence and state lifecycle; week 6 demonstrate failure/settlement/calibration and document unresolved hardware/partner dependencies. Local completion is not hardware completion.
 
 Baseline additions are participant records, one participation schedule, risk bindings and recipient receipts. Reuse the existing runtime and kernel. Bankr, live capital, new custody, portfolio optimization, tranching and real insurance capacity are not delivery dependencies.
+
+## 17. Vela team-confirmed implementation correction — 10 September 2026
+
+The Vela-team baseline removes three earlier uncertainties:
+
+1. **Multi-app and multi-user are viable now.** One shared Vela instance may host multiple isolated applications, and one MoneyPenny application may be invoked by multiple Ethereum-addressed agents.
+2. **Attestation is environment trust, not per-request semantic proof.** Use Case Zero must bind its application/request/state-transition evidence to the registered trusted Vela environment rather than presenting a fresh Nitro proof for each risk verdict.
+3. **Application upgrades are redeployments today.** The showcase must freeze and record the exact `applicationId` and WASM SHA-256 used for every consequential risk or coverage result; a new WASM means a new application ID and fresh private state.
+
+Use Case Zero should therefore target one managed shared-testnet MoneyPenny kernel serving multiple agents, with strict in-application logical isolation, encrypted recipient events, asset-neutral settlement inputs, and receipts that separately record Vela Environment Trust Evidence and Application Execution Evidence.
+
+MoneyPenny/Factor agents should derive their P-521 communication identity from their existing Ethereum signer where supported. Neither Ethereum nor P-521 key possession establishes constitutional authority: Passport/delegation establishes authority, and the frozen mandate establishes permission for the exact act.

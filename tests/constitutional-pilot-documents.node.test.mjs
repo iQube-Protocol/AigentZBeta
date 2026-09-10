@@ -27,16 +27,16 @@ test('anonymous and non-admin cannot read pilot content even with admin query fl
     assert.equal(r.reads(),0);
   }
 });
-test('admin reads all 13 canonical documents; traversal is rejected before disk read', async () => {
+test('admin reads all 16 canonical documents; traversal is rejected before disk read', async () => {
   const r = await reader({cartridgeFlags:{isAdmin:true}});
-  assert.equal((await r.get('bundle=constitutional-pilot')).body.total,13);
+  assert.equal((await r.get('bundle=constitutional-pilot')).body.total,16);
   for (const entry of catalog) {
     const result = await r.get('path=' + encodeURIComponent(entry.path));
     assert.equal(result.status,200);
     assert.equal(result.body.content,await fs.readFile(entry.path,'utf8'));
   }
   assert.equal((await r.get('path=' + encodeURIComponent(root+'/../../../../.env'))).status,404);
-  assert.equal(r.reads(),13);
+  assert.equal(r.reads(),16);
 });
 test('both admin projections and deploy tracing cover the canonical source', async () => {
   const config = await fs.readFile('data/codex-configs.ts','utf8');
@@ -46,5 +46,5 @@ test('both admin projections and deploy tracing cover the canonical source', asy
   const next = await fs.readFile('next.config.js','utf8');
   assert.ok(next.includes('./'+root+'/*.{md,json}'));
   assert.ok(catalog.filter(d=>d.development).some(d=>d.path.includes('09_CLAUDE')));
-  assert.equal(catalog.length,13);
+  assert.equal(catalog.length,16);
 });

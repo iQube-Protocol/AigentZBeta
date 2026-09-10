@@ -1,6 +1,6 @@
 # Constitutional Financial Services / Vela Accelerator Package
 
-**Date:** 9 September 2026  
+**Date:** 10 September 2026
 **Status:** Working architecture and research package; candidate invariants and research constructs are unratified unless explicitly marked otherwise.  
 **Primary system:** metaMe / AgentiQ / MoneyPenny / Invariant Research Lab  
 **Accelerator context:** Horizen × Crecimiento / Vela
@@ -23,13 +23,18 @@ It is intentionally split into:
 | `01_CONSTITUTIONAL_YIELD_AND_RISK_THESIS_v0.2.md` | Extends the Golden Cycle with Constitutional Yield, Constitutional Risk, price, time and Invariant Intelligence. |
 | `02_CONSTITUTIONAL_RISK_CANDIDATE_INVARIANTS_v0.1.md` | Candidate invariants uncovered in the current risk/yield work. |
 | `03_MONEYPENNY_DISCLOSURE_AND_RISK_ARCHITECTURE_v0.1.md` | Three-tier disclosure architecture, risk localization and system-role boundaries. |
-| `04_VELA_MASTERCLASS_ARCHITECTURE_DELTA_v0.1.md` | Exact architecture refinements implied by the 8 Sep Vela masterclass. |
+| `04_VELA_MASTERCLASS_ARCHITECTURE_DELTA_v0.2.md` | Exact architecture refinements implied by the 8 Sep Vela masterclass and Vela-team answers. |
 | `05_ACCELERATOR_USE_CASE_ZERO_SPEC_v0.1.md` | Bounded accelerator showcase: confidential programmable underwriting / constitutional risk. |
 | `06_EXP_P1_P4_ALIGNMENT_EXTENSION_v0.1.md` | Preserves the frozen P1–P3 programme while adding this bounded financial-services research use case. |
 | `07_CONSTITUTIONAL_RISK_MARKETS_VENTURE_INCUBATION_v0.1.md` | Venture Studio incubation thesis for transaction-native micro-underwriting. |
-| `08_VELA_OFFICE_HOURS_QUESTIONS_2026-09-09.md` | Questions to resolve with Vela technical leads. |
-| `09_CLAUDE_IMPLEMENTATION_HANDOFF.md` | Implementation brief for Claude; minimal, evidence-based, no speculative Vela behavior. |
+| `08_VELA_OFFICE_HOURS_QUESTIONS_2026-09-11.md` | Remaining implementation-level questions for Vela technical leads. |
+| `09_CLAUDE_IMPLEMENTATION_HANDOFF_v0.2.md` | Implementation brief for Claude, corrected against the Vela-team baseline. |
 | `10_constitutional-risk-envelope.schema.v0.1.json` | Proposed machine-readable implementation schema; not canonical until reconciled with existing repo types. |
+| `11_COMPLIANCE_ENFORCEMENT_AUTHORITY_MANDATE_CONTROL_v0.1.md` | Compliance-enforcement application of authority, mandate and live execution control. |
+| `11_VELA_TEAM_CONFIRMED_BASELINE_v0.1.md` | Team-confirmed technical baseline: attestation, multi-app, upgrades, key derivation, recovery, assets and shared testnet. |
+| `12_VELA_SOURCE_REGISTER_2026-09-10.md` | Compact register distinguishing team-confirmed, repository-observed and proposed behavior. |
+| `MANIFEST.json` | Machine-readable package inventory and integrity metadata. |
+| `SHA256SUMS.md` | Human-readable SHA-256 inventory for the current package. |
 
 ## Canonical boundary
 
@@ -83,6 +88,24 @@ The proposed schema is a semantic design aid, not a replacement for canonical ty
 
 ## Compliance enforcement extension — 9 September 2026
 
-The package now contains 13 artifacts, including [Compliance enforcement through authority, mandate and control](11_COMPLIANCE_ENFORCEMENT_AUTHORITY_MANDATE_CONTROL_v0.1.md). This applies the existing operating model to every party, including MetaProof; it maps current enforcement seams and the proposed activity-specific regulatory checks. It is a demonstration specification, not a certification of legal compliance.
+Revision 0.4 contained 13 artifacts, including [Compliance enforcement through authority, mandate and control](11_COMPLIANCE_ENFORCEMENT_AUTHORITY_MANDATE_CONTROL_v0.1.md). This applies the existing operating model to every party, including MetaProof; it maps current enforcement seams and the proposed activity-specific regulatory checks. It is a demonstration specification, not a certification of legal compliance.
 
 Control clarification: control is the live execution-perimeter filter applying authority and mandate to current conditions. See document 11, revision 0.2. Ownership and supervision remain supporting responsibilities.
+
+## Vela team-confirmed correction — 10 September 2026
+
+Direct Vela-team responses materially sharpen the implementation model:
+
+- the current repositories, rather than lagging documentation, are Vela's implementation source of truth;
+- the current Vela code supports multiple isolated applications, multiple Ethereum-addressed callers of one application and ETH/ERC-20 request paths;
+- accelerator testnet infrastructure is shared and managed by Vela Engineering, without direct participant terminal access;
+- Nitro attestation establishes the approved environment and registered TEE signing identity; it is not a fresh semantic proof for every MoneyPenny request;
+- application execution evidence is subsequently carried by TEE-signed requests and state transitions;
+- new WASM currently means a new `applicationId` and fresh private state;
+- a P-521 communication identity can be derived deterministically from an existing Ethereum signer, while custody still does not confer constitutional authority;
+- AWS KMS recovery remains a present infrastructure-risk input; multi-TEE recovery remains future/proposed;
+- practical WASM/state limits remain unresolved.
+
+The implementation must therefore separate Environment Trust Evidence from Application Execution Evidence, bind every consequential receipt to `applicationId ↔ WASM SHA-256 ↔ MoneyPenny kernel version ↔ invariant/policy version`, and preserve the distinction between Vela per-application isolation and MoneyPenny's own intra-application party isolation.
+
+This correction extends the 9 September portfolio, compliance and repository-reconciliation work. It does not regress or replace those materials, claim that the proposed implementation is deployed, or promote candidate invariants into canonical status.

@@ -1,74 +1,28 @@
 {
-  "package": "constitutional_financial_services_accelerator_package_2026-09-08",
-  "revision": "0.4",
+  "package": "constitutional_financial_services_accelerator_package_2026-09-10",
+  "revision": "0.5",
   "created": "2026-09-08",
-  "updated": "2026-09-09",
+  "updated": "2026-09-10",
   "status": "WORKING_UNRATIFIED_PUBLICATION_AUTHORIZED",
-  "revisionSummary": "Adds compliance-enforcement application of authority, mandate and control; 13 artifacts.",
+  "revisionSummary": "Adds the Vela team-confirmed baseline, corrected attestation and execution-evidence model, updated Claude handoff and remaining office-hours questions while preserving the 9 September portfolio and compliance extensions.",
   "schemaRevision": "0.2",
-  "filenamePolicy": "Original filenames retained; internal versions authoritative.",
+  "filenamePolicy": "Historical filenames retained where they contain later internal revisions; superseded Vela-specific handoff and question filenames replaced by dated/versioned successors.",
   "files": [
-    {
-      "file": "01_CONSTITUTIONAL_YIELD_AND_RISK_THESIS_v0.2.md",
-      "sha256": "229e1039489cd1629538256db0e102ba62cccd20e3f559fbc7b0405b61905ab6",
-      "bytes": 9892
-    },
-    {
-      "file": "02_CONSTITUTIONAL_RISK_CANDIDATE_INVARIANTS_v0.1.md",
-      "sha256": "7b6fcd2e03543cefa94b4d07133b8ecf9a1e79868770aa4e7e700cb13a9c8c7e",
-      "bytes": 6734
-    },
-    {
-      "file": "03_MONEYPENNY_DISCLOSURE_AND_RISK_ARCHITECTURE_v0.1.md",
-      "sha256": "be58a3a06674d70611537be5735361e4d1a4ff8a582fa9e9fc475de9b04d67af",
-      "bytes": 12515
-    },
-    {
-      "file": "04_VELA_MASTERCLASS_ARCHITECTURE_DELTA_v0.1.md",
-      "sha256": "a60ee4de2eb484fa5f6ab3a583bb2003447838abdf2ebe5105542827529d2f54",
-      "bytes": 10892
-    },
-    {
-      "file": "05_ACCELERATOR_USE_CASE_ZERO_SPEC_v0.1.md",
-      "sha256": "f2e800610c8805e7cf6a7bfbf9844a420d16e551067860994858123e066f1b7c",
-      "bytes": 12015
-    },
-    {
-      "file": "06_EXP_P1_P4_ALIGNMENT_EXTENSION_v0.1.md",
-      "sha256": "c2aac21931790cf2da5a29c2449878280763b4ebd8822bd70b9428bb6db13386",
-      "bytes": 7496
-    },
-    {
-      "file": "07_CONSTITUTIONAL_RISK_MARKETS_VENTURE_INCUBATION_v0.1.md",
-      "sha256": "85165f1164b08b5eaf159b5770ca408874041540743bf74a760f9d64d2ca7090",
-      "bytes": 5198
-    },
-    {
-      "file": "08_VELA_OFFICE_HOURS_QUESTIONS_2026-09-09.md",
-      "sha256": "8836967b9153888308d8ade27c499065edff8fcd45c959ace4254114fb891d76",
-      "bytes": 10248
-    },
-    {
-      "file": "09_CLAUDE_IMPLEMENTATION_HANDOFF.md",
-      "sha256": "dba7030932a31ea385a579fea71a601f83ef5a35be2a8f98f710093e99226b38",
-      "bytes": 14069
-    },
-    {
-      "file": "10_constitutional-risk-envelope.schema.v0.1.json",
-      "sha256": "fbaefc22f687fcac86c09c457bbaf650c7634cb2c01cc7fe359cadc5dcfa5e99",
-      "bytes": 23187
-    },
-    {
-      "file": "11_COMPLIANCE_ENFORCEMENT_AUTHORITY_MANDATE_CONTROL_v0.1.md",
-      "sha256": "3a4a880f9ce50ddd6143b24d29011eb36875e1a2a41db335ad32b9d020cc9d16",
-      "bytes": 16853
-    },
-    {
-      "file": "README.md",
-      "sha256": "5ddbf6b34ecb69290f9ba7fc9dfd3b52f4ee446de9df616af95ff8d2be36ba4d",
-      "bytes": 7890
-    }
+    {"file": "01_CONSTITUTIONAL_YIELD_AND_RISK_THESIS_v0.2.md", "sha256": "229e1039489cd1629538256db0e102ba62cccd20e3f559fbc7b0405b61905ab6", "bytes": 9892},
+    {"file": "02_CONSTITUTIONAL_RISK_CANDIDATE_INVARIANTS_v0.1.md", "sha256": "7b6fcd2e03543cefa94b4d07133b8ecf9a1e79868770aa4e7e700cb13a9c8c7e", "bytes": 6734},
+    {"file": "03_MONEYPENNY_DISCLOSURE_AND_RISK_ARCHITECTURE_v0.1.md", "sha256": "be58a3a06674d70611537be5735361e4d1a4ff8a582fa9e9fc475de9b04d67af", "bytes": 12515},
+    {"file": "04_VELA_MASTERCLASS_ARCHITECTURE_DELTA_v0.2.md", "sha256": "5b76f41f7b46d3f5dd69f97dcaba77d9438b848d7dfd05b8da5f26563ba94a32", "bytes": 7124},
+    {"file": "05_ACCELERATOR_USE_CASE_ZERO_SPEC_v0.1.md", "sha256": "2887bd6937afbf4b5d5c87ac332d8f445283c47e3b46192a3390baec6006a9d4", "bytes": 13490},
+    {"file": "06_EXP_P1_P4_ALIGNMENT_EXTENSION_v0.1.md", "sha256": "c2aac21931790cf2da5a29c2449878280763b4ebd8822bd70b9428bb6db13386", "bytes": 7496},
+    {"file": "07_CONSTITUTIONAL_RISK_MARKETS_VENTURE_INCUBATION_v0.1.md", "sha256": "85165f1164b08b5eaf159b5770ca408874041540743bf74a760f9d64d2ca7090", "bytes": 5198},
+    {"file": "08_VELA_OFFICE_HOURS_QUESTIONS_2026-09-11.md", "sha256": "deccc3bd8783dd8e647838f513f2d251dc140d8180ac148755567bd8cbb617ac", "bytes": 5208},
+    {"file": "09_CLAUDE_IMPLEMENTATION_HANDOFF_v0.2.md", "sha256": "b0c88eaac15e342bed0f2b7837fda398571ffd2024745b90719c5c96d93dadb3", "bytes": 11398},
+    {"file": "10_constitutional-risk-envelope.schema.v0.1.json", "sha256": "fbaefc22f687fcac86c09c457bbaf650c7634cb2c01cc7fe359cadc5dcfa5e99", "bytes": 23187},
+    {"file": "11_COMPLIANCE_ENFORCEMENT_AUTHORITY_MANDATE_CONTROL_v0.1.md", "sha256": "3a4a880f9ce50ddd6143b24d29011eb36875e1a2a41db335ad32b9d020cc9d16", "bytes": 16853},
+    {"file": "11_VELA_TEAM_CONFIRMED_BASELINE_v0.1.md", "sha256": "3426b34f46dd1b3bcb6b830289aec66c362e6132d9dfdc9c29bcf70114244b8c", "bytes": 7913},
+    {"file": "12_VELA_SOURCE_REGISTER_2026-09-10.md", "sha256": "962188e83ddc823acdab331f3fe68db7f7f394daddc3829ad52f46cfeb4461df", "bytes": 955},
+    {"file": "README.md", "sha256": "cb425659b77d8dbfe2982658cc9966425d85300d364e427ecffc48a9ca9e343f", "bytes": 10320}
   ],
-  "publicationAuthorization": "Operator authorized public AigentZBeta repository publication on 2026-09-09",
-  "repositoryBaseline": "d12f55b54"
+  "publicationAuthorization": "Operator authorized public AigentZBeta repository publication on 2026-09-09 and requested the 2026-09-10 Vela bundle commit on 2026-09-10.",
+  "repositoryBaseline": "68f1bed960eb27ddae607ab3325cc2bd63a9d53e"
 }

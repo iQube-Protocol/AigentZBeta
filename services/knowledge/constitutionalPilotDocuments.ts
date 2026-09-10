@@ -26,7 +26,7 @@ export const CONSTITUTIONAL_PILOT_DOCUMENTS = [
   },
   {
     "id": "cfs-3",
-    "path": "docs/vela/accelerator/constitutional-financial-services/04_VELA_MASTERCLASS_ARCHITECTURE_DELTA_v0.1.md",
+    "path": "docs/vela/accelerator/constitutional-financial-services/04_VELA_MASTERCLASS_ARCHITECTURE_DELTA_v0.2.md",
     "label": "Vela architecture delta",
     "group": "prd",
     "order": 3,
@@ -58,7 +58,7 @@ export const CONSTITUTIONAL_PILOT_DOCUMENTS = [
   },
   {
     "id": "cfs-7",
-    "path": "docs/vela/accelerator/constitutional-financial-services/08_VELA_OFFICE_HOURS_QUESTIONS_2026-09-09.md",
+    "path": "docs/vela/accelerator/constitutional-financial-services/08_VELA_OFFICE_HOURS_QUESTIONS_2026-09-11.md",
     "label": "Vela office-hours questions",
     "group": "prd",
     "order": 7,
@@ -66,7 +66,7 @@ export const CONSTITUTIONAL_PILOT_DOCUMENTS = [
   },
   {
     "id": "cfs-8",
-    "path": "docs/vela/accelerator/constitutional-financial-services/09_CLAUDE_IMPLEMENTATION_HANDOFF.md",
+    "path": "docs/vela/accelerator/constitutional-financial-services/09_CLAUDE_IMPLEMENTATION_HANDOFF_v0.2.md",
     "label": "Claude implementation handoff",
     "group": "prd",
     "order": 8,
@@ -90,18 +90,42 @@ export const CONSTITUTIONAL_PILOT_DOCUMENTS = [
   },
   {
     "id": "cfs-11",
-    "path": "docs/vela/accelerator/constitutional-financial-services/MANIFEST.json",
-    "label": "Manifest",
+    "path": "docs/vela/accelerator/constitutional-financial-services/11_VELA_TEAM_CONFIRMED_BASELINE_v0.1.md",
+    "label": "Vela team-confirmed baseline",
     "group": "prd",
     "order": 11,
     "development": true
   },
   {
     "id": "cfs-12",
+    "path": "docs/vela/accelerator/constitutional-financial-services/12_VELA_SOURCE_REGISTER_2026-09-10.md",
+    "label": "Vela source register",
+    "group": "prd",
+    "order": 12,
+    "development": true
+  },
+  {
+    "id": "cfs-13",
+    "path": "docs/vela/accelerator/constitutional-financial-services/MANIFEST.json",
+    "label": "Manifest",
+    "group": "prd",
+    "order": 13,
+    "development": true
+  },
+  {
+    "id": "cfs-14",
+    "path": "docs/vela/accelerator/constitutional-financial-services/SHA256SUMS.md",
+    "label": "SHA-256 manifest",
+    "group": "prd",
+    "order": 14,
+    "development": true
+  },
+  {
+    "id": "cfs-15",
     "path": "docs/vela/accelerator/constitutional-financial-services/README.md",
     "label": "Package overview",
     "group": "prd",
-    "order": 12,
+    "order": 15,
     "development": true
   }
 ] as const;
