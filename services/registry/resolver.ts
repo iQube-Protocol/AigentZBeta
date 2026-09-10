@@ -414,6 +414,47 @@ async function callerCanReadViaSpine(
       const { canReadExperimentIQube } = await import('@/services/research/experimentIQubeAccess');
       return canReadExperimentIQube(persona, experimentId);
     }
+    if (record.source_system === 'reciprocal_exchange') {
+      const [{ getExchangeView }, { getSupabaseServer }] = await Promise.all([
+        import('@/services/research/reciprocalExchange'),
+        import('@/app/api/_lib/supabaseServer'),
+      ]);
+      const admin = getSupabaseServer();
+      if (!admin) return undefined;
+      const view = await getExchangeView(admin, {
+        exchangeId: record.source_resource_id ?? record.iqube_id,
+        personaId: persona.personaId,
+      });
+      return view.ok;
+    }
+
+    if (record.source_system === 'exchange_artifact') {
+      const [{ getExchangeView }, { explainReciprocalExchangeArtifactAccess }, { getSupabaseServer }] = await Promise.all([
+        import('@/services/research/reciprocalExchange'),
+        import('@/services/access/accessSteward'),
+        import('@/app/api/_lib/supabaseServer'),
+      ]);
+      const admin = getSupabaseServer();
+      if (!admin) return undefined;
+      const { data: artifact, error } = await admin
+        .from('exchange_artifacts')
+        .select('exchange_id')
+        .eq('id', record.source_resource_id ?? record.iqube_id)
+        .maybeSingle();
+      if (error || !artifact?.exchange_id) return undefined;
+      const view = await getExchangeView(admin, {
+        exchangeId: String(artifact.exchange_id),
+        personaId: persona.personaId,
+      });
+      if (!view.ok) return false;
+      if (view.view.yourArtifact?.id === record.source_resource_id) return true;
+      const decision = await explainReciprocalExchangeArtifactAccess(admin, {
+        exchangeId: String(artifact.exchange_id),
+        requestingPersonaId: persona.personaId,
+      });
+      return decision.decision === 'ALLOW'
+        && decision.scope.resourceId === record.source_resource_id;
+    }
     const { previewAccess } = await import('@/services/access/evaluateAccess');
     const credential = record.required_credentials?.[0]
       ?? (record.cartridge_bindings[0] ? `member:${record.cartridge_bindings[0]}` : undefined);

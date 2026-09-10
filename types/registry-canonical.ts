@@ -581,7 +581,9 @@ export type IQubeIdMapSource =
   | 'research_experiment'
   | 'research_document'
   | 'research_object'
-  | 'experiment_result';
+  | 'experiment_result'
+  | 'reciprocal_exchange'
+  | 'exchange_artifact';
 
 export interface IQubeIdMapEntry {
   iqube_id: string;
