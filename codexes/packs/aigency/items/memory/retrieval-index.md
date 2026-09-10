@@ -5614,3 +5614,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-f7a451b.md](../build_/COMMITS/COMMIT-f7a451b.md)
 - Message: fix: remove accidental gateway tool-output preamble
+
+## Commit `d8e74aa` — 2026-09-10T13:59:52-04:00
+- Type: `fix`
+- Brief: [COMMIT-d8e74aa.md](../build_/COMMITS/COMMIT-d8e74aa.md)
+- Message: fix: restore threshold gateway and navigator database context

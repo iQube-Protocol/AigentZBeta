@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-10T17:37:52.586Z",
+  "last_updated": "2026-09-10T18:01:55.868Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f7a451bd40b77193bebd9fd8807d02d2d74ef3e7",
-  "latest_commit_short": "f7a451b",
-  "latest_commit_title": "fix: remove accidental gateway tool-output preamble",
+  "latest_commit": "d8e74aa37fa5325a626144276a0ebd52a52f33d9",
+  "latest_commit_short": "d8e74aa",
+  "latest_commit_title": "fix: restore threshold gateway and navigator database context",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d8e74aa",
+      "full_sha": "d8e74aa37fa5325a626144276a0ebd52a52f33d9",
+      "title": "fix: restore threshold gateway and navigator database context",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T13:59:52-04:00",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-d8e74aa.md"
+    },
     {
       "sha": "f7a451b",
       "full_sha": "f7a451bd40b77193bebd9fd8807d02d2d74ef3e7",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T23:27:25Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-c377577.md"
-    },
-    {
-      "sha": "bfb5733",
-      "full_sha": "bfb5733e2503d7de0df3ae97675b880982dab44f",
-      "title": "Fix MoneyPenny reader honesty: distinct 503s replace false not-published",
-      "author": "Claude",
-      "timestamp": "2026-09-02T23:56:20Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-bfb5733.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
