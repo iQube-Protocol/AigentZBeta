@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-10T22:43:57.333Z",
+  "last_updated": "2026-09-10T23:56:23.214Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "2029c53c21ce89314f787ed1c26221147fc1fe35",
-  "latest_commit_short": "2029c53",
-  "latest_commit_title": "Expose canonical invariant registry through Threshold MCP",
+  "latest_commit": "4bc676872be452de677b2c99e6d938604af025a3",
+  "latest_commit_short": "4bc6768",
+  "latest_commit_title": "ci: validate Threshold MCP changes",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,33 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "4bc6768",
+      "full_sha": "4bc676872be452de677b2c99e6d938604af025a3",
+      "title": "ci: validate Threshold MCP changes",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T19:34:40-04:00",
+      "type": "ci",
+      "brief": "items/build_/COMMITS/COMMIT-4bc6768.md"
+    },
+    {
+      "sha": "0b86c59",
+      "full_sha": "0b86c596ff633f79884174875beb8bc363ce5cf5",
+      "title": "feat(threshold): project canonical public cartridge content",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T19:45:43-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-0b86c59.md"
+    },
+    {
+      "sha": "6a7d8cc",
+      "full_sha": "6a7d8cc70156cd8e0759717e0d56a14c8dd2084b",
+      "title": "Expose canonical public cartridges and agent orientation through Threshold MCP",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T19:54:24-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-6a7d8cc.md"
+    },
     {
       "sha": "2029c53",
       "full_sha": "2029c53c21ce89314f787ed1c26221147fc1fe35",
@@ -1225,33 +1252,6 @@
       "timestamp": "2026-09-02T13:14:31Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-9308a08.md"
-    },
-    {
-      "sha": "d752499",
-      "full_sha": "d752499c2ea494268a8c644ef5174cbc56aa32ef",
-      "title": "Close SC-04 task/context versioning + complete C-01/C-03 MoneyPenny shell",
-      "author": "Claude",
-      "timestamp": "2026-09-02T13:36:33Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d752499.md"
-    },
-    {
-      "sha": "05a18b6",
-      "full_sha": "05a18b6d10ce29688d4ae8ac25f59431a968784c",
-      "title": "Harden SC-04, deliver full-screen HFT takeover, verify entry continuity",
-      "author": "Claude",
-      "timestamp": "2026-09-02T14:05:39Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-05a18b6.md"
-    },
-    {
-      "sha": "c36e5ed",
-      "full_sha": "c36e5ed7271cb71befe361ede98367601a3a2212",
-      "title": "Build Agent Me entry safely, rebuild B2 Prepare, close /moneypenny compat gap",
-      "author": "Claude",
-      "timestamp": "2026-09-02T18:03:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c36e5ed.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

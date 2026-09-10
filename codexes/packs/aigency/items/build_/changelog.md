@@ -1,4 +1,7 @@
 # Build — Changelog
+- [`4bc6768`](https://github.com/iQube-Protocol/AigentZBeta/commit/4bc676872be452de677b2c99e6d938604af025a3) [ci] ci: validate Threshold MCP changes (Kn0w1, 2026-09-10T19:34:40-04:00)
+- [`0b86c59`](https://github.com/iQube-Protocol/AigentZBeta/commit/0b86c596ff633f79884174875beb8bc363ce5cf5) [feat] feat(threshold): project canonical public cartridge content (Kn0w1, 2026-09-10T19:45:43-04:00)
+- [`6a7d8cc`](https://github.com/iQube-Protocol/AigentZBeta/commit/6a7d8cc70156cd8e0759717e0d56a14c8dd2084b) [push] Expose canonical public cartridges and agent orientation through Threshold MCP (Kn0w1, 2026-09-10T19:54:24-04:00)
 - [`2029c53`](https://github.com/iQube-Protocol/AigentZBeta/commit/2029c53c21ce89314f787ed1c26221147fc1fe35) [push] Expose canonical invariant registry through Threshold MCP (Kn0w1, 2026-09-10T18:41:54-04:00)
 - [`c524acc`](https://github.com/iQube-Protocol/AigentZBeta/commit/c524acc95684cf1193f720b4d6bc0ab838f4465a) [push] Deploy Threshold persona recross state and agent discovery manifest (Kn0w1, 2026-09-10T18:11:09-04:00)
 - [`d8e74aa`](https://github.com/iQube-Protocol/AigentZBeta/commit/d8e74aa37fa5325a626144276a0ebd52a52f33d9) [fix] fix: restore threshold gateway and navigator database context (Kn0w1, 2026-09-10T13:59:52-04:00)

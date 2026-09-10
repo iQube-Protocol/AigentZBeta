@@ -5629,3 +5629,18 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-2029c53.md](../build_/COMMITS/COMMIT-2029c53.md)
 - Message: Expose canonical invariant registry through Threshold MCP
+
+## Commit `6a7d8cc` — 2026-09-10T19:54:24-04:00
+- Type: `push`
+- Brief: [COMMIT-6a7d8cc.md](../build_/COMMITS/COMMIT-6a7d8cc.md)
+- Message: Expose canonical public cartridges and agent orientation through Threshold MCP
+
+## Commit `0b86c59` — 2026-09-10T19:45:43-04:00
+- Type: `feat`
+- Brief: [COMMIT-0b86c59.md](../build_/COMMITS/COMMIT-0b86c59.md)
+- Message: feat(threshold): project canonical public cartridge content
+
+## Commit `4bc6768` — 2026-09-10T19:34:40-04:00
+- Type: `ci`
+- Brief: [COMMIT-4bc6768.md](../build_/COMMITS/COMMIT-4bc6768.md)
+- Message: ci: validate Threshold MCP changes
