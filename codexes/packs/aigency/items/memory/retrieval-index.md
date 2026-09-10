@@ -5604,3 +5604,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-e0f7fde.md](../build_/COMMITS/COMMIT-e0f7fde.md)
 - Message: docs: align Vela pilot with team-confirmed baseline
+
+## Commit `93339dc` — 2026-09-10T09:12:08-04:00
+- Type: `feat`
+- Brief: [COMMIT-93339dc.md](../build_/COMMITS/COMMIT-93339dc.md)
+- Message: feat: add bounded persona re-crossing

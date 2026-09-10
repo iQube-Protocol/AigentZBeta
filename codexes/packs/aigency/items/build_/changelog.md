@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`93339dc`](https://github.com/iQube-Protocol/AigentZBeta/commit/93339dc239f8220ca9bcb24c03430efaa80b4db5) [feat] feat: add bounded persona re-crossing (Kn0w1, 2026-09-10T09:12:08-04:00)
 - [`e0f7fde`](https://github.com/iQube-Protocol/AigentZBeta/commit/e0f7fde76d56fc440e2a4bbd7f1104dce593c03a) [docs] docs: align Vela pilot with team-confirmed baseline (Kn0w1, 2026-09-10T08:39:06-04:00)
 - [`298b830`](https://github.com/iQube-Protocol/AigentZBeta/commit/298b830cce611f993fe1e55aedea9bab20d9a028) [chore] chore: retrigger dev deployment for OCSGA content recovery (Kn0w1, 2026-09-10T02:42:05-04:00)
 - [`194414c`](https://github.com/iQube-Protocol/AigentZBeta/commit/194414cdc48a0becd53bc9e98ebc1c9ed9ebaa4b) [feat] feat: constitute EXP-P1 and EXP-P2 as ClusterQubes (Kn0w1, 2026-09-09T20:18:53-04:00)

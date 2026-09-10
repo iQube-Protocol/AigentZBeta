@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-10T12:41:12.081Z",
+  "last_updated": "2026-09-10T13:13:58.402Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e0f7fde76d56fc440e2a4bbd7f1104dce593c03a",
-  "latest_commit_short": "e0f7fde",
-  "latest_commit_title": "docs: align Vela pilot with team-confirmed baseline",
+  "latest_commit": "93339dc239f8220ca9bcb24c03430efaa80b4db5",
+  "latest_commit_short": "93339dc",
+  "latest_commit_title": "feat: add bounded persona re-crossing",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "93339dc",
+      "full_sha": "93339dc239f8220ca9bcb24c03430efaa80b4db5",
+      "title": "feat: add bounded persona re-crossing",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T09:12:08-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-93339dc.md"
+    },
     {
       "sha": "e0f7fde",
       "full_sha": "e0f7fde76d56fc440e2a4bbd7f1104dce593c03a",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-03T00:20:09Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-95277c7.md"
-    },
-    {
-      "sha": "418a4f0",
-      "full_sha": "418a4f0181e3e3a7abd5776880d93d422ada9a16",
-      "title": "Correct MoneyPenny experience coherence: one nav row, restrained Home, role selector",
-      "author": "Claude",
-      "timestamp": "2026-09-03T02:28:58Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-418a4f0.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
