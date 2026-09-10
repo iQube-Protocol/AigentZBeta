@@ -48,6 +48,11 @@ import {
   decodeBase64Strict,
   assertDecodableImage,
 } from '@/services/threshold/uploadContentAsset';
+import {
+  getPersonaState,
+  listAvailablePersonas,
+  requestPersonaSwitch,
+} from '@/services/threshold/personaRecross';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -247,6 +252,13 @@ export async function POST(request: NextRequest) {
           const hs = await createUpgradeHandshake({ parentSessionId: session.id, service, requestedScope: missing });
           if (!hs) return null;
           return { authorizeUrl: `${origin}/threshold/enter-service#code=${encodeURIComponent(hs.handshakeCode)}` };
+        }
+      : undefined,
+    personaRecross: session
+      ? {
+          getState: () => getPersonaState(session),
+          listAvailable: () => listAvailablePersonas(session),
+          requestSwitch: (input) => requestPersonaSwitch(session, input, origin),
         }
       : undefined,
     resolveNavigatorState: session

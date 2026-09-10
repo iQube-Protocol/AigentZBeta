@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 21569)
+Total output lines: 1447
+
 /**
  * gateway.ts — the metaMe Threshold Gateway catalogue + read-only dispatch
  * (PRD-THR-001 §8). This is the MCP surface the Threshold Companion (the user's
@@ -89,6 +92,15 @@ export interface GatewayContext {
   /** Begin an incremental service crossing (session upgrade) — returns the human
    *  authorize URL. Injected by the route (creates the upgrade handshake). */
   beginServiceUpgrade?: (service: string, missingCapabilities: string[]) => Promise<{ authorizeUrl: string } | null>;
+  /** Owner-safe persona discovery and preparation of a fresh, human-authorized
+   * persona crossing. It can never mutate the current session directly. */
+  personaRecross?: {
+    getState: () => Promise<unknown>;
+    listAvailable: () => Promise<unknown[] | null>;
+    requestSwitch: (input: { personaPublicRef: string; codeChallenge: string; state?: string }) => Promise<
+      { ok: true; authorizeUrl: string; expiresAt: string } | { ok: false; error: string }
+    >;
+  };
   /** Build the Companion install brief (SPEC-MMC-003 §3.2) — the artifact
    *  reference, its integrity values, and the human steps. Injected by the
    *  route because it reads the checked-in extension source from disk; the
@@ -273,6 +285,34 @@ export function listTools() {
       description:
         'After the crossing, report the current session: whether it is active, the exact capability scope the principal authorized, and which services are now reachable vs still need more scope. Requires an authenticated session (present your bearer). Reveals only the T2 principal/agent references — never persona identifiers.',
       inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    },
+    {
+      name: 'get_persona_state',
+      description:
+        'Report the persona currently bound to this crossing, its owner-safe display/FIO projection, live agreement status, and current scope. Returns T2 references only. A persona change always requires a fresh human authorization.',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    },
+    {
+      name: 'list_available_personas',
+      description:
+        'List only personas visible under the same owner policy as the wallet persona switcher. Returns T2 Polity Public References and safe display metadata; never raw persona, auth-profile, tenant, wallet, key, or service-private identifiers.',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    },
+    {
+      name: 'request_persona_switch',
+      description:
+        'Prepare a short-lived persona re-crossing. This does not switch or mutate the current session. Pass a target T2 personaPublicRef and a fresh OAuth PKCE S256 code challenge; the returned browser URL requires explicit human approval and yields a fresh target-bound authorization code/bearer.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          personaPublicRef: { type: 'string', description: 'T2 Polity Public Reference from list_available_personas.' },
+          codeChallenge: { type: 'string', description: 'Fresh PKCE S256 code challenge (base64url).' },
+          codeChallengeMethod: { type: 'string', enum: ['S256'] },
+          state: { type: 'string', description: 'Optional OAuth state echoed to the registered redirect URI.' },
+        },
+        required: ['personaPublicRef', 'codeChallenge', 'codeChallengeMethod'],
+        additionalProperties: false,
+      },
     },
     {
       name: 'get_navigator_state',
@@ -555,148 +595,7 @@ export function listPrompts() {
     },
     {
       name: 'constitutional_welcome',
-      description: 'Deliver the Constitutional Welcome the moment a crossing succeeds: congratulate the principal, tell them they are now a citizen of the Polity, offer the two orientation explanations (Constitutional Internet, citizenship + its limits), present the crossing receipt (service authority: none yet), and lead into the five journeys. Read metame://welcome for the canonical copy.',
-      arguments: [],
-    },
-    {
-      name: 'choose_your_journey',
-      description: 'After the Polity Passport is issued, help the principal choose one of the five constitutional journeys (Citizen, Entrepreneur, Researcher, Creative, Technical). Present each as a goal with its Sovereignty Ladder, and let the principal pick a purpose — the services follow from the journey.',
-      arguments: [],
-    },
-    {
-      name: 'explore_public_knowledge',
-      description: 'Help the principal explore the public knowledge layer (Qriptopian, IRL OS, AgentiQ OS, Polity Core) BEFORE any crossing — read metame://public-knowledge first, then use list_public_cartridges/list_public_documents/read_public_document/search_public_knowledge. Always state each document\'s own status (ratified/explanatory/proposed/etc.) rather than presenting commentary as binding law.',
-      arguments: [{ name: 'query', description: 'What the principal wants to learn about, if known.', required: false }],
-    },
-  ];
-}
-
-// ── Read-only dispatch ────────────────────────────────────────────────────────
-
-/** Tools that require the Constitutional Handshake (a valid scoped bearer). Until
- *  the Companion has crossed via the OAuth flow, the MCP route answers a call to
- *  one of these with an HTTP 401 + WWW-Authenticate challenge (the spec trigger
- *  for the client to run the crossing); if the transport still reaches dispatch,
- *  callTool returns an honest "handshake required". */
-export const HANDSHAKE_TOOLS = new Set([
-  'begin_handshake',
-  'authenticate_principal',
-  'get_crossing_status',
-  'get_navigator_state',
-  'list_accessible_iqubes',
-  'get_accessible_iqube',
-  'read_accessible_iqube_text',
-  'get_exchange_state',
-  'deposit_exchange_artifact',
-  'confirm_operator_assisted_artifact',
-  'fingerprint_exchange_artifact',
-  'declare_artifact_freeze',
-  'sign_exchange_instrument',
-  'establish_delegation',
-  'get_passport_status',
-  'create_or_link_agent_card',
-  'request_agent_passport',
-  'activate_agent_passport',
-  'propose_delegation',
-  'request_service_capabilities',
-  'get_companion_install',
-  'enter_service',
-  'accept_lab_invitation',
-  'list_shared_documents',
-  'read_shared_document',
-  'submit_review',
-  'send_qubetalk_message',
-  'upload_content_asset',
-]);
-
-/** Authenticated tools IMPLEMENTED in this increment. They are a subset of
- *  HANDSHAKE_TOOLS (so the route still 401-challenges a bearer-less call); with a
- *  valid session, callTool executes them instead of the "handshake required"
- *  fallback. The remaining HANDSHAKE_TOOLS land in later increments. */
-const AUTHENTICATED_TOOLS = new Set([
-  'get_crossing_status',
-  'get_navigator_state',
-  'list_accessible_iqubes',
-  'get_accessible_iqube',
-  'read_accessible_iqube_text',
-  'get_exchange_state',
-  'deposit_exchange_artifact',
-  'confirm_operator_assisted_artifact',
-  'fingerprint_exchange_artifact',
-  'declare_artifact_freeze',
-  'sign_exchange_instrument',
-  'establish_delegation',
-  'request_service_capabilities',
-  'propose_delegation',
-  'get_companion_install',
-  'list_shared_documents',
-  'read_shared_document',
-  'submit_review',
-  'upload_content_asset',
-]);
-
-function text(value: unknown) {
-  return {
-    content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) }],
-  };
-}
-
-function handshakeRequired() {
-  return {
-    ...text(
-      'This action requires the Constitutional Handshake — a scoped session your principal grants by crossing the Threshold. ' +
-        'Discover the crossing at /.well-known/oauth-protected-resource and run the OAuth authorization-code flow: your principal ' +
-        'signs in and authorizes a bounded delegation in the browser, then you present the resulting bearer here. Only the human authorizes.',
-    ),
-    isError: true,
-  };
-}
-
-export async function callTool(name: string, args: Record<string, unknown>, ctx: GatewayContext) {
-  if (name === 'list_journeys') {
-    return text(journeyRegistrySnapshot());
-  }
-
-  if (name === 'list_services') {
-    return text(serviceRegistrySnapshot());
-  }
-
-  if (name === 'explain_primitive') {
-    const term = typeof args.term === 'string' ? args.term.trim() : '';
-    if (!term) return { ...text('A term to define is required (e.g. "standing", "delegation", "Polity Passport").'), isError: true };
-    if (!ctx.irl) return { ...text('The constitutional canon is unavailable on this gateway.'), isError: true };
-    return text(await ctx.irl.definePrimitive(term));
-  }
-
-  if (name === 'read_experiment_results') {
-    if (!ctx.irl) return { ...text('The IRL results surface is unavailable on this gateway.'), isError: true };
-    const experiment = typeof args.experiment === 'string' ? args.experiment.trim() : undefined;
-    return text(await ctx.irl.readResults(experiment));
-  }
-
-  if (name === 'inspect_threshold_link') {
-    const code = typeof args.code === 'string' ? args.code.trim() : '';
-    if (!code) return { ...text('A Threshold Link code is required.'), isError: true };
-    if (!ctx.resolveInvitation) return { ...text('Invitation resolution is unavailable on this gateway.'), isError: true };
-    const info = await ctx.resolveInvitation(code);
-    if (!info) return { ...text('That Threshold Link was not found or has expired.'), isError: true };
-    const manifest: ThresholdLinkManifest = buildThresholdLink({
-      invitationId: info.invitationId,
-      initiatingService: info.initiatingService,
-      institution: info.institution,
-      requestedRole: info.requestedRole,
-      requestedCapabilities: info.requestedCapabilities,
-      gatewayUrl: ctx.gatewayUrl,
-      expiresAt: info.expiresAt ?? null,
-    });
-    return text({
-      crossing: {
-        institution: info.institution ?? null,
-        initiatingService: info.initiatingService,
-        requestedRole: info.requestedRole,
-        requestedCapabilities: info.requestedCapabilities,
-        status: info.status,
-        alreadyCrossed: info.onboarded,
+      description: 'Deliver the Constitutional Welcome the moment a crossing succeeds: congratulate the principal, tell them they are now a citizen of the Polity, offer the two orientation explanations (Constitutional Internet, citizenship + its limits), present the crossing receipt (service authority: none yet), and lead into the five journeys. Re…1569 tokens truncated…alreadyCrossed: info.onboarded,
       },
       constitutionalBoundary:
         'You (the agent) may inspect, prepare, and explain. Establishing personhood, claiming the invitation, and authorizing delegation are HUMAN constitutional acts performed by the signed-in principal.',
@@ -807,6 +706,30 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
           'Eligible ≠ authorized. A service under `eligible` is discoverable and you may request entry, but your agent holds NO operational authority within it until an incremental crossing completes — call request_service_capabilities("<id>") and your principal authorizes in the browser. Only services under `authorized` can be operated now. (Journey eligibility is discovery; operational authority is a separate, human-authorized grant.)',
         expiresAt: s.expiresAt,
       });
+    }
+
+    if (name === 'get_persona_state') {
+      if (!ctx.personaRecross) return { ...text('Persona state is unavailable on this gateway.'), isError: true };
+      return text(await ctx.personaRecross.getState());
+    }
+
+    if (name === 'list_available_personas') {
+      if (!ctx.personaRecross) return { ...text('Persona discovery is unavailable on this gateway.'), isError: true };
+      const personas = await ctx.personaRecross.listAvailable();
+      if (!personas) return { ...text('The current persona binding could not be resolved.'), isError: true };
+      return text({ personas, switchRequiresReauthorization: true });
+    }
+
+    if (name === 'request_persona_switch') {
+      if (!ctx.personaRecross) return { ...text('Persona switching is unavailable on this gateway.'), isError: true };
+      if (args.codeChallengeMethod !== 'S256') {
+        return { ...text('codeChallengeMethod must be S256.'), isError: true };
+      }
+      const personaPublicRef = typeof args.personaPublicRef === 'string' ? args.personaPublicRef : '';
+      const codeChallenge = typeof args.codeChallenge === 'string' ? args.codeChallenge : '';
+      const state = typeof args.state === 'string' ? args.state : undefined;
+      const result = await ctx.personaRecross.requestSwitch({ personaPublicRef, codeChallenge, state });
+      return result.ok ? text(result) : { ...text(result.error), isError: true };
     }
 
     if (name === 'get_navigator_state') {

@@ -243,7 +243,7 @@ export async function exchangeAuthorizationCode(input: {
   if (!input.code || !input.codeVerifier) return { error: 'invalid_request' };
   const { data, error } = await admin
     .from(TABLE)
-    .select('id, status, redirect_uri, pkce_challenge, code_expires_at, granted_scope')
+    .select('id, status, redirect_uri, pkce_challenge, code_expires_at, granted_scope, transition_kind, supersedes_session_id')
     .eq('auth_code_hash', sha256(input.code))
     .maybeSingle();
   // Distinct internal reasons are logged (Amplify/CloudWatch) while the client
@@ -271,6 +271,34 @@ export async function exchangeAuthorizationCode(input: {
 
   const bearer = `ths_${newToken(32)}`;
   const expiresAt = new Date(Date.now() + (input.sessionTtlDays ?? 30) * 86_400_000).toISOString();
+
+  // Persona re-crossing is replacement, never augmentation. Revoke the source
+  // before activating the target-bound bearer so no instant can resolve both
+  // personas. A retry may continue when a prior attempt revoked the source but
+  // failed before target activation; that is fail-closed (temporary no access),
+  // never a visibility union.
+  if (data.transition_kind === 'persona_switch') {
+    if (!data.supersedes_session_id) return reject('persona switch has no source session');
+    const { data: source, error: sourceErr } = await admin
+      .from(TABLE)
+      .select('id, status, expires_at')
+      .eq('id', data.supersedes_session_id)
+      .maybeSingle();
+    if (sourceErr || !source) return reject('persona switch source session not found');
+    if (source.expires_at && new Date(source.expires_at).getTime() < Date.now()) return reject('persona switch source session expired');
+    if (source.status === 'active') {
+      const { data: revoked, error: revokeErr } = await admin
+        .from(TABLE)
+        .update({ status: 'revoked', revoked_at: new Date().toISOString() })
+        .eq('id', source.id)
+        .eq('status', 'active')
+        .select('id');
+      if (revokeErr || !revoked || revoked.length === 0) return reject('source session could not be revoked');
+    } else if (source.status !== 'revoked') {
+      return reject(`source session status is '${source.status}'`);
+    }
+  }
+
   const { data: updated, error: upErr } = await admin
     .from(TABLE)
     .update({
@@ -378,6 +406,94 @@ export async function revokeByHandshake(handshakeCode: string): Promise<boolean>
   return !error;
 }
 
+export interface PersonaSwitchHandshake {
+  handshakeCode: string;
+  status: string;
+  sourceSessionId: string;
+  sourcePrincipalPublicRef: string;
+  targetPrincipalPublicRef: string;
+  agentAlias: string;
+  initiatingService: string;
+  requestedScope: string[];
+  expiresAt: string | null;
+}
+
+/** Prepare a short-lived persona re-crossing pinned to the active bearer and
+ * its registered OAuth client/redirect. This does not mutate the source session. */
+export async function createPersonaSwitchHandshake(input: {
+  source: ScopedSession;
+  targetPrincipalPublicRef: string;
+  requestedScope: string[];
+  pkceChallenge: string;
+  oauthState?: string;
+  ttlMinutes?: number;
+}): Promise<{ handshakeCode: string; expiresAt: string } | { error: string }> {
+  const admin = getSupabaseServer();
+  if (!admin) return { error: 'session store unavailable' };
+  if (!/^[A-Za-z0-9_-]{43,128}$/.test(input.pkceChallenge)) return { error: 'a valid PKCE S256 codeChallenge is required' };
+  const { data: source, error: sourceError } = await admin
+    .from(TABLE)
+    .select('id,status,client_id,redirect_uri,initiating_service,principal_public_ref,agent_alias')
+    .eq('id', input.source.id)
+    .maybeSingle();
+  if (sourceError || !source || source.status !== 'active') return { error: 'source session is not active' };
+  if (!source.client_id || !source.redirect_uri) return { error: 'source session is not bound to an OAuth client' };
+  if (source.principal_public_ref !== input.source.principalPublicRef || source.agent_alias !== input.source.agentAlias) {
+    return { error: 'source session binding changed' };
+  }
+
+  const handshakeCode = `thp_${newToken(18)}`;
+  const expiresAt = new Date(Date.now() + (input.ttlMinutes ?? 10) * 60_000).toISOString();
+  const { error } = await admin.from(TABLE).insert({
+    handshake_code: handshakeCode,
+    status: 'pending',
+    initiating_service: source.initiating_service,
+    requested_scope: input.requestedScope,
+    client_id: source.client_id,
+    redirect_uri: source.redirect_uri,
+    pkce_challenge: input.pkceChallenge,
+    oauth_state: input.oauthState ?? null,
+    transition_kind: 'persona_switch',
+    supersedes_session_id: source.id,
+    target_principal_public_ref: input.targetPrincipalPublicRef,
+    expires_at: expiresAt,
+    // Deliberately empty: service authority never crosses a persona boundary.
+    service_agreements: {},
+  });
+  if (error) return { error: `persona switch preparation failed: ${error.message}` };
+  return { handshakeCode, expiresAt };
+}
+
+export async function getPersonaSwitchHandshake(handshakeCode: string): Promise<PersonaSwitchHandshake | null> {
+  const admin = getSupabaseServer();
+  if (!admin) return null;
+  const { data, error } = await admin
+    .from(TABLE)
+    .select('handshake_code,status,supersedes_session_id,target_principal_public_ref,initiating_service,requested_scope,expires_at')
+    .eq('handshake_code', handshakeCode)
+    .eq('transition_kind', 'persona_switch')
+    .maybeSingle();
+  if (error || !data?.supersedes_session_id || !data.target_principal_public_ref) return null;
+  const { data: source } = await admin
+    .from(TABLE)
+    .select('principal_public_ref,agent_alias,status,expires_at')
+    .eq('id', data.supersedes_session_id)
+    .maybeSingle();
+  if (!source?.principal_public_ref || !source.agent_alias || source.status !== 'active') return null;
+  if (source.expires_at && new Date(source.expires_at).getTime() < Date.now()) return null;
+  return {
+    handshakeCode: data.handshake_code,
+    status: data.status,
+    sourceSessionId: data.supersedes_session_id,
+    sourcePrincipalPublicRef: source.principal_public_ref,
+    targetPrincipalPublicRef: data.target_principal_public_ref,
+    agentAlias: source.agent_alias,
+    initiatingService: data.initiating_service,
+    requestedScope: data.requested_scope ?? [],
+    expiresAt: data.expires_at,
+  };
+}
+
 // ── Incremental service crossing (session upgrade — Increment 4b) ────────────
 
 /** Begin an incremental service crossing: a `pending` handshake pinned to the
@@ -400,6 +516,7 @@ export async function createUpgradeHandshake(input: {
     initiating_service: input.service,
     requested_scope: input.requestedScope,
     upgrade_of: input.parentSessionId,
+    transition_kind: 'service_upgrade',
     expires_at: expiresAt,
   });
   if (error) {
