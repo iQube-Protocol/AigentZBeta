@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`f7a451b`](https://github.com/iQube-Protocol/AigentZBeta/commit/f7a451bd40b77193bebd9fd8807d02d2d74ef3e7) [fix] fix: remove accidental gateway tool-output preamble (Kn0w1, 2026-09-10T13:36:05-04:00)
 - [`93339dc`](https://github.com/iQube-Protocol/AigentZBeta/commit/93339dc239f8220ca9bcb24c03430efaa80b4db5) [feat] feat: add bounded persona re-crossing (Kn0w1, 2026-09-10T09:12:08-04:00)
 - [`e0f7fde`](https://github.com/iQube-Protocol/AigentZBeta/commit/e0f7fde76d56fc440e2a4bbd7f1104dce593c03a) [docs] docs: align Vela pilot with team-confirmed baseline (Kn0w1, 2026-09-10T08:39:06-04:00)
 - [`298b830`](https://github.com/iQube-Protocol/AigentZBeta/commit/298b830cce611f993fe1e55aedea9bab20d9a028) [chore] chore: retrigger dev deployment for OCSGA content recovery (Kn0w1, 2026-09-10T02:42:05-04:00)

@@ -5609,3 +5609,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-93339dc.md](../build_/COMMITS/COMMIT-93339dc.md)
 - Message: feat: add bounded persona re-crossing
+
+## Commit `f7a451b` — 2026-09-10T13:36:05-04:00
+- Type: `fix`
+- Brief: [COMMIT-f7a451b.md](../build_/COMMITS/COMMIT-f7a451b.md)
+- Message: fix: remove accidental gateway tool-output preamble

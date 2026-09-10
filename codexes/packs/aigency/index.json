@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-10T13:13:58.402Z",
+  "last_updated": "2026-09-10T17:37:52.586Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "93339dc239f8220ca9bcb24c03430efaa80b4db5",
-  "latest_commit_short": "93339dc",
-  "latest_commit_title": "feat: add bounded persona re-crossing",
+  "latest_commit": "f7a451bd40b77193bebd9fd8807d02d2d74ef3e7",
+  "latest_commit_short": "f7a451b",
+  "latest_commit_title": "fix: remove accidental gateway tool-output preamble",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "f7a451b",
+      "full_sha": "f7a451bd40b77193bebd9fd8807d02d2d74ef3e7",
+      "title": "fix: remove accidental gateway tool-output preamble",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T13:36:05-04:00",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-f7a451b.md"
+    },
     {
       "sha": "93339dc",
       "full_sha": "93339dc239f8220ca9bcb24c03430efaa80b4db5",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T23:56:20Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-bfb5733.md"
-    },
-    {
-      "sha": "95277c7",
-      "full_sha": "95277c77b7f706fc1c52887f4756446f852a4a98",
-      "title": "Close AC-C06 cross-persona-read-denial gap; mark 3 checks blocked-on-access",
-      "author": "Claude",
-      "timestamp": "2026-09-03T00:20:09Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-95277c7.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
