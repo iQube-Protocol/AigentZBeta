@@ -403,6 +403,17 @@ async function callerCanReadViaSpine(
   record: CanonicalIQubeInternalRecord,
 ): Promise<boolean | undefined> {
   try {
+    if (
+      record.source_system === 'research_experiment'
+      || record.source_system === 'research_document'
+      || record.source_system === 'research_object'
+      || record.source_system === 'experiment_result'
+    ) {
+      const experimentId = record.required_credentials?.[0]?.replace(/^research-lab:/, '');
+      if (!experimentId) return false;
+      const { canReadExperimentIQube } = await import('@/services/research/experimentIQubeAccess');
+      return canReadExperimentIQube(persona, experimentId);
+    }
     const { previewAccess } = await import('@/services/access/evaluateAccess');
     const credential = record.required_credentials?.[0]
       ?? (record.cartridge_bindings[0] ? `member:${record.cartridge_bindings[0]}` : undefined);

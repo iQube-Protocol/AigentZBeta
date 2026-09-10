@@ -15,6 +15,9 @@ import { aigentQubeAdapter } from './aigentQubeAdapter';
 import { dataQubeAdapter } from './dataQubeAdapter';
 import { lockerAssetAdapter } from './lockerAssetAdapter';
 import { roomQubeAdapter } from './roomQubeAdapter';
+import { researchClusterQubeAdapter } from './researchClusterQubeAdapter';
+import { researchContentQubeAdapter } from './researchContentQubeAdapter';
+import { researchDataQubeAdapter } from './researchDataQubeAdapter';
 
 export const REGISTRY_ADAPTERS: ReadonlyArray<RegistryPrimitiveAdapter> = [
   contentQubeAdapter,
@@ -23,6 +26,9 @@ export const REGISTRY_ADAPTERS: ReadonlyArray<RegistryPrimitiveAdapter> = [
   aigentQubeAdapter,
   dataQubeAdapter,
   roomQubeAdapter,
+  researchClusterQubeAdapter,
+  researchContentQubeAdapter,
+  researchDataQubeAdapter,
   // ModelQubeAdapter — placeholder; no ModelQube source today
 ];
 

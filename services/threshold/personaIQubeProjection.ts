@@ -161,14 +161,28 @@ export async function readAccessibleIQubeText(
 ) {
   const access = await getAccessibleIQube(session, iqubeId);
   if (!access.ok) return access;
-  if (access.iqube.primitive_type !== 'ContentQube') {
-    return { ok: false as const, error: 'No text rendition provider is registered for this iQube primitive.' };
-  }
 
   const internal = await resolveIQube(iqubeId, {
     projection: 'internal',
     allowPrivate: true,
   }).catch(() => null) as CanonicalIQubeInternalRecord | null;
+  if (internal?.source_system === 'research_document' && internal.source_resource_id) {
+    const { pathForResearchDocumentSource } = await import('@/services/research/experimentIQubeSources');
+    const { corpusReadPackFile } = await import('@/services/knowledge/packCorpusStore');
+    const sourcePath = pathForResearchDocumentSource(internal.source_resource_id);
+    const fullText = sourcePath ? await corpusReadPackFile('irl', sourcePath) : null;
+    if (fullText === null) return { ok: false as const, error: 'The authorized research artifact could not be retrieved.' };
+    return pageText(access.iqube, fullText, opts);
+  }
+  if (
+    (internal?.source_system === 'research_object' || internal?.source_system === 'experiment_result')
+    && internal.source_resource_id
+  ) {
+    return readResearchDataQubeText(access.iqube, internal.source_system, internal.source_resource_id, opts);
+  }
+  if (access.iqube.primitive_type !== 'ContentQube') {
+    return { ok: false as const, error: 'No text rendition provider is registered for this iQube primitive.' };
+  }
   if (internal?.source_system === 'locker_asset' && internal.source_resource_id) {
     const authority = await resolvePersonaIQubeAuthority(session);
     if (!authority.ok) return authority;
@@ -225,6 +239,40 @@ export async function readAccessibleIQubeText(
     hasMore: offset + limit < fullText.length,
     sha256OfFullText: createHash('sha256').update(fullText).digest('hex'),
   };
+}
+
+function pageText(
+  iqube: RegistryCartridgeView,
+  fullText: string,
+  opts: { offset?: number; limit?: number },
+) {
+  const offset = safePage(opts.offset, 0, fullText.length);
+  const limit = safePage(opts.limit, 8_000, MAX_TEXT_PAGE) || 8_000;
+  return {
+    ok: true as const,
+    iqube,
+    text: fullText.slice(offset, offset + limit),
+    offset,
+    totalLength: fullText.length,
+    hasMore: offset + limit < fullText.length,
+    sha256OfFullText: createHash('sha256').update(fullText).digest('hex'),
+  };
+}
+
+async function readResearchDataQubeText(
+  iqube: RegistryCartridgeView,
+  sourceSystem: 'research_object' | 'experiment_result',
+  sourceId: string,
+  opts: { offset?: number; limit?: number },
+) {
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false as const, error: 'The research store is unavailable.' };
+  const query = sourceSystem === 'research_object'
+    ? admin.from('research_objects').select('object_kind, object_id, payload, lifecycle_state, receipt_id, created_at, updated_at').eq('id', sourceId)
+    : admin.from('experiment_results').select('experiment, provider, model, aggregates, results_json, content_hash, receipt_id, created_at, visibility').eq('id', sourceId);
+  const { data } = await query.maybeSingle();
+  if (!data) return { ok: false as const, error: 'The authorized research evidence could not be retrieved.' };
+  return pageText(iqube, JSON.stringify(data, null, 2), opts);
 }
 
 async function readLockerAssetText(

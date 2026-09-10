@@ -224,6 +224,40 @@ async function loadRoomQubeRows(): Promise<SourceRow[]> {
   }));
 }
 
+async function loadResearchExperimentRows(): Promise<SourceRow[]> {
+  const { FOUNDATIONAL_EXPERIMENT_IQUBE_IDS } = await import('@/services/research/experimentIQubeSources');
+  return FOUNDATIONAL_EXPERIMENT_IQUBE_IDS.map((source_id) => ({
+    source_id,
+    primitive_type: 'ClusterQube' as IQubePrimitiveType,
+    synthetic: false,
+  }));
+}
+
+async function loadResearchDocumentRows(): Promise<SourceRow[]> {
+  const { FOUNDATIONAL_EXPERIMENT_DOCUMENTS } = await import('@/services/research/experimentIQubeSources');
+  return FOUNDATIONAL_EXPERIMENT_DOCUMENTS.map((document) => ({
+    source_id: `${document.experimentId}|${document.path}`,
+    primitive_type: 'ContentQube' as IQubePrimitiveType,
+    synthetic: false,
+  }));
+}
+
+async function loadResearchObjectRows(): Promise<SourceRow[]> {
+  const { data } = await client().from('research_objects').select('id, object_id')
+    .or('object_id.like.EXP-P1/%,object_id.like.EXP-P2/%');
+  return (data ?? []).map((row: any) => ({
+    source_id: String(row.id), primitive_type: 'DataQube' as IQubePrimitiveType, synthetic: false,
+  }));
+}
+
+async function loadExperimentResultRows(): Promise<SourceRow[]> {
+  const { data } = await client().from('experiment_results').select('id')
+    .in('experiment', ['EXP-P1', 'EXP-P2', 'EXP-P2A', 'EXP-P2B']);
+  return (data ?? []).map((row: any) => ({
+    source_id: String(row.id), primitive_type: 'DataQube' as IQubePrimitiveType, synthetic: false,
+  }));
+}
+
 const SOURCE_LOADERS: Record<IQubeIdMapSource, SourceLoader | null> = {
   triad_meta: loadTrinityMetaRows,
   triad_blak: null,            // Implied via triad_meta; not separately backfilled
@@ -240,6 +274,10 @@ const SOURCE_LOADERS: Record<IQubeIdMapSource, SourceLoader | null> = {
   'code:chainTemplate': loadChainTemplateRows,
   locker_asset: loadLockerAssetRows,
   roomqube: loadRoomQubeRows,
+  research_experiment: loadResearchExperimentRows,
+  research_document: loadResearchDocumentRows,
+  research_object: loadResearchObjectRows,
+  experiment_result: loadExperimentResultRows,
 };
 
 // ── Backfill execution ────────────────────────────────────────────────────
@@ -337,6 +375,10 @@ export async function backfillAll(): Promise<BackfillReport> {
     'code:liquidui-template',
     'locker_asset',
     'roomqube',
+    'research_experiment',
+    'research_document',
+    'research_object',
+    'experiment_result',
   ];
 
   const perSource: BackfillSourceReport[] = [];
