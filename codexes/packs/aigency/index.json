@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-10T06:49:06.182Z",
+  "last_updated": "2026-09-10T12:41:12.081Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "298b830cce611f993fe1e55aedea9bab20d9a028",
-  "latest_commit_short": "298b830",
-  "latest_commit_title": "chore: retrigger dev deployment for OCSGA content recovery",
+  "latest_commit": "e0f7fde76d56fc440e2a4bbd7f1104dce593c03a",
+  "latest_commit_short": "e0f7fde",
+  "latest_commit_title": "docs: align Vela pilot with team-confirmed baseline",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e0f7fde",
+      "full_sha": "e0f7fde76d56fc440e2a4bbd7f1104dce593c03a",
+      "title": "docs: align Vela pilot with team-confirmed baseline",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T08:39:06-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-e0f7fde.md"
+    },
     {
       "sha": "298b830",
       "full_sha": "298b830cce611f993fe1e55aedea9bab20d9a028",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-03T02:28:58Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-418a4f0.md"
-    },
-    {
-      "sha": "2b4733d",
-      "full_sha": "2b4733d6ca7c0833c5a90ed01cd5395cb94eab79",
-      "title": "Publish real placeholder media, close admin-picker gap, add review/availability split [merge spec/moneypenny-mpy2-3]",
-      "author": "Claude",
-      "timestamp": "2026-09-02T23:27:25Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-2b4733d.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

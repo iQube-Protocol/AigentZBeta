@@ -5599,3 +5599,8 @@ Top-level retrieval anchors for this pack.
 - Type: `chore`
 - Brief: [COMMIT-298b830.md](../build_/COMMITS/COMMIT-298b830.md)
 - Message: chore: retrigger dev deployment for OCSGA content recovery
+
+## Commit `e0f7fde` — 2026-09-10T08:39:06-04:00
+- Type: `docs`
+- Brief: [COMMIT-e0f7fde.md](../build_/COMMITS/COMMIT-e0f7fde.md)
+- Message: docs: align Vela pilot with team-confirmed baseline
