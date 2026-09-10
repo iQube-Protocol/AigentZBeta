@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-09T19:12:57.283Z",
+  "last_updated": "2026-09-10T05:52:10.058Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "0a41efd7a1409a98faeab7d60e6beb5419bc2f8b",
-  "latest_commit_short": "0a41efd",
-  "latest_commit_title": "feat: federate Locker and RoomQube access through MCP",
+  "latest_commit": "194414cdc48a0becd53bc9e98ebc1c9ed9ebaa4b",
+  "latest_commit_short": "194414c",
+  "latest_commit_title": "feat: constitute EXP-P1 and EXP-P2 as ClusterQubes",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "194414c",
+      "full_sha": "194414cdc48a0becd53bc9e98ebc1c9ed9ebaa4b",
+      "title": "feat: constitute EXP-P1 and EXP-P2 as ClusterQubes",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-09T20:18:53-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-194414c.md"
+    },
+    {
+      "sha": "9fd55c6",
+      "full_sha": "9fd55c64cec374dca0ad1eadbc689f2ad8f890f4",
+      "title": "feat: recover OCSGA artifacts through persona MCP",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T01:14:13-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-9fd55c6.md"
+    },
     {
       "sha": "0a41efd",
       "full_sha": "0a41efd7a1409a98faeab7d60e6beb5419bc2f8b",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-09-02T19:18:35Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-8678fc5.md"
-    },
-    {
-      "sha": "7e7944f",
-      "full_sha": "7e7944fe9407059e2b0b51c73445e3b613509367",
-      "title": "Build Agent Me entry safely, rebuild B2 Prepare, close /moneypenny compat gap [merge spec/moneypenny-mpy2-3]",
-      "author": "Claude",
-      "timestamp": "2026-09-02T18:03:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7e7944f.md"
-    },
-    {
-      "sha": "d48ae5c",
-      "full_sha": "d48ae5c473bf0cf52b415c74b694a87fc72b430c",
-      "title": "Harden SC-04, deliver full-screen HFT takeover, verify entry continuity",
-      "author": "Claude",
-      "timestamp": "2026-09-02T14:05:39Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d48ae5c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

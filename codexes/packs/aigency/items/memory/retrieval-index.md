@@ -5584,3 +5584,13 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-0a41efd.md](../build_/COMMITS/COMMIT-0a41efd.md)
 - Message: feat: federate Locker and RoomQube access through MCP
+
+## Commit `9fd55c6` — 2026-09-10T01:14:13-04:00
+- Type: `feat`
+- Brief: [COMMIT-9fd55c6.md](../build_/COMMITS/COMMIT-9fd55c6.md)
+- Message: feat: recover OCSGA artifacts through persona MCP
+
+## Commit `194414c` — 2026-09-09T20:18:53-04:00
+- Type: `feat`
+- Brief: [COMMIT-194414c.md](../build_/COMMITS/COMMIT-194414c.md)
+- Message: feat: constitute EXP-P1 and EXP-P2 as ClusterQubes
