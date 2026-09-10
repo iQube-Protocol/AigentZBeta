@@ -415,6 +415,7 @@ export interface PersonaSwitchHandshake {
   agentAlias: string;
   initiatingService: string;
   requestedScope: string[];
+  oauthState: string | null;
   expiresAt: string | null;
 }
 
@@ -425,12 +426,13 @@ export async function createPersonaSwitchHandshake(input: {
   targetPrincipalPublicRef: string;
   requestedScope: string[];
   pkceChallenge: string;
-  oauthState?: string;
+  oauthState: string;
   ttlMinutes?: number;
 }): Promise<{ handshakeCode: string; expiresAt: string } | { error: string }> {
   const admin = getSupabaseServer();
   if (!admin) return { error: 'session store unavailable' };
   if (!/^[A-Za-z0-9_-]{43,128}$/.test(input.pkceChallenge)) return { error: 'a valid PKCE S256 codeChallenge is required' };
+  if (!input.oauthState.trim()) return { error: 'state is required for persona re-crossing' };
   const { data: source, error: sourceError } = await admin
     .from(TABLE)
     .select('id,status,client_id,redirect_uri,initiating_service,principal_public_ref,agent_alias')
@@ -452,7 +454,7 @@ export async function createPersonaSwitchHandshake(input: {
     client_id: source.client_id,
     redirect_uri: source.redirect_uri,
     pkce_challenge: input.pkceChallenge,
-    oauth_state: input.oauthState ?? null,
+    oauth_state: input.oauthState,
     transition_kind: 'persona_switch',
     supersedes_session_id: source.id,
     target_principal_public_ref: input.targetPrincipalPublicRef,
@@ -469,7 +471,7 @@ export async function getPersonaSwitchHandshake(handshakeCode: string): Promise<
   if (!admin) return null;
   const { data, error } = await admin
     .from(TABLE)
-    .select('handshake_code,status,supersedes_session_id,target_principal_public_ref,initiating_service,requested_scope,expires_at')
+    .select('handshake_code,status,supersedes_session_id,target_principal_public_ref,initiating_service,requested_scope,oauth_state,expires_at')
     .eq('handshake_code', handshakeCode)
     .eq('transition_kind', 'persona_switch')
     .maybeSingle();
@@ -490,6 +492,7 @@ export async function getPersonaSwitchHandshake(handshakeCode: string): Promise<
     agentAlias: source.agent_alias,
     initiatingService: data.initiating_service,
     requestedScope: data.requested_scope ?? [],
+    oauthState: data.oauth_state,
     expiresAt: data.expires_at,
   };
 }

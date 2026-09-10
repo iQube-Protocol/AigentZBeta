@@ -46,9 +46,12 @@ const session: ScopedSession = {
 
 describe('Issue #112 — bounded persona discovery and re-crossing', () => {
   it('advertises all three authenticated tools and challenges bearer-less calls', () => {
-    const names = listTools().map((tool) => tool.name);
+    const tools = listTools();
+    const names = tools.map((tool) => tool.name);
     expect(names).toEqual(expect.arrayContaining(['get_persona_state', 'list_available_personas', 'request_persona_switch']));
     expect(HANDSHAKE_TOOLS.has('request_persona_switch')).toBe(true);
+    const switchTool = tools.find((tool) => tool.name === 'request_persona_switch');
+    expect(switchTool?.inputSchema.required).toContain('state');
   });
 
   it('projects only T2 and owner-safe fields', () => {
@@ -90,10 +93,32 @@ describe('Issue #112 — bounded persona discovery and re-crossing', () => {
       personaPublicRef: personaPublicRef(uuidB),
       codeChallenge: 'a'.repeat(43),
       codeChallengeMethod: 'S256',
+      state: 'client-correlation-state',
     }, context);
     expect(result).not.toHaveProperty('isError');
     expect(requestSwitch).toHaveBeenCalledOnce();
+    expect(requestSwitch).toHaveBeenCalledWith(expect.objectContaining({ state: 'client-correlation-state' }));
     expect(session).toEqual(before);
+  });
+
+  it('rejects a persona re-crossing without OAuth state before preparing a handshake', async () => {
+    const requestSwitch = vi.fn();
+    const result = await callTool('request_persona_switch', {
+      personaPublicRef: personaPublicRef(uuidB),
+      codeChallenge: 'a'.repeat(43),
+      codeChallengeMethod: 'S256',
+    }, {
+      origin: 'https://example.test',
+      gatewayUrl: 'https://example.test/api/threshold/mcp',
+      session,
+      personaRecross: {
+        getState: vi.fn(),
+        listAvailable: vi.fn(),
+        requestSwitch,
+      },
+    });
+    expect(result.isError).toBe(true);
+    expect(requestSwitch).not.toHaveBeenCalled();
   });
 
   it('structurally enforces fresh-session replacement and no service-agreement carryover', () => {
@@ -110,6 +135,14 @@ describe('Issue #112 — bounded persona discovery and re-crossing', () => {
     const exchangeEnd = source.indexOf('/** OAuth Dynamic Client Registration');
     const exchange = source.slice(exchangeStart, exchangeEnd);
     expect(exchange.indexOf("status: 'revoked'")).toBeLessThan(exchange.indexOf("status: 'active'"));
+  });
+
+  it('fails closed at browser completion when persisted OAuth state is absent', () => {
+    const source = fs.readFileSync(path.join(process.cwd(), 'app/api/threshold/persona-switch/complete/route.ts'), 'utf8');
+    expect(source).toMatch(/if \(!handshake\.oauthState\?\.trim\(\)\)/);
+    expect(source).toMatch(/persona switch state missing; request a fresh crossing/);
+    expect(source).toContain("redirect.searchParams.set('state', handshake.oauthState)");
+    expect(source).not.toMatch(/if \(issued\.oauthState\)/);
   });
 
   it('binds browser approval to the target persona and a new agreement', () => {

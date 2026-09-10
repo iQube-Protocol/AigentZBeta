@@ -27,6 +27,13 @@ export async function POST(request: NextRequest) {
   if (handshake.expiresAt && new Date(handshake.expiresAt).getTime() < Date.now()) {
     return NextResponse.json({ ok: false, error: 'persona switch expired' }, { status: 410 });
   }
+  // Persona switching is a fresh OAuth crossing, never an in-place session
+  // mutation. A missing correlation state makes that crossing unusable for
+  // external clients and must fail closed rather than issuing an uncorrelated
+  // authorization code. Legacy pending rows without state must be restarted.
+  if (!handshake.oauthState?.trim()) {
+    return NextResponse.json({ ok: false, error: 'persona switch state missing; request a fresh crossing' }, { status: 409 });
+  }
 
   const owned = await resolveOwnedSwitchTarget(
     principal.persona.authProfileId,
@@ -96,6 +103,6 @@ export async function POST(request: NextRequest) {
   if ('error' in issued) return NextResponse.json({ ok: false, error: issued.error }, { status: 503 });
   const redirect = new URL(issued.redirectUri);
   redirect.searchParams.set('code', issued.code);
-  if (issued.oauthState) redirect.searchParams.set('state', issued.oauthState);
+  redirect.searchParams.set('state', handshake.oauthState);
   return NextResponse.json({ ok: true, redirectTo: redirect.toString(), crossing: safe });
 }

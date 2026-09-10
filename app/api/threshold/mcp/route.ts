@@ -191,7 +191,7 @@ async function handleOne(msg: RpcMsg, ctx: GatewayContext): Promise<object | nul
           capabilities: { tools: {}, resources: {}, prompts: {} },
           serverInfo: SERVER_INFO,
           instructions:
-            'metaMe Threshold Gateway. Inspect a Threshold Link and list_services to explain a crossing to your principal. Only the human authorizes.',
+            'metaMe Threshold Gateway. Read metame://agent-manifest first to reconstruct the constitutional architecture, source precedence, MCP exposure, and access boundaries. Inspect a Threshold Link when present. Only the human authorizes changes of authority.',
         });
       case 'ping':
         return ok(id, {});

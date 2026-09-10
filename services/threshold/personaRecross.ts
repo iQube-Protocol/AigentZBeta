@@ -85,10 +85,12 @@ export async function listAvailablePersonas(session: ScopedSession): Promise<Ava
 
 export async function requestPersonaSwitch(
   session: ScopedSession,
-  input: { personaPublicRef: string; codeChallenge: string; state?: string },
+  input: { personaPublicRef: string; codeChallenge: string; state: string },
   origin: string,
 ): Promise<{ ok: true; authorizeUrl: string; expiresAt: string } | { ok: false; error: string }> {
   const targetRef = input.personaPublicRef.trim();
+  const oauthState = input.state;
+  if (!oauthState.trim()) return { ok: false, error: 'state is required for persona re-crossing.' };
   if (!targetRef || containsRawIdentifier(targetRef)) {
     return { ok: false, error: 'personaPublicRef must be a T2 Polity Public Reference; raw persona identifiers are refused.' };
   }
@@ -105,7 +107,7 @@ export async function requestPersonaSwitch(
     targetPrincipalPublicRef: targetRef,
     requestedScope: rootScopeForTarget(target.cartridgeFlags.isAdmin),
     pkceChallenge: input.codeChallenge,
-    oauthState: input.state,
+    oauthState,
   });
   if ('error' in prepared) return { ok: false, error: prepared.error };
   return {

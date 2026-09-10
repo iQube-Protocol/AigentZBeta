@@ -45,6 +45,7 @@ import {
   type resolveExchangeWriteAuthority,
 } from './mcpConstitutionalActs';
 import { decodeBase64Strict } from './uploadContentAsset';
+import { AGENT_MANIFEST_URI, agentDiscoveryManifest } from './agentManifest';
 
 // ── Context injected by the route (keeps this module I/O-light + testable) ──
 
@@ -94,7 +95,7 @@ export interface GatewayContext {
   personaRecross?: {
     getState: () => Promise<unknown>;
     listAvailable: () => Promise<unknown[] | null>;
-    requestSwitch: (input: { personaPublicRef: string; codeChallenge: string; state?: string }) => Promise<
+    requestSwitch: (input: { personaPublicRef: string; codeChallenge: string; state: string }) => Promise<
       { ok: true; authorizeUrl: string; expiresAt: string } | { ok: false; error: string }
     >;
   };
@@ -305,9 +306,13 @@ export function listTools() {
           personaPublicRef: { type: 'string', description: 'T2 Polity Public Reference from list_available_personas.' },
           codeChallenge: { type: 'string', description: 'Fresh PKCE S256 code challenge (base64url).' },
           codeChallengeMethod: { type: 'string', enum: ['S256'] },
-          state: { type: 'string', description: 'Optional OAuth state echoed to the registered redirect URI.' },
+          state: {
+            type: 'string',
+            minLength: 1,
+            description: 'Required client-generated OAuth state echoed unchanged to the registered redirect URI.',
+          },
         },
-        required: ['personaPublicRef', 'codeChallenge', 'codeChallengeMethod'],
+        required: ['personaPublicRef', 'codeChallenge', 'codeChallengeMethod', 'state'],
         additionalProperties: false,
       },
     },
@@ -564,6 +569,7 @@ export function listTools() {
 
 export function listResources() {
   return [
+    { uri: AGENT_MANIFEST_URI, name: 'metaMe Agent README / canonical discovery manifest', mimeType: 'application/json' },
     { uri: 'metame://welcome', name: 'Constitutional Welcome & Citizenship Orientation', mimeType: 'application/json' },
     { uri: 'metame://institution/charter', name: 'metaMe Threshold — charter', mimeType: 'text/markdown' },
     { uri: 'metame://onboarding/current', name: 'The crossing — current steps', mimeType: 'text/markdown' },
@@ -871,7 +877,8 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
       }
       const personaPublicRef = typeof args.personaPublicRef === 'string' ? args.personaPublicRef : '';
       const codeChallenge = typeof args.codeChallenge === 'string' ? args.codeChallenge : '';
-      const state = typeof args.state === 'string' ? args.state : undefined;
+      const state = typeof args.state === 'string' ? args.state : '';
+      if (!state.trim()) return { ...text('state is required for persona re-crossing.'), isError: true };
       const result = await ctx.personaRecross.requestSwitch({ personaPublicRef, codeChallenge, state });
       return result.ok ? text(result) : { ...text(result.error), isError: true };
     }
@@ -1308,6 +1315,9 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
 }
 
 export async function readResource(uri: string, ctx: GatewayContext) {
+  if (uri === AGENT_MANIFEST_URI) {
+    return { contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(agentDiscoveryManifest(), null, 2) }] };
+  }
   if (uri === 'metame://welcome') {
     return { contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(welcomePayload(ctx.session), null, 2) }] };
   }
