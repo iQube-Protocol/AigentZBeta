@@ -1,0 +1,53 @@
+name: Threshold MCP CI
+
+on:
+  push:
+    branches:
+      - dev
+      - fix/threshold-agent-orientation-exposure
+    paths:
+      - 'services/threshold/**'
+      - 'app/api/threshold/**'
+      - 'tests/threshold-*.test.ts'
+      - 'tests/**/*threshold*.test.ts'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/threshold-mcp-ci.yml'
+  pull_request:
+    branches:
+      - dev
+    paths:
+      - 'services/threshold/**'
+      - 'app/api/threshold/**'
+      - 'tests/threshold-*.test.ts'
+      - 'tests/**/*threshold*.test.ts'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/threshold-mcp-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Threshold MCP tests
+        run: npm test -- --run tests/threshold-persona-recross.test.ts tests/threshold-agent-manifest.test.ts tests/threshold-invariant-registry.test.ts
+
+      - name: Typecheck
+        run: npm run type-check

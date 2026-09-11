@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "services/research/reciprocalExchange.ts",
+    "services/threshold/mcpConstitutionalActs.ts",
+    "services/threshold/gateway.ts",
+    "services/journey/boundaryResearchExchangeAdmission.ts",
+    "types/reciprocalExchange.ts",
+    "app/api/admin/exchanges/[exchangeId]/register-counterparty-artifact/route.ts",
+    "app/api/admin/exchanges/operator-assisted-admission/route.ts"
+  ]
+}

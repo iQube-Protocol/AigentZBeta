@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLatestTrustScore } from "@/services/registry/persistence";
 
-type Params = { params: { assetId: string } };
+type Params = { params: Promise<{ assetId: string }> };
 
 /** GET /api/registry/assets/[assetId]/trust — get the latest trust score */
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(_req: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     const score = await getLatestTrustScore(params.assetId);
     if (!score) {

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * VentureProgressCard — Aigent Me's read-only window into AVL.
+ * VentureProgressCard — Aigent Me's read-only window into MVL.
  * Per PRD v0.2 §9.2 (Runtime cards → Venture Progress Card) and §8 GP4.
  *
  * Renders the VentureProgressShape returned by POST /api/assistant/
@@ -31,6 +31,8 @@ import {
   type NextBestActionData,
 } from "@/components/metame/cards/NextBestActionCard";
 import { IqubeContextDisclosure } from "@/components/metame/cards/IqubeContextDisclosure";
+import { PreflightByline, PreflightChip } from "@/components/metame/cards/PreflightByline";
+import type { PreflightContext } from "@/services/capabilities/preflight";
 
 export interface VentureProgressKpiSummary {
   activeKpisCount: number;
@@ -46,6 +48,13 @@ export interface VentureProgressRecentActivity {
   cartridge: string;
   status: string;
   createdAt: string;
+  // Phase 2 B.2 (2/2) — derived action capabilities.
+  canResume?: boolean;
+  canHandOff?: boolean;
+  canCancel?: boolean;
+  specialist?: string | null;
+  nextActionHint?: string | null;
+  blockers?: string[];
 }
 
 export interface VentureProgressData {
@@ -56,14 +65,32 @@ export interface VentureProgressData {
   experienceConfigured: boolean;
   linkedCartridges: string[];
   kpiSummary: VentureProgressKpiSummary;
+  /** Phase 2 B.1 — rich KPI rows resolved against active activations. */
+  activeKpis?: import('@/services/strategy/kpiTypes').KpiRecord[];
   operationalGoalsCount: number;
   commercialGoalsCount: number;
   recentActivity: VentureProgressRecentActivity[];
+  /** Verified work done — the progress-from-baseline evidence (Standing signals). */
+  standingSignals?: Array<{
+    id: string;
+    kind: "operator_action_logged" | "standing_document_added";
+    summary: string;
+    ventureRef: string | null;
+    createdAt: string;
+  }>;
   blockersCount: number;
   recommendedActions: NextBestActionData[];
   suggestedArtifacts: string[];
-  using: ("PersonaQube" | "ExperienceQube" | "IntentQube")[];
+  using: ("PersonaQube" | "ExperienceQube" | "IntentQube" | "VentureQube")[];
   notShared: string[];
+  preflightContext?: PreflightContext;
+  // VentureQube-layer enrichment (Sprint 1)
+  venturePublicRef?: string | null;
+  thesisSummary?: { mission: string | null; problem: string | null } | null;
+  signalSummary?: { confidence: number | null; count: number; opportunityConfidence: number | null; demandConfidence: number | null; capabilityConfidence: number | null } | null;
+  operatingObjectives?: import('@/services/orchestration/ventureProgressBuilder').OperatingObjectiveSummary[];
+  nvaTotal?: number;
+  standingGovScore?: number | null;
 }
 
 interface Props {
@@ -71,6 +98,9 @@ interface Props {
   loading?: boolean;
   error?: string | null;
   onActOnNbe?: (action: NextBestActionData) => void;
+  /** Same shape as BriefCard.queuedIntents — once an NBA is queued
+   *  its Act button flips to a non-clickable "Queued" badge. */
+  queuedIntents?: Record<string, unknown>;
   /** When provided, renders a close (X) control in the header so the
    *  user can dismiss the venture-progress card. The chip that opened
    *  it (Venture progress) can re-open it. */
@@ -91,7 +121,7 @@ const CARTRIDGE_LABELS: Record<string, string> = {
   knyt: "KNYT",
   qriptopian: "The Qriptopian",
   marketa: "Marketa",
-  avl: "AgentiQ Venture Lab",
+  mvl: "metaMe Venture Lab",
 };
 
 export function VentureProgressCard({
@@ -99,6 +129,7 @@ export function VentureProgressCard({
   loading,
   error,
   onActOnNbe,
+  queuedIntents,
   onDismiss,
   theme = "dark",
 }: Props) {
@@ -169,12 +200,14 @@ export function VentureProgressCard({
           <div className="flex items-center gap-2 mb-1">
             <Briefcase className={`w-4 h-4 ${accentClass}`} />
             <span className={`text-xs uppercase tracking-wider ${mutedClass}`}>
-              Venture Progress · AgentiQ Venture Lab
+              Venture Progress · metaMe Venture Lab
             </span>
+            <PreflightChip preflight={data.preflightContext} theme={theme} />
           </div>
           <h3 className="text-xl font-semibold leading-tight">
             {data.ventureName || "Your active venture"}
           </h3>
+          <PreflightByline preflight={data.preflightContext} theme={theme} />
           {data.primaryGoal && (
             <p className={`text-sm mt-1 ${mutedClass}`}>
               <span className={accentClass}>Primary goal:</span>{" "}
@@ -293,6 +326,36 @@ export function VentureProgressCard({
         )}
       </section>
 
+      {/* Verified work done — progress from the ingested baseline (Standing signals) */}
+      <section>
+        <h4 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
+          Verified work done
+        </h4>
+        {(data.standingSignals?.length ?? 0) === 0 ? (
+          <p className={`text-sm ${mutedClass}`}>
+            No verified activity logged since your baseline. Log work in the Standing
+            tab’s Work Log — progress is reported from what you’ve actually done, not
+            estimated.
+          </p>
+        ) : (
+          <ul className={`text-sm space-y-1 ${mutedClass}`}>
+            {data.standingSignals!.map((s) => (
+              <li key={s.id} className="flex items-start gap-2">
+                <Activity className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-400" />
+                <div className="flex-1 min-w-0">
+                  <span className="text-slate-200">{s.summary}</span>
+                  <span className={mutedClass}>
+                    {" · "}{s.kind === "standing_document_added" ? "document" : "action"}
+                    {s.ventureRef ? ` · ${s.ventureRef}` : ""}
+                    {" · "}{new Date(s.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       {/* Recommended actions */}
       <section>
         <h4 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
@@ -300,7 +363,7 @@ export function VentureProgressCard({
         </h4>
         {data.recommendedActions.length === 0 ? (
           <p className={`text-sm ${mutedClass}`}>
-            No catalogue match for AVL at your current stage. Set up your
+            No catalogue match for MVL at your current stage. Set up your
             ExperienceModel to surface stage-relevant actions.
           </p>
         ) : (
@@ -310,6 +373,7 @@ export function VentureProgressCard({
                 key={action.id}
                 action={action}
                 onAct={onActOnNbe}
+                queued={!!queuedIntents?.[action.id]}
                 theme={theme}
               />
             ))}

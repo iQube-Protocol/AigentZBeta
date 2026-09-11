@@ -1,3 +1,5 @@
+import { btcTxUrl } from '@/services/ops/btcExplorer';
+
 /**
  * QCT Token Contract Addresses
  * Deployed across Bitcoin, Solana, and EVM chains
@@ -14,7 +16,7 @@ export const QCT_CONTRACTS = {
     symbol: 'QCT',
     name: 'QriptoCENT',
     totalSupply: '1000000000',
-    explorer: 'https://mempool.space/testnet/tx/caaabee2695d173d718f012b065514f1b313fcad767dc3d836056cdb74de1903'
+    explorer: btcTxUrl('caaabee2695d173d718f012b065514f1b313fcad767dc3d836056cdb74de1903')
   },
 
   // Solana SPL Token (testnet) - DEPLOYED

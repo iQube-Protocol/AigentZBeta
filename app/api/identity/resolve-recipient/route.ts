@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { resolvePersonaIdByPublicRef } from "@/services/identity/personaReferences";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,13 @@ function isEvmAddress(val: string): boolean {
  *   - name@domain               Full FIO handle (any domain)
  *   - <name> (bare)             Looks up agent_keys.agent_id / fio_handle
  *   - did:iq:<32 hex>           Reinserts hyphens → persona_id → agent_keys
- *   - <persona-uuid>            agent_keys.persona_id lookup
+ *   - <16-hex public reference> The Persona Public Reference (PERSONA-PUBLIC-REF-001) —
+ *                               resolved via resolvePersonaIdByPublicRef(), never a raw
+ *                               UUID paste. This is the normal way to name a persona here.
+ *   - <persona-uuid>            agent_keys.persona_id lookup — retained ONLY for
+ *                               operators debugging via this endpoint directly; never
+ *                               surface "paste a persona UUID" as guidance in a UI that
+ *                               calls this route (PERSONA-PUBLIC-REF-001).
  *
  * Returns: { resolvedAddress, type, display }
  */
@@ -104,7 +111,15 @@ export async function GET(req: NextRequest) {
         didUuid = `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
       }
       const uuidMatch = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(normalised);
-      const candidatePersonaId = didUuid ?? (uuidMatch ? normalised : null);
+      // PERSONA-PUBLIC-REF-001: the normal way to name a persona here — a
+      // 16-hex Persona Public Reference, resolved via the persisted
+      // public_ref column, never a hash reversal. Checked before the raw
+      // uuidMatch fallback so a public ref is the path actually exercised.
+      const publicRefMatch = /^[0-9a-f]{16}$/i.test(normalised) ? normalised.toLowerCase() : null;
+      const candidatePersonaId =
+        didUuid ??
+        (uuidMatch ? normalised : null) ??
+        (publicRefMatch ? await resolvePersonaIdByPublicRef(sb, publicRefMatch) : null);
 
       // Try agent_id, then fio_handle (case-insensitive — full & local-
       // part variants), then persona_id (if UUID or DID).
@@ -169,7 +184,7 @@ export async function GET(req: NextRequest) {
   console.warn('[resolve-recipient] no match', { q, normalised, localPart });
   return NextResponse.json(
     {
-      error: `Cannot resolve "${q}" — accepted: 0x EVM address, @persona handle, name@fio-domain, did:iq:<id>, or persona UUID.`,
+      error: `Cannot resolve "${q}" — accepted: 0x EVM address, @persona handle, name@fio-domain, did:iq:<id>, or a persona public reference.`,
     },
     { status: 404 },
   );

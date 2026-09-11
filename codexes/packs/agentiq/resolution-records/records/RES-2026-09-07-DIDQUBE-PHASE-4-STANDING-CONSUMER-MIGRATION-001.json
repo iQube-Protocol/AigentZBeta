@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-07",
+  "resolutionId": "RES-2026-09-07-DIDQUBE-PHASE-4-STANDING-CONSUMER-MIGRATION-001",
+  "capability": "standing-agent-identity-didqube-reconciliation",
+  "milestone": "DiDQube Phase 4 item 5 (execution plan §Phase 4) -- the highest-care item in Phase 4. Standing/reputation becomes the fourth real consumer of the canonical resolveDiDQube resolver, via a dry-run reconciliation capability, per the plan's own explicit instruction to build and run that report BEFORE writing anything.",
+  "problem": "services/standing/agentStandingPersona.ts resolves and idempotently provisions each platform agent's canonical Standing identity (a personas row, app_origin='aigent-canonical-standing') keyed on the deprecated personas.root_did column matched against agent_root_identity.did_uri -- a pattern the Phase 0 inventory explicitly flagged as a live write site for that deprecated column, reclassified in Phase 2.5 as 'already-safe, no change' specifically BECAUSE fixing it was deferred to this Phase 4 item's own dry-run reconciliation. Nothing had yet verified whether every canonical Standing identity's underlying anchor actually resolves cleanly through the canonical DiDQube resolver, or whether any carried a discrepancy (missing anchor, unbound container, conflicted/ambiguous resolution) that would need explicit operator sign-off before any further Standing-side DiDQube work could safely proceed.",
+  "observedFailure": [
+    "Code inspection: no code anywhere called resolveDiDQube for a Standing identity prior to this change; the existing write/read path (resolveCanonicalAgentPersonaId) matches purely against personas.root_did = agentRootDid, a raw string equality, with no DiDQube-container awareness at all.",
+    "Live dry-run (2026-09-07, Aigent Z project bsjhfvctmduxhohtllly) run BOTH as a direct SQL mirror of the reconciliation logic and via the new services/standing/didQubeReconciliation.ts module's own live behavior: all 5 existing canonical agent Standing personas (Aigent Nakamoto, Aigent Know1, Aigent MoneyPenny, Aegis, Factor) resolve cleanly -- each has exactly one matching agent_root_identity row and a bound agent_didqubes container. Zero discrepancies found."
+  ],
+  "rootCauses": [
+    "agentStandingPersona.ts's root_did-keyed lookup predates the DiDQube resolver and Phase 1 supertype tables entirely -- there was no canonical container to check against when it was written, and the Phase 2.5 review deliberately deferred any correction here to this Phase 4 item rather than touching a live-write identity-continuity path outside its own scope."
+  ],
+  "resolution": [
+    "New services/standing/didQubeReconciliation.ts::reconcileStandingDiDQubeResolution -- a strictly READ-ONLY function. Enumerates every personas row scoped to (app_origin=CANONICAL_AGENT_STANDING_APP_ORIGIN, auth_profile_id IS NULL) -- the exact same scope agentStandingPersona.ts's own lookup/provisioning uses, so a per-sponsor wallet persona sharing the same root_did is never swept in. For each, resolves agent_root_identity.did_uri = personas.root_did, then calls resolveDiDQube({kind:'agent_root_identity_id', ...}), classifying every possible outcome (resolved / no_root_did / agent_root_identity_not_found / agent_root_identity_ambiguous / didqube_unresolved / didqube_conflicted / didqube_ambiguous / read_failed) rather than collapsing anything into a boolean.",
+    "resolveCanonicalAgentPersonaId's own lookup/provisioning logic (the write path) is completely UNTOUCHED by this change -- exactly matching the plan's caution that this is the highest-care item and 'must preserve existing attribution exactly.'",
+    "New GET /api/ops/journey/standing-didqube-reconciliation -- an on-demand, read-only admin route (dual auth: CRON_TRIGGER_TOKEN or requireAdminPersona, mirroring the existing reconcile-provider-standing-attribution route's own shape) that runs the dry-run report and returns it. This makes the capability something an operator can actually run going forward, not a function nobody calls.",
+    "Live-run BEFORE any further code was written (both a direct SQL mirror and confirmed against the new module's own logic): zero discrepancies across all 5 existing canonical Standing identities. Per the plan's own instruction ('get explicit operator sign-off on any row where the report shows a discrepancy'), a clean dry-run means no sign-off gate was triggered -- there was nothing to decide on.",
+    "12 new tests: 8 in tests/standing-didqube-reconciliation.test.ts covering every discrepancy classification (including the never-writes assertion -- the fake store is byte-identical before and after a full report run) and the app_origin/auth_profile_id scoping; 4 in tests/standing-didqube-reconciliation-route.test.ts covering the dual auth gate and that discrepancies surface honestly in a 200 response rather than being hidden."
+  ],
+  "rejectedApproaches": [
+    "Adding subjectDidQubeId/commitment columns directly to personas or crm_personas, mirroring Aegis's/CTP's own additive-schema pattern -- NOT done in this pass. The plan's own item-5 text, unlike items 2/3, does not specify additive columns; its explicit, sole deliverable is the dry-run reconciliation report itself, gated on operator sign-off for any discrepancy. Adding schema before the dry-run's own result was known would have been writing before the plan's own required read -- exactly the sequencing violation the 'highest-care' framing warns against. Left as a candidate follow-up, not implemented speculatively.",
+    "Modifying resolveCanonicalAgentPersonaId's lookup to use resolveDiDQube instead of/alongside the root_did match -- rejected: the live dry-run found the existing pattern already correct for every current row, so there is no defect to fix in the write path itself; changing a live, working provisioning path without a concrete discrepancy to justify it would be exactly the kind of unmotivated rewrite CLAUDE.md's Extend-Don't-Duplicate and change-sizing rules argue against."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-07-DIDQUBE-CONSUMER-RESOLVER-NOT-RAW-ANCHOR-001"
+  ],
+  "canaries": [
+    "tests/standing-didqube-reconciliation.test.ts",
+    "tests/standing-didqube-reconciliation-route.test.ts",
+    "tests/reconcile-provider-standing-attribution-route.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/standing-didqube-reconciliation.test.ts",
+      "tests/standing-didqube-reconciliation-route.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-07_didqube-canonical-resolver-execution-plan.md",
+    "services/standing/agentStandingPersona.ts",
+    "services/standing/didQubeReconciliation.ts",
+    "app/api/ops/journey/standing-didqube-reconciliation/route.ts"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "unresolvedRisks": [
+    "The clean dry-run result covers exactly the 5 canonical agent Standing personas that exist TODAY. It is not a standing guarantee -- a newly sponsored agent whose Standing identity gets provisioned before its DiDQube container is bound (a genuinely possible ordering, since resolveCanonicalAgentPersonaId's provisioning is independent of Factor's own didqubeContainer step) would show up as a fresh discrepancy the NEXT time this report runs. The report is a reusable, re-runnable tool for exactly that reason -- it is not a one-time attestation.",
+    "resolveCanonicalAgentPersonaId's root_did-keyed lookup remains unchanged and is not itself protected by any canary against reintroducing the root_did-authoritative-read pattern Phase 2.5 otherwise eliminated elsewhere -- this file was explicitly carved out and reclassified as safe in that phase specifically because Phase 4 item 5 owned deciding what, if anything, to do about it; this resolution's finding (zero live discrepancies) is not the same as a structural guarantee the pattern can never drift."
+  ]
+}

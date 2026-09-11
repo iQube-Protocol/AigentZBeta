@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-08-RECONCILIATION-NEVER-REWRITES-001",
+  "statement": "Reconciling a receipted constitutional state against a fresh external read never rewrites that state: agreement records the check, and disagreement produces a NEW, independently-receipted discrepancy event — the state field itself is only ever changed by a subsequent verified-and-receipted transition, never by a reconciliation read.",
+  "family": "constitutional",
+  "governingPrinciple": false,
+  "parentCandidateId": "CI-2026-08-08-RECEIPTED-CONSTITUTIONAL-STATE-001",
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "classification": "Operator directive, 2026-08-08, verbatim: \"Reconciliation does not rewrite constitutional history. It produces new evidence... If it does not [agree], that discrepancy itself becomes a new event requiring treatment — not an excuse to silently rewrite history.\"",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/horizen-authorization-client.test.ts",
+      "assertion": "reconcilePulseConstitutionalState against a later disagreeing partner read writes reconciliation_discrepancy_recorded naming the disagreeing fields and leaves partner_authorization_requests.state at CONFIRMED — the acceptance-invariant assertion itself. On agreement, writes no discrepancy receipt and touches no state field.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "horizen-pulse-admission",
+      "defect": "Before this change, the only reread function (verifyHorizenTransparencyActivation) that could run against a settled row was scoped to non-CONFIRMED states specifically so a reread could never overwrite CONFIRMED — but that was a structural accident of which states were reachable, not a named rule, and nothing existed to reconcile an ALREADY-CONFIRMED row at all, so the 'never rewrite' property had no enforcement point of its own once such a capability was added.",
+      "resolutionId": "RES-2026-08-08-RECEIPTED-CONSTITUTIONAL-STATE-001",
+      "evidence": [
+        "59af8eff0",
+        "tests/horizen-authorization-client.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-08-RECEIPTED-CONSTITUTIONAL-STATE-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "A genuine subsequent state change (revocation, expiry) is EXPLICITLY OUT OF SCOPE for the reconciliation function itself — it requires a new, separately verified and receipted transition, issued as its own deliberate act. Automating that from a disagreement is the exact shortcut this invariant forbids.",
+    "reconcilePulseConstitutionalState is not wired into any automatic cadence yet (no click, no poll, no cron) — see the parent resolution record's rejectedApproaches. The 'never rewrites' property is enforced regardless of how/when reconciliation is triggered, but 'periodic' reconciliation in the operator's literal sense (time-scheduled) remains a follow-up decision, not yet built.",
+    "CORRECTED same day (before any receipt existed under the old name): the wire action type was renamed reconciliation_discrepancy_recorded, dropping the horizen_ prefix — operator: 'The name horizen_reconciliation_discrepancy_recorded is partner-specific whereas the principle we have just established is clearly protocol-level... I would not let the underlying reconciliation architecture become Horizen-specific.' pulse_enrollment_verified/pulse_commitment_verified were deliberately left partner-specific (Pulse-specific EVENT TYPES, distinct from the reconciliation MECHANISM). Migration 20260930002100_reconciliation_discrepancy_protocol_level.sql.",
+    "Operator's tightest formulation of this invariant, worth preserving verbatim: 'Proof establishes fact. Policy establishes consequence. Receipt establishes state.' Also: 'External systems are authorities over the facts they originate, but not over the constitutional state those facts produce. A verified fact becomes constitutional state only through a policy-governed, auditable state-transition receipt. Subsequent external observations reconcile against that state; they do not silently rewrite it.'",
+    "SAME DAY, a real caller hit this invariant's boundary from a direction not yet covered: Nakamoto's own CONFIRMED row has no receipted evidence at all (confirmed via the pre-structured-extraction prose classifier), so reconcilePulseConstitutionalState correctly refused NO_RECEIPTED_EVIDENCE — reconciliation has nothing to compare against yet. Rather than widening reconciliation's own contract to also handle 'there is no baseline' (which would have blurred 'compares two things' with 'establishes the first thing'), the operator directed a SEPARATE function, bootstrapPulseEvidenceFromLiveReread, to close that gap once per row. This keeps the invariant's own canary (reconciliation never rewrites, only compares-and-records-or-flags) exactly as narrow as it already was; bootstrap never invokes reconciliation and never touches `state` either, but it is a distinct act from reconciliation, not an extension of it. See RES-2026-08-08-PULSE-EVIDENCE-BOOTSTRAP-001 and CI-2026-08-08-PULSE-EVIDENCE-BOOTSTRAP-001 for the bootstrap function's own resolution record and invariant."
+  ]
+}

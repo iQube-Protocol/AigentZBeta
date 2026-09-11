@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-15-INCOMPLETE-SEARCH-DECLARED-COMPLETE-001",
+  "statement": "A search is reported as having resolved a question only after it has attempted to falsify its own answer by widening beyond the terms it already suspected; finding what was sought is not evidence that nothing else was there to find.",
+  "classification": "Engineering/epistemic invariant (candidate causal pattern). Sibling to, and deliberately NOT a widening of, CI-2026-08-15-CANONICAL-TERM-RESOLUTION-001 (operator ruling, 2026-08-15).",
+  "family": "engineering",
+  "scope": "local",
+  "status": "observed",
+  "ratifiedSource": null,
+  "parentCandidateId": null,
+  "supersededBy": null,
+  "governingPrinciple": false,
+  "derivedFrom": [
+    "RES-2026-08-15-ALETHEON-SPELLING-AMBIGUITY-001"
+  ],
+  "occurrences": [
+    {
+      "site": "Main session, Aletheon Homecoming audit briefing, 2026-08-15",
+      "defect": "The session checked four spellings (Aletheon, Aletheian, Aletheia, aletheia), found Aletheon dominant and the other three at zero, and told the operator 'Aletheon is canonical — Alethian appears zero times', presented as a settled fact. A fifth spelling, 'Alethean', was never checked because nothing prompted the search to widen past the terms it already suspected. Alethean carries 76 occurrences across 20 files, several of them operator-ratified constitutional documents, and co-occurs with Aletheon inside at least one of them (SPEC-HMC-001:25). The operator, not the agent, found the gap.",
+      "resolutionId": "RES-2026-08-15-ALETHEON-SPELLING-AMBIGUITY-001",
+      "evidence": [
+        "codexes/packs/irl/foundation/SPEC-HMC-001_constitutional-agent-continuity.md",
+        "codexes/packs/agentiq/updates/2026-08-15_homecoming-iii-bootstrap-architecture-audit.md"
+      ]
+    }
+  ],
+  "canaries": [],
+  "projections": {
+    "targets": [
+      "devon",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "notes": [
+    "WHY THIS IS A SIBLING, NOT A WIDENING, OF CI-2026-08-15-CANONICAL-TERM-RESOLUTION-001 (operator ruling, verbatim reasoning): that invariant concerns an AGENT inferring a term from context when governed Common Ground already agreed on one answer (DCIR). This case concerns a search that FELT complete before it was, surfacing a corpus that is ITSELF internally inconsistent across ratified documents. The failure here precedes term resolution: it is about when a search may be called finished, not about whether to trust canon over inference. Conflating the two would make the DCIR invariant's statement fit worse for both cases.",
+    "THE CAUSAL CONDITION, NOT A PROHIBITION. 'Check more spellings' names an act; the condition that must hold is that a search attempts to falsify its own answer by widening past its starting assumptions before the result is reported as resolved. That is checkable independent of terminology, which is why this is framed as a general search-discipline pattern rather than a naming rule.",
+    "ONE OCCURRENCE, RECORDED HONESTLY. No claim of recurrence or portability is made. Whether this generalises to other 'declared resolved' claims in this programme (the DCIR case itself was resolved on a smaller but seemingly sufficient search) is the open question, not an assertion.",
+    "RELATIONSHIP TO CI-2026-08-15-QUIESCENT-MEASUREMENT-001. Both are 'the check felt sufficient but was not' shapes. They are not merged: quiescent-measurement is about a system's STATE at the moment of reading (mutation in progress); this is about a search's COVERAGE at the moment of concluding (unexplored space remaining). Whether a common parent abstraction exists is left open."
+  ]
+}

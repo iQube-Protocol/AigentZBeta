@@ -11,8 +11,20 @@ if (fs.existsSync(envPath)) {
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: {
-    version: "0.8.20",
+    // Bumped from 0.8.20 → 0.8.27 because OpenZeppelin v5 internals
+    // (ERC721, Strings, Bytes) added `pragma solidity ^0.8.24` AND
+    // use the `mcopy` Cancun-era opcode (Solidity ≥0.8.25 with
+    // evmVersion='cancun', which is the default at 0.8.25+). Base
+    // mainnet is fully Cancun since the Dencun upgrade. Our contracts
+    // pin `^0.8.20` which is forward-compatible.
+    version: "0.8.27",
     settings: {
+      // Hardhat's default evmVersion is 'paris' regardless of compiler
+      // version. OpenZeppelin Bytes.sol uses the `mcopy` opcode which
+      // only exists on Cancun-or-later EVMs. Base mainnet is fully
+      // Cancun since the Dencun upgrade, so it's safe (and required)
+      // to compile against it.
+      evmVersion: "cancun",
       optimizer: {
         enabled: true,
         runs: 200
@@ -57,6 +69,15 @@ module.exports = {
       accounts: process.env.EVM_DEPLOYER_KEY ? [process.env.EVM_DEPLOYER_KEY] : [],
       chainId: 8453
     }
+  },
+  // Etherscan v2 unified verification config.
+  // As of May 31, 2025 Etherscan retired V1 chain-specific keys
+  // (basescan.org, optimistic.etherscan.io, etc.). The V2 API uses
+  // a single key from etherscan.io that auto-routes by chainId. We
+  // accept ETHERSCAN_API_KEY first; BASESCAN_API_KEY is kept as a
+  // fallback for operator inertia but should also be a V2-issued key.
+  etherscan: {
+    apiKey: process.env.ETHERSCAN_API_KEY || process.env.BASESCAN_API_KEY || '',
   },
   paths: {
     sources: "./contracts",

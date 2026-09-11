@@ -1,0 +1,53 @@
+name: agent-journey-forensics
+
+# One-off, manually-triggered read-only diagnostic (Final Horizen Projection
+# Reconciliation / URGENT SEQUENCING CORRECTION, 2026-08-09). Calls
+# /api/ops/journey/agent-forensics and /api/ops/dvn/agent-receipts for the
+# given agent — never mutates anything.
+on:
+  workflow_dispatch:
+    inputs:
+      agentRuntimeId:
+        description: 'Agent runtime id, e.g. aigent-moneypenny or aigent-nakamoto'
+        required: true
+        default: 'aigent-moneypenny'
+      aigentQubeId:
+        description: 'AigentQube asset id, e.g. aigentqube-moneypenny or aigentqube-nakamoto'
+        required: true
+        default: 'aigentqube-moneypenny'
+      journeyId:
+        description: 'Journey id (defaults to the Horizen admission journey)'
+        required: false
+        default: 'horizen-moneypenny-admission'
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Agent journey forensics
+        env:
+          CRON_TRIGGER_TOKEN: ${{ secrets.CRON_TRIGGER_TOKEN }}
+          AGENT_RUNTIME_ID: ${{ inputs.agentRuntimeId }}
+          AIGENTQUBE_ID: ${{ inputs.aigentQubeId }}
+          JOURNEY_ID: ${{ inputs.journeyId }}
+        run: |
+          if [ -z "$CRON_TRIGGER_TOKEN" ]; then
+            echo "::error::CRON_TRIGGER_TOKEN secret not set in repo settings"
+            exit 1
+          fi
+          echo "== agent-forensics =="
+          curl -sS --max-time 60 \
+            -H "x-cron-token: $CRON_TRIGGER_TOKEN" \
+            "https://dev-beta.aigentz.me/api/ops/journey/agent-forensics?agentRuntimeId=${AGENT_RUNTIME_ID}&aigentQubeId=${AIGENTQUBE_ID}&journeyId=${JOURNEY_ID}" | tee forensics.json
+          echo ""
+          echo "== agent-receipts (standing_accrued, pnl_service_registered, pnl_service_verified) =="
+          curl -sS --max-time 60 \
+            -H "x-cron-token: $CRON_TRIGGER_TOKEN" \
+            "https://dev-beta.aigentz.me/api/ops/dvn/agent-receipts?agentRuntimeId=${AGENT_RUNTIME_ID}" | tee receipts.json
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-journey-forensics-${{ inputs.agentRuntimeId }}
+          path: |
+            forensics.json
+            receipts.json

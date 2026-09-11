@@ -1,0 +1,118 @@
+{
+  "id": "marketa.ask-partner-proposal",
+  "version": "v1",
+  "label": "Ask Marketa for a partner proposal",
+  "description": "End-to-end partner outreach chain: user composes brief → Marketa drafts proposal → user reviews + sends → 3-day follow-up.",
+  "cartridge_scope": ["venture-lab", "agentiq-knyt"],
+  "triggered_by_nbe": ["marketa.ask-partner-proposal"],
+  "receipt_eligible": true,
+  "on_failure": "halt",
+  "cost_qc": 900,
+  "cost_metadata": {
+    "refund_policy": "before_step_0_outcome"
+  },
+  "steps": [
+    {
+      "id": "compose-brief",
+      "label": "Compose partner brief",
+      "actor": "user",
+      "kind": "compose",
+      "compose": {
+        "kind": "doc",
+        "seed_prompt_ref": "$nbe.handoffHint"
+      },
+      "next": "submit-to-marketa",
+      "receipt_metadata_keys": ["artifact_id", "title"]
+    },
+    {
+      "id": "submit-to-marketa",
+      "label": "Submit brief to Marketa for proposal",
+      "actor": "marketa",
+      "kind": "rpc",
+      "rpc": {
+        "endpoint": "/api/marketa/propose",
+        "method": "POST",
+        "body_from": "prev_artifact",
+        "expected_outcome_event_type": "proposal_drafted",
+        "timeout_minutes": 30
+      },
+      "next": "review-proposal",
+      "receipt_metadata_keys": ["brief_artifact_id", "proposal_artifact_id"]
+    },
+    {
+      "id": "review-proposal",
+      "label": "Review Marketa's proposal",
+      "actor": "user",
+      "kind": "approve",
+      "approve": {
+        "artifact_ref": "$chain.proposal_artifact_id",
+        "confirm_label": "Send to partner",
+        "reject_label": "Revise with Marketa",
+        "on_reject_next": "submit-to-marketa"
+      },
+      "next": "send-to-partner",
+      "receipt_metadata_keys": ["proposal_artifact_id", "decision"]
+    },
+    {
+      "id": "send-to-partner",
+      "label": "Send proposal to partner",
+      "actor": "marketa",
+      "kind": "rpc",
+      "rpc": {
+        "endpoint": "/api/connectors/execute",
+        "method": "POST",
+        "body_from": "chain_context",
+        "body_static": { "connector": "marketa.send-transactional" },
+        "expected_outcome_event_type": "artifact_sent",
+        "timeout_minutes": 10
+      },
+      "next": "follow-up-delay",
+      "receipt_metadata_keys": ["proposal_artifact_id", "message_id"]
+    },
+    {
+      "id": "follow-up-delay",
+      "label": "Wait 3 days for partner reply",
+      "actor": "system",
+      "kind": "scheduled",
+      "scheduled": {
+        "delay": { "value": 3, "unit": "days" },
+        "materialize_as": "silent"
+      },
+      "next": "follow-up-check",
+      "branches": [
+        { "if": "$chain.partner_replied == true", "terminate": true }
+      ]
+    },
+    {
+      "id": "follow-up-check",
+      "label": "No reply from partner — chase or close?",
+      "actor": "user",
+      "kind": "approve",
+      "approve": {
+        "artifact_ref": "$chain.proposal_artifact_id",
+        "confirm_label": "Send follow-up nudge",
+        "reject_label": "Close — partner declined / silent"
+      },
+      "next": "send-followup-nudge",
+      "branches": [
+        { "if": "decision == 'reject'", "terminate": true }
+      ]
+    },
+    {
+      "id": "send-followup-nudge",
+      "label": "Send follow-up nudge to partner",
+      "actor": "marketa",
+      "kind": "rpc",
+      "rpc": {
+        "endpoint": "/api/connectors/execute",
+        "method": "POST",
+        "body_from": "chain_context",
+        "body_static": { "connector": "marketa.send-transactional", "template": "partner_followup_nudge" },
+        "expected_outcome_event_type": "artifact_sent",
+        "timeout_minutes": 10
+      },
+      "next": null,
+      "receipt_metadata_keys": ["message_id"]
+    }
+  ]
+}

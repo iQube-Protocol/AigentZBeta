@@ -47,8 +47,37 @@ interface SkillVideoPlayerProps {
   initial_generation_id?: string;
   /** Venice model required for the status URL when resuming a Venice job. */
   initial_venice_model?: string;
+  /**
+   * Per-segment prompts for a multi-clip video (length must equal the
+   * segment count implied by `duration`). When provided, each ≤12s
+   * generation uses ITS OWN prompt instead of repeating `prompt` — this is
+   * what makes a continuous multi-segment story possible; without it every
+   * segment submits an identical request body (same prompt/duration/style),
+   * which produces duplicate/near-duplicate clips (Chrysalis EXP-002 finding,
+   * 2026-07-03). Falls back to repeating `prompt` when omitted, so existing
+   * callers are unaffected.
+   */
+  segment_prompts?: string[];
   packet?: Record<string, any>;
   experience?: { configuration?: Record<string, any>; metadata?: Record<string, any> };
+  /**
+   * Fired once per GENERATED final video URL (single-segment completion or
+   * multi-segment stitch alike) — the seam callers use to receipt/record the
+   * production (e.g. the video-article skill's video receipt). Never fires
+   * for saved/initial URLs. Optional and additive: existing callers are
+   * unaffected.
+   */
+  onCompleted?: (info: { videoUrl: string }) => void;
+  /**
+   * Additive (Constitutional Video audio, 2026-07-19): a post-process applied
+   * to each generated segment URL BEFORE stitching — the constitutional-video
+   * runner uses it to mux a voiceover onto each silent clip via
+   * /api/skills/video/mux-audio. Receives the clip URL + its index, returns
+   * the processed URL. Omitted → segments stitch as-is (silent), unchanged.
+   */
+  segment_post_process?: (clipUrl: string, index: number) => Promise<string>;
+  /** Preserve the audio track through the stitch (voiced segments). Default false. */
+  preserveAudio?: boolean;
 }
 
 interface InvocationResult {
@@ -101,10 +130,117 @@ function isLegacyVideoProxyUrl(uri: string | undefined) {
   return typeof uri === "string" && /\/api\/skills\/video\//i.test(uri);
 }
 
+// --- Multi-clip stitching (videos > 12s) ---------------------------------
+// Sora and Venice each cap a single generation at 12s. To reach longer videos
+// we generate N ≤12s clips and stitch them via /api/skills/video/stitch.
+const SEGMENT_SECONDS = 12;
+const MAX_SEGMENTS = 4; // 4×12 = 48s ceiling (Chrysalis EXP-002, 2026-07-03)
+// /api/skills/video/stitch accepts 2–3 clips per call. A 4-segment (48s)
+// video is stitched hierarchically: [0,1]→A, [2,3]→B, then [A,B]→final.
+const STITCH_MAX_CLIPS_PER_PASS = 3;
+const SEGMENT_POLL_INTERVAL_MS = 15_000;
+const SEGMENT_MAX_POLL_ATTEMPTS = 24; // ~6 min per clip
+
+/** Split N clip URLs into stitch passes honouring STITCH_MAX_CLIPS_PER_PASS,
+ * then stitch each pass and (if more than one pass) stitch the pass outputs
+ * together — a generic hierarchical reducer, so this works for any segment
+ * count without hardcoding the 2-pass/4-segment case.
+ * Exported for the Experiment Lab's segment-recovery panel, which re-stitches
+ * already-generated clips after a stitch-side failure. */
+export async function stitchHierarchical(
+  urls: string[],
+  experienceId: string | undefined,
+  // Additive (Constitutional Video audio, 2026-07-19): preserve the AAC track
+  // when the source clips are voiced segments. Default false — existing
+  // callers stitch silently, byte-identical.
+  preserveAudio = false,
+): Promise<{ ok: boolean; video_url?: string; thumbnail_url?: string; error?: string }> {
+  // Warm-up: resolve/download the ffmpeg binary server-side BEFORE the first
+  // stitch pass, so the binary fetch doesn't eat into the stitch request's
+  // own time budget. Best-effort — a warm-up failure still lets the stitch
+  // attempt run (it resolves ffmpeg itself and reports the real error).
+  await fetch("/api/skills/video/stitch", { cache: "no-store" }).catch(() => {});
+
+  const doStitch = async (clips: string[]) => {
+    const res = await fetch("/api/skills/video/stitch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clips, experience_id: experienceId || undefined, preserve_audio: preserveAudio }),
+    })
+      .then((r) => r.json())
+      .catch(() => ({ ok: false, error: "Stitch request failed" }));
+    return res as { ok: boolean; video_url?: string; thumbnail_url?: string; error?: string };
+  };
+
+  if (urls.length <= STITCH_MAX_CLIPS_PER_PASS) {
+    return doStitch(urls);
+  }
+
+  let level = urls;
+  let lastResult: { ok: boolean; video_url?: string; thumbnail_url?: string; error?: string } | null = null;
+  while (level.length > 1) {
+    const nextLevel: string[] = [];
+    for (let i = 0; i < level.length; i += STITCH_MAX_CLIPS_PER_PASS) {
+      const chunk = level.slice(i, i + STITCH_MAX_CLIPS_PER_PASS);
+      if (chunk.length === 1) {
+        nextLevel.push(chunk[0]); // odd one out carries forward unstitched to the next level
+        continue;
+      }
+      const res = await doStitch(chunk);
+      if (!res.ok || !res.video_url) {
+        return { ok: false, error: res.error || "Hierarchical stitch pass failed" };
+      }
+      lastResult = res;
+      nextLevel.push(res.video_url);
+    }
+    level = nextLevel;
+  }
+  // level[0] is the final stitched URL; lastResult carries its thumbnail
+  // (the pass that produced level[0] was always a real 2–3-clip stitch call,
+  // since the loop only terminates once a single URL remains).
+  return { ok: true, video_url: level[0], thumbnail_url: lastResult?.thumbnail_url };
+}
+
+function segmentsForDuration(seconds: number): number {
+  const n = Number(seconds);
+  if (!Number.isFinite(n) || n <= SEGMENT_SECONDS) return 1;
+  return Math.min(MAX_SEGMENTS, Math.ceil(n / SEGMENT_SECONDS));
+}
+
+/** Poll a single generation's status route until it yields a playable URL.
+ *  Exported so the constitutional-video runner can re-generate a single
+ *  segment (G6 per-segment operability) and resolve it to a URL. */
+export async function pollSegmentToUrl(
+  genId: string,
+  provider: "venice" | "openai",
+  veniceModel: string | undefined,
+): Promise<string> {
+  const base =
+    provider === "venice"
+      ? `/api/skills/video/venice/${genId}/status?model=${encodeURIComponent(veniceModel || "")}`
+      : `/api/skills/video/${genId}/status`;
+  for (let i = 0; i < SEGMENT_MAX_POLL_ATTEMPTS; i += 1) {
+    const sep = base.includes("?") ? "&" : "?";
+    let data: any = null;
+    try {
+      const res = await fetch(`${base}${sep}_ts=${Date.now()}`, { cache: "no-store" });
+      data = await res.json().catch(() => null);
+    } catch {
+      data = null;
+    }
+    if (data?.ready && data?.video_url) return data.video_url as string;
+    if (data?.status === "failed" || data?.status === "error") {
+      throw new Error(data?.error || "segment generation failed");
+    }
+    await new Promise((r) => setTimeout(r, SEGMENT_POLL_INTERVAL_MS));
+  }
+  throw new Error("segment generation timed out");
+}
+
 export default function SkillVideoPlayer({
   skill_id,
   prompt,
-  duration = 10,
+  duration = 12,
   aspect_ratio = "16:9",
   style = "cinematic",
   creative_pack,
@@ -116,8 +252,12 @@ export default function SkillVideoPlayer({
   persona_id,
   initial_generation_id,
   initial_venice_model,
+  segment_prompts,
+  segment_post_process,
+  preserveAudio = false,
   packet,
   experience,
+  onCompleted,
 }: SkillVideoPlayerProps) {
   const searchParams = useSearchParams();
   // Sora jobs typically complete in 3–5 min. First poll fires immediately,
@@ -163,6 +303,10 @@ export default function SkillVideoPlayer({
   const [pollAttempts, setPollAttempts] = useState(0);
   const [autoPollPaused, setAutoPollPaused] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  // Clip URLs that generated successfully but whose stitch pass failed —
+  // retained so the stitch can be retried WITHOUT regenerating (regeneration
+  // is the token-expensive half; the clips persist server-side).
+  const [unstitchedUrls, setUnstitchedUrls] = useState<string[] | null>(null);
   const resolvedProvider = result?.provider || initialProvider;
   const providerLabel = getProviderLabel(resolvedProvider);
 
@@ -197,8 +341,188 @@ export default function SkillVideoPlayer({
     setAutoPollPaused(false);
   }, [initialProvider, initial_venice_model, resolvedInitialGenerationId]);
 
+  const segmentCount = segmentsForDuration(duration);
+
+  // Completion seam — one signal for EVERY generated-completion path (stitch
+  // or single segment): fire onCompleted exactly once per final video URL.
+  // Saved/initial URLs never fire (resultSource guard).
+  const completedUrlRef = useRef<string | null>(null);
+  useEffect(() => {
+    const url = result?.ok ? result.video_url : undefined;
+    if (!url || resultSource !== "generated") return;
+    if (completedUrlRef.current === url) return;
+    completedUrlRef.current = url;
+    onCompleted?.({ videoUrl: url });
+  }, [result, resultSource, onCompleted]);
+
+  // Stitch already-generated clips into the final video. Separated from
+  // invokeMultiSegment so a failed stitch is retryable on its own — the error
+  // UI offers "Retry stitch" against the retained clip URLs instead of
+  // forcing a full (expensive) regeneration.
+  const stitchAndFinish = useCallback(async (urls: string[]) => {
+    setState("invoking");
+    setStatusMessage("Stitching clips into the final video…");
+    try {
+      const stitchRes = await stitchHierarchical(urls, experience_id, preserveAudio);
+      if (!stitchRes.ok || !stitchRes.video_url) {
+        throw new Error(stitchRes.error || "Failed to stitch clips into the final video");
+      }
+      setUnstitchedUrls(null);
+      setStatusMessage(null);
+      setResult({
+        ok: true,
+        mode: "live",
+        provider: resolvedProvider,
+        video_url: stitchRes.video_url,
+        ...(typeof stitchRes.thumbnail_url === "string" ? { thumbnail_url: stitchRes.thumbnail_url } : {}),
+        invocation_phase: "completed",
+        skill_composite: 78,
+      });
+      setState("done");
+      setResultSource("generated");
+    } catch (err: any) {
+      setResult({
+        ok: false,
+        error: err?.message || "Failed to stitch clips into the final video",
+        invocation_phase: "failed",
+      });
+      setState("error");
+      setResultSource("none");
+      setStatusMessage(null);
+    }
+  }, [experience_id, resolvedProvider, preserveAudio]);
+
+  // Long-video path: generate `segments` clips (≤12s each) then stitch them.
+  const invokeMultiSegment = useCallback(async (segments: number) => {
+    setState("invoking");
+    setResult(null);
+    setPlaybackRetryCount(0);
+    setPersistedVideoKey(null);
+    setResultSource("none");
+    setPollAttempts(0);
+    setAutoPollPaused(false);
+    setUnstitchedUrls(null);
+    setStatusMessage(
+      `Generating ${segments} clips to stitch into a ~${segments * SEGMENT_SECONDS}s video…`,
+    );
+    try {
+      // 0. Resolve the per-segment prompt list. If the caller didn't supply
+      // distinct segment_prompts, every segment falls back to the same
+      // `prompt` — which is what caused the "segments are duplicate clips"
+      // defect: identical request bodies read as the same generation
+      // upstream. Callers producing a real multi-segment story (varied prose,
+      // same invariants) MUST pass segment_prompts.
+      const promptForSegment = (index: number): string =>
+        segment_prompts && segment_prompts.length === segments
+          ? segment_prompts[index]
+          : prompt;
+
+      // 1. Submit every segment in parallel (each a 12s generation, its own prompt).
+      const submits = await Promise.all(
+        Array.from({ length: segments }, async (_, index) => {
+          const res = await fetch("/api/skills/invoke", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              skill_id,
+              prompt: promptForSegment(index),
+              duration: SEGMENT_SECONDS,
+              aspect_ratio,
+              style,
+              creative_pack: creative_pack || undefined,
+              experience_id: experience_id || undefined,
+              trust_override,
+              venice_model: venice_model || undefined,
+            }),
+          });
+          return res
+            .json()
+            .catch(() => ({ ok: false, error: "Invalid response from skill API" }));
+        }),
+      );
+
+      const failed = submits.find((s) => !s.ok || s.mode !== "live");
+      if (failed) {
+        throw new Error(
+          failed.error || failed.fallback_reason || "One or more clips could not be generated live.",
+        );
+      }
+
+      // 1b. Record the sequence manifest server-side BEFORE polling: whatever
+      // happens after this point (stitch failure, gateway timeout, tab close),
+      // the run's ordered clip membership is durably recoverable — the
+      // Experiment Lab's recovery panel stitches straight from this record.
+      // Fire-and-forget; a manifest miss never blocks the run.
+      const sequenceId = `vidseq-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      fetch("/api/skills/video/sequences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sequence_id: sequenceId,
+          skill_id,
+          provider: resolvedProvider,
+          venice_model: venice_model || undefined,
+          title: prompt.slice(0, 120),
+          segments: submits.map((s, i) => ({
+            index: i,
+            provider: s.provider || resolvedProvider,
+            generation_id: s.generation_id,
+            prompt: promptForSegment(i).slice(0, 300),
+          })),
+        }),
+      }).catch(() => {});
+
+      // 2. Resolve each segment to a completed URL (immediate or via polling).
+      setStatusMessage(`Rendering ${segments} clips… this can take a few minutes.`);
+      let urls = await Promise.all(
+        submits.map((s) =>
+          s.video_url
+            ? Promise.resolve(s.video_url as string)
+            : pollSegmentToUrl(s.generation_id, s.provider || resolvedProvider, s.venice_model),
+        ),
+      );
+
+      // 2b. Per-segment post-process (Constitutional Video: mux voiceover onto
+      // each silent clip). Sequential so the mux route isn't hit N-at-once;
+      // additive — no-op when the prop is absent. A failed mux keeps the
+      // silent clip (honest degradation), never sinks the production.
+      if (segment_post_process) {
+        setStatusMessage(`Adding voiceover to ${segments} clips…`);
+        const processed: string[] = [];
+        for (let i = 0; i < urls.length; i += 1) {
+          try {
+            processed.push(await segment_post_process(urls[i], i));
+          } catch {
+            processed.push(urls[i]);
+          }
+        }
+        urls = processed;
+      }
+
+      // 3. Stitch the clips into one file. >3 clips (e.g. a 48s/4-segment
+      // production) is stitched hierarchically since /api/skills/video/stitch
+      // accepts at most 3 clips per call. The URLs are retained BEFORE the
+      // stitch so a stitch-side failure never discards the generated clips —
+      // the error UI can retry the stitch alone.
+      setUnstitchedUrls(urls);
+      await stitchAndFinish(urls);
+    } catch (err: any) {
+      setResult({
+        ok: false,
+        error: err?.message || "Multi-clip generation failed",
+        invocation_phase: "failed",
+      });
+      setState("error");
+      setResultSource("none");
+      setStatusMessage(null);
+    }
+  }, [skill_id, prompt, segment_prompts, segment_post_process, aspect_ratio, style, creative_pack, experience_id, trust_override, venice_model, resolvedProvider, stitchAndFinish]);
+
   const invoke = useCallback(async () => {
     if (!skill_id) return;
+    if (segmentCount > 1) {
+      return invokeMultiSegment(segmentCount);
+    }
     setState("invoking");
     setResult(null);
     setPlaybackRetryCount(0);
@@ -271,7 +595,7 @@ export default function SkillVideoPlayer({
       setState("error");
       setResultSource("none");
     }
-  }, [skill_id, prompt, duration, aspect_ratio, style, creative_pack, experience_id, trust_override, venice_model]);
+  }, [skill_id, prompt, duration, aspect_ratio, style, creative_pack, experience_id, trust_override, venice_model, segmentCount, invokeMultiSegment]);
 
   const checkStatus = useCallback(async () => {
     if (!result?.generation_id) return;
@@ -713,8 +1037,18 @@ export default function SkillVideoPlayer({
           <div className="space-y-3">
             <video
               src={result.video_url}
+              // Poster = the persisted thumbnail so the preview shows a frame
+              // before playback. Unmuted autoplay is blocked by most browsers,
+              // so without this the preview renders as a black frame — the exact
+              // bug where the thin client (which sets a poster) shows a thumb but
+              // the Studio preview did not. preload="metadata" also nudges the
+              // browser to paint the first frame when no thumbnail exists yet.
+              poster={result.thumbnail_url || undefined}
               controls
               autoPlay
+              muted
+              playsInline
+              preload="metadata"
               className="w-full rounded-xl border border-slate-700/50"
               style={{
                 aspectRatio: aspect_ratio === "9:16" ? "9/16" : aspect_ratio === "1:1" ? "1/1" : "16/9",
@@ -777,12 +1111,38 @@ export default function SkillVideoPlayer({
                     This skill is below the hydration threshold. Enable &quot;Accept lower trust level&quot; in the template to override.
                   </p>
                 )}
+                {unstitchedUrls && (
+                  <p className="text-[10px] text-emerald-300 mt-1">
+                    Your {unstitchedUrls.length} clips generated successfully and are safe — only the
+                    stitch failed. Retry the stitch below; nothing gets regenerated.
+                  </p>
+                )}
               </div>
             </div>
-            <Button size="sm" variant="ghost" className="text-xs text-slate-400" onClick={invoke}>
-              <RefreshCw className="h-3 w-3 mr-1" />
-              Retry
-            </Button>
+            {unstitchedUrls && (
+              <details className="text-[10px] text-slate-500">
+                <summary className="cursor-pointer">Generated clip URLs ({unstitchedUrls.length})</summary>
+                <pre className="mt-1 whitespace-pre-wrap break-all bg-black/30 rounded-lg p-2">
+                  {unstitchedUrls.join("\n")}
+                </pre>
+              </details>
+            )}
+            <div className="flex items-center gap-2">
+              {unstitchedUrls && (
+                <Button
+                  size="sm"
+                  className="text-xs bg-emerald-700 hover:bg-emerald-600 text-white"
+                  onClick={() => stitchAndFinish(unstitchedUrls)}
+                >
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  Retry stitch only
+                </Button>
+              )}
+              <Button size="sm" variant="ghost" className="text-xs text-slate-400" onClick={invoke}>
+                <RefreshCw className="h-3 w-3 mr-1" />
+                {unstitchedUrls ? "Regenerate from scratch" : "Retry"}
+              </Button>
+            </div>
           </div>
         )}
       </div>

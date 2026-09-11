@@ -27,8 +27,10 @@ export class AgentKeyServiceV2 {
     // Initialize Universal Service for Payment Operations
     this.universalService = createPaymentService();
     
-    // Get encryption key from environment
-    this.encryptionKey = process.env.AGENT_KEY_ENCRYPTION_SECRET || process.env.NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET || '';
+    // Get encryption key from environment. SECURITY (2026-07-30): never a
+    // NEXT_PUBLIC_-prefixed fallback for this -- see
+    // app/api/identity/persona/route.ts for the full rationale.
+    this.encryptionKey = process.env.AGENT_KEY_ENCRYPTION_SECRET || '';
     
     if (!this.encryptionKey) {
       throw new Error('AGENT_KEY_ENCRYPTION_SECRET environment variable is required');

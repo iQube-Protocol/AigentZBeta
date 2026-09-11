@@ -108,7 +108,7 @@ async function runApiTests() {
   const aaApiResult = runCommand(
     `curl -s -X POST http://localhost:3001/api/aa/qubetalk/channels \
       -H "Content-Type: application/json" \
-      -H "X-API-Key: demo-external-key" \
+      -H "X-API-Key: ${process.env.AA_API_KEY || process.env.EXTERNAL_AGENT_API_KEY || ''}" \
       -H "X-Agent-ID: test-agent" \
       -d '{"tenant_id": "agentiq_main", "channel_name": "Test"}' | jq .success`,
     'AA-API External Access'

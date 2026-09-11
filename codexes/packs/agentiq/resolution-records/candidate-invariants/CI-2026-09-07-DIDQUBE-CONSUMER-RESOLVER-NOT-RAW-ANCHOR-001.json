@@ -1,0 +1,113 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-07-DIDQUBE-CONSUMER-RESOLVER-NOT-RAW-ANCHOR-001",
+  "statement": "Any Phase 4 DiDQube consumer (Factor, Aegis, CTP, DCIR, Standing, Registry/Horizen) that needs to answer 'is this subject's constitutional identity established' MUST resolve that question through services/identity/didQubeResolver.ts::resolveDiDQube, never by reading agent_root_identity/kybe_identity/root_identity tables directly and treating a raw anchor row's mere existence as sufficient. A raw anchor row proves the ANCHOR exists; it does not prove the anchor is bound into its DiDQube constitutional container, and a consumer that skips the resolver has no way to distinguish 'genuinely resolved' from 'anchor exists but container is unbound/conflicted/ambiguous'. Where a consumer has legitimate cause to complete a missing binding for an anchor it just created or is actively establishing (never for an arbitrary anchor it merely discovered), it MUST do so through the one shared, idempotent write path (services/identity/didQubeResolver.ts::ensureAgentDiDQubeBinding for agents; human bindings arise from kybe_identity's own process) — never a duplicate INSERT into didqubes/agent_didqubes/human_didqubes. A consumer whose progression depends on this fact (prepare-gating, approval-gating, or execution-gating per the execution plan's own classification, ruling #8) must report the resolver's actual state honestly (established/missing/blocked/unreadable) and never silently upgrade an unresolved/conflicted result into an assumed-resolved one.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "A parallel-implementation-avoidance invariant (inv.engineering.036/037's family) specific to the DiDQube Phase 4 migration sequence: the resolver (Phase 2) and the supertype tables (Phase 1) were built and verified before any consumer existed, so every Phase 4 consumer migration independently faces the same temptation to keep its own pre-existing raw-table identity walk rather than adopting the resolver — Factor's own resolveAgentShellLeg is the first documented instance of exactly that temptation, caught only because this migration was explicitly scoped to replace it.",
+  "scope": "local",
+  "status": "validated",
+  "canaries": [
+    {
+      "path": "tests/use-case-zero-orchestrator.test.ts",
+      "assertion": "Factor's didqubeContainer leg calls resolveDiDQube (never treats a bare agent_root_identity row as sufficient), gates progression on its actual resolution state (unresolved/conflicted both block further advancement in the same call), and completes a missing binding ONLY via ensureAgentDiDQubeBinding, never a direct insert.",
+      "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/aegis-assessment-service.test.ts",
+      "assertion": "createAssessment's optional subjectIdentity resolves through resolveDiDQube (never a raw agent_root_identity read treated as sufficient); an unresolved/absent identity leaves the four subject_didqube_*/snapshot fields null and still creates the assessment (additive, never blocking); a resolved identity populates all fields and the snapshot is untouched by later ratification.",
+      "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/ctp-constitutional-runtime.test.ts",
+      "assertion": "The Constitutional Runtime resolves the subject's DiDQube via resolveDiDQube (never a raw table read) exactly once per invocation, threads it onto both the success receipt and any refusal that already knows the subject, and an admin double that cannot support the read resolves to null rather than aborting the transition.",
+      "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/standing-didqube-reconciliation.test.ts",
+      "assertion": "Standing's dry-run reconciliation classifies every canonical agent Standing identity's underlying anchor via resolveDiDQube (never treating a raw root_did/agent_root_identity match as sufficient on its own), distinguishes every discrepancy shape honestly, and never writes to any table.",
+      "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/agent-didqube-external-presence.test.ts",
+      "assertion": "resolveAgentExternalPresence calls resolveDiDQube first and short-circuits before either Horizen or Registry is ever read when the DiDQube is unresolved/conflicted -- external identifiers are never accepted as an alternate path into a resolved identity.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/factor/useCaseZeroReadinessProjection.ts::resolveAgentShellLeg",
+      "defect": "Treated a bare agent_root_identity row (found via findAgentRootIdentityBySlug) as sufficient proof the agent's constitutional identity was established, with no check against the canonical DiDQube resolver at all.",
+      "resolutionId": "RES-2026-09-07-DIDQUBE-PHASE-4-FACTOR-CONSUMER-MIGRATION-001",
+      "evidence": [
+        "services/factor/useCaseZeroReadinessProjection.ts",
+        "services/factor/useCaseZeroOrchestrator.ts",
+        "services/identity/didQubeResolver.ts"
+      ]
+    },
+    {
+      "site": "services/aegis/aegisAssessmentService.ts::createAssessment",
+      "defect": "No mechanism existed for Aegis to record which constitutional identity an assessment's subject corresponded to at all -- subject_ref (a factor_case/token_launch id) never named a resolvable anchor, and nothing filled that gap through the canonical resolver until this migration.",
+      "resolutionId": "RES-2026-09-07-DIDQUBE-PHASE-4-AEGIS-CONSUMER-MIGRATION-001",
+      "evidence": [
+        "services/aegis/aegisAssessmentService.ts",
+        "services/factor/useCaseZeroOrchestrator.ts",
+        "supabase/migrations/20260930310000_aegis_assessments_didqube_resolution_snapshot.sql"
+      ]
+    },
+    {
+      "site": "services/ctp/constitutionalRuntime.ts",
+      "defect": "No mechanism existed for the Constitutional Runtime (the single canonical seam every CTP primitive executes through) to record which constitutional identity a transition's subject persona corresponded to -- ctp_transition_evidence carried subjectPersonaId only, with no DiDQube resolution anywhere in the chain.",
+      "resolutionId": "RES-2026-09-07-DIDQUBE-PHASE-4-CTP-CONSUMER-MIGRATION-001",
+      "evidence": [
+        "services/ctp/constitutionalRuntime.ts",
+        "services/ctp/subjectIdentityResolution.ts",
+        "supabase/migrations/20260930320000_ctp_transition_evidence_didqube_resolution.sql"
+      ]
+    },
+    {
+      "site": "services/standing/agentStandingPersona.ts",
+      "defect": "Every canonical agent Standing identity was resolved purely by matching personas.root_did against agent_root_identity.did_uri as a raw string equality, with no DiDQube-container awareness at all -- correct in every currently-existing case (live-verified, zero discrepancies across 5 agents), but with no mechanism to ever detect a FUTURE case where the anchor exists but its container is unbound/conflicted.",
+      "resolutionId": "RES-2026-09-07-DIDQUBE-PHASE-4-STANDING-CONSUMER-MIGRATION-001",
+      "evidence": [
+        "services/standing/didQubeReconciliation.ts",
+        "app/api/ops/journey/standing-didqube-reconciliation/route.ts"
+      ]
+    },
+    {
+      "site": "services/horizen/agentDiDQubeExternalPresence.ts",
+      "defect": "Nothing connected Horizen/ERC-8004 registration state or the iQube Registry asset back to the canonical DiDQube resolver at all -- no seam existed to enforce that these external identifiers can describe an already-established identity but never substitute for one.",
+      "resolutionId": "RES-2026-09-07-DIDQUBE-PHASE-4-REGISTRY-HORIZEN-CONSUMER-MIGRATION-001",
+      "evidence": [
+        "services/horizen/agentDiDQubeExternalPresence.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-09-07-DIDQUBE-PHASE-4-FACTOR-CONSUMER-MIGRATION-001",
+    "RES-2026-09-07-DIDQUBE-PHASE-4-AEGIS-CONSUMER-MIGRATION-001",
+    "RES-2026-09-07-DIDQUBE-PHASE-4-CTP-CONSUMER-MIGRATION-001",
+    "RES-2026-09-07-DIDQUBE-PHASE-4-STANDING-CONSUMER-MIGRATION-001",
+    "RES-2026-09-07-DIDQUBE-PHASE-4-REGISTRY-HORIZEN-CONSUMER-MIGRATION-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "Promoted candidate -> validated (2 occurrences: Factor, Aegis) per the ladder's own mechanical criteria (>=2 recorded occurrences) — an agent may reach `validated` (AGENT_MAX_STAGE) but never ratified/canonical, which require a named operator act. Gained a third occurrence (CTP) confirming the pattern generalizes cleanly across genuinely different consumer shapes (a readiness projection, an assessment table, a generic invocation runtime). Expected to gain further occurrences as DCIR/Standing/Registry-Horizen are each migrated in their own vertical commits — each should reference this same candidate rather than minting a parallel one, per inv.engineering.036/037.",
+    "Live-verified (2026-09-07, Aigent Z project bsjhfvctmduxhohtllly): all 19 existing agent_root_identity rows already carry an agent_didqubes binding as of the Factor migration — there is no current data gap this invariant is protecting against, only a future one (a new anchor created through a path that never calls ensureAgentDiDQubeBinding).",
+    "CTP's own occurrence surfaced a second, related lesson worth carrying forward explicitly: a persona->identity mapping that LOOKS obviously available on the calling context (ctx.callerAuthProfileId) can be a subtly WRONG value for a different table's similarly-named column (root_identity.auth_user_id) — verify the actual join empirically before wiring it, never assume same-sounding column names are the same value space.",
+    "Standing's occurrence (the fourth) is the first purely-diagnostic, dry-run-only application of this invariant — no additive schema, no write-path change, because the plan's own item-5 text asked for a reconciliation report FIRST and the live report came back clean. This confirms the invariant applies even when 'consuming the resolver' means only detecting future drift, not changing today's behavior at all.",
+    "Registry/Horizen (the fifth and, for now, final Phase 4 occurrence, item 6/DVN excepted per its own standalone-approval requirement) generalizes the invariant one step further: it is not merely 'use the resolver instead of a raw table read' but 'gate a NEW kind of read (external-presence facts) on the resolver's own success first' — the same structural discipline, applied to an ordering question rather than a lookup-source question. Five occurrences across five genuinely different consumer shapes (a readiness projection, an assessment table, a generic invocation runtime, a dry-run diagnostic tool, and an external-presence composition) is strong confirmation this is a real, generalizable pattern, not a coincidence of the first few migrations.",
+    "2026-09-08 follow-up (RES-2026-09-08-DIDQUBE-PHASE-4-REGISTRY-HORIZEN-SEAM-WIRED-001): the Registry/Horizen occurrence's own residual gap ('built but not wired into any live surface') is now closed by a first real caller, GET /api/ops/agents/[agentRuntimeId]/external-presence — a new, additive ops/diagnostic route, not a refactor of Factor's or Agent Bench's existing (correct, purely descriptive) direct reads. This is a closure of the SAME occurrence recorded above, not a sixth occurrence — the site/defect/resolutionId entries above are unchanged."
+  ]
+}

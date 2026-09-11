@@ -1,8 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActor } from '@/services/ops/icAgent';
 import { idlFactory as dvnIdl } from '@/services/ops/idl/cross_chain_service';
+import { requireOpsAuth } from '@/services/ops/opsAuth';
 
+/**
+ * Auth (Horizen Pilot Closure, Part B2, 2026-08-09): this route previously
+ * had NO auth gate at all — any caller could submit an arbitrary
+ * (messageId, validator, signatureHex) attestation. See
+ * services/ops/opsAuth.ts for why this gets the dual CRON_TRIGGER_TOKEN /
+ * admin-persona check rather than the cron-token-only convention: this is
+ * the route the operator /ops console's manual attestation test form calls
+ * directly (`onSubmitAttestation` in app/(shell)/ops/page.tsx).
+ */
 export async function POST(req: NextRequest) {
+  const auth = await requireOpsAuth(req);
+  if (!auth.ok) return auth.response!;
+
   try {
     const { messageId, validator, signatureHex } = await req.json();
     if (!messageId || typeof messageId !== 'string') return NextResponse.json({ ok: false, error: 'messageId is required' }, { status: 400 });

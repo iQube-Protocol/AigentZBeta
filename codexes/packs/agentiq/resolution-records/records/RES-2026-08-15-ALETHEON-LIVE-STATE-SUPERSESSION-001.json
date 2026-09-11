@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-08-15-ALETHEON-LIVE-STATE-SUPERSESSION-001",
+  "capability": "Aletheon Homecoming — Stage 1 preflight, live-state reconciliation (audit/design only, no database writes)",
+  "milestone": "Live Supabase evidence supersedes the Phase A census's static-code presence finding; the material gap is re-scoped from 'no stand-up' to 'unanchored sponsor at original stand-up'",
+  "problem": "The Phase A capability census (RES-2026-08-15-ALETHEON-PRESENCE-AGENCY-DISJUNCTION-001) concluded, from static code only, that Aletheon held Constitutional Presence rung L0 (card only) with no agent_root_identity seeded. That record explicitly flagged its own limitation: 'no live DB access in this session... should be confirmed empirically before any downstream decision relies on this record alone.' The operator independently ran that confirmation (the Stage 1 sponsor-resolution preflight this session built, plus a direct Supabase query) and found Aletheon already has a seeded agent_root_identity, a production agent_persona, an approved agent_participant passport, and post-genesis delegation receipts — mechanical presence L2, not L0. The actual gap is that the original stand-up's recorded sponsor persona has root_did = 'did:fio:devagent@qripto' with no matching root_identity row, so agent_persona.delegation_user_root_id and delegation_persona_id are both NULL — Aletheon is mechanically present and constitutionally unanchored, not absent.",
+  "observedFailure": [
+    "constitutionalPresence.ts's DELEGATE_DB map marks aletheon: { handCuratedCard: true } — a hand-authored code comment dated to when it was written, not a live-computed value. It went stale relative to the database with nothing to detect the drift automatically, and the Phase A census (correctly, per its own stated method) trusted it as the best available signal in the absence of live DB access.",
+    "Exhaustive code search confirms provisionAgentPersona.ts's own pre-existing comment already anticipated this exact class of gap ('Human personas often carry a did:fio:<handle> root_did with no matching root_identity row... flag it for later backfill') but no backfill mechanism was ever built: delegation_user_root_id/delegation_persona_id are written in exactly one place codebase-wide (the INSERT in provisionAgentPersona.ts), with zero UPDATE sites anywhere.",
+    "provisionAgentPersona.ts's idempotency branch (lines 92-113) returns the existing agent_persona row before the sponsor-root resolution code (lines 114-140) ever runs, confirmed by direct code read — re-running the existing generic stand-up path today is a pure no-op on an already-seeded delegate and cannot repair the anchor.",
+    "personas.root_did is not one canonical scheme: the Bureau bind flow (bindBureauIdentity) mints did:root:ppb:<random> WITH a matching root_identity row; the ordinary default persona-creation path (personaService.ts) instead sets root_did = 'did:fio:' + fioHandle with NO root_identity row ever created by that path. These are two structurally separate identity systems with no automatic reconciliation between them — this is very likely a systemic condition (any sponsor persona created via the ordinary path and never separately Bureau-bound is equally exposed), not an Aletheon-specific anomaly."
+  ],
+  "rootCauses": [
+    "A hand-authored static marker (handCuratedCard) was the only available signal for a live database fact (does agent_root_identity exist) at the time the census was written, because this session had no live DB access. The census's own author flagged this honestly as a limitation rather than asserting live-state confidence it didn't have — the correct discipline, and the reason the drift was caught rather than compounding silently.",
+    "Two persona-identity-minting code paths (Bureau bind vs ordinary FIO-handle creation) diverge in whether they produce a root_identity row, and provisionAgentPersona.ts's own author already knew and flagged this in a comment, but the flagged backfill work was never scheduled or built — a known gap that sat unaddressed until a real delegate's anchoring state needed it."
+  ],
+  "resolution": [
+    "The Phase A census document (codexes/packs/agentiq/updates/2026-08-15_aletheon-homecoming-phase-a-capability-census.md) is NOT rewritten. An Addendum A section is appended, preserving the original §2/§3/§4/§12 conclusions unchanged as the evidentiary record of a static-code-only audit, and separately stating the corrected live-state finding with its own reasoning.",
+    "The presence/agency disjunction finding from the Phase A census (RES-2026-08-15-ALETHEON-PRESENCE-AGENCY-DISJUNCTION-001 / CI-2026-08-15-PRESENCE-LADDER-NOT-AGENCY-001) is NOT retracted — its general claim (doctrinal density never substitutes for the governed stand-up act) remains sound; only the SPECIFIC factual claim about Aletheon's current row state is superseded here.",
+    "This record and its companion candidate invariant capture the stale-static-marker causal pattern separately, since it is a distinct lesson (a code comment as a live-state proxy going stale) from the presence-vs-agency lesson (two mechanisms being structurally disjoint by design).",
+    "No repair code and no database writes were made in this pass. Per explicit operator instruction, a minimal generic repair capability was DESIGNED (not implemented) and is reported alongside this record; execution awaits further operator review."
+  ],
+  "rejectedApproaches": [
+    "Silently updating the original census's §3/§4/§12 conclusions in place to say L2 instead of L0. Rejected: the original conclusions are an accurate record of what a static-code-only audit produced, given its stated method and stated limitation — rewriting them in place would erase the evidentiary value of having caught and corrected a real audit limitation, which is itself the more portable lesson.",
+    "Assuming re-running standUpDelegate()/provisionAgentPersona() would repair the anchor. Rejected on direct code evidence: the idempotency branch returns before sponsor-root resolution runs, so this is a documented no-op, not a hypothesis.",
+    "Minting a new root_identity row directly from the FIO DID string as the repair. Rejected pending further diagnosis: root_identity's canonical creation path (bindBureauIdentity) keys identity to a real Supabase auth_user_id via an explicit human act; manufacturing a root_identity from an unverified legacy DID string would bypass that discipline and risks either duplicating an identity that already exists elsewhere (if the same human separately completed Bureau binding under a different persona row) or minting an identity without the human act SPEC-HMC-001/CFS-023 require. See the accompanying report's sponsor identity-continuity diagnosis."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-15-STALE-STATIC-PRESENCE-MARKER-001"
+  ],
+  "canaries": [],
+  "scope": "local",
+  "status": "observed",
+  "trigger": "subsystems-disagreed",
+  "evidence": {
+    "commits": [],
+    "tests": [],
+    "receipts": [],
+    "incidentRefs": [
+      "services/homecoming/constitutionalPresence.ts",
+      "services/agents/provisionAgentPersona.ts",
+      "services/identity/personaService.ts",
+      "services/passport/bureauIdentityService.ts",
+      "app/api/homecoming/agent/stand-up/route.ts",
+      "codexes/packs/agentiq/updates/2026-08-15_aletheon-homecoming-phase-a-capability-census.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-15_aletheon-homecoming-phase-a-capability-census.md",
+    "codexes/packs/agentiq/resolution-records/records/RES-2026-08-15-ALETHEON-PRESENCE-AGENCY-DISJUNCTION-001.json"
+  ],
+  "date": "2026-08-15",
+  "projections": {
+    "targets": [
+      "constitutional-computing",
+      "irl"
+    ],
+    "researchRequired": true,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

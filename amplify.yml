@@ -29,6 +29,14 @@ frontend:
         - npm install --os=linux --cpu=x64 sharp
     build:
       commands:
+        # CONSTITUTIONAL GATE — fail the deploy on any NEW persona-spine
+        # violation (persona-unaware client fetch). Runs first, before the
+        # expensive build. Identity is foundational; a break here compounds
+        # through every gate/receipt/grant downstream. See CLAUDE.md →
+        # "Client-side spine fetches" and scripts/check-persona-spine.mjs.
+        - echo "=== Persona-spine gate ==="
+        - node scripts/check-persona-spine.mjs
+
         - echo "Creating .env.production with required SSR env vars..."
         - rm -f .env.production
 
@@ -52,10 +60,61 @@ frontend:
         # Hard fail if PayPal creds missing
         - node -e "if(!process.env.PAYPAL_CLIENT_ID||!process.env.PAYPAL_CLIENT_SECRET){console.error('PAYPAL env vars missing in build env');process.exit(1)}"
 
+        # CONSTITUTIONAL GATE — VL-CT-001 venture receipt vocabulary (RULING 1,
+        # 2026-07-29). Runs AFTER the migrations the operator applies to
+        # Supabase and BEFORE this artifact is promoted, and exits non-zero on
+        # any incompatibility.
+        #
+        # WHAT IT PREVENTS. The nine venture action types are declared twice —
+        # the TypeScript union and the activity_receipts CHECK constraint. A
+        # build carrying them against a database without the migration
+        # typechecks, passes every canary, and deploys green; the breakage
+        # surfaces later as a check violation inside a receipt write that
+        # several call sites wrap in an empty catch, so the row AND its DVN
+        # anchor are lost with no log. Promoting an artifact that cannot write
+        # its own receipts IS the failure.
+        #
+        # FAILS CLOSED, with no bypass flag: probe missing, probe revoked (it is
+        # service_role-only since 20260929000200), credentials absent, network
+        # unreachable, constraint absent or short — all exit 1. The runtime
+        # emission guard stays in place as defence in depth, memoised per
+        # process, so it is NOT a per-request or cold-start database probe.
+        #
+        # Placed after create-env-production.js because it needs
+        # SUPABASE_SERVICE_ROLE_KEY, and ahead of the Next compile so a refusal costs
+        # seconds rather than a full build. See CLAUDE.md → "DVN
+        # Pipeline Protection" and
+        # codexes/packs/agentiq/updates/2026-07-29_vl-ct-001-deployment-gate-and-probe-lockdown.md.
+        - echo "=== VL-CT-001 venture receipt constraint gate ==="
+        - npx tsx scripts/check-venture-receipt-constraint.ts
+
         - echo ".env.production created. Building Next.js..."
-        - export NODE_OPTIONS="--max-old-space-size=3072"
+        # Next 15 build memory. Empirically on the CURRENT (small) Amplify build
+        # instance no single heap value works — the instance itself is the limit:
+        #   3072: compile is FLAKY — sometimes fits, sometimes OOMs mid-compile
+        #         (V8 "Ineffective mark-compacts"); Next 15 compile peaks ~3.2 GB.
+        #   4096/6144: compile reliable, but then `spawn ENOMEM` — the ~4 GB
+        #         parent can't fork the page-data worker within the instance RAM.
+        # 6144: comfortable compile headroom (~2x Next 15's ~3.2GB peak) on the
+        # enlarged Amplify build instance. Parent (~6GB) + page-data worker fork
+        # still sit well under a 16GB instance, so no spawn ENOMEM. Kept below
+        # the instance ceiling so the fork always has room; if a future build
+        # needs more, raise the instance tier rather than the heap past ~half of
+        # instance RAM (that reintroduces the fork squeeze).
+        - export NODE_OPTIONS="--max-old-space-size=6144"
         - export NEXT_PRIVATE_BUILD_WORKER=1
         - npm run build
+
+        # Pack-corpus export (Phase B — FATAL): upload the pack markdown+JSON to
+        # Supabase Storage (the runtime read path) + pin the canonical subset to
+        # AutoDrive (provenance). As of Phase B next.config no longer traces the
+        # pack .md into the bundle, so the deployed copilot + docs tabs DEPEND on
+        # this blob. Making it fatal is the safety interlock: if the upload fails,
+        # the build fails and the previous (corpus-bundled) revision keeps serving
+        # — there is never a window where a corpus-less bundle ships. The script
+        # itself exits nonzero on missing creds / failed upload in an Amplify build.
+        - echo "=== Exporting pack corpus to remote store (Phase B, required) ==="
+        - node scripts/export-pack-corpus.mjs
 
         - echo "Copying .env.production into standalone bundle..."
         - cp .env.production .next/standalone/.env.production || true
@@ -63,6 +122,252 @@ frontend:
         - echo "Patching standalone server.js to load dotenv at runtime..."
         - node scripts/patch-standalone-dotenv.js
 
+        # Amplify Hosting SSR compute has a HARD 220 MB (230686720 byte)
+        # uncompressed bundle limit — not an app-configurable quota (AWS docs +
+        # aws-amplify/amplify-hosting#3841/#3863/#3647/#3699/#3980 confirm the
+        # same literal byte value is a platform ceiling). Next's file tracing
+        # conservatively bundles native binaries for platforms other than the
+        # one Amplify's Lambda actually runs (linux x64 glibc) into
+        # .next/standalone/node_modules. Deleting the non-runtime platform
+        # variants AFTER build, directly on the packaged filesystem, is AWS's
+        # own documented remedy for this error (troubleshooting-ssr-deployment)
+        # and — unlike next.config.js outputFileTracingExcludes on a per-route
+        # key — is not subject to any cross-route include/dedupe semantics:
+        # bytes removed here are gone from the artifact, full stop.
+        - echo "=== .next/standalone size BEFORE native-binary cleanup ==="
+        - du -sh .next/standalone 2>/dev/null || true
+        - echo "Removing non-linux-x64-gnu native binaries (build-only; unused at Amplify SSR runtime)..."
+        - find .next/standalone/node_modules/@next -maxdepth 1 -type d -name "swc-*" ! -name "swc-linux-x64-gnu" -exec rm -rf {} + 2>/dev/null || true
+        - find .next/standalone/node_modules/@swc -maxdepth 1 -type d -name "core-*" ! -name "core-linux-x64-gnu" -exec rm -rf {} + 2>/dev/null || true
+        - find .next/standalone/node_modules/@esbuild -maxdepth 1 -type d ! -name "linux-x64" -exec rm -rf {} + 2>/dev/null || true
+        - find .next/standalone/node_modules/@img -maxdepth 1 -type d \( -name "sharp-*" -o -name "*-libvips-*" \) ! -name "sharp-linux-x64" ! -name "sharp-libvips-linux-x64" -exec rm -rf {} + 2>/dev/null || true
+        - find .next/standalone/node_modules/@napi-rs -maxdepth 1 -type d -name "canvas-*" ! -name "canvas-linux-x64-gnu" -exec rm -rf {} + 2>/dev/null || true
+        # Next's file tracing already yields a minimal node_modules, so the
+        # native-binary sweep above reclaims little on its own. The reliable,
+        # zero-runtime-risk headroom is DEBUG/DEV artifacts the SSR runtime never
+        # loads: source maps (*.map) across the whole .next tree, and any type
+        # declarations / package docs that slipped into the traced node_modules.
+        # None are require()d at runtime — deleting them cannot change behaviour.
+        - echo "Removing source maps + non-runtime dev artifacts (never loaded at SSR runtime)..."
+        - find .next -type f -name "*.map" -delete 2>/dev/null || true
+        # NOTE: *.ts / *.mts / *.cts source (incl. all .d.ts) — a compiled Next
+        # standalone app runs on plain Node with NO TypeScript loader, so NO
+        # package's runtime entry resolves to a .ts file; only the compiled .js is
+        # ever require()d. Deleting TS source cannot change runtime behaviour and
+        # reclaims MBs (many packages ship src/*.ts alongside dist/*.js) — the
+        # reliable headroom under the 230686720-byte cap now that the app has grown
+        # to the ceiling (2026-07-21: ~206 KB over even after the pack-corpus move).
+        #
+        # CORRECTED 2026-09-07 (operator-flagged contradiction): this line used to
+        # also match -iname "license*"/"licence*"/"notice*", silently deleting them
+        # from every package under .next/standalone/node_modules — directly
+        # contradicting the later "DEPENDENCY DOCUMENTATION" step's own comment,
+        # which says "LICENSE, COPYING and NOTICE are deliberately NOT matched...
+        # may carry attribution obligations." That promise was only ever true of
+        # the LATER step's own find pattern; THIS line was still deleting them the
+        # whole time. Removed the three license/notice patterns here so the later
+        # comment is actually true of the full postBuild pipeline, not just one
+        # step of it. Zero byte-cap impact either way (license files are tiny);
+        # this is a compliance fix, not a size fix.
+        - find .next/standalone/node_modules -type f \( -name "*.ts" -o -name "*.mts" -o -name "*.cts" -o -name "*.md" -o -name "*.markdown" -o -iname "readme*" -o -iname "changelog*" -o -iname "authors*" -o -iname "contributors*" -o -iname "history*" -o -iname "changes*" -o -name "*.map" \) -delete 2>/dev/null || true
+        # @types packages are TYPE-ONLY (never require()d at runtime) and .bin holds
+        # CLI shim symlinks the SSR runtime never invokes — both are pure dead weight
+        # in the packaged standalone. Removing them is zero-runtime-risk headroom
+        # under the 230686720-byte cap (the artifact sat ~10 KB over on 2026-07-21
+        # even after the file-level sweep above; the growing browsable pack corpus
+        # keeps it pinned at the ceiling).
+        - find .next/standalone/node_modules/@types -maxdepth 1 -type d -exec rm -rf {} + 2>/dev/null || true
+        - rm -rf .next/standalone/node_modules/.bin 2>/dev/null || true
+        # playwright-core (~6 MB) — the agentic-browser exec loads it via a guarded
+        # dynamic require in try/catch (degrades to "unavailable"); browser
+        # automation can't run in the SSR Lambda anyway. Biggest single traced
+        # package per the compute-composition log; ~30x the size overage. This
+        # filesystem delete is the reliable lever (config excludes proved unreliable
+        # for the packaged artifact). If a future SSR path genuinely needs headless
+        # browsing, move it to a dedicated worker rather than re-bundling this.
+        - rm -rf .next/standalone/node_modules/playwright-core 2>/dev/null || true
+        # Test/doc/example DIRECTORIES + build-meta files that npm installs into
+        # every package but the SSR runtime never require()s. Module resolution
+        # uses package.json main/exports → dist/lib, never these. This is the
+        # battle-tested "modclean-safe" set; deleting it cannot change runtime
+        # behaviour and reclaims several MB — the reliable headroom under the
+        # 230686720-byte cap when the file-level sweep above isn't enough
+        # (2026-07-21: the artifact was ~260 KB over even after that sweep).
+        - echo "Removing test/doc/example dirs + build-meta from node_modules (never loaded at SSR runtime)..."
+        - find .next/standalone/node_modules -type d \( -name test -o -name tests -o -name __tests__ -o -name example -o -name examples -o -name doc -o -name docs -o -name coverage -o -name .nyc_output -o -name .github -o -name .idea \) -prune -exec rm -rf {} + 2>/dev/null || true
+        - find .next/standalone/node_modules -type f \( -name "*.flow" -o -name "*.coffee" -o -name "*.ts.map" -o -name ".eslintrc*" -o -name ".editorconfig" -o -name ".npmignore" -o -name ".travis.yml" -o -name "*.tsbuildinfo" -o -name ".DS_Store" \) -delete 2>/dev/null || true
+        # DEPENDENCY DOCUMENTATION at package ROOT (operator direction via Al,
+        # 2026-08-02). The directory sweep above catches doc/ and docs/, but
+        # README.md, CHANGELOG.md and HISTORY.md sit beside package.json and
+        # survive it — so this is additive, not a duplicate.
+        #
+        # Chosen as the response to a ~97 KB overage precisely because it is
+        # reversible and non-functional: module resolution goes through
+        # package.json main/exports, never a README. Nothing here touches
+        # application code, package manifests, native binaries, @napi-rs/canvas,
+        # @img/sharp, pdf-parse, the PDF-page routes, the pack corpus, or
+        # aigency/index.json.
+        #
+        # LICENSE, COPYING and NOTICE are deliberately NOT matched: they cost
+        # little and may carry attribution obligations. Removing them to save
+        # bytes would trade a legal duty for headroom.
+        - echo "=== standalone node_modules BEFORE dependency-doc prune (bytes) ==="
+        - du -sb .next/standalone/node_modules 2>/dev/null || true
+        - echo "Pruning non-runtime dependency documentation from standalone artifact..."
+        - find .next/standalone/node_modules -type f \( -iname 'README' -o -iname 'README.md' -o -iname 'README.txt' -o -iname 'CHANGELOG' -o -iname 'CHANGELOG.md' -o -iname 'HISTORY.md' \) -delete 2>/dev/null || true
+        # TYPE DECLARATIONS AND SOURCE MAPS — the same modclean-safe class, and
+        # the one that is actually large (2026-08-02).
+        #
+        # WHY THIS ESCALATED FROM THE DOC PRUNE ALONE. The build at c2c8b3b2d
+        # PASSED. The very next build, 38106e519, FAILED at 230,839,420 — and
+        # the entire diff between them was `.amplify-deploy` (a timestamp) and
+        # `amplify.yml` (a change that only DELETES files). No application code,
+        # no dependency change, artifact ~153 KB LARGER.
+        #
+        # The artifact size is therefore NOT deterministic between builds. The
+        # failures alone span 230,784,106 → 230,869,128 (~85 KB), with at least
+        # one pass below the cap — over 180 KB of run-to-run variance at
+        # identical source. Sitting 97 KB under the ceiling is not "nearly
+        # fixed", it is a coin flip. Chasing the last 97 KB is chasing noise.
+        #
+        # `.d.ts` / `.d.mts` / `.d.cts` are TypeScript declarations: consumed by
+        # the compiler at BUILD time, never resolved by Node at runtime.
+        # `.map` files are debugger sidecars, loaded only when a devtools
+        # session asks for them. Neither is application code, a package
+        # manifest, a licence, or a native binary — and both are large across a
+        # ~89 MB node_modules. This is the headroom, not another 97 KB.
+        - echo "Pruning type declarations + source maps (build-time only, never require()d)..."
+        - find .next/standalone/node_modules -type f \( -name "*.d.ts" -o -name "*.d.mts" -o -name "*.d.cts" -o -name "*.map" \) -delete 2>/dev/null || true
+        # Remaining documentation of the same class as the six above. Kept as a
+        # separate line so the doc prune Al specified stays legible as its own
+        # act. LICENSE / COPYING / NOTICE remain unmatched throughout.
+        - find .next/standalone/node_modules -type f \( -iname 'CHANGES.md' -o -iname 'HISTORY' -o -iname 'CHANGELOG.txt' -o -iname 'CONTRIBUTING.md' -o -iname 'SECURITY.md' -o -iname 'CODE_OF_CONDUCT.md' -o -iname 'AUTHORS' -o -iname 'AUTHORS.md' \) -delete 2>/dev/null || true
+        # pdf-parse VENDORS FOUR COMPLETE pdf.js BUILDS (2026-08-02) — this is
+        # the actual dead weight, and the reason the two prunes above reclaimed
+        # nothing measurable (standalone moved 188,345,601 -> 188,350,253
+        # across the build that added them: +4.6 KB, i.e. noise).
+        #
+        # WHY THOSE PRUNES WERE ~ZERO. Next's file tracer copies only the files
+        # the runtime actually resolves. README/CHANGELOG/.d.ts/.map were never
+        # in .next/standalone/node_modules to begin with, so deleting them
+        # removed nothing. They are kept below as a cheap guard, not as a fix.
+        #
+        # WHAT IS ACTUALLY THERE. pdf-parse ships lib/pdf.js/{v1.9.426,
+        # v1.10.88, v1.10.100, v2.0.550} — four full pdf.js distributions, 32 MB
+        # on disk locally and the bulk of the 9 MB traced here. It picks one at
+        # runtime with a TEMPLATE-LITERAL require:
+        #
+        #     require(`./pdf.js/${options.version}/build/pdf.js`)
+        #
+        # which the tracer cannot resolve statically, so it conservatively
+        # copies ALL FOUR.
+        #
+        # Only v1.10.100 is ever loaded: pdf-parse's DEFAULT_OPTIONS.version is
+        # 'v1.10.100' (lib/pdf-parse.js:42) and all three call sites in this
+        # repo — pdfExtractionService.ts:98, uploadIndexer.ts:244, and the VSP
+        # evidence upload route:74 — call pdfParse(buffer) with NO options.
+        # Verified 2026-08-02: no caller anywhere passes a `version`.
+        #
+        # If a future caller needs a different pdf.js build, it will fail with
+        # "Cannot find module ./pdf.js/<v>/build/pdf.js" — that is the signal to
+        # widen this keep-list, not to silently restore all four.
+        - echo "Removing unused vendored pdf.js builds from pdf-parse (keeping v1.10.100, the only one loaded)..."
+        - find .next/standalone/node_modules/pdf-parse/lib/pdf.js -mindepth 1 -maxdepth 1 -type d ! -name 'v1.10.100' -exec rm -rf {} + 2>/dev/null || true
+        - echo "=== standalone node_modules AFTER dependency-doc prune (bytes) ==="
+        - du -sb .next/standalone/node_modules 2>/dev/null || true
+        - echo "=== pdf-parse AFTER vendored-build prune (bytes) ==="
+        - du -sb .next/standalone/node_modules/pdf-parse 2>/dev/null || true
+        # Prove exactly which pdf.js distribution survived — a size alone cannot
+        # show that the RETAINED one is the retained one.
+        - echo "=== surviving pdf.js distributions ==="
+        - find .next/standalone/node_modules/pdf-parse/lib/pdf.js -maxdepth 2 -type d 2>/dev/null | sort || true
+        - echo "=== final artifact composition (bytes) ==="
+        - du -sb .next/standalone .next/static .next/standalone/node_modules .next/standalone/node_modules/pdf-parse 2>/dev/null || true
+        - echo "=== biggest .next/standalone/node_modules packages (MB) ==="
+        - du -sm .next/standalone/node_modules/* .next/standalone/node_modules/@*/* 2>/dev/null | sort -rn | head -30 || true
+        - echo "=== biggest .next/static subtrees (MB) ==="
+        - du -sm .next/static/* 2>/dev/null | sort -rn | head -15 || true
+        # ── ARTIFACT LEDGER — LAST THING PRINTED, DELIBERATELY ───────────────
+        #
+        # Every measurement added earlier today printed ABOVE the
+        # compute-composition block, which is where the readable tail of the
+        # log begins. The numbers that would have ended this sat unread for
+        # three builds. This block is last on purpose, and it enumerates EVERY
+        # child of .next rather than a list chosen in advance.
+        #
+        # WHY MEASUREMENT AND NOT ANOTHER CUT. Three rounds of pruning aimed at
+        # named paths, and the cap ignored all of them: -6,249,974 bytes from
+        # .next/standalone moved the reported total by -1,954, and removing
+        # .next/cache moved it by -1,506. standalone+static accounts for
+        # 218,593,755 of 230,839,372; the remaining 12,245,617 has never been
+        # itemised. No further corpus, dependency, standalone, PDF or book cuts
+        # until this composition is visible.
+        #
+        # CACHE REMOVAL TIMING (operator direction via Al). The pre-existing
+        # `rm -rf .next/cache` runs BEFORE `next build`, so the build simply
+        # regenerates it into the artifact. The removal that can matter has to
+        # happen AFTER the build and BEFORE packaging — which is here.
+        - echo "=== WHOLE .next TREE BEFORE CACHE REMOVAL (bytes) ==="
+        - du -sb .next 2>/dev/null || true
+        - du -sb .next/* 2>/dev/null | sort -rn || true
+        - echo "=== .next/cache COMPOSITION ==="
+        - du -sb .next/cache 2>/dev/null || true
+        - du -sb .next/cache/* 2>/dev/null | sort -rn || true
+        - find .next/cache -type f -printf '%s %p\n' 2>/dev/null | sort -nr | head -30 || true
+        - echo "=== FILE COUNTS BY TOP-LEVEL .next COMPONENT ==="
+        - for p in .next/*; do [ -e "$p" ] || continue; echo "$p $(find "$p" -type f 2>/dev/null | wc -l) files"; done || true
+        - echo "=== REMOVE RUNTIME-IRRELEVANT NEXT BUILD CACHE ==="
+        - rm -rf .next/cache 2>/dev/null || true
+        # THE LEDGER NAMED TWO MORE BUILD-ONLY RESIDENTS (23:12 build).
+        #   .next/trace  12,416,650 bytes — Next's build trace/diagnostics log.
+        #   .next/types  10,174,100 bytes — generated route TYPE declarations,
+        #                consumed by tsc during the build; Node resolves none
+        #                of it at runtime.
+        # 22.6 MB of build metadata against a ~195 KB overage. Same class as
+        # the cache: produced by the build, read by nothing the artifact
+        # serves. required-server-files.json is NOT touched — Amplify reads it.
+        - echo "=== REMOVE BUILD-ONLY trace + types ==="
+        - rm -rf .next/trace .next/types 2>/dev/null || true
+        # REVERTED (2026-09-07) — a prior pass here deleted the top-level
+        # .next/server/app + .next/server/chunks on the theory that
+        # .next/standalone is self-contained and Amplify only runs
+        # .next/standalone/server.js. That theory was WRONG: the very next
+        # deploy 500'd the entire application. Amplify's Next.js SSR Compute
+        # hosting evidently invokes the app from the TOP-LEVEL .next/server
+        # directly (or otherwise depends on it beyond what
+        # required-server-files.json's own "files" list declares) — verifying
+        # from a local build's file layout was not sufficient proof of what
+        # the actual Amplify runtime reads. Do NOT re-attempt this cut without
+        # first confirming, from Amplify's own hosting docs or a support
+        # channel, exactly which files its Next.js compute runtime loads at
+        # request time — a local build.next/standalone/server.js. inspection
+        # already gave one confident-but-wrong answer here.
+        - echo "=== WHOLE .next TREE AFTER CACHE REMOVAL (bytes) ==="
+        - du -sb .next 2>/dev/null || true
+        - du -sb .next/* 2>/dev/null | sort -rn || true
+        # The artifact is unusable without these three. Checked AFTER the
+        # removal so a cache delete that took something with it fails the build
+        # here, loudly, rather than at first request in production.
+        - echo "=== ARTIFACT INTEGRITY AFTER CACHE REMOVAL ==="
+        - test ! -e .next/cache && echo "cache absent - ok" || echo "cache STILL PRESENT"
+        - test -f .next/BUILD_ID && echo "BUILD_ID ok"
+        - test -d .next/server && echo "server dir ok"
+        - test -d .next/static && echo "static dir ok"
+        - echo "=== ARTIFACT LEDGER - .next total vs the 230686720 cap ==="
+        - du -sb .next 2>/dev/null | awk '{printf "cap 230686720 | measured %s | delta %+d bytes\n", $1, 230686720 - $1}' || true
+        # CONSTITUTIONAL GATE — Amplify Build-Size Budget (CLAUDE.md). The
+        # 2026-09-07 forensic investigation established that Amplify's real
+        # CustomerError cap tracks .next/standalone, not raw .next size, and
+        # that this repo's own historical near-cap failures were a razor-thin
+        # ~135 KB margin. This gate keeps real headroom under the hard
+        # 230,686,720-byte platform cap so the app never drifts back onto
+        # that cliff, and fails the BUILD — with the measured byte count, the
+        # budget, and the exact overage — the moment a new native dependency
+        # or traced asset pushes the artifact over, rather than as an opaque
+        # platform error days later. Runs LAST, after every cleanup step
+        # above, so it measures the artifact as it will actually ship.
+        - echo "=== ARTIFACT BUDGET GATE (190,000,000-byte cleaned .next/standalone budget) ==="
+        - node scripts/check-artifact-budget.mjs --dir . --budget 190000000
   artifacts:
     baseDirectory: .next
     files:

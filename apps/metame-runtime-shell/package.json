@@ -15,7 +15,7 @@
     "@metame/browser-contracts": "file:../../packages/browser-contracts",
     "@metame/iframe-bridge": "file:../../packages/iframe-bridge",
     "@metame/qubetalk-client": "file:../../packages/qubetalk-client",
-    "next": "^14.0.0",
+    "next": "^15.5.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

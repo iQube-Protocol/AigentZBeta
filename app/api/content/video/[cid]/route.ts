@@ -32,7 +32,8 @@ export async function OPTIONS() {
   return new NextResponse(null);
 }
 
-export async function GET(req: NextRequest, { params }: { params: { cid: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ cid: string }> }) {
+  const params = await props.params;
   try {
     const cid = params.cid;
     if (!cid) return NextResponse.json({ error: 'CID required' }, { status: 400,  });

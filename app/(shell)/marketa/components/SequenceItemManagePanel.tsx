@@ -207,12 +207,12 @@ export function SequenceItemManagePanel({ item, dark, cartridgeContext, onClose,
   return (
     <div className={cn(
       "rounded-xl border mt-2 overflow-hidden",
-      dark ? "border-rose-500/20 bg-rose-500/[0.03]" : "border-rose-200 bg-rose-50/40",
+      dark ? "border-pink-400/20 bg-pink-400/[0.03]" : "border-pink-200 bg-pink-50/40",
     )}>
       {/* Panel header */}
-      <div className={cn("flex items-center justify-between px-4 py-2.5 border-b", dark ? "border-rose-500/15" : "border-rose-100")}>
+      <div className={cn("flex items-center justify-between px-4 py-2.5 border-b", dark ? "border-pink-400/15" : "border-pink-100")}>
         <div className="flex items-center gap-2">
-          <Sparkles className="w-3.5 h-3.5 text-rose-400" />
+          <Sparkles className="w-3.5 h-3.5 text-pink-300" />
           <span className={cn("text-xs font-semibold", dark ? "text-white/80" : "text-black/70")}>
             Day {item.day_number} — {item.title}
           </span>
@@ -225,7 +225,7 @@ export function SequenceItemManagePanel({ item, dark, cartridgeContext, onClose,
       <div className="p-3 space-y-2">
 
         {/* ── 1. Content ──────────────────────────────────────────────────── */}
-        <Section id="content" title="Content" icon={Film} accent="text-rose-400" open={open.content} onToggle={() => toggleSection('content')} dark={dark}>
+        <Section id="content" title="Content" icon={Film} accent="text-pink-300" open={open.content} onToggle={() => toggleSection('content')} dark={dark}>
           <Field label="Title">
             <Input value={draft.title} onChange={(v) => set('title', v)} dark={dark} />
           </Field>
@@ -252,7 +252,7 @@ export function SequenceItemManagePanel({ item, dark, cartridgeContext, onClose,
                 options={ITEM_STATUSES.map((s) => ({ value: s, label: s }))} />
             </Field>
             <label className="flex items-center gap-2 cursor-pointer mt-3">
-              <input type="checkbox" checked={draft.explainer} onChange={(e) => set('explainer', e.target.checked)} className="accent-rose-500" />
+              <input type="checkbox" checked={draft.explainer} onChange={(e) => set('explainer', e.target.checked)} className="accent-pink-400" />
               <span className={cn("text-xs", dark ? "text-white/60" : "text-black/60")}>Explainer video</span>
             </label>
           </div>
@@ -353,7 +353,7 @@ export function SequenceItemManagePanel({ item, dark, cartridgeContext, onClose,
             disabled={saving}
             className={cn(
               "flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg border transition-colors disabled:opacity-50",
-              dark ? "border-rose-500/40 bg-rose-500/15 text-rose-300 hover:bg-rose-500/25" : "border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100",
+              dark ? "border-pink-400/40 bg-pink-400/15 text-pink-300 hover:bg-pink-400/25" : "border-pink-300 bg-pink-50 text-pink-600 hover:bg-pink-100",
             )}
           >
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
@@ -365,7 +365,7 @@ export function SequenceItemManagePanel({ item, dark, cartridgeContext, onClose,
             </span>
           )}
           {err && (
-            <span className={cn("flex items-center gap-1 text-xs", dark ? "text-rose-400" : "text-rose-600")}>
+            <span className={cn("flex items-center gap-1 text-xs", dark ? "text-pink-300" : "text-pink-500")}>
               <AlertCircle className="w-3.5 h-3.5" /> {err}
             </span>
           )}

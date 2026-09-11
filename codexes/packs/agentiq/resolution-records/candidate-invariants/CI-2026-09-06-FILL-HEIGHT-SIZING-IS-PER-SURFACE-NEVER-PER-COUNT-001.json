@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-06-FILL-HEIGHT-SIZING-IS-PER-SURFACE-NEVER-PER-COUNT-001",
+  "statement": "A flexbox fill-height treatment (`flex min-h-0 flex-1 flex-col[ overflow-hidden]`) written to give ONE specific surface (an embed/iframe rendering `h-full` internally) a real, resolvable parent height must be gated on that surface's OWN descriptor, never on how many surfaces the enclosing stage/container happens to render. Gating on surface COUNT (`length === 1`) lets any other single-surface, ordinary-content stage inherit the same treatment; ordinary content has no `h-full` to resolve and declares no `overflow` boundary of its own, so forcing `min-h-0` onto its wrapper computes a box SHORTER than its actual content, and the content keeps painting past the shrunk box while whatever renders next in normal document flow (a sibling positioned at the box's short computed height) visually overlaps it.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": ["devon"],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  },
+  "classification": null,
+  "ratifiedSource": null,
+  "scope": "cross-capability",
+  "status": "candidate",
+  "notes": [
+    "Discovered as a follow-on to RES-2026-09-06-JOURNEY-EVIDENCE-SURFACE-CONSOLIDATION-001: commit b86b8a424 (2026-09-03) needed to fix FinancialSovereigntyOperateStage's embedded iframe collapsing to zero height under the embedded Bridge host's constrained viewport, and gated the fix on `surfacesToRender.length === 1` — a proxy for 'this is Operate's embed' that happened to be true, but that ALSO becomes true for any other stage that renders exactly one ordinary-content surface.",
+    "The generalizable lesson: a layout fix aimed at a SPECIFIC component's known layout need should read that component's own identity/descriptor, not a structural coincidence (count, position, id-pattern-match) that merely correlates with it in today's data. The coincidence can silently stop holding (a stage gains or loses a surface) without anyone touching the fix itself.",
+    "The remedy pattern (an opt-out flag on the descriptor, default preserving existing behavior) is deliberately LOW-BLAST-RADIUS: it required auditing only the entries that would flip behavior under the corrected gate, not every registered surface — an opt-IN flag was considered and rejected specifically because it would have required auditing every surface using `h-full` to make sure none were missed (verified via grep: at least 8 other registered components use `h-full` and would have silently regressed under an opt-in redesign)."
+  ],
+  "derivedFrom": ["RES-2026-09-06-JOURNEY-STAGE-FILL-HEIGHT-BY-SURFACE-COUNT-001"],
+  "occurrences": [
+    {
+      "site": "components/journey/JourneyRunSurface.tsx — outer stage-surfaces wrapper and per-surface wrapper, both branching on `surfacesToRender.length === 1`",
+      "defect": "The Standing stage (`venture-participate-standing-only`, genuinely its stage's sole surface) inherited FinancialSovereigntyOperateStage's fill-height treatment under a constrained-height embedded Bridge host, producing a real, reproducible overlap between the stage's own content and StageReceiptsDrawer positioned after it in normal flow.",
+      "resolutionId": "RES-2026-09-06-JOURNEY-STAGE-FILL-HEIGHT-BY-SURFACE-COUNT-001",
+      "evidence": ["tests/journey-evidence-layout-browser-regression.test.tsx"]
+    }
+  ],
+  "canaries": [
+    {
+      "path": "tests/journey-evidence-layout-browser-regression.test.tsx",
+      "assertion": "under a real, height-constrained Bridge-host container (420px, shorter than the stage's natural content), the complete stage-surface rectangle and the receipt-drawer rectangle never geometrically intersect for Register, Ratify or Stand — real Chromium getBoundingClientRect(), not a className assertion.",
+      "verifiedFailingBeforeFix": true
+    }
+  ]
+}

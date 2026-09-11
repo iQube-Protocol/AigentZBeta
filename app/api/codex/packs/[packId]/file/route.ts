@@ -2,11 +2,72 @@
  * GET /api/codex/packs/:packId/file?path=...
  *
  * Serves files from codexes/packs/:packId (markdown or JSON).
+ *
+ * SECURITY (2026-08-12 forensic correction pass): this route has no access
+ * control of its own — it is a general-purpose reader for AgentiqCartridgeTab,
+ * and most pack collections ARE meant to be publicly readable that way
+ * (AlphaDocsTab, RefStudioTab, etc.). The codex tab-registry `adminOnly` flag
+ * on a specific tab (e.g. `polity-core-commentary-constitutional-internet`)
+ * is a CLIENT-SIDE gate only — it hides the tab in the UI, but a direct
+ * request to this route with the same packId/path bypasses it entirely,
+ * since this route never consulted the tab registry at all.
+ *
+ * `ADMIN_GATED_PACK_PATHS` closes that gap for the specific collections that
+ * carry working, non-public material — the Constitutional Internet
+ * manuscript is the first entry, added because its tab is `adminOnly: true`
+ * while its sibling commentary tabs (Experience Sovereignty, COYN Thesis,
+ * The Polity) are not and must stay reachable. Scoped to exact
+ * pack+path-prefix pairs rather than gating this whole route, so every other
+ * pack/collection's existing public-read behavior is unchanged.
+ *
+ * SECURITY (2026-08-27 IRL OS containment — see
+ * docs/security/2026-08-27_irl-os-containment-breach-audit.md): the `irl`
+ * pack is DEFAULT-DENY, not default-allow like every other pack. This is the
+ * root-cause fix for the confirmed breach: the `irl` pack's `col_foundation`
+ * / `col_experiments` collections carry the laboratory's confidential
+ * research IP (internal charter canon, research-programme roadmaps,
+ * experiment protocols/methods/PRDs, EXP-P1 readiness material) and were
+ * being served to ANY caller — public, unauthenticated, or otherwise — via
+ * this route regardless of the calling tab's `adminOnly` flag or which
+ * cartridge (private `irl-cartridge` or public `irl-os`) mounted the tab.
+ * `IRL_PUBLIC_PACK_PATHS` is the explicit allowlist of the few `irl`-pack
+ * paths that ARE deliberately public (today: only the shared Participation
+ * Overview, consumed by both cartridges' `irl(-os)-participation-overview`
+ * tabs, neither of which is admin-gated). Every other `irl`-pack path
+ * requires EITHER canonical server-resolved admin authority OR a scoped
+ * research-lab reviewer grant covering the specific experiment the path
+ * belongs to (Phase 2 scoped restoration, 2026-09-08 — see
+ * `docs/security/2026-08-27_irl-os-containment-breach-audit.md` Residual
+ * Risk item 0). Neither path ever reads a client `isAdmin` query/prop.
+ * `experimentIdForIrlPackPath` (services/research/irlExperimentPathScope.ts)
+ * decides which registered experiment (if any) a path belongs to, and
+ * `resolveExperimentReviewGrant` (services/passport/participationAccess.ts)
+ * is the SAME canonical grant check the Validation Programme's JSON Agent
+ * Package already uses — no ad-hoc allowlist, no new grant vocabulary. A
+ * path outside every registered experiment's own folder stays admin-only,
+ * exactly as Phase 1 left it. Do not widen `IRL_PUBLIC_PACK_PATHS` itself
+ * without an explicit operator public-classification decision.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
-import { promises as fs } from "fs";
+import { corpusReadPackFile } from "@/services/knowledge/packCorpusStore";
+import { getActivePersona } from "@/services/identity/getActivePersona";
+import { getSupabaseServer } from "@/app/api/_lib/supabaseServer";
+import { resolveExperimentReviewGrant } from "@/services/passport/participationAccess";
+import { experimentIdForIrlPackPath } from "@/services/research/irlExperimentPathScope";
+
+const ADMIN_GATED_PACK_PATHS: Array<{ packId: string; pathPrefix: string }> = [
+  { packId: "polity-core", pathPrefix: "items/commentary/constitutional-internet/" },
+];
+
+/**
+ * IRL pack — default-deny allowlist (2026-08-27 containment). Exact paths
+ * only (not prefixes): every other `irl`-pack read requires canonical admin.
+ */
+const IRL_PUBLIC_PACK_PATHS: string[] = [
+  "foundation/PARTICIPATION_overview.md",
+];
 
 function isValidPackId(packId: string): boolean {
   return /^[a-z0-9-]+$/i.test(packId);
@@ -19,8 +80,8 @@ function sanitizePath(filePath: string): string | null {
   return normalized;
 }
 
-export async function GET(request: NextRequest, context: { params: { packId: string } }) {
-  const { packId } = context.params;
+export async function GET(request: NextRequest, context: { params: Promise<{ packId: string }> }) {
+  const { packId } = (await context.params);
 
   if (!isValidPackId(packId)) {
     return NextResponse.json({ ok: false, error: "Invalid packId." }, { status: 400 });
@@ -40,15 +101,65 @@ export async function GET(request: NextRequest, context: { params: { packId: str
     return NextResponse.json({ ok: false, error: "Unsupported file type." }, { status: 400 });
   }
 
+  // Defence-in-depth against traversal even though sanitizePath already rejects
+  // absolute paths and leading "..": the resolved path must stay under the pack.
   const packRoot = path.join(process.cwd(), "codexes", "packs", packId);
   const fullPath = path.join(packRoot, safePath);
-
   if (!fullPath.startsWith(packRoot + path.sep)) {
     return NextResponse.json({ ok: false, error: "Path out of bounds." }, { status: 400 });
   }
 
+  const gate = ADMIN_GATED_PACK_PATHS.find(
+    (g) => g.packId === packId && safePath.startsWith(g.pathPrefix),
+  );
+  // IRL pack — default-deny (2026-08-27 containment): everything requires
+  // canonical admin OR a scoped research-lab reviewer grant (Phase 2, added
+  // 2026-09-08) except the explicit public allowlist above. This is the
+  // opposite default from every other pack (which is default-allow, gated
+  // only by ADMIN_GATED_PACK_PATHS), because the `irl` pack's collections
+  // carry confidential laboratory IP that was never meant to be servable to
+  // an unauthenticated caller. `getActivePersona` resolves admin from the
+  // authenticated session server-side — this never reads a client `isAdmin`
+  // query param or prop.
+  const irlRequiresAuthorization = packId === "irl" && !IRL_PUBLIC_PACK_PATHS.includes(safePath);
+  if (gate || irlRequiresAuthorization) {
+    const persona = await getActivePersona(request).catch(() => null);
+    const isAdmin = persona?.cartridgeFlags?.isAdmin === true;
+
+    if (gate && !isAdmin) {
+      return NextResponse.json({ ok: false, error: "Admin required." }, { status: 403 });
+    }
+
+    if (irlRequiresAuthorization && !isAdmin) {
+      // Scoped reviewer path: only reachable for a path inside a REGISTERED
+      // experiment's own folder, and only for a persona holding an active
+      // research-lab grant, in a review-readable role, scoped (via
+      // `allowed_experiments`) to THAT experiment — the same check the
+      // Validation Programme's JSON Agent Package already gates on. Never
+      // widens to admin-only paths outside every experiment folder, and
+      // never trusts a client-supplied experiment/scope claim.
+      const experimentId = experimentIdForIrlPackPath(safePath);
+      const admin = getSupabaseServer();
+      const grant = experimentId && persona?.personaId && admin
+        ? await resolveExperimentReviewGrant(admin, persona.personaId, experimentId)
+        : null;
+      if (!grant) {
+        return NextResponse.json(
+          { ok: false, error: "Admin or a scoped research-lab reviewer grant for this experiment is required." },
+          { status: 403 },
+        );
+      }
+    }
+  }
+
   try {
-    const raw = await fs.readFile(fullPath, "utf-8");
+    // Reads through the pack-corpus seam: local FS in dev, the in-memory corpus
+    // (hydrated from the remote blob) in the SSR Lambda where the pack files are
+    // no longer bundled. A missing file surfaces as the same 404 as before.
+    const raw = await corpusReadPackFile(packId, safePath);
+    if (raw === null) {
+      return NextResponse.json({ ok: false, error: "File not found." }, { status: 404 });
+    }
     if (safePath.endsWith(".json")) {
       try {
         const data = JSON.parse(raw);

@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-09-06-MISSING-ACTION-TYPE-MIGRATION-001",
+  "capability": "bankr_tokenization",
+  "milestone": "Use Case Zero RootDID minting primitive + Factor-agent-callable-execution scoping",
+  "problem": "Two ActivityActionType union members (agent_purpose_wallet_provisioned, agent_root_identity_sponsored) were added to services/receipts/activityReceiptService.ts across two earlier passes of this same session WITHOUT the matching activity_receipts_action_type_check constraint migration this codebase's own governing rule requires for every such addition — confirmed by tests/activity-receipts-action-type-parity.test.ts, which failed on exactly these two names when run.",
+  "observedFailure": [
+    "tests/activity-receipts-action-type-parity.test.ts's 'every TypeScript ActivityActionType is present in the LATEST CHECK-constraint rebuild' assertion failed: missing = ['agent_root_identity_sponsored', 'agent_purpose_wallet_provisioned'].",
+    "Any live createActivityReceipt({ actionType: 'agent_purpose_wallet_provisioned' | 'agent_root_identity_sponsored', ... }) call against the real Supabase database would have been REJECTED by the activity_receipts_action_type_check CHECK constraint — the RootDID-genesis receipt in services/factor/useCaseZeroOrchestrator.ts's agentShell step, and the earlier wallet-provisioning receipts in the same file's ownerWallet/settlementWallet steps, would silently fail at the DB layer despite passing TypeScript compilation cleanly.",
+    "Neither addition was caught before this pass because the parity test was not run after either change — both were verified only via mocked unit tests (tests/use-case-zero-orchestrator.test.ts), which mock createActivityReceipt entirely and therefore never exercise the real CHECK constraint, the same class of gap the ON CONFLICT/partial-index defect earlier this session (RES-2026-09-07-BANKR-REHEARSAL-ONCONFLICT-PARTIAL-INDEX-001) also fell into: a TypeScript-level or mocked-unit-test pass cannot prove a live-database-level contract holds."
+  ],
+  "rootCauses": [
+    "This codebase's own governing rule (stated in ~50 prior migration files' own headers, and in codexes/packs/agentiq/updates/... commit-message discipline) requires EVERY new ActivityActionType to ship with a wholesale-rebuild migration of activity_receipts_action_type_check in the SAME change — but nothing enforces this at the moment the TS union is edited; the parity test (tests/activity-receipts-action-type-parity.test.ts) is the ONLY thing that catches drift, and it must be actively run, not merely exist, to catch it.",
+    "Two separate additions in one session (agent_purpose_wallet_provisioned during the 'remaining Use Case Zero defects' pass, agent_root_identity_sponsored during the RootDID-minting-primitive pass) were each verified via their own scoped unit-test runs, never via a full/parity-test run — a scoped-test-only verification habit that misses any cross-cutting invariant a narrower test file doesn't itself check."
+  ],
+  "resolution": [
+    "Added supabase/migrations/20260930260500_agent_wallet_and_rootdid_receipt_action_types.sql — a wholesale rebuild of activity_receipts_action_type_check carrying forward the complete prior list (transcribed from the immediately-prior migration, 20260930250000_confidential_projection_receipt_action_type.sql) plus exactly the two missing entries, per the established convention.",
+    "Applied the migration to the live Supabase project (mcp__Supabase__apply_migration) and verified tests/activity-receipts-action-type-parity.test.ts passes (was failing with exactly these 2 missing entries before the fix, now reports zero drift).",
+    "No application code changed — the TypeScript union additions were correct as written; only the missing database-constraint counterpart was added."
+  ],
+  "rejectedApproaches": [
+    "Appending only the 2 new entries as a small ALTER, rather than a wholesale rebuild — rejected: this codebase's own established convention (every prior migration in this series) rebuilds the constraint wholesale specifically so a single file is always the complete, current source of truth for what the constraint allows; a partial append would break that invariant for the next agent extending it."
+  ],
+  "candidateInvariants": ["CI-2026-09-06-ACTION-TYPE-MIGRATION-MUST-ACCOMPANY-UNION-EDIT-001"],
+  "canaries": [
+    "tests/activity-receipts-action-type-parity.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "defect-recurred",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/activity-receipts-action-type-parity.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "Discovered while scoping capabilityRegistry registration for constitutional_financial_agent_establishment (2026-09-06) — running the pre-existing parity test as a sanity check before registering the capability surfaced the drift; not reported by the operator."
+    ]
+  },
+  "sourceDocs": [],
+  "date": "2026-09-06",
+  "projections": {
+    "targets": ["devon"],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  }
+}

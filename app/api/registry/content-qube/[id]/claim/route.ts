@@ -42,13 +42,14 @@ import type { ContentQubeRarity } from '@/types/contentQube';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-type Params = { params: { id: string } };
+type Params = { params: Promise<{ id: string }> };
 
 const VALID_RARITIES: ReadonlySet<ContentQubeRarity> = new Set([
   'common', 'rare', 'epic', 'legendary', 'secret_black_rare',
 ]);
 
-export async function POST(req: NextRequest, { params }: Params): Promise<NextResponse> {
+export async function POST(req: NextRequest, props: Params): Promise<NextResponse> {
+  const params = await props.params;
   const contentQubeId = params.id;
   if (!contentQubeId) {
     return NextResponse.json({ ok: false, error: 'id required' }, { status: 400 });

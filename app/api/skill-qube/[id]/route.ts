@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAsset } from "@/services/registry/persistence";
 
-type Params = { params: { id: string } };
+type Params = { params: Promise<{ id: string }> };
 
 /**
  * GET /api/skill-qube/[id]
@@ -9,7 +9,8 @@ type Params = { params: { id: string } };
  * Thin wrapper over /api/registry/assets/[assetId] that validates the
  * returned asset is a SkillQube before returning it.
  */
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(_req: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     const asset = await getAsset(params.id);
     if (!asset) {

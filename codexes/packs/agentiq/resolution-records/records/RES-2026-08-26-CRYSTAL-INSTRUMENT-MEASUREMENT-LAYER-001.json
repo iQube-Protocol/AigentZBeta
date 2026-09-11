@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-26",
+  "resolutionId": "RES-2026-08-26-CRYSTAL-INSTRUMENT-MEASUREMENT-LAYER-001",
+  "capability": "exp-p1-crystal-readiness-instruments",
+  "milestone": "IRL Review #001 — Remediation Cycle 1 (measurement layer)",
+  "problem": "An independent external reviewer returned `changes_requested` on the FROZEN Crystal vP1. The freeze and verification machinery worked correctly — the content hash verified. The finding was that the readiness instruments had certified a substrate that did not possess the properties those gates purported to establish: the gates scored classificatory labels and lexical distance rather than the content of the statements, and one gate had drifted below a constraint frozen in the experiment's own protocol.",
+  "observedFailure": [
+    "`duplicate-detection` compared normalised word sets (Jaccard), so four near-identical statement pairs whose dependency direction was inverted ('X is essential for Y' / 'Y depends on X') scored near-zero similarity and passed. A collection of ~11 distinct statements was certified as 15.",
+    "`derivation-headroom` claimed to establish that the collection was 'not only atomic assertions' while in fact testing `semanticType ∈ {constraint, law}` OR the presence of a logical connective word. A corpus in which every member was a bare necessity generality scored 100% on that proxy and cleared the 20% bar, while its conjunctions entailed nothing unstated — so the 12 registered derivation tasks and the generative-sufficiency probe could not be built on it.",
+    "`selection-space` gated on `minMeaningfulSliceSize ?? 5` — a number present in no registered constraint — while the experiment's own frozen collection-size guard had already ruled, with worked arithmetic, that an 18-invariant collection (slice cap 7) was 'plainly insufficient to ground 24 tasks incl. 12 derivation items'. The gate therefore passed collections the frozen protocol had already rejected, and the drift ran in the permissive direction.",
+    "Namespace coverage against the ratified boundary was computed and DISCLOSED as 'not itself a gate'. At 2 of 15 declared namespaces the reviewer reported being unable to author the task set at all without either broad failure or contamination — so the freeze produced an experiment that could not be executed against its own declared boundary."
+  ],
+  "rootCauses": [
+    "The instruments measured PROXIES that were cheap to compute and correlated with the property of interest, and their names asserted the property rather than the proxy. `derivation-headroom` is the clearest case: the name states a conclusion about inferential structure while the implementation read a classification label. A gate whose name overstates its measurement will be trusted for the thing it names.",
+    "A gate threshold was authored as an 'illustrative default' beside a constraint that the same experiment had already frozen with worked arithmetic. Nothing in the code connected the two, so the default silently became the operative criterion and drifted below the frozen constraint.",
+    "A fact was computed in one module (namespace coverage in crystalStatistics.ts) and disclosed in another (crystalFreezeRecommendation.ts) with an explicit note that it gated nothing — so the only surface that could have refused the freeze on it was the one that had been told not to.",
+    "The honest self-documentation of each heuristic's limit was present in the code and was NOT enough. Every one of these limits was written down beside its implementation; the disclosure travelled with the source, not with the result, so a reader of a passing report never saw it."
+  ],
+  "resolution": [
+    "Semantic duplicate detection added BEHIND the existing `duplicate-detection` check name (services/research/crystalSemanticStructure.ts): statements are reduced to a direction-canonicalised predicate-argument form `(determinant, relationClass, dependent)` and compared as FORMS, with slot comparison by overlap coefficient rather than Jaccard so a modifier does not defeat a match. The gate is the UNION of the lexical and semantic passes; the report additionally carries a distinct-statement estimate (equivalence classes under the union relation, via the existing connectedComponents primitive).",
+    "`derivation-headroom` re-implemented behind its own name as INFERENTIAL CAPACITY: whether conjunctions entail unstated conclusions (a shared middle term with distinct outer terms), gated on a derived chain demand. Members are classified against the operator's seven relational structures (causal, conditional, propagation, constraint, threshold, trade-off, quantitative) and present/absent is reported. The retired label-diversity proxy is still computed and reported beside the real figure, explicitly labelled, so the gap between them is visible in the payload rather than only in a source comment.",
+    "`selection-space` gated on a DERIVED population requirement (services/research/crystalPopulationRequirement.ts): `required evaluation slice ÷ 0.40 = minimum collection size`, with the divisor being the frozen ⊆40% guard and the numerator derived from the registered task design (or from a finalized task set when one is supplied, so the floor rises mechanically). The full arithmetic, with every operand's source named, is printed in the check's own detail string. The requirement is cross-checked against the protocol's own worked illustration and reports UNKNOWN — never a numeric fallback — when an input is unavailable.",
+    "`boundary-coverage` added as a first-class `scientific-readiness` gate, requiring every namespace in the declared boundary to be represented. The requirement is a consistency condition between two declared things, so it contains no chosen ratio. Its remedy names corpus extension only and states explicitly that narrowing the boundary is a separate governance decision the check will not accept as a fix.",
+    "A retrospective falsification harness (services/research/crystalInstrumentFalsification.ts + a read-only route) that runs the hardened instruments against the frozen artifact and reports whether they REJECT it. The verdict field is named `reproducedReviewerObjections`, never `ok`, because the successful outcome is a rejection; an unassessable concern (empty domain, unreadable substrate, unverified freeze commitment) counts as NOT reproduced, so an infrastructure fault cannot license the gate.",
+    "A versioned `CrystalRemediationProfile` type in types/crystalRemediation.ts as the single object the orchestrator consumes as configuration, carrying bound source refs, check mappings, the population formula, the boundary requirement, the instrument suite identity and the retrospective verdict. It ships EMPTY and every consumer fails closed, because no authoritative review artifact with a re-readable locator has been ingested.",
+    "The check names and tiers moved into one declared contract (services/research/crystalInstrumentSuite.ts) which crystalReadiness.ts reads for every tier, which yields the suite fingerprint, and which the parity canaries compare against both CFS-054 §2.5 and exceptionIsolation's PRE_REGISTERED_READINESS_CHECKS mirror."
+  ],
+  "rejectedApproaches": [
+    "Rewriting the 15 statements into stronger invariants. Explicitly refused by the operator: 'That would contaminate the experiment.' The defect is in the measurement, and authoring content to pass a gate is the affinity problem the protocol's own freeze sequence exists to prevent.",
+    "Narrowing the ratified 15-namespace boundary to what the acquired material happens to contain. It makes `boundary-coverage` pass arithmetically without changing anything about what the crystal can ground, and it is a governance act — the operator ruled it 'will be surfaced as a separate governance decision rather than an implementation shortcut'.",
+    "Encoding the reviewer's illustrative figures (a 20–30 statement slice, a 50–75 crystal) as the new thresholds. They are one reading of the same constraints, offered as direction. Encoding them would have replaced one unsourced number with another; the derivation is encoded instead, and that it lands inside both ranges is corroboration rather than calibration.",
+    "Re-scoring or correcting the historical readiness results that permitted the freeze. Those results are the record of what the pre-remediation instruments said, and the record is the evidence. Nothing was backfilled, and the frozen artifact was not touched.",
+    "Minting a new check name per finding. Three of the four findings describe how ALREADY-PINNED gates should have worked, so they landed as implementation corrections behind `duplicate-detection`, `derivation-headroom` and `selection-space`. Only `boundary-coverage` is a genuinely independent concept (it compares the collection against an EXTERNAL declared artifact, where every other check is intrinsic to the collection) and only it needs a CFS-054 amendment.",
+    "Building the semantic comparison on an LLM or embedding call. No such seam exists inside a pure readiness function, and introducing a provider integration would have been a larger and less auditable change than the defect warranted. A structural predicate-argument comparison clears the falsification bar and its limits are stated in the module and in the check's own detail string.",
+    "Self-ratifying the CFS-054 §2.5 amendment that the tenth check requires. An agent may not ratify; the amendment is drafted for the operator and the obligation is asserted by a canary so it cannot be quietly forgotten."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-26-CLASSIFICATORY-VS-INFERENTIAL-DIVERSITY-001",
+    "CI-2026-08-26-GATE-MEASURES-WHAT-ITS-NAME-CLAIMS-001",
+    "CI-2026-08-26-DERIVED-CRITERION-OVER-ILLUSTRATIVE-DEFAULT-001",
+    "CI-2026-08-26-UNASSESSABLE-IS-NOT-REPRODUCED-001"
+  ],
+  "canaries": [
+    "tests/crystal-instrument-remediation.test.ts",
+    "tests/source-of-truth-parity.test.ts",
+    "tests/crystal-freeze-rehearsal.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "invariant-incomplete-or-misscoped",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/crystal-instrument-remediation.test.ts",
+      "tests/source-of-truth-parity.test.ts",
+      "tests/crystal-freeze-rehearsal.test.ts",
+      "tests/exception-isolation.test.ts",
+      "tests/crystal-freeze-recommendation.test.ts",
+      "tests/crystal-freeze-ceremony.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-08-26_irl-review-001-instrument-remediation.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-26_irl-review-001-instrument-remediation.md",
+    "codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md",
+    "codexes/packs/irl/foundation/CFS-054_crystal-freeze-specification.md"
+  ],
+  "projections": {
+    "targets": [
+      "irl",
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": true,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

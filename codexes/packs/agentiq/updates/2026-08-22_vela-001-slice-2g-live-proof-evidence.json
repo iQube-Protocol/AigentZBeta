@@ -1,0 +1,136 @@
+{
+  "provenAt": "2026-08-22T14:20:37.734Z",
+  "applicationId": "7738404303895312998",
+  "publicForecastSource": "LOCAL_FORECAST_FIXTURE — invariant store unreachable (invariant store: Supabase server client unavailable)",
+  "gate2Note": "Gate 2 (evaluateCapabilityAndRuntimeGate) was called DIRECTLY with the same fixture provider tests/vela-slice2f-capability-invocation.test.ts uses, rather than through invokeCapability(), because the full gateway additionally resolves the capability provider from a live Supabase-backed registry (Gate 1) — a real, already-documented data-only gap in this sandbox, not a code path this proof needed to exercise. Gate 2 itself — the frozen function this proof is actually about — ran for real.",
+  "supabasePersistenceNote": "No live Supabase credentials in this sandbox — commerce receipt call sites were exercised (emitActionAuthorisationReceipt/emitExecutionReceipt/emitConsequenceReceipt all ran without throwing, per their best-effort .catch(()=>undefined) contract) but the actual Postgres write could not be independently confirmed. This file is the durable, persisted record of the complete reference chain in place of a live DB read-back.",
+  "frozen": {
+    "gate2Touched": false,
+    "newAuthorisationPathCreated": false,
+    "executionBindingConflatedWithConfirmation": false,
+    "observationConflatedWithValidation": false
+  },
+  "results": {
+    "MATCHED_PROJECTION": {
+      "projection": {
+        "projectionRef": "301c509196247dc524fc78e8d681e683",
+        "disposition": "ACCEPTABLE"
+      },
+      "authorisation": {
+        "authorisationRef": "bd83ecb620ccd87bb376d2c0ba71629b",
+        "authorityRef": "polref-live-slice2g",
+        "mandateRef": "mandate-fs-live-slice2g",
+        "projectionRef": "301c509196247dc524fc78e8d681e683",
+        "actionRef": "live-slice2g-shared-action",
+        "status": "AUTHORISED",
+        "expiresAt": "2026-08-22T14:25:37.731Z"
+      },
+      "execution": {
+        "executionRef": "93fc132f68ef06b239184b93a5ce60da",
+        "authorisationRef": "bd83ecb620ccd87bb376d2c0ba71629b",
+        "actionRef": "live-slice2g-shared-action",
+        "signerRef": "aigent-moneypenny"
+      },
+      "observedConsequence": {
+        "consequenceRef": "6702489e0d9e44839b72531bbf37f758",
+        "executionRef": "93fc132f68ef06b239184b93a5ce60da",
+        "projectionRef": "301c509196247dc524fc78e8d681e683",
+        "observedState": {
+          "caseName": "MATCHED_PROJECTION",
+          "reportedOutcome": "ACCEPTABLE"
+        },
+        "validationState": "MATCHED_PROJECTION",
+        "receiptRefs": []
+      },
+      "causalChain": {
+        "authorityRef": "polref-live-slice2g",
+        "mandateRef": "mandate-fs-live-slice2g",
+        "proposedActionRef": "live-slice2g-shared-action",
+        "projectionContextRef": "ctx-slice2g-live-proof",
+        "projectionRef": "301c509196247dc524fc78e8d681e683",
+        "publicForecastRef": "7ae9a25c4c2660f7008fc0ed09b848c0",
+        "confidentialEvidenceRef": "6cc733f68cfcef9b2e0ebc0c06d4078e29670e08e4bbe1442f7cbd04435343cf",
+        "confidentialRequestRef": "0x6ae1e0f150c739809353846f6425b267e1f6ca91a36ca5475a1b6adbcf50ed27",
+        "authorisationRef": "bd83ecb620ccd87bb376d2c0ba71629b",
+        "executionRef": "93fc132f68ef06b239184b93a5ce60da",
+        "observedConsequenceRef": "6702489e0d9e44839b72531bbf37f758",
+        "validationState": "MATCHED_PROJECTION"
+      }
+    },
+    "DIVERGED_FROM_PROJECTION": {
+      "projection": {
+        "projectionRef": "301c509196247dc524fc78e8d681e683",
+        "disposition": "ACCEPTABLE"
+      },
+      "authorisation": {
+        "authorisationRef": "bd83ecb620ccd87bb376d2c0ba71629b",
+        "authorityRef": "polref-live-slice2g",
+        "mandateRef": "mandate-fs-live-slice2g",
+        "projectionRef": "301c509196247dc524fc78e8d681e683",
+        "actionRef": "live-slice2g-shared-action",
+        "status": "AUTHORISED",
+        "expiresAt": "2026-08-22T14:25:37.731Z"
+      },
+      "execution": {
+        "executionRef": "5fd6e549d6923747727d2aeabffdac64",
+        "authorisationRef": "bd83ecb620ccd87bb376d2c0ba71629b",
+        "actionRef": "live-slice2g-shared-action",
+        "signerRef": "aigent-moneypenny-diverged-case"
+      },
+      "observedConsequence": {
+        "consequenceRef": "720b49a316c37d02ced8eaa707b53a26",
+        "executionRef": "5fd6e549d6923747727d2aeabffdac64",
+        "projectionRef": "301c509196247dc524fc78e8d681e683",
+        "observedState": {
+          "caseName": "DIVERGED_FROM_PROJECTION",
+          "reportedOutcome": "UNACCEPTABLE"
+        },
+        "validationState": "DIVERGED_FROM_PROJECTION",
+        "receiptRefs": []
+      },
+      "causalChain": {
+        "authorityRef": "polref-live-slice2g",
+        "mandateRef": "mandate-fs-live-slice2g",
+        "proposedActionRef": "live-slice2g-shared-action",
+        "projectionContextRef": "ctx-slice2g-live-proof",
+        "projectionRef": "301c509196247dc524fc78e8d681e683",
+        "publicForecastRef": "7ae9a25c4c2660f7008fc0ed09b848c0",
+        "confidentialEvidenceRef": "6cc733f68cfcef9b2e0ebc0c06d4078e29670e08e4bbe1442f7cbd04435343cf",
+        "confidentialRequestRef": "0x6ae1e0f150c739809353846f6425b267e1f6ca91a36ca5475a1b6adbcf50ed27",
+        "authorisationRef": "bd83ecb620ccd87bb376d2c0ba71629b",
+        "executionRef": "5fd6e549d6923747727d2aeabffdac64",
+        "observedConsequenceRef": "720b49a316c37d02ced8eaa707b53a26",
+        "validationState": "DIVERGED_FROM_PROJECTION"
+      }
+    },
+    "REQUIRED_ABSENT_UNRESOLVED": {
+      "projection": {
+        "projectionRef": "6db3f8419c60c10cf86007835de0b5f8",
+        "disposition": "UNRESOLVED"
+      },
+      "authorisation": {
+        "authorisationRef": "d1119e4be25c87c3b614176d82bb2eed",
+        "authorityRef": "polref-live-slice2g",
+        "mandateRef": "mandate-fs-live-slice2g",
+        "projectionRef": "6db3f8419c60c10cf86007835de0b5f8",
+        "actionRef": "live-slice2g-unresolved-action",
+        "status": "UNRESOLVED"
+      },
+      "execution": null,
+      "causalChain": {
+        "authorityRef": "polref-live-slice2g",
+        "mandateRef": "mandate-fs-live-slice2g",
+        "proposedActionRef": "live-slice2g-unresolved-action",
+        "projectionContextRef": "ctx-slice2g-live-proof",
+        "projectionRef": "6db3f8419c60c10cf86007835de0b5f8",
+        "publicForecastRef": "7ae9a25c4c2660f7008fc0ed09b848c0",
+        "confidentialEvidenceRef": null,
+        "confidentialRequestRef": null,
+        "authorisationRef": "d1119e4be25c87c3b614176d82bb2eed",
+        "executionRef": null,
+        "observedConsequenceRef": null,
+        "validationState": null
+      }
+    }
+  }
+}

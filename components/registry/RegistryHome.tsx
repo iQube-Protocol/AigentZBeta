@@ -10,6 +10,8 @@ import { ConfirmDialog } from "../ui/confirm-dialog";
 import { useToast } from "../ui/toaster";
 import { ComponentRegistryPanel } from "./ComponentRegistryPanel";
 import { IngestionFactoryPanel } from "./IngestionFactoryPanel";
+import { fetchRegistryAsLegacyShape } from "@/services/registry/legacy/legacyAdapter";
+import { personaFetch } from "@/utils/personaSpine";
 
 interface IQubeTemplate {
   id: string;
@@ -51,6 +53,13 @@ interface FilterState {
   instance: string;
   businessModel: string;
   sort: 'newest' | 'oldest';
+  // Phase A C3 — identity filter values surface here so the legacyAdapter
+  // can pass them through to the canonical resolver. Persona + Reputation
+  // are tracked + forwarded but server-side filtering for them is Phase B
+  // work; today these are best-effort (tooltips on the inline selects
+  // explain the limitation).
+  persona?: string;
+  reputation?: number;
 }
 
 const filterInputCls =
@@ -76,6 +85,9 @@ export function RegistryHome() {
   const [filters, setFilters] = useState<FilterState>({ search: "", type: "", instance: "", businessModel: "", sort: 'newest' });
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [cart, setCart] = useState<string[]>([]);
+  const [batchMintOpen, setBatchMintOpen] = useState(false);
+  const [batchMintVisibility, setBatchMintVisibility] = useState<'public' | 'private'>('private');
+  const [batchMintInFlight, setBatchMintInFlight] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -127,21 +139,16 @@ export function RegistryHome() {
       .catch(() => setPersonasLoading(false));
   }, []);
 
-  // Listen for updates from the modal and refetch via HTTP
+  // Listen for updates from the modal and refetch via the canonical resolver
+  // (Phase A A1: was GET /api/registry/templates; now via legacyAdapter
+  // which prefers canonical /api/registry/iqube with legacy fallback).
   useEffect(() => {
     const handler = async (e: any) => {
       const updated = e.detail;
       if (!updated?.id) return;
       try {
-        const params = new URLSearchParams();
-        if (filters.search) params.set('search', filters.search);
-        if (filters.type) params.set('type', filters.type);
-        if (filters.instance) params.set('instance', filters.instance);
-        if (filters.businessModel) params.set('businessModel', filters.businessModel);
-        if (filters.sort) params.set('sort', filters.sort);
-        const res = await fetch(`/api/registry/templates?${params.toString()}`);
-        const data = await res.json();
-        if (res.ok && Array.isArray(data)) setTemplates(data);
+        const result = await fetchRegistryAsLegacyShape(filters, pagination.currentPage, pagination.limit);
+        if (result.data) setTemplates(result.data);
         try { toast('Template updated', 'success'); } catch {}
       } catch (err) {
         console.error('Failed to refresh templates after update', err);
@@ -150,38 +157,22 @@ export function RegistryHome() {
     };
     window.addEventListener('registryTemplateUpdated', handler as any);
     return () => window.removeEventListener('registryTemplateUpdated', handler as any);
-  }, [filters]);
+  }, [filters, pagination.currentPage, pagination.limit]);
 
-  // Hydrate list from service and refetch on filter changes
+  // Hydrate list from canonical resolver (Phase A A1) + refetch on filter
+  // changes. Adapter prefers /api/registry/iqube and falls back to legacy
+  // /api/registry/templates if the canonical fetch fails — single observation
+  // window per the integration plan.
   useEffect(() => {
     let mounted = true;
     const fetchList = async (f: FilterState, page: number = pagination.currentPage, limit: number = pagination.limit) => {
-      const params = new URLSearchParams();
-      if (f.search) params.set('search', f.search);
-      if (f.type) params.set('type', f.type);
-      if (f.instance) params.set('instance', f.instance);
-      if (f.businessModel) params.set('businessModel', f.businessModel);
-      if (f.sort) params.set('sort', f.sort);
-      params.set('page', page.toString());
-      params.set('limit', limit.toString());
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/registry/templates?${params.toString()}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || 'Failed to load templates');
-        if (data.data && data.pagination) {
-          setTemplates(Array.isArray(data.data) ? data.data : []);
-          setPagination(data.pagination);
-          setWarning(data.error || null);
-        } else {
-          setTemplates(Array.isArray(data) ? data : []);
-          setPagination(prev => ({
-            ...prev,
-            totalCount: Array.isArray(data) ? data.length : 0,
-            totalPages: 1,
-          }));
-          setWarning(null);
-        }
+        const result = await fetchRegistryAsLegacyShape(f, page, limit);
+        if (!mounted) return;
+        setTemplates(result.data);
+        setPagination(result.pagination);
+        setWarning(result.error || null);
       } catch (e: any) {
         setError(e?.message || 'Failed to load templates');
       } finally {
@@ -243,26 +234,77 @@ export function RegistryHome() {
 
   const requestDelete = (id: string) => setDeleteId(id);
 
+  const confirmBatchMint = async () => {
+    if (cart.length === 0) { setBatchMintOpen(false); return; }
+    setBatchMintInFlight(true);
+    try {
+      const res = await personaFetch('/api/registry/iqube/mint-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ iqube_ids: cart, visibility: batchMintVisibility }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (j?.error === 'unknown_iqubes' && Array.isArray(j?.missing)) {
+          throw new Error(`Unknown iQubes: ${j.missing.join(', ')}`);
+        }
+        throw new Error(j?.error || `Batch mint failed (${res.status})`);
+      }
+      const summary = j?.summary || { total: cart.length, completed: 0, pending: 0, failed: 0 };
+      const msg = `Batch mint initiated: ${summary.completed}/${summary.total} complete, ${summary.pending} pending, ${summary.failed} failed`;
+      try { toast(msg, summary.failed > 0 ? 'error' : 'success'); } catch {}
+      // Clear cart on initiation regardless of per-iqube outcome — the
+      // sagas are idempotent so retry-by-re-add works fine.
+      setCart([]);
+      setBatchMintOpen(false);
+      // Refetch list so newly-minted records flip their state
+      try {
+        const result = await fetchRegistryAsLegacyShape(filters, pagination.currentPage, pagination.limit);
+        setTemplates(result.data);
+        setPagination(result.pagination);
+      } catch {}
+    } catch (e) {
+      try { toast(e instanceof Error ? e.message : 'Batch mint failed', 'error'); } catch {}
+    } finally {
+      setBatchMintInFlight(false);
+    }
+  };
+
   const confirmDelete = async () => {
     if (!deleteId) return;
     const id = deleteId;
     try {
-      const res = await fetch(`/api/registry/templates/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete');
-      const params = new URLSearchParams();
-      if (filters.search) params.set('search', filters.search);
-      if (filters.type) params.set('type', filters.type);
-      if (filters.instance) params.set('instance', filters.instance);
-      if (filters.businessModel) params.set('businessModel', filters.businessModel);
-      const listRes = await fetch(`/api/registry/templates?${params.toString()}`);
-      const data = await listRes.json();
-      if (listRes.ok && Array.isArray(data)) setTemplates(data);
+      // Phase B B6 — Delete now submits a canonical revocation request
+      // through the canonization queue (Stage 3) rather than hard-
+      // deleting. The iQube remains in iqube_id_map for audit; the
+      // canonical lifecycle transitions to `revoked` only after a
+      // platform-admin approves the request via the canonization queue
+      // PATCH path. Preserves full audit trail.
+      const res = await fetch(`/api/registry/iqube/${id}/revoke`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'legacy /registry delete-button submission' }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        if (res.status === 409) {
+          try { toast('A revocation is already pending for this iQube', 'success'); } catch {}
+          setDeleteId(null);
+          return;
+        }
+        throw new Error(j?.error || 'Failed to request revocation');
+      }
+      // The iQube is still in the list until the canonization queue
+      // approves the revocation; refetch reflects current state.
+      const result = await fetchRegistryAsLegacyShape(filters, pagination.currentPage, pagination.limit);
+      setTemplates(result.data);
+      setPagination(result.pagination);
       setCart(prev => prev.filter(cid => cid !== id));
       setDeleteId(null);
-      try { toast('Template deleted', 'success'); } catch {}
+      try { toast('Revocation requested. Awaiting platform-admin approval.', 'success'); } catch {}
     } catch (err) {
-      console.error('Delete failed:', err);
-      try { toast('Delete failed', 'error'); } catch {}
+      console.error('Revoke request failed:', err);
+      try { toast('Revoke request failed', 'error'); } catch {}
     }
   };
 
@@ -354,12 +396,18 @@ export function RegistryHome() {
             </select>
           </div>
 
-          {/* Persona */}
-          <div className="snap-start shrink-0 min-w-[145px] lg:min-w-0">
+          {/* Persona — Phase A C3: surfaces but server-side filter is
+              Phase B work (canonical resolver doesn't filter by
+              creator-persona ownership today; the spine reads the active
+              persona from the Bearer token, not a URL param). */}
+          <div className="snap-start shrink-0 min-w-[145px] lg:min-w-0" title="Phase A: selection is tracked but server-side ownership filtering lands in Phase B. Today the list shows all iQubes regardless of persona selection.">
             <label className={filterLabelCls}>Persona</label>
             <select
               value={selectedPersona}
-              onChange={(e) => setSelectedPersona(e.target.value)}
+              onChange={(e) => {
+                setSelectedPersona(e.target.value);
+                setFilters(f => ({ ...f, persona: e.target.value || undefined }));
+              }}
               className={filterInputCls}
               disabled={personasLoading}
               aria-label="Persona"
@@ -373,12 +421,19 @@ export function RegistryHome() {
             </select>
           </div>
 
-          {/* Reputation */}
-          <div className="snap-start shrink-0 min-w-[145px] lg:min-w-0">
+          {/* Reputation — Phase A C3: AigentQube trust_band 0..4. Other
+              primitives don't carry a reputation/trust_band; the filter
+              is a no-op for them per the integration plan §5 item 4
+              (operator-confirmed scope). */}
+          <div className="snap-start shrink-0 min-w-[145px] lg:min-w-0" title="Filters AigentQubes by trust_band ≥ selected bucket. Non-Aigent primitives don't carry a trust band; they appear regardless of this filter (Phase A scope).">
             <label className={filterLabelCls}>Reputation</label>
             <select
               value={minReputationBucket}
-              onChange={(e) => setMinReputationBucket(Number(e.target.value))}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setMinReputationBucket(v);
+                setFilters(f => ({ ...f, reputation: v || undefined }));
+              }}
               className={filterInputCls}
               aria-label="Min Reputation"
             >
@@ -449,10 +504,17 @@ export function RegistryHome() {
             </button>
             {/* View mode toggles */}
             <ViewModeToggle value={viewMode} onChange={setViewMode} />
-            {/* Cart */}
-            <div
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 ring-1 ring-white/10 text-sm font-medium text-slate-300"
-              title="Items in cart"
+            {/* Cart — Phase B B8: clickable; opens batch-mint confirm */}
+            <button
+              type="button"
+              disabled={cart.length === 0}
+              onClick={() => setBatchMintOpen(true)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                cart.length > 0
+                  ? 'bg-indigo-500/15 ring-1 ring-indigo-500/40 text-indigo-200 hover:bg-indigo-500/25'
+                  : 'bg-white/5 ring-1 ring-white/10 text-slate-400 cursor-not-allowed'
+              }`}
+              title={cart.length === 0 ? 'Cart is empty' : `Mint ${cart.length} iQube${cart.length === 1 ? '' : 's'} as a batch`}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="9" cy="21" r="1"/>
@@ -460,7 +522,7 @@ export function RegistryHome() {
                 <path d="M1 1h4l2.68 12.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
               </svg>
               <span className="tabular-nums">{cart.length}</span>
-            </div>
+            </button>
           </div>
         </div>
       </div>
@@ -597,11 +659,40 @@ export function RegistryHome() {
           />
         )}
 
+        {/* Phase B B8 — Batch mint confirm dialog */}
+        <ConfirmDialog
+          open={batchMintOpen}
+          title={`Mint ${cart.length} iQube${cart.length === 1 ? '' : 's'} as a batch`}
+          confirmText={batchMintInFlight ? 'Minting…' : (batchMintVisibility === 'public' ? 'Proceed: Mint Public' : 'Proceed: Mint Private')}
+          cancelText="Cancel"
+          onConfirm={confirmBatchMint}
+          onCancel={() => { if (!batchMintInFlight) setBatchMintOpen(false); }}
+          confirmClassName={batchMintVisibility === 'public' ? 'bg-emerald-600 text-white hover:bg-emerald-500' : 'bg-purple-600 text-white hover:bg-purple-500'}
+        >
+          <div>
+            <div className="mb-3 text-slate-300 text-sm">
+              The cart contains <span className="font-semibold text-slate-100">{cart.length}</span> iQube{cart.length === 1 ? '' : 's'}.
+              Batch mint drives one Stage 5 saga per iQube in parallel. The selected visibility applies to every iQube in the batch.
+              Sagas are idempotent — if any iQube was already in flight, its existing saga is reused (no duplicate mints).
+            </div>
+            <div className="flex gap-6">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="batchMintVisibility" value="public" checked={batchMintVisibility === 'public'} onChange={() => setBatchMintVisibility('public')} className="text-emerald-500 focus:ring-emerald-500" />
+                <span className="text-slate-200 text-sm">Public</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="batchMintVisibility" value="private" checked={batchMintVisibility === 'private'} onChange={() => setBatchMintVisibility('private')} className="text-purple-500 focus:ring-purple-500" />
+                <span className="text-slate-200 text-sm">Private</span>
+              </label>
+            </div>
+          </div>
+        </ConfirmDialog>
+
         <ConfirmDialog
           open={!!deleteId}
-          title="Delete Template"
-          description="Are you sure you want to delete this iQube template? This action cannot be undone."
-          confirmText="Delete"
+          title="Request Revocation"
+          description="This submits a canonical revocation request to the canonization queue. The iQube remains in the registry until a platform-admin approves the request. The action is audit-trailed and never hard-deletes the canonical record."
+          confirmText="Request revocation"
           cancelText="Cancel"
           onConfirm={confirmDelete}
           onCancel={() => setDeleteId(null)}

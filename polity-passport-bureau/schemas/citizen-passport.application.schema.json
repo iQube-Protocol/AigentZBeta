@@ -1,0 +1,317 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.metame.com/polity/passport/v0.1/citizen-passport.application.schema.json",
+  "title": "Polity Citizen Passport Application",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "application_type",
+    "applicant",
+    "persona",
+    "identity",
+    "proof_of_personhood",
+    "passport_request",
+    "consents"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "application_type": {
+      "const": "citizen_passport"
+    },
+    "application_id": {
+      "type": "string"
+    },
+    "created_at": {
+      "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/isoDatetime"
+    },
+    "submitted_at": {
+      "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/isoDatetime"
+    },
+    "applicant": {
+      "type": "object",
+      "required": [
+        "applicant_kind",
+        "identity_state_requested"
+      ],
+      "properties": {
+        "applicant_kind": {
+          "const": "human"
+        },
+        "identity_state_requested": {
+          "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/identityState"
+        },
+        "public_display_preference": {
+          "type": "string",
+          "enum": [
+            "persona_handle_only",
+            "pseudonymous_display_name",
+            "identifiable_display_name"
+          ],
+          "default": "persona_handle_only"
+        }
+      },
+      "additionalProperties": false
+    },
+    "persona": {
+      "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/personaRef"
+    },
+    "identity": {
+      "type": "object",
+      "required": [
+        "kybe_did_binding"
+      ],
+      "properties": {
+        "kybe_did_binding": {
+          "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/kybeDidBinding"
+        },
+        "root_did_binding": {
+          "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/rootDidBinding"
+        },
+        "identity_notes": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "proof_of_personhood": {
+      "type": "object",
+      "required": [
+        "weak_proof",
+        "individuality_anchor"
+      ],
+      "properties": {
+        "weak_proof": {
+          "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/personhoodProof"
+        },
+        "strong_proof": {
+          "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/personhoodProof"
+        },
+        "individuality_anchor": {
+          "type": "object",
+          "required": [
+            "anchor_type",
+            "kybe_did"
+          ],
+          "properties": {
+            "anchor_type": {
+              "const": "kybe_did"
+            },
+            "kybe_did": {
+              "type": "string"
+            },
+            "individuality_claim": {
+              "const": "unique_human"
+            },
+            "proof_notes": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "optional_private_details": {
+      "type": "object",
+      "description": "All fields in this object are optional. If provided, private payloads MUST be stored as a self-custody blakQube (client-side encrypted, Auto Drive only) per the Self-Custody blakQube Passport Vault rule.",
+      "properties": {
+        "self_custody_blakqube_ref": {
+          "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/selfCustodyBlakQubeRef"
+        },
+        "name_provided": {
+          "type": "boolean",
+          "default": false
+        },
+        "address_provided": {
+          "type": "boolean",
+          "default": false
+        },
+        "phone_provided": {
+          "type": "boolean",
+          "default": false
+        },
+        "email_provided": {
+          "type": "boolean",
+          "default": false
+        },
+        "jurisdiction_provided": {
+          "type": "boolean",
+          "default": false
+        },
+        "recovery_email_provided": {
+          "type": "boolean",
+          "default": false
+        },
+        "recovery_phone_stubbed": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "being_declarations": {
+      "type": "object",
+      "description": "Optional declarations supporting the first citizen activation vector: Being.",
+      "properties": {
+        "support_needs": {
+          "type": "array",
+          "items": {
+            "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/supportNeed"
+          },
+          "uniqueItems": true
+        },
+        "statelessness_declared": {
+          "type": "boolean"
+        },
+        "refugee_or_asylum_context_declared": {
+          "type": "boolean"
+        },
+        "housing_insecurity_declared": {
+          "type": "boolean"
+        },
+        "immigration_support_requested": {
+          "type": "boolean"
+        },
+        "housing_support_requested": {
+          "type": "boolean"
+        },
+        "legal_information_requested": {
+          "type": "boolean"
+        },
+        "emergency_or_safety_context_declared": {
+          "type": "boolean"
+        },
+        "notes_blackqube_ref": {
+          "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/qubeRef"
+        }
+      },
+      "additionalProperties": false
+    },
+    "passport_request": {
+      "type": "object",
+      "required": [
+        "requested_passport_type",
+        "requested_grade",
+        "requested_visibility"
+      ],
+      "properties": {
+        "requested_passport_type": {
+          "type": "string",
+          "enum": [
+            "citizen",
+            "verified_citizen"
+          ]
+        },
+        "requested_grade": {
+          "type": "string",
+          "enum": [
+            "anonymous_citizen",
+            "pseudonymous_citizen",
+            "verified_anonymous_citizen",
+            "verified_pseudonymous_citizen",
+            "identifiable_citizen"
+          ]
+        },
+        "requested_visibility": {
+          "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/visibilityClass"
+        },
+        "public_registry_listing_requested": {
+          "type": "boolean",
+          "default": true
+        },
+        "passport_scope_requested": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "identity_continuity",
+              "reputation_continuity",
+              "being_services",
+              "immigration_orientation",
+              "housing_orientation",
+              "legal_information_routing",
+              "polity_participation",
+              "governance_participation"
+            ]
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "consents": {
+      "type": "object",
+      "required": [
+        "passport_terms_accepted",
+        "privacy_terms_accepted",
+        "registry_pending_record_consent",
+        "blackqube_private_storage_consent",
+        "self_custody_acknowledgements"
+      ],
+      "properties": {
+        "passport_terms_accepted": {
+          "type": "boolean",
+          "const": true
+        },
+        "privacy_terms_accepted": {
+          "type": "boolean",
+          "const": true
+        },
+        "registry_pending_record_consent": {
+          "type": "boolean",
+          "const": true
+        },
+        "blackqube_private_storage_consent": {
+          "type": "boolean",
+          "const": true
+        },
+        "self_custody_acknowledgements": {
+          "type": "object",
+          "required": [
+            "private_data_not_stored_in_supabase_acknowledged",
+            "bureau_cannot_decrypt_private_payload_acknowledged",
+            "sysadmins_cannot_recover_private_payload_acknowledged",
+            "loss_of_key_risk_acknowledged"
+          ],
+          "properties": {
+            "private_data_not_stored_in_supabase_acknowledged": {
+              "const": true
+            },
+            "bureau_cannot_decrypt_private_payload_acknowledged": {
+              "const": true
+            },
+            "sysadmins_cannot_recover_private_payload_acknowledged": {
+              "const": true
+            },
+            "loss_of_key_risk_acknowledged": {
+              "const": true
+            },
+            "optional_email_recovery_scope_acknowledged": {
+              "type": "boolean",
+              "description": "Applicant acknowledges that email recovery may recover Bureau account access but does not by itself recover the holder-controlled blakQube decryption key."
+            }
+          },
+          "additionalProperties": false
+        },
+        "optional_recovery_warning_acknowledged": {
+          "type": "boolean",
+          "description": "Applicant acknowledges that account recovery may be limited if no recovery email or phone is provided."
+        },
+        "legal_advice_boundary_acknowledged": {
+          "type": "boolean",
+          "description": "Applicant acknowledges that the Bureau does not itself provide formal legal advice unless routed to approved legal assistance participants."
+        }
+      },
+      "additionalProperties": false
+    },
+    "receipts": {
+      "type": "array",
+      "items": {
+        "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/receiptRef"
+      }
+    }
+  },
+  "additionalProperties": false
+}

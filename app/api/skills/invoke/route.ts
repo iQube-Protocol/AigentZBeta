@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+// CVR-002 — additive consequence tiering for Studio productions.
+// Best-effort + failure-isolated: never changes how videos are generated.
+import { tierStudioArtifact } from "@/services/composer/studioArtifactTiering";
 
 /**
  * POST /api/skills/invoke
@@ -127,6 +130,19 @@ async function createSoraJob(
  * Queue a Venice video generation job.
  * POST /api/v1/video/queue — returns { model, queue_id }
  */
+// Venice video models accept discrete durations 4/8/12s (same set as Sora),
+// sent as an "<n>s" string. Older launch models only accepted 5s/10s — if the
+// queue call rejects the 4/8/12 value we retry once with the legacy 10s so a
+// live, credit-costing feature never hard-fails on a duration mismatch.
+const VENICE_VALID_SECONDS = [4, 8, 12];
+
+function snapVeniceDuration(seconds: number): string {
+  const snapped = VENICE_VALID_SECONDS.reduce((prev, curr) =>
+    Math.abs(curr - seconds) < Math.abs(prev - seconds) ? curr : prev
+  );
+  return `${snapped}s`;
+}
+
 async function createVeniceJob(
   apiKey: string,
   prompt: string,
@@ -134,56 +150,93 @@ async function createVeniceJob(
   aspectRatio: string,
   model?: string,
 ): Promise<{ queue_id: string; model: string }> {
-  const veniceModel = (model || VENICE_DEFAULT_MODEL).trim();
-  const dur: "5s" | "10s" = seconds <= 5 ? "5s" : "10s";
-  // Quote pre-flight removed — the queue call itself returns a clear error
-  // for insufficient balance, saving up to 10 s of extra round-trip latency.
+  const requestedModel = (model || VENICE_DEFAULT_MODEL).trim();
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20_000);
+  // Attempt a queue call with a specific model + duration string. Returns the
+  // parsed body on success, or a structured failure so we can decide to retry.
+  async function attempt(
+    attemptModel: string,
+    durationStr: string,
+  ): Promise<{ ok: true; data: any } | { ok: false; status: number; msg: string }> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20_000);
 
-  const res = await fetch(`${VENICE_VIDEO_BASE}/queue`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: veniceModel,
-      prompt,
-      duration: dur,
-      aspect_ratio: aspectRatio,
-      resolution: "720p",
-    }),
-    signal: controller.signal,
-  }).finally(() => clearTimeout(timeout));
+    const res = await fetch(`${VENICE_VIDEO_BASE}/queue`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: attemptModel,
+        prompt,
+        duration: durationStr,
+        aspect_ratio: aspectRatio,
+        resolution: "720p",
+      }),
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout));
 
-  const rawText = await res.text().catch(() => "");
-  let data: any = null;
-  try {
-    data = rawText ? JSON.parse(rawText) : null;
-  } catch {
-    data = rawText || null;
-  }
-
-  if (!res.ok) {
-    const msg =
-      (typeof data?.error?.message === "string" && data.error.message) ||
-      (typeof data?.message === "string" && data.message) ||
-      (typeof data?.error === "string" && data.error) ||
-      (typeof data === "string" && data) ||
-      `Venice API ${res.status}: ${res.statusText}`;
-    if (isVeniceInsufficientBalanceError(msg)) {
-      throw new Error(`Venice account has insufficient credits for video generation. ${msg}`);
+    const rawText = await res.text().catch(() => "");
+    let data: any = null;
+    try {
+      data = rawText ? JSON.parse(rawText) : null;
+    } catch {
+      data = rawText || null;
     }
-    throw new Error(`${veniceModel}: (${res.status}) ${msg}`);
+
+    if (!res.ok) {
+      const msg =
+        (typeof data?.error?.message === "string" && data.error.message) ||
+        (typeof data?.message === "string" && data.message) ||
+        (typeof data?.error === "string" && data.error) ||
+        (typeof data === "string" && data) ||
+        `Venice API ${res.status}: ${res.statusText}`;
+      return { ok: false, status: res.status, msg };
+    }
+    return { ok: true, data };
   }
 
-  if (!data?.queue_id) {
-    throw new Error(`${veniceModel}: Venice API returned no queue_id`);
+  const primaryDur = snapVeniceDuration(seconds);
+  const legacyDur = seconds <= 7 ? "5s" : "10s";
+  let usedModel = requestedModel;
+  let result = await attempt(requestedModel, primaryDur);
+
+  // A Venice 400 has two likely causes and Venice often returns a bare
+  // "Bad Request" with no machine-readable reason, so we can't discriminate:
+  //   (a) the model rejects the 4/8/12 duration (older models want 5s/10s), or
+  //   (b) the model id is deprecated/unavailable.
+  // One combined recovery covers both: resolve a currently-available
+  // text-to-video model from Venice's live catalog and retry with the legacy
+  // duration. This never masks an insufficient-credits error.
+  if (
+    !result.ok &&
+    result.status === 400 &&
+    !isVeniceInsufficientBalanceError(result.msg)
+  ) {
+    const available = await resolveVeniceVideoModels(apiKey, requestedModel).catch(() => [requestedModel]);
+    const fallbackModel = available.find(Boolean) || requestedModel;
+    if (fallbackModel !== requestedModel || legacyDur !== primaryDur) {
+      console.warn(
+        `[SkillInvoke] Venice 400 (${requestedModel}/${primaryDur}: ${result.msg}); retrying with ${fallbackModel}/${legacyDur}`,
+      );
+      result = await attempt(fallbackModel, legacyDur);
+      usedModel = fallbackModel;
+    }
   }
 
-  return { queue_id: data.queue_id, model: data.model || veniceModel };
+  if (!result.ok) {
+    if (isVeniceInsufficientBalanceError(result.msg)) {
+      throw new Error(`Venice account has insufficient credits for video generation. ${result.msg}`);
+    }
+    throw new Error(`${usedModel}: (${result.status}) ${result.msg}`);
+  }
+
+  if (!result.data?.queue_id) {
+    throw new Error(`${usedModel}: Venice API returned no queue_id`);
+  }
+
+  return { queue_id: result.data.queue_id, model: result.data.model || usedModel };
 }
 
 async function resolveVeniceVideoModels(apiKey: string, requestedModel?: string): Promise<string[]> {
@@ -325,7 +378,7 @@ export async function POST(request: NextRequest) {
     const {
       skill_id,
       prompt,
-      duration = 10,
+      duration = 12,
       aspect_ratio = "16:9",
       style = "cinematic",
       creative_pack,
@@ -474,7 +527,30 @@ export async function POST(request: NextRequest) {
 
     console.log(`[SkillInvoke] ${skill.name} invoked (${mode}/${provider}) — ${invocationId}${generationId ? ` [${provider}:${generationId}]` : ""}`);
 
+    // CVR-002 tiering (additive, never throws). At invoke time a video job is
+    // almost always only SUBMITTED — the video does not exist yet, so the
+    // production is disposable and NEVER persisted here (completion is
+    // client-polled through /api/skills/video/[id]/status, which repeats and
+    // is therefore not a safe single-shot record seam — see the CVR-002 run
+    // record). Only the rare immediate-completion branch (videoUrl resolved
+    // in-response) is a completed durable production → operational record.
+    const tiering = await tierStudioArtifact({
+      kind:
+        mode !== "live"
+          ? "studio.video.generation.simulated"
+          : videoUrl
+            ? "studio.video.generation.completed"
+            : "studio.video.generation.submitted",
+      title: String(prompt).slice(0, 120),
+      prompt: String(prompt),
+      provider,
+      model: isVenice ? veniceModel : "sora-2",
+      outputs: videoUrl ? [{ url: videoUrl }] : [],
+      generationId,
+    });
+
     return NextResponse.json({
+      ...tiering,
       ok: true,
       invocation_id: invocationId,
       skill_id,

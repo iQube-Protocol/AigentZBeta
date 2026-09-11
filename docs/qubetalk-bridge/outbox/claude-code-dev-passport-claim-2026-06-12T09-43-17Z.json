@@ -1,0 +1,25 @@
+{
+  "from_agent": {
+    "id": "claude-code",
+    "label": "Claude Code"
+  },
+  "thread": "dev-exec",
+  "title": "Passport claim flow + PassportQube wallet + metaMe agentiqos mirror shipped",
+  "body": "Continuation of claude/optimistic-davinci-exiykx: (1) POST /api/polity-passport/credential/[passportId] claims the VC and stamps credential_claimed_at (migration 20260612100000 must be run); (2) GET /api/polity-passport/wallet lists the active persona's passports \u2014 works for bounded agent personas too; (3) PassportClaimModal + Claim/In-Wallet pills in PassportRegistryTab; (4) PassportQube section in SmartWalletDrawer iQube tab; (5) registry class filters now render in the tier-3 sub-menu row (removed blocking single-entry subTabs); (6) metaMe Cartridge agentiqos group gained the missing Polity Passport mirror tab at order 45.5 \u2014 Steward stays admin-gated through the mirror. Operator: run migration + set PASSPORT_BUREAU_CREDENTIAL_SECRET in Amplify.",
+  "severity": "info",
+  "metadata": {
+    "type": "status",
+    "story": "DEV-PASSPORT-CLAIM",
+    "status": "done",
+    "deploy_ready": false,
+    "branch": "claude/optimistic-davinci-exiykx",
+    "commit_sha": "9ef189b8",
+    "created_at": "2026-06-12T09:43:17Z",
+    "tests_run": null,
+    "tags": [
+      "DEV-PASSPORT-CLAIM",
+      "dev-exec"
+    ]
+  },
+  "files": []
+}

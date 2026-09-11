@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-03",
+  "resolutionId": "RES-2026-09-03-EXP-P1-SUBDOMAIN-INVISIBILITY-001",
+  "capability": "exp-p1-track2-corpus-admission",
+  "milestone": "EXP-P1 / Track 2 — Crystal v2, 'Approve targeted acquisition' loop stall (operator: 'we are still stuck', 25 approval rounds over 3 days with zero population growth)",
+  "problem": "The operator repeatedly approved a legitimate, readiness-derived targeted-acquisition mandate for EXP-P1 Crystal v2. Each approval completed within seconds (25 `crystal_acquisition_approvals` rows, all `status='completed'`, `completed_at` 3-15s after `approved_at`) and the Copilot re-presented the identical 'Approve targeted acquisition' prompt every time, with the programme's own population disclosure frozen at 'extracted 3, validated 3, assigned 11' across every run receipt from 2026-08-31 through 2026-09-03 — no forward motion despite genuine human authorization. Live substrate query (Supabase project bsjhfvctmduxhohtllly) found the crystal domain (`financial-risk-value-systems`) genuinely held only 11 validated/canonical members, matching the readiness report — but ALSO found 75 already-PROMOTED discovery_candidates in the acquisition domain (`financial-services`), of which 55 (73%) sat at invariant `status='proposed'`, never validated, and only 17 had ever been assigned an `invariant_contexts` row for the crystal domain at all. The already-completed extraction/promotion work vastly exceeded what any stage of the visible programme ever reported.",
+  "observedFailure": [
+    "Every 'Research programme run over EXP-P1' receipt (activity_receipts, action_type='research_lifecycle_transition'), from 2026-08-31 14:55 through 2026-09-03 15:46 (dozens of runs), reported the IDENTICAL population line 'extracted 3, validated 3, assigned 11' regardless of how many acquisition approvals or Corpus Scout bulk-review admissions had occurred in between — a stable-looking figure that was in fact stuck, not settled.",
+    "`crystal_acquisition_approvals` shows 25 rows for EXP-P1, virtually all `status='completed'` within 3-15 seconds of approval, `crystal_generation='EXP-P1/crystal-vP2'` — the acquisition step itself (`runOneAcquisitionStep`) reported `exhausted: true` on essentially every call because all 6 ratified+verified institutions in the domain already had at least one candidate source on record (`attemptedIssuers` check) — a SEPARATE, secondary finding (see rejectedApproaches) but not the reason the population never grew, since even a successful discovery round would have landed in the same invisible sub-domain slice described below.",
+    "`discovery_candidates` for `domain='financial-services'`: 76 total rows (75 promoted, 1 rejected). 20 of those carry `sub_domain IS NULL`; the other 55 carry a non-null `sub_domain` ('banking', 'custody', 'qriptocent', 'payments', 'trading', 'cross-border', 'financial-integrity', 'financial-intelligence', 'investment-operations', 'market-operations', 'constitutional-commerce' — the institution/pillar-derived topic tags `runDiscoveryForInstitution` writes via `createCandidateSource({ campaignSubDomain: pillarKey, ... })`). All 55 sub-domain-tagged promoted candidates' invariants sat at `status='proposed'` — never once reached by `validateInvariant`.",
+    "`services/invariants/discoveryEngine.ts::listCandidates(admin, domain)` — called with no `subDomain` argument — is documented, correctly, as 'Domain baseline view = sub_domain IS NULL; a sub-domain view = that sub-domain only'. That is the right contract for a UI rendering one scoped picker view. But `services/research/researchProgrammeOrchestrator.ts::loadTrack2ProgrammeState` (the ONE shared composition behind the Copilot's population disclosure, the advance-until-gate loop's stage projection, the review-and-promote queue, and every downstream Track 2 signal) and `services/research/crystalCohortMembership.ts::resolveSuccessorConstructionCohort` (Stage 6 validate, Stage 7 relationships, relationship-adjudication, validate-all) both called this same no-subDomain form, silently inheriting the single-scope-view contract for what is actually 'the programme's entire candidate population.' Verified live: of the 20 null-sub_domain promoted candidates, 13 were already counted in the live 11-member crystal, leaving ~7 as the programme's visible 'successor scoped' set — matching the frozen 'extracted 3, validated 3' figure in order of magnitude. The other 55 (73% of all promoted work) were never queried by either function at all."
+  ],
+  "rootCauses": [
+    "A single shared reader (`listCandidates`) served two genuinely different callers with two genuinely different needs — 'show me one scoped sub-domain view' (a UI picker, `app/api/invariants/discovery/route.ts`) and 'give me the programme's entire candidate population regardless of how acquisition sharded it' (the orchestrator's programme-state composition, the successor-cohort resolver) — through the SAME function signature and the SAME implicit default (no subDomain arg = the narrow baseline view). The two needs were never distinguished by a second function; the narrow contract silently satisfied both call shapes without either caller noticing it was reading the wrong slice.",
+    "Institution-driven acquisition (`runDiscoveryForInstitution`) always tags what it discovers with a pillar-derived `sub_domain` — this is deliberate and correct (it is how per-institution/per-topic acquisition avoids collapsing everything into one undifferentiated bucket) — but nothing downstream of extraction/promotion ever aggregated ACROSS those sub-domains for programme-state purposes. The sharding the acquisition side does on write was never undone on the programme-state read.",
+    "The population disclosure figures ('extracted N, validated N, assigned N') were trusted at face value across dozens of repeated runs without cross-checking them against a direct, unfiltered substrate query — the same class of defect RES-2026-09-01-TRACK2-FAIL-SOFT-SWALLOWED-001 named for a different mechanism (a swallowed query error producing a false empty reading): a derived signal disagreeing with the real substrate, discovered only by querying the substrate directly rather than trusting the projection."
+  ],
+  "resolution": [
+    "Added `listCandidatesAcrossSubDomains(admin, domain)` to `services/invariants/discoveryEngine.ts` — a domain-wide union over every `sub_domain` value (including NULL), reusing the SAME table, the SAME `enrichSignals` enrichment pass, and the SAME `listDomainEvidence(admin, domain)` evidence read `listCandidates` already uses (which already returns evidence across every sub-domain when called with no `subDomain` — `listEvidenceForDomains`'s own `if (subDomain) query = query.or(...)` guard). It changes WHICH rows are read, never HOW a candidate is classified, enriched, promoted or validated. `listCandidates` itself is completely unchanged and keeps its existing single-scoped-view contract for the one caller that legitimately wants it.",
+    "`researchProgrammeOrchestrator.ts::loadTrack2ProgrammeState` now reads via `listCandidatesAcrossSubDomains` instead of the narrowed `listCandidates(admin, acquisitionDomain)` — this is the ONE shared composition every Track 2 signal (population disclosure, `unblockedStageIds`, the review-and-promote queue, the advance-until-gate loop) reads through, so the fix propagates to every consumer without a second edit.",
+    "`crystalCohortMembership.ts::resolveSuccessorConstructionCohort` — the shared resolver Stage 6 validate, Stage 7 relationships, relationship-adjudication and validate-all all already route through — gets the identical fix for the identical reason.",
+    "`app/api/research/track2/[experimentId]/diversity-candidates/route.ts` (Stage 9's 'find diversity candidates' scan over extracted-but-unpromoted candidates) gets the same fix for consistency, since it is exactly the same defect shape one stage later in the lifecycle.",
+    "Projected impact, computed directly against the live substrate (never applied by this change — a read-only projection, not a data mutation): `successorScopedCandidates` for EXP-P1/financial-services grows from 3 to 63 (62 promoted, 1 rejected), unlocking 55 already-extracted, already-promoted invariants currently stuck at `status='proposed'` for the machine-safe `validate-cohort` act, and surfacing a real backlog for the Steward's human-gated Stage 8 (assign-to-crystal) instead of the near-empty queue every prior run showed."
+  ],
+  "rejectedApproaches": [
+    "Changing `listCandidates`'s own default (make the no-subDomain call return every sub-domain) — rejected: this would silently change behaviour for `app/api/invariants/discovery/route.ts`, the one caller that explicitly wants a single scoped view (it already passes an explicit `subDomain` from request params, but the function's OWN default is relied on by its doc comment and by the existing 'domain baseline view' UI contract). Fixing the producer's default would be exactly the wrong-direction fix RES-2026-09-01-TRACK2-FAIL-SOFT-SWALLOWED-001 warned against for a different function: never make a well-defined contract dishonest to compensate for callers that picked the wrong contract.",
+    "Treating the 'Approve targeted acquisition' loop (`runOneAcquisitionStep` reporting `exhausted: true` because every ratified+verified institution already has a candidate source on record) as the primary defect and 'fixing' it to re-attempt institutions repeatedly — rejected after inspection: `runDiscoveryForInstitution` re-submits the same curated seed list and re-crawls the same institution homepage, both of which dedupe by URL in `createCandidateSource`, so re-running an already-attempted institution would mostly be a no-op. The REAL remaining acquisition lever (verifying the other 11 ratified-but-not-yet-verified institutions) already has its own bounded mechanism (`runOneInstitutionVerificationStep`/`verificationTarget`) and is a SEPARATE, already-provisioned capability — not a defect this record closes. Recorded here so a future session does not re-diagnose the same acquisition-exhaustion behaviour as the root cause a second time.",
+    "Manually validating or assigning the 55 stuck invariants via direct SQL as the fix — rejected: `validate-cohort` is a machine-safe, pre-remediation-safe act with an existing, tested code path (`services/invariants/lifecycle.ts::validateInvariant`, invoked by the orchestrator loop), and Stage 8 (assign-to-crystal) is deliberately human-gated (Steward judgment about crystal membership, `HUMAN_GATED_STAGE_IDS`). Bypassing either with a direct database write would be exactly the 'solve it by hand instead of fixing the pipeline' pattern the operator's brief explicitly forbade (\"Never fabricate those structures\", \"no parallel state machine\"). The fix makes the EXISTING mechanisms able to see the backlog; it does not act on their behalf."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-03-PROGRAMME-COHORT-READS-ALL-SUBDOMAINS-001"
+  ],
+  "canaries": [
+    "tests/discovery-candidates-cross-subdomain.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "multi-cycle-repair",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/discovery-candidates-cross-subdomain.test.ts",
+      "tests/research-programme-orchestrator.test.ts",
+      "tests/crystal-cohort-membership.test.ts",
+      "tests/track2-diversity-candidates-route.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "Supabase project bsjhfvctmduxhohtllly, live read-only diagnostic, 2026-09-03: invariant_contexts×invariants for domain='financial-risk-value-systems', status in ('validated','canonical') — 11 rows, matching the readiness report exactly.",
+      "Supabase project bsjhfvctmduxhohtllly, live read-only diagnostic, 2026-09-03: discovery_candidates for domain='financial-services' — 76 total (75 promoted, 1 rejected); grouped by sub_domain — 20 null-subdomain, 55 across 11 named sub-domains; of the 55, 100% (55/55) resolve to invariants at status='proposed'.",
+      "Supabase project bsjhfvctmduxhohtllly, live read-only diagnostic, 2026-09-03: crystal_acquisition_approvals for experiment_id='EXP-P1' — 25 rows, virtually all status='completed' within 3-15s of approval, crystal_generation='EXP-P1/crystal-vP2'.",
+      "Supabase project bsjhfvctmduxhohtllly, live read-only diagnostic, 2026-09-03: activity_receipts action_type='research_lifecycle_transition', 2026-08-31 through 2026-09-03 — every 'Research programme run over EXP-P1' receipt reports the identical 'extracted 3, validated 3, assigned 11' population line across dozens of runs spanning three days."
+    ]
+  },
+  "sourceDocs": [],
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  }
+}

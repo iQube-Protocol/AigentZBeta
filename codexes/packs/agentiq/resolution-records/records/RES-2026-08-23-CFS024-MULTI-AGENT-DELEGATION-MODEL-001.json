@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-23",
+  "resolutionId": "RES-2026-08-23-CFS024-MULTI-AGENT-DELEGATION-MODEL-001",
+  "capability": "cfs-024-bounded-delegation-multi-agent-model",
+  "milestone": "Operator directive: 'MULTI-AGENT BOUNDED DELEGATION — complete the CFS-024 model end-to-end.' UI evidence (persona_agent_assignments already correctly supporting many agents per persona, one optional aigentMe) surfaced that the bounded-delegation RUNTIME still implemented the older single-active-grant-per-persona model — the exact structural mismatch RES-2026-08-23-FSVC-DELEGATION-VS-ASSIGNMENT-ELIGIBILITY-001 (earlier the same day) had already diagnosed for the Financial Services eligibility layer specifically. This resolution completes the correction at its actual root: the durable delegation store and every consumer of it, not just the one caller that first exposed the symptom.",
+  "problem": "`delegationGrantStore.ts` modeled active-grant identity as `persona_id` alone: `persistDelegationGrant()` superseded (revoked) EVERY prior active grant for a persona before inserting a new one, `readActiveGrant(personaId)` returned at most one row per persona (the most recently created, across ALL agents), and `revokeActiveGrant(personaId)` revoked every active grant a persona held. Under the canonical CFS-024 model (many structurally assigned agents, one optional aigentMe, many simultaneously active independently-bounded grants), this meant: granting MoneyPenny silently revoked Nakamoto's unrelated grant; `constitutionalContext.ts` and `agentEligibilityContext.ts` attributed one persona-wide grant's authority to whichever assigned agent happened to match it, hiding every other agent's own independent authority; and the bounded-delegation route/UI could only ever represent ONE active delegation at a time despite the assignment layer already supporting many.",
+  "observedFailure": [
+    "The operator traced the live UI to a genuine architectural mismatch: the assignment layer (persona_agent_assignments) already modeled many-agents-per-persona correctly, but every runtime authority read/write beneath it (delegation_grants, the delegation route, the Financial Services eligibility context, the constitutional context composition, the connector-execution delegation-authority gate) still assumed a single persona-wide slot."
+  ],
+  "rootCauses": [
+    "delegation_grants' write path (persistDelegationGrant) and read path (readActiveGrant) were both scoped to persona_id only, never agent_root_did — a single-slot design correct for a 'one delegate at a time' product but never updated when persona_agent_assignments was generalized to many agents.",
+    "Every downstream consumer (delegationAuthorityGate.ts, agentEligibilityContext.ts, constitutionalContext.ts) inherited the single-slot assumption transitively by calling readActiveGrant(personaId) and then separately checking whether the returned grant happened to match the agent in question — a conflation the earlier same-day Financial Services resolution (RES-2026-08-23-FSVC-DELEGATION-VS-ASSIGNMENT-ELIGIBILITY-001) fixed ONLY at its own call site, not at the shared store that produced the defect for every other caller too.",
+    "The bounded-delegation route (app/api/codex/chat/agentiq-os/delegation) mirrored the same persona-only key in its in-memory cache and its GET/POST/DELETE contracts, so even a corrected store could not have been surfaced to the operator-facing UI without a matching route/UI rewrite."
+  ],
+  "resolution": [
+    "delegationGrantStore.ts: persistDelegationGrant now supersedes only the SAME (persona, agent) pair's prior active grant. Added readActiveGrants(personaId) (every active grant, all agents) and readActiveGrantForAgent(personaId, agentRootDid) (one agent's own grant, all-or-nothing) to replace the removed readActiveGrant(personaId). Added revokeGrantForAgent(personaId, agentRootDid, reason) for the ordinary per-agent revoke and kept revokeAllActiveGrants(personaId, reason) explicit for genuine 'return all authority to metaMe' scenarios (e.g. subscription cancellation in services/billing/planRenewal.ts) — never used as a per-agent revoke substitute.",
+    "Every consumer audited and migrated: delegationAuthorityGate.ts and agentEligibilityContext.ts now call readActiveGrantForAgent(personaId, targetAgentDid) instead of the removed persona-wide read — a current grant for one agent can never make a different agent appear delegated or hide its own independent authority. constitutionalContext.ts now resolves ALL active grants once (readActiveGrants) and maps each PersonaAssignment to its OWN matching grant by agent DID, instead of applying one shared grant's delegatedAuthority/validUntil to whichever assignment it happened to match.",
+    "The bounded-delegation route was rewritten end to end: the in-memory cache is now keyed by (persona_id, agent_root_did); GET returns the full activeDelegations[] roster (plus a labeled legacy single-delegation projection for older callers that still expect one); POST accepts agent_root_did (legacy single-agent, unchanged shape) or agent_root_dids (new batch) and creates one fully independent grant — own PolicyEnvelope, handoff/grant id, expiry, counters, DVN receipt — per agent, with per-agent dual-grant-standing gating; DELETE requires a named agent_root_did or an explicit all=1 to revoke everything.",
+    "BoundedDelegationTab.tsx rewritten for multi-select: each assigned-agent card is now a delegation checkbox rather than a single-select target; 'Grant Authority' opens one shared configuration template applied independently per selected agent, showing 'This configuration will create N independent bounded delegation grants' for N>1; a new Active Delegations section renders one card per currently active grant (agent, role, trust band, expiry, actions used/max, allowed actions/surfaces, grant reference, per-agent Revoke); a separate 'Revoke all delegations' control is offered only when more than one grant is active."
+  ],
+  "rejectedApproaches": [
+    "Widening delegation_grants to allow multiple active rows per persona while leaving readActiveGrant(personaId) as a convenience 'give me one' helper — rejected: every real caller needed either the FULL roster or ONE SPECIFIC agent's grant; a 'give me one, arbitrarily' helper is precisely the ambiguous shape that produced the original defect, so it was removed rather than kept as a trap for the next caller.",
+    "Fixing only the Financial Services eligibility context (already done earlier the same day) and leaving delegationAuthorityGate.ts/constitutionalContext.ts/the route on the old model — rejected per the operator's explicit instruction to 'audit every consumer of the old singular readActiveGrant() before completing the change'; a partial fix would have left the connector-execution gate and the operator-facing delegation UI still exhibiting the cross-agent leakage the Financial Services fix had just eliminated for its own call site."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-23-PER-AGENT-AUTHORITY-KEY-001"
+  ],
+  "canaries": [
+    "tests/delegation-multi-agent-model.test.ts",
+    "tests/homecoming-closeout-wpc2-delegation-authority-gate.test.ts",
+    "tests/homecoming-closeout-wpc4-grant-ux.test.ts",
+    "tests/homecoming-closeout-wpc5-aletheon-e2e.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "invariant-incomplete-or-misscoped",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/delegation-multi-agent-model.test.ts",
+      "tests/homecoming-closeout-wpc2-delegation-authority-gate.test.ts",
+      "tests/homecoming-closeout-wpc4-grant-ux.test.ts",
+      "tests/homecoming-closeout-wpc5-aletheon-e2e.test.ts",
+      "tests/financial-services-runtime.test.ts",
+      "tests/unauthenticated-write-paths.test.ts",
+      "tests/persona-spine-fetch.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "services/identity/personaAssignmentStore.ts",
+    "services/delegation/delegationGrantStore.ts",
+    "codexes/packs/agentiq/resolution-records/records/RES-2026-08-23-FSVC-DELEGATION-VS-ASSIGNMENT-ELIGIBILITY-001.json"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

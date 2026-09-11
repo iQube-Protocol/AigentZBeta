@@ -1,0 +1,25 @@
+{
+  "from_agent": {
+    "id": "claude-code",
+    "label": "Claude Code"
+  },
+  "thread": "dev-exec",
+  "title": "Session complete \u2014 Marketa golden path + passport wizard + Polity Passport menu",
+  "body": "Branch claude/optimistic-davinci-exiykx, all merged to dev. Shipped: (1) Marketa golden path 5/5 \u2014 opportunities CRUD + revenue roll-up, Mailjet outreach send + reply flip, subscription MRR semantics, discovery automation (a2a_card/mcp_registry sources), per-lane outreach template library + in-cartridge manager, lane/source revenue attribution. (2) Operator batch \u2014 Reputation label, pink copilot accent, green glass passport badges + W3C VC claim pill, USD/Qc display, SmartTriad KB fallback chain aigentMe>metaMe>aigentC>aigentZ (aigent-marketa unpinned from metaKnyts KB), Gmail 1:1 send path, passport auto-sync + awaiting-steward flagging, Polity Passport as first-class AgentiQ menu (steward admin-gated), citizen/participant apply wizard with bounded-delegation agent binding, Cloudflare Turnstile widget + env allowlist. (3) Audit fixes \u2014 Gmail personaId 422, passport auto-sync infinite request loop. Operator TODOs: Turnstile keys in Amplify, marketa_outreach_templates migration, CRM bridge decision, aigentMe/metaMe KB population.",
+  "severity": "info",
+  "metadata": {
+    "type": "status",
+    "story": "DEV-MARKETA-GOLDEN-PATH",
+    "status": "done",
+    "deploy_ready": false,
+    "branch": "claude/optimistic-davinci-exiykx",
+    "commit_sha": "9df55d19",
+    "created_at": "2026-06-12T05:26:09Z",
+    "tests_run": null,
+    "tags": [
+      "DEV-MARKETA-GOLDEN-PATH",
+      "dev-exec"
+    ]
+  },
+  "files": []
+}

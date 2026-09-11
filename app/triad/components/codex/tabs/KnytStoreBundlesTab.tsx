@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, BookOpen, Crown, Film, Lock, Plus, ShoppingCart, Sparkles, User, Zap } from 'lucide-react';
 import {
   BUNDLE_PRICING,
@@ -133,6 +133,7 @@ function BundleGridCard({
   bundle,
   thumbUrl,
   isInvestor,
+  remainingSupply,
   onClick,
   onBuy,
   onAddToCart,
@@ -140,6 +141,9 @@ function BundleGridCard({
   bundle: BundlePricing;
   thumbUrl?: string;
   isInvestor?: boolean;
+  /** Live remaining count from /sku-supply. Falls through to the
+   *  static initialClaimed math when absent. */
+  remainingSupply?: number;
   onClick: () => void;
   onBuy: (e: React.MouseEvent) => void;
   onAddToCart?: (e: React.MouseEvent) => void;
@@ -183,6 +187,13 @@ function BundleGridCard({
           {bundle.isFullSeason && !isInvestor && (
             <div className="absolute top-1 left-1 rounded border border-teal-700/40 bg-teal-900/70 px-1 py-0.5 text-[9px] font-bold text-teal-300">
               Season
+            </div>
+          )}
+          {bundle.isLimited && bundle.limitedSupply && (
+            <div className="absolute top-6 right-1 rounded border border-red-700/40 bg-red-900/70 px-1 py-0.5 text-[9px] font-bold text-red-300">
+              {(remainingSupply ?? (bundle.initialClaimed != null
+                ? bundle.limitedSupply - bundle.initialClaimed
+                : bundle.limitedSupply))} of {bundle.limitedSupply} Left
             </div>
           )}
           {bundle.isConditional && (
@@ -263,6 +274,7 @@ function BundleDetail({
   getCoverThumb,
   getCharacterThumb,
   heroImageOverride,
+  remainingSupply,
   onBuy,
   onAddToCart,
 }: {
@@ -270,6 +282,9 @@ function BundleDetail({
   getCoverThumb: (epNum: number) => string | undefined;
   getCharacterThumb: (epNum: number) => string | undefined;
   heroImageOverride?: string | null;
+  /** Live remaining count from /sku-supply. Falls through to
+   *  bundle.limitedSupply minus bundle.initialClaimed when absent. */
+  remainingSupply?: number;
   onBuy: () => void;
   onAddToCart?: () => void;
 }) {
@@ -315,7 +330,9 @@ function BundleDetail({
               )}
               {bundle.isLimited && bundle.limitedSupply && (
                 <span className="rounded-full bg-red-900/40 border border-red-700/40 px-1.5 py-0.5 text-[9px] font-semibold text-red-400">
-                  Limited {bundle.limitedSupply}
+                  {(remainingSupply ?? (bundle.initialClaimed != null
+                    ? bundle.limitedSupply - bundle.initialClaimed
+                    : bundle.limitedSupply))} of {bundle.limitedSupply} Left
                 </span>
               )}
             </div>
@@ -517,12 +534,42 @@ function PackDetail({
 // belong on the Investor tab where they're priced at a discount.
 const isSingleGn = (b: BundlePricing) => b.episodes.length === 1 && b.episodes[0] === -1;
 const publicBundles  = BUNDLE_PRICING.filter((b) => !b.isInvestorOnly && !isSingleGn(b));
-const investorBundles = BUNDLE_PRICING.filter((b) => b.isInvestorOnly && !isSingleGn(b));
+// Franchise SKUs (category='franchise') are suppressed from the retail
+// Premium Bundles surface for now. They live exclusively in the Investor
+// KNYT tab. To open them up to retail later, flip this filter to include
+// them and the existing card render already handles their flags.
+const investorBundles = BUNDLE_PRICING.filter((b) =>
+  b.isInvestorOnly && !isSingleGn(b) && b.category !== 'franchise',
+);
 
 export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
   const [view, setView]         = useState<BundleView>({ kind: 'landing' });
   const [purchase, setPurchase] = useState<PendingPurchase | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
+
+  // Live remaining-supply per limited bundle. Mirrors the Investor tab
+  // pattern so the same "X of Y Left" badge renders on the retail
+  // surface for shared-pool SKUs (Zero KNYT, Satoshi KNYT Collection,
+  // franchise tiers). Source: /api/wallet/knyt/sku-supply.
+  const limitedBundleIds = useMemo(
+    () => BUNDLE_PRICING.filter((b) => b.isLimited && b.limitedSupply).map((b) => b.id),
+    [],
+  );
+  const [supplyMap, setSupplyMap] = useState<Record<string, number>>({});
+  const refreshSupply = useCallback(async () => {
+    if (limitedBundleIds.length === 0) return;
+    try {
+      const res = await fetch(`/api/wallet/knyt/sku-supply?ids=${limitedBundleIds.join(',')}`);
+      if (!res.ok) return;
+      const json = await res.json() as { supply: Record<string, { remaining: number | null }> };
+      const next: Record<string, number> = {};
+      for (const [id, row] of Object.entries(json.supply ?? {})) {
+        if (typeof row?.remaining === 'number') next[id] = row.remaining;
+      }
+      setSupplyMap(next);
+    } catch { /* non-fatal — falls back to static limitedSupply */ }
+  }, [limitedBundleIds]);
+  useEffect(() => { void refreshSupply(); }, [refreshSupply]);
   const { getCoverThumb, getCharacterThumb } = useKnytThumbnails();
   // Live KNYT→USD rate (ethPriceUsd × 0.0005). Falls back to the static 1.40
   // only on first paint before the ETH price fetches. Same source as the
@@ -635,6 +682,7 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
                         key={bundle.id}
                         bundle={retailBundle}
                         thumbUrl={tierImage ?? INVESTOR_SEAL}
+                        remainingSupply={supplyMap[bundle.id]}
                         onClick={() => setView({ kind: 'bundle-detail', bundle: retailBundle })}
                         onBuy={(e) => { e.stopPropagation(); openBundlePurchase(retailBundle); }}
                         onAddToCart={(e) => { e.stopPropagation(); addBundleToCart(retailBundle); }}
@@ -656,6 +704,7 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
                     key={bundle.id}
                     bundle={bundle}
                     thumbUrl={getCoverThumb(bundle.id === 'bundle-8-12' ? bundle.episodes[0] : bundle.episodes[bundle.episodes.length - 1])}
+                    remainingSupply={supplyMap[bundle.id]}
                     onClick={() => setView({ kind: 'bundle-detail', bundle })}
                     onBuy={(e) => { e.stopPropagation(); openBundlePurchase(bundle); }}
                     onAddToCart={(e) => { e.stopPropagation(); addBundleToCart(bundle); }}
@@ -691,6 +740,7 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
             getCoverThumb={getCoverThumb}
             getCharacterThumb={getCharacterThumb}
             heroImageOverride={getBundleImage(view.bundle.id)}
+            remainingSupply={supplyMap[view.bundle.id]}
             onBuy={() => openBundlePurchase(view.bundle)}
             onAddToCart={() => addBundleToCart(view.bundle)}
           />

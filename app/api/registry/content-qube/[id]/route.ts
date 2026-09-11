@@ -19,9 +19,10 @@ import { resolveContentQube } from '@/services/content/resolveContentQube';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-type Params = { params: { id: string } };
+type Params = { params: Promise<{ id: string }> };
 
-export async function GET(req: NextRequest, { params }: Params): Promise<NextResponse> {
+export async function GET(req: NextRequest, props: Params): Promise<NextResponse> {
+  const params = await props.params;
   const id = params.id;
   if (!id) {
     return NextResponse.json({ ok: false, error: 'id required' }, { status: 400 });

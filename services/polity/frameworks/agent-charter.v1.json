@@ -1,0 +1,108 @@
+{
+  "id": "agent-charter",
+  "title": "Autonomous Agent Constitutional Charter",
+  "version": "1.0.0",
+  "status": "ratified",
+  "ratifiedAt": "2026-06-17",
+  "boundConstitutionVersion": "1.0.0",
+  "objective": "Phase 1 autonomous-agent capability that preserves human-only sovereignty. Autonomous agents are delegated instruments, not constitutional persons.",
+  "phase": 1,
+  "phase1": {
+    "restrictedToAdministrators": true,
+    "agentsMustNotPossess": [
+      "kybe_did",
+      "citizenship",
+      "voting_rights",
+      "constitutional_standing",
+      "governance_authority",
+      "independent_economic_ownership"
+    ],
+    "agentsMustBeIdentifiedAsNonHuman": true
+  },
+  "identityClass": {
+    "code": "ADID",
+    "name": "Agent Identity Class",
+    "isHuman": false,
+    "carriesKybeDid": false,
+    "may": [
+      "receive_delegated_authority",
+      "execute_tasks",
+      "generate_receipts",
+      "produce_dvn_attributed_actions"
+    ],
+    "mayNot": [
+      "vote",
+      "sponsor_sovereign_actors",
+      "possess_citizenship",
+      "hold_constitutional_rights",
+      "amend_governance_structures",
+      "hold_citizen_passport"
+    ]
+  },
+  "sponsorship": {
+    "required": true,
+    "noOrphanedAgents": true,
+    "allowedSponsorTypes": ["citizen", "organization", "bureau"],
+    "rule": "All actions must ultimately trace back to a responsible sponsor."
+  },
+  "revocation": {
+    "states": ["active", "paused", "suspended", "revoked", "quarantined", "destroyed"],
+    "authorityRecordedInPassport": true,
+    "effect": "immediate",
+    "terminalStates": ["revoked", "destroyed"]
+  },
+  "agentCreation": {
+    "executionSubAgents": {
+      "permitted": true,
+      "examples": ["research_worker", "coding_worker", "analysis_worker"],
+      "hasIdentity": false,
+      "hasPassport": false,
+      "hasStanding": false,
+      "hasWallet": false,
+      "persistsBeyondTask": false,
+      "inheritsParentConstraints": true
+    },
+    "persistentHelperAgents": {
+      "requiresSponsorApproval": true,
+      "mustBeRegistered": true,
+      "characteristics": [
+        "agent_passport",
+        "persistent_memory",
+        "delegation_envelope",
+        "long_term_operational_existence"
+      ]
+    }
+  },
+  "constitutionalBinding": {
+    "agentPassportMustReference": [
+      "constitution_version",
+      "agent_charter_version",
+      "delegation_framework_version",
+      "sponsor_identity",
+      "revocation_authority"
+    ],
+    "mustOperateUnderCurrentApprovedVersion": true,
+    "onMismatch": "automatic_suspension"
+  },
+  "economicControls": {
+    "spendOnlyWithinDelegatedEnvelope": true,
+    "mayNot": [
+      "own_assets_independently",
+      "create_currencies",
+      "create_financial_authority",
+      "expand_economic_permissions"
+    ],
+    "assetsRemainOwnedBySponsor": true
+  },
+  "receipts": {
+    "everyAutonomousActionMustGenerate": [
+      "sponsor",
+      "agent",
+      "delegation_envelope",
+      "timestamp",
+      "authority_scope",
+      "dvn_receipt"
+    ],
+    "noActionWithoutAuditableReceipt": true
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "chain": "base",
+  "chainId": 8453,
+  "contract": "ContentQubeEditions",
+  "address": "0x6Ca41CB4122314cbf65472D1023d042038F861fE",
+  "deployer": "0x0e3a4FDbE83F7e206380E6C61CA016F2127FF844",
+  "txHash": "0xe2764a9ed3da75d2b598c6c6cd65ecb991407d507d45d320e5ac68883e741e18",
+  "explorer": "https://basescan.org/address/0x6Ca41CB4122314cbf65472D1023d042038F861fE",
+  "deployedAt": "2026-05-28"
+}

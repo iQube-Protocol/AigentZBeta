@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-09-07-BANKR-REHEARSAL-ONCONFLICT-PARTIAL-INDEX-001",
+  "capability": "bankr_tokenization",
+  "milestone": "Use Case Zero closure — Bankr governed-operation rehearsal: case-bound, exact-spec idempotent draft creation",
+  "problem": "A migration adding case-bound, exact-spec idempotency to token_launches (services/factor/tokenLaunchService.ts::createOrResumeDraft, called from the Use Case Zero orchestrator's governedOperationRehearsal step) shipped with a unique index PostgREST's generated `ON CONFLICT` clause could never actually resolve at execution time, and simultaneously dropped an existing DB-level invariant (`uq_token_launches_current`, one non-superseded launch per tenant+beneficiary+provider) that the new application logic was not, on its own, a sufficient replacement for. Both defects passed an in-memory fake-Supabase unit test suite cleanly and were only caught on operator review before the migration was applied to live Supabase.",
+  "observedFailure": [
+    "The first version of migration 20260930260000_token_launches_case_bound_idempotency.sql created `uq_token_launches_draft_idempotency` as a PARTIAL unique index: `ON token_launches (tenant_id, draft_idempotency_key) WHERE draft_idempotency_key IS NOT NULL`.",
+    "services/factor/tokenLaunchService.ts::createOrResumeDraft called `.upsert(row, { onConflict: 'tenant_id,draft_idempotency_key', ignoreDuplicates: true })` — supabase-js/PostgREST generates a plain column-list `INSERT ... ON CONFLICT (tenant_id, draft_idempotency_key) DO NOTHING` for this. Postgres cannot use a PARTIAL index as the arbiter for a column-list `ON CONFLICT` target; the exact reported failure mode is `ERROR: no unique or exclusion constraint matching the ON CONFLICT specification`. This is a live-execution-only failure — no query plan is produced against a fake in-memory table, so tests/use-case-zero-token-launch-idempotency.test.ts's fake Supabase client (which only checked 'does a conflicting row already exist', never asked Postgres to resolve an arbiter index) passed cleanly on the broken migration.",
+    "The same first-version migration also `DROP INDEX`-ed `uq_token_launches_current` (tenant_id, beneficiary_agent_runtime_id, provider, WHERE superseded_by IS NULL) outright, removing the one-current-non-superseded-launch-per-beneficiary invariant from the database entirely and leaving `services/factor/tokenLaunchService.ts`'s own application logic as the ONLY thing preventing two concurrent current launches for the same beneficiary — a governance regression independent of, but compounding, the ON CONFLICT defect.",
+    "The same first-version application logic also treated a changed rehearsal specification as license to insert an independent, unrelated new row (a different `draft_idempotency_key` computed the same way as a first-time create), rather than treating it as a REVISION of the beneficiary's current launch — contradicting the PRD's immutable-versioning rule (`reviseWithNewVersion`: a changed spec must supersede the prior draft, never fork alongside it)."
+  ],
+  "rootCauses": [
+    "Belief that `WHERE <col> IS NOT NULL` on a unique index is purely a storage/semantics optimization (\"don't bother enforcing uniqueness among rows that don't have the value\") rather than also a PLANNER-VISIBLE constraint on which `ON CONFLICT` targets Postgres can resolve. PostgREST/supabase-js's `onConflict` option is translated into a literal column list, and Postgres's `ON CONFLICT (col-list)` inference requires an index whose definition — including any predicate — exactly matches; a partial predicate makes the index structurally ineligible as an inferred arbiter, independent of whether the conflicting row would satisfy that predicate.",
+    "The in-memory fake Supabase client built for the unit test suite modeled `.upsert(..., { onConflict, ignoreDuplicates: true })` as \"check whether a row already satisfies these columns, and no-op if so\" — a faithful model of the DESIRED end-to-end behavior, but not of the INTERMEDIATE mechanism (a real Postgres arbiter-index lookup) that can fail on its own, independent of whether a conflicting row exists. A fake built to the successful-outcome shape rather than to the real transport's own failure modes cannot catch a failure mode that only exists in the real transport.",
+    "Treating the (tenant, beneficiary, provider)-scoped one-current-launch invariant and the new (tenant, case, spec)-scoped exact-idempotency invariant as one problem with one index, rather than two genuinely independent invariants that both needed to keep holding simultaneously — leading to reflexively dropping the first index while adding the second, instead of asking whether the first was still needed (it was)."
+  ],
+  "resolution": [
+    "Migration 20260930260000 corrected: `uq_token_launches_draft_idempotency` is now a FULL, non-partial unique index on (tenant_id, draft_idempotency_key). Postgres already treats every NULL as distinct from every other NULL in an ordinary unique index, so no partial predicate was ever needed to let historical/irrelevant rows carry a NULL key — the partial predicate was solving a non-problem while breaking ON CONFLICT inference. `uq_token_launches_current` is restored verbatim, never dropped.",
+    "services/factor/tokenLaunchService.ts::createOrResumeDraft rewritten to read the CURRENT (non-superseded) launch for the beneficiary first (`findCurrentLaunchForBeneficiary`, the exact scope `uq_token_launches_current` enforces); an exact draft_idempotency_key match resumes it with no write; no current launch atomically first-creates via the (now-working) `ON CONFLICT ... DO NOTHING` + read-back; a CHANGED specification calls `reviseWithNewVersion` (extended to accept the same idempotency-key upsert primitive, and to null out the superseded row's own key so a later, genuinely repeated spec can never collide with a defunct row's frozen key) — a revision, never an independent duplicate.",
+    "Added `claimDraftForPreflight`: an atomic conditional `UPDATE ... WHERE state = 'draft'` — only the caller whose update actually affects the row proceeds to quote Bankr terms and write the `bankr_launch_preflighted` receipt, so a losing concurrent caller never duplicates either.",
+    "Added a REAL PostgreSQL integration test (tests/use-case-zero-token-launch-postgres.integration.test.ts, run via `npm run test:integration` against a live local Postgres 16 instance) that: (a) proves the corrected non-partial index is successfully inferred by the exact PostgREST-generated ON CONFLICT statement; (b) reproduces the ORIGINAL reported defect verbatim as a regression guard, by recreating the old partial index and asserting the exact Postgres error message; (c) races 8 genuinely-concurrent, separate OS-level `psql` processes onto the same insert, proving exactly one row survives; (d) confirms `uq_token_launches_current` still rejects a second concurrent non-superseded row via a plain INSERT, at the database level.",
+    "Applied the corrected migration to the live Supabase project and verified, via `pg_indexes`/`information_schema.columns` queries the operator ran directly, that: `uq_token_launches_current` is unchanged (still partial, still scoped to tenant+beneficiary+provider); `uq_token_launches_draft_idempotency` is non-partial (no WHERE clause); `case_ref`/`draft_idempotency_key` exist as `text` columns."
+  ],
+  "rejectedApproaches": [
+    "Keeping the partial index and instead having application code pre-check for a conflicting row before every insert (a manual, non-atomic 'select then insert') — rejected: this reintroduces exactly the TOCTOU race the atomic ON CONFLICT DO NOTHING mechanism exists to close; the whole point of pushing the guarantee into Postgres is that it holds even when two OS processes interleave arbitrarily.",
+    "Keeping the partial predicate and switching the application code to raw SQL (bypassing PostgREST's `onConflict` inference) so the partial index COULD be targeted directly — rejected: this would work but silently reintroduces a parallel write path outside the Supabase client every other write in this file uses, and the partial predicate was never actually necessary (Postgres's own NULL-uniqueness semantics already provide what it was trying to provide).",
+    "Treating the changed-specification case as an independent new row permanently (accepting the governance regression as a deliberate design simplification) — rejected outright: it directly contradicts the PRD's immutable-versioning rule, and would have let multiple simultaneous non-superseded launches accumulate for one beneficiary with no DB-level backstop against it."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-07-ONCONFLICT-TARGET-MUST-BE-NON-PARTIAL-INDEX-001"
+  ],
+  "canaries": [
+    "tests/use-case-zero-token-launch-postgres.integration.test.ts",
+    "tests/use-case-zero-token-launch-idempotency.test.ts",
+    "tests/use-case-zero-orchestrator.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "multi-cycle-repair",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/use-case-zero-token-launch-postgres.integration.test.ts",
+      "tests/use-case-zero-token-launch-idempotency.test.ts",
+      "tests/use-case-zero-orchestrator.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "Operator review, 2026-09-07, verbatim: \"Five of the six corrections are genuinely present, but the new Bankr database idempotency mechanism has a PostgreSQL-level defect that the fake-Supabase test cannot catch... Supabase/PostgREST generates column-based ON CONFLICT. PostgreSQL cannot infer that partial unique index without the matching predicate, so live execution is liable to fail with: no unique or exclusion constraint matching the ON CONFLICT specification.\"",
+      "Operator's own live-Supabase verification queries and results confirming the corrected schema (uq_token_launches_current preserved partial/tenant+beneficiary+provider-scoped; uq_token_launches_draft_idempotency non-partial; case_ref/draft_idempotency_key present as text) after this resolution's migration was applied."
+    ]
+  },
+  "sourceDocs": [],
+  "date": "2026-09-07",
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  }
+}

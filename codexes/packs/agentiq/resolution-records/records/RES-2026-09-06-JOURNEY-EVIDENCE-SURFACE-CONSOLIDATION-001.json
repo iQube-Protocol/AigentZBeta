@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-06",
+  "resolutionId": "RES-2026-09-06-JOURNEY-EVIDENCE-SURFACE-CONSOLIDATION-001",
+  "capability": "horizen-moneypenny-guided-journey-runtime",
+  "milestone": "Surgical repair of the Journey UI regression on origin/dev — the deployed Evidence-popover backdrop, plus a stale-subject-agent race in RegisterAgentPanel/PilotJourneyTab",
+  "problem": "Commit 3ba5ef913 attempted to fix a header Evidence popover overlapping StageReceiptsDrawer by adding a `fixed inset-0 z-10 bg-slate-950/70` backdrop behind it. Deployed, this made the regression WORSE: the backdrop combined with the header popover and StageReceiptsDrawer's own visible content to make the whole Journey read as one broken, translucent modal. Separately, PilotJourneyTab initializes `selectedAgentSlug` to a hardcoded 'nakamoto' default and only corrects it to the persisted selection in a post-paint `useEffect`; RegisterAgentPanel copied that prop into its OWN `useState` on first mount and never resynced it, and JourneyRunSurface mounted RegisterAgentPanel without a key including the selected agent — so a Factor-scoped Journey observer could permanently render Nakamoto's Agent Card, status checks and receipts.",
+  "observedFailure": [
+    "components/journey/JourneyRunSurface.tsx's header Evidence popover, with its added `fixed inset-0 z-10 bg-slate-950/70` backdrop, made the deployed Journey UI look like one broken, translucent DVN receipt modal (operator report, live screenshots) — the jsdom test that shipped with it asserted the backdrop's className string and called it 'opaque'/'collision-safe', certifying the exact broken experience.",
+    "components/journey/RegisterAgentPanel.tsx's `const [agentSlug, setAgentSlugState] = useState(initialAgentSlug ?? PILOT_AGENTS[0].slug)` copied the `agentSlug` PROP into local state on mount only — PilotJourneyTab's persisted-selection restoration (a `useEffect` running after first paint) never propagated to this already-initialized copy. Combined with JourneyRunSurface never keying the rendered surface by the selected agent, this could permanently strand the panel on the wrong agent."
+  ],
+  "rootCauses": [
+    "The popover fix tuned containment (a backdrop, an opacity value) instead of removing the actual defect: TWO independent, simultaneously-openable Evidence surfaces (the header's own popover AND StageReceiptsDrawer) on one screen. No amount of z-index/opacity tuning removes a fundamentally colliding pair of surfaces.",
+    "A component received a prop as an INITIAL value for its own local state (`useState(prop ?? default)`) instead of being controlled by it — the classic uncontrolled-copy anti-pattern, invisible until the parent's own value changes AFTER the child's first mount (exactly what a post-paint persisted-selection restore does).",
+    "The scope-change effect and the (new) fetch-on-open effect both mutated overlapping state (the generation counter, the loaded flags) without a defined ORDERING contract between them — React runs same-commit effects in declaration order, but nothing enforced which one needed to run first, producing a real, observed double-fetch and a real, observed lost-in-flight-request bug during this repair's own verification."
+  ],
+  "resolution": [
+    "REMOVED the `fixed inset-0 z-10 bg-slate-950/70` backdrop and the header's entire own floating popover. The header's 'Evidence N/M' control now scrolls-into-view and toggles StageReceiptsDrawer DIRECTLY via new `open`/`onOpenChange` controlled props (StageReceiptsDrawer.tsx) — there is exactly ONE Evidence surface per stage now, in normal document flow, never an absolutely/fixed-positioned overlay. The `evidenceMissing` information the old popover uniquely showed now renders inside StageReceiptsDrawer's own primary section via a new `evidenceMissing` prop, so nothing the old popover conveyed was lost.",
+    "Replaced the class-name-only jsdom 'backdrop' test with tests/journey-evidence-layout-browser-regression.test.tsx, which drives REAL Chromium (playwright-core, already vendored) against the REAL rendered DOM, styled with the PROJECT'S OWN compiled Tailwind CSS (via the tailwindcss CLI, content-scanned against the actual captured markup). It proves, geometrically: the stage body stays visible; no fixed full-viewport layer exists, open or closed; receipt cards render contained inside the drawer; the header control never overlaps the drawer; opening/closing Evidence never moves or resizes the stage's own surfaces. Screenshots saved to test-artifacts/journey-evidence-layout/ for human review.",
+    "RegisterAgentPanel.tsx's `agentSlug` is now a CONTROLLED prop (no internal state copy) — the parent's value is read every render, so a later persisted-selection correction reaches it immediately. `agentSlug` is optional (for structural compatibility with the generic surface-component map) and its absence renders an honest 'Resolving agent selection…' neutral loading state, never a silent default to any agent. Every async function that reads agentSlug (`readProgress`, `pollStatus`, `prepare`) now captures the agentSlug it was called with and compares it against an always-current `agentSlugRef` before applying any result — a late response for an agent the operator has switched away from is discarded. A new effect clears all agent-scoped local state (flow/progress/horizenFacts/pendingBroadcast/etc.) and cancels any pending poll timer the INSTANT agentSlug changes, so no stale-agent flash survives a switch.",
+    "PilotJourneyTab.tsx gained a `hydrated` flag: the entire JourneyRunSurface mount (stateUrl, receiptsSubjectAgentRef, every agent-scoped surface) is gated behind it, rendering a brief neutral loading state until the persisted selection is actually resolved — never firing a real network request or mounting agent-scoped content against the hardcoded 'nakamoto' default first.",
+    "Fixed a REAL double-fetch/lost-request bug DISCOVERED while building the browser regression test (not from the operator's own diagnosis): StageReceiptsDrawer's scope-change effect and its new open-triggered fetch effect both fired for the same scope change, tripling one request and, in a different ordering, invalidating a genuinely current request's own generation number. Fixed by (a) removing the scope-change effect's own direct load()/loadCanonical() calls (its state reset alone is sufficient to trigger the other effect), and (b) declaring the fetch-on-open effect textually AFTER the scope-change effect so React's same-commit effect ordering guarantees the generation bump always lands before the new fetch it is meant to protect."
+  ],
+  "rejectedApproaches": [
+    "Restoring the pre-3ba5ef913 translucent popover (bg-slate-900/95, no backdrop) — explicitly forbidden by the operator's own instruction; would reintroduce the ORIGINAL overlap defect this whole chain of fixes exists to close.",
+    "Tuning the backdrop's opacity or z-index instead of removing it — rejected per the same reasoning: the defect is two competing surfaces, not a numeric value.",
+    "Keeping RegisterAgentPanel's own internal agentSlug state and merely resyncing it via an effect watching the prop — rejected in favor of a genuinely controlled component (no local copy at all), which is simpler and structurally cannot drift again.",
+    "Adding a generation-counter (rather than reordering effect declarations) to resolve the double-fetch/lost-request bug — considered, but the ordering fix is simpler, requires no new state, and directly encodes the actual invariant (reset-before-refetch) rather than papering over a race with another counter."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-06-CONSOLIDATE-DONT-CONTAIN-COMPETING-SURFACES-001",
+    "CI-2026-09-06-CONTROLLED-PROP-NEVER-COPIED-TO-STATE-001",
+    "CI-2026-09-06-SAME-COMMIT-EFFECT-ORDERING-001"
+  ],
+  "canaries": [
+    "tests/journey-evidence-layout-browser-regression.test.tsx",
+    "tests/journey-run-surface-evidence-popover-overlap.test.tsx",
+    "tests/journey-orient-stage.test.ts",
+    "tests/stage-receipts-drawer-stale-response.test.tsx",
+    "tests/register-stage-receipt-agent-isolation.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "subsystems-disagreed",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/journey-evidence-layout-browser-regression.test.tsx",
+      "tests/stage-receipts-drawer-stale-response.test.tsx",
+      "tests/register-stage-receipt-agent-isolation.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "Operator's live screenshots and diagnosis, 2026-09-06: the deployed Journey UI read as one broken, translucent DVN receipt modal after commit 3ba5ef913's backdrop fix; PilotJourneyTab/RegisterAgentPanel confirmed via direct source read to strand a Factor-scoped observer on Nakamoto's Agent Card/status/receipts."
+    ]
+  },
+  "sourceDocs": [],
+  "projections": {
+    "targets": ["devon"],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  }
+}

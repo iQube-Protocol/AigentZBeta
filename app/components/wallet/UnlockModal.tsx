@@ -26,6 +26,18 @@ interface UnlockModalProps {
   onCancel?: () => void;
   /** Callback to close (alternative name) */
   onClose?: () => void;
+  /**
+   * Render inline, inside the caller's own layout, instead of as a
+   * viewport-level `fixed inset-0` overlay. Added 2026-08-02 so a host that
+   * already provides its own chrome (e.g. SmartWalletDrawer's persona menu,
+   * or PassportConnectPanel when it is itself mounted inside that drawer)
+   * can present the unlock step WITHOUT a second, viewport-covering modal
+   * stacking on top of the first — "nested modal inside modal" is exactly
+   * the anti-pattern this prop exists to avoid. Every other existing call
+   * site is unaffected: default `false` preserves the original full-screen
+   * overlay byte-for-byte.
+   */
+  embedded?: boolean;
 }
 
 // =============================================================================
@@ -37,10 +49,11 @@ export function UnlockModal({
   personaId,
   personaName,
   isOpen = true,
-  onUnlock, 
+  onUnlock,
   onUnlockSuccess,
   onCancel,
   onClose,
+  embedded = false,
 }: UnlockModalProps) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -101,7 +114,13 @@ export function UnlockModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+    <div
+      className={
+        embedded
+          ? "flex w-full items-center justify-center"
+          : "fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+      }
+    >
       <div className="w-full max-w-md mx-4 bg-slate-900/95 rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="p-6 text-center border-b border-white/10">

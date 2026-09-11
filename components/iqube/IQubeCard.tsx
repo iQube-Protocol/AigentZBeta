@@ -1,0 +1,168 @@
+"use client";
+import React, { useEffect, useState } from "react";
+import { Eye, Pencil, ShoppingCart, Trash2 } from "lucide-react";
+import { Dots, calculateReliabilityScore, calculateTrustScore } from "./scoreUtils";
+
+export interface IQubeTemplateCardProps {
+  id: string;
+  name: string;
+  description: string;
+  sensitivityScore?: number; // 0-10
+  riskScore: number; // 0-10
+  accuracyScore: number; // 0-10
+  verifiabilityScore: number; // 0-10
+  instanceCount?: number;
+  onClick?: (id: string) => void;
+  iQubeType?: 'DataQube' | 'ContentQube' | 'ToolQube' | 'ModelQube' | 'AigentQube';
+  iQubeInstanceType?: 'template' | 'instance';
+  businessModel?: 'Buy' | 'Sell' | 'Rent' | 'Lease' | 'Subscribe' | 'Stake' | 'License' | 'Donate';
+  price?: number;
+  provenance?: number;
+  onEdit?: (id: string) => void;
+  onAddToCart?: (id: string) => void;
+  onDelete?: (id: string) => void;
+  visibility?: 'public' | 'private';
+}
+
+
+export const IQubeCard: React.FC<IQubeTemplateCardProps> = ({
+  id,
+  name,
+  description,
+  sensitivityScore,
+  riskScore,
+  accuracyScore,
+  verifiabilityScore,
+  instanceCount,
+  onClick,
+  iQubeType,
+  iQubeInstanceType,
+  businessModel,
+  price,
+  provenance,
+  onEdit,
+  onAddToCart,
+  onDelete,
+  visibility,
+}) => {
+  // Q¢ pricing: 1Q¢ = $0.01. Over Q¢999 → KQ¢ (1KQ¢ = 1,000Q¢ = $10)
+  const formatQCents = (usd: number): string => {
+    const qc = Math.round(usd * 100);
+    if (qc >= 1000) {
+      const kqc = qc / 1000;
+      return `${kqc % 1 === 0 ? kqc.toFixed(0) : kqc.toFixed(1)}KQ¢`;
+    }
+    return `Q¢${qc}`;
+  };
+  const [minted, setMinted] = useState(false);
+  const [activePrivate, setActivePrivate] = useState(false);
+  const [activeRegistry, setActiveRegistry] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      setMinted(localStorage.getItem(`minted_${id}`) === '1');
+      setActivePrivate(localStorage.getItem(`active_private_${id}`) === '1');
+      setActiveRegistry(localStorage.getItem(`active_registry_${id}`) === '1');
+    } catch {}
+  }, [id]);
+
+  return (
+    <div className="text-left w-full rounded-2xl p-5 bg-white/5 ring-1 ring-white/10 hover:bg-white/10 transition focus-within:ring-2 focus-within:ring-indigo-500">
+      <div className="flex items-center justify-between">
+        {/* Top badges: Instance Type + State badge */}
+        <div className="flex items-center gap-2">
+          {iQubeInstanceType && (
+            <span title="Instance Type" className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-sky-500/20 text-sky-300 ring-1 ring-sky-500/30 capitalize">{iQubeInstanceType}</span>
+          )}
+          {(() => {
+            // State badge logic: Library takes precedence over Registry state
+            const inLibrary = typeof window !== 'undefined' && localStorage.getItem(`library_${id}`) === '1';
+            if (inLibrary) {
+              return <span title="Saved to your Private Library (visible only to you)" className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30">Library (Private)</span>;
+            }
+            if (visibility === 'public') {
+              return <span title="Publicly available on the Registry" className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30">Registry (Public)</span>;
+            }
+            if (visibility === 'private') {
+              return <span title="Privately minted on the Registry" className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-purple-500/20 text-purple-300 ring-1 ring-purple-500/30">Registry (Private)</span>;
+            }
+            // Fallbacks
+            if (minted) {
+              return <span title="Minted (assumed Public)" className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30">Registry (Public)</span>;
+            }
+            return null;
+          })()}
+        </div>
+        {instanceCount !== undefined && (
+          <div className="text-[12px] text-slate-400">{instanceCount} instances</div>
+        )}
+      </div>
+      <div className="text-lg font-medium truncate" title={name}>{name}</div>
+      {/* Badges + Scores on same row */}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {iQubeType && (
+          <span title="iQube Type" className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30">{iQubeType}</span>
+        )}
+        {businessModel && (
+          <span title="Business Model" className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30">{businessModel}</span>
+        )}
+        <span title="Provenance depth (fork generations from origin)" className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-slate-500/20 text-slate-300 ring-1 ring-slate-500/30">Prov {(typeof provenance === 'number' && provenance >= 0) ? provenance : 0}</span>
+        {(() => {
+          const p = Number(price);
+          if (Number.isFinite(p)) {
+            return (
+              <span title="Price (QriptoCents — native platform currency, 1 Q¢ = $0.01)" className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30">{formatQCents(p)}</span>
+            );
+          }
+          return null;
+        })()}
+        {/* Scores inline */}
+        <span title="Reliability: Accuracy (60%) + Verifiability (40%)" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] bg-white/5 ring-1 ring-white/10">
+          <span className="text-slate-500">Rel</span>
+          <Dots value={calculateReliabilityScore(accuracyScore, verifiabilityScore)} kind='reliability' title="Reliability" size="xs" />
+        </span>
+        <span title="Trust: inverse of Sensitivity (40%) + Risk (60%)" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] bg-white/5 ring-1 ring-white/10">
+          <span className="text-slate-500">Trust</span>
+          <Dots value={calculateTrustScore(sensitivityScore ?? 0, riskScore)} kind='trust' title="Trust" size="xs" />
+        </span>
+      </div>
+      <p className="mt-2 text-slate-300 text-sm line-clamp-4">{description}</p>
+
+      {/* Actions */}
+      <div className="mt-4 flex items-center justify-end">
+        {/* Action buttons on the right */}
+        <div className="flex items-center gap-2">
+        <button
+          className="p-2 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white"
+          title="View"
+          onClick={() => onClick?.(id)}
+        >
+          <Eye size={16} />
+        </button>
+        <button
+          className="p-2 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white"
+          title="Edit"
+          onClick={() => onEdit?.(id)}
+        >
+          <Pencil size={16} />
+        </button>
+        <button
+          className="p-2 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white"
+          title="Add to cart"
+          onClick={() => onAddToCart?.(id)}
+        >
+          <ShoppingCart size={16} />
+        </button>
+        <button
+          className="p-2 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white"
+          title="Delete"
+          onClick={() => onDelete?.(id)}
+        >
+          <Trash2 size={16} />
+        </button>
+        </div>
+      </div>
+    </div>
+  );
+};

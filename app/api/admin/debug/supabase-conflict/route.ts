@@ -162,8 +162,11 @@ export async function GET(req: NextRequest) {
       qubaseSDKUses: 'First available key'
     },
     encryption: {
-      AGENT_KEY_ENCRYPTION_SECRET: !!process.env.AGENT_KEY_ENCRYPTION_SECRET,
-      NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET: !!process.env.NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET
+      // SECURITY (2026-07-30): NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET removed
+      // entirely, not just its value-read fallbacks -- confirmed actually set
+      // in Amplify with a real value, meaning it had been inlined into the
+      // client bundle. No reference to this name may remain anywhere.
+      AGENT_KEY_ENCRYPTION_SECRET: !!process.env.AGENT_KEY_ENCRYPTION_SECRET
     }
   };
 

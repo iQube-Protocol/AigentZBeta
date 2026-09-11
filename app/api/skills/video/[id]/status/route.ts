@@ -126,36 +126,55 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const progress: number = data?.progress ?? 0;
 
     if (status === "completed") {
-      // Extract a thumbnail from the first 4 MB of the video content.
-      // Best-effort — any failure is swallowed so the status response is never blocked.
+      // Persist the FULL video to Supabase the moment completion is detected,
+      // then extract a thumbnail from the same bytes. Persistence must happen
+      // HERE, not at first playback via the proxy route: OpenAI purges assets
+      // after ~1 hour, and the multi-segment stitch flow never fetches the
+      // proxy URL for individual segments — the 2026-07-05 EXP-002 runs lost
+      // all their completed Sora clips this way when the stitch pass failed.
+      // Best-effort — any failure is swallowed so the status response is
+      // never blocked; the proxy-route persistence remains as backstop.
       let thumbnailUrl: string | null = null;
       try {
-        const thumbController = new AbortController();
-        const thumbTimeout = setTimeout(() => thumbController.abort(), 25_000);
+        const contentController = new AbortController();
+        const contentTimeout = setTimeout(() => contentController.abort(), 25_000);
         const contentUrl = `https://api.openai.com/v1/videos/${videoId}/content`;
-        let contentRes = await fetch(contentUrl, {
-          headers: { Authorization: `Bearer ${apiKey}`, Range: "bytes=0-4194303" },
-          signal: thumbController.signal,
+        const contentRes = await fetch(contentUrl, {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          signal: contentController.signal,
           cache: "no-store",
         });
-        // If OpenAI doesn't honour Range requests, retry without the header.
-        if (contentRes.status === 416) {
-          contentRes = await fetch(contentUrl, {
-            headers: { Authorization: `Bearer ${apiKey}` },
-            signal: thumbController.signal,
-            cache: "no-store",
-          });
-        }
-        clearTimeout(thumbTimeout);
-        if (contentRes.ok || contentRes.status === 206) {
-          const partial = Buffer.from(await contentRes.arrayBuffer());
-          const thumbBuffer = await extractThumbnailFromBuffer(partial, videoId).catch(() => null);
-          if (thumbBuffer) {
-            thumbnailUrl = await persistThumbnailAsset(thumbBuffer, videoId, "openai").catch(() => null);
+        clearTimeout(contentTimeout);
+        if (contentRes.ok) {
+          const full = Buffer.from(await contentRes.arrayBuffer());
+          if (full.byteLength > 0) {
+            const body: ArrayBuffer = full.buffer.slice(
+              full.byteOffset,
+              full.byteOffset + full.byteLength,
+            ) as ArrayBuffer;
+            const supabase = getSupabase();
+            if (supabase) {
+              const path = `generated/openai/videos/${videoId}.mp4`;
+              for (const bucket of BUCKET_CANDIDATES) {
+                const { error } = await supabase.storage.from(bucket).upload(path, body, {
+                  contentType: "video/mp4",
+                  upsert: true,
+                  cacheControl: "86400",
+                });
+                if (!error || /already exists|duplicate/i.test(error.message)) {
+                  console.log(`[SoraStatus] persisted ${videoId} (${Math.round(full.byteLength / 1024 / 1024)}MB) to ${bucket}/${path}`);
+                  break;
+                }
+              }
+            }
+            const thumbBuffer = await extractThumbnailFromBuffer(full, videoId).catch(() => null);
+            if (thumbBuffer) {
+              thumbnailUrl = await persistThumbnailAsset(thumbBuffer, videoId, "openai").catch(() => null);
+            }
           }
         }
       } catch {
-        // Thumbnail is optional — continue without it.
+        // Persistence/thumbnail are best-effort — continue without them.
       }
 
       return NextResponse.json({

@@ -599,3 +599,121 @@ export async function findAliasForAddress(
   if (error) throw new Error(error.message);
   return (data as WalletAliasRow | null) ?? null;
 }
+
+// ─── Root-scoped binding — PRD-PAG-001 Amendment A, first-connection closure
+// (operator ruling, 2026-07-28, ruling 1). ──────────────────────────────────
+//
+// Every write above this line is keyed by `didPersonaId` — a signed-in
+// citizen registering a wallet against a persona they are already acting as.
+// `establishWalletBindingForRoot` is a DIFFERENT act: it runs INSIDE the
+// pending-auth transaction created by a successful Passport proof, BEFORE
+// any session exists, so it cannot be keyed by a persona the caller has not
+// selected yet (ruling 8 still holds — persona selection happens strictly
+// after this). It is keyed by `root_identity_id` instead — the same field
+// `resolvePassportPrincipal` already reads back out of this table — with
+// `did_persona_id` left NULL. Verified wallet control (the signature the
+// caller already produced) plus verified Passport presentation (the World ID
+// nullifier walk in passportPrincipal.ts, run by the caller of this
+// function) are the two independent facts that make writing this row safe
+// without a session: neither alone would be sufficient, and both together is
+// exactly the authority Amendment B names for binding, run here for the
+// FIRST-connection case Amendment B's own chartered scope explicitly assumes
+// away (B.2.1 requires an active Supabase session on the account side — the
+// prerequisite this ruling exists to remove for first contact).
+
+/**
+ * Root-scoped alias commitment. A DIFFERENT HMAC message prefix from both
+ * `buildAliasCommitment` (persona-keyed) and `buildAddressFingerprint`
+ * (fingerprint-only) — so none of the three hashes can be correlated with
+ * each other, the same discipline `buildAddressFingerprint`'s own doc
+ * states for itself.
+ */
+export function buildRootAliasCommitment(
+  rootIdentityId: string,
+  chain: WalletChain,
+  walletAddress: string
+): string {
+  const normalised = normaliseAddress(chain, walletAddress);
+  const message = `root|${rootIdentityId}|${chain}|${normalised}`;
+  return crypto.createHmac('sha256', hmacKey()).update(message).digest('hex');
+}
+
+export type WalletBindingFailure = 'conflict_different_root' | 'unavailable';
+
+export type WalletBindingResult =
+  | { ok: true; created: boolean } // created=false: an active binding to THIS root already existed (idempotent)
+  | { ok: false; reason: WalletBindingFailure };
+
+/**
+ * Establish or reconcile the binding between a proven wallet and a resolved
+ * root identity, with NO existing session. Conflict is a refusal, never a
+ * re-bind (Amendment B rule 3) — a wallet already actively bound to a
+ * DIFFERENT root is left untouched and this call fails closed, so a proof
+ * can never silently reassign an already-claimed wallet.
+ *
+ * The caller (services/identity/passportPrincipal.ts's World ID rescue path)
+ * has ALREADY independently verified both facts this function relies on
+ * being true: the caller controls `walletAddress` (signature verified) and
+ * `rootIdentityId` is the caller's own resolved personhood (World ID
+ * nullifier walk). This function does no verification of its own — handing
+ * it an unproven pair would bind whoever was named.
+ */
+export async function establishWalletBindingForRoot(
+  supabase: SupabaseClient,
+  input: { chain: WalletChain; walletAddress: string; rootIdentityId: string }
+): Promise<WalletBindingResult> {
+  let normalised: string;
+  try {
+    normalised = normaliseAddress(input.chain, input.walletAddress);
+  } catch {
+    return { ok: false, reason: 'unavailable' };
+  }
+  const fingerprint = buildAddressFingerprint(input.chain, normalised);
+
+  const { data: existingRows, error: existingErr } = await supabase
+    .from('wallet_alias_commitments')
+    .select('id, root_identity_id')
+    .eq('address_fingerprint', fingerprint)
+    .eq('status', 'active')
+    .limit(2);
+  if (existingErr) return { ok: false, reason: 'unavailable' };
+
+  const existing = (existingRows ?? []) as Array<{ id: string; root_identity_id: string | null }>;
+  if (existing.length > 0) {
+    const sameRoot = existing.every((r) => r.root_identity_id === input.rootIdentityId);
+    if (sameRoot) return { ok: true, created: false }; // idempotent re-run
+    return { ok: false, reason: 'conflict_different_root' };
+  }
+
+  const commitment = buildRootAliasCommitment(input.rootIdentityId, input.chain, normalised);
+  const ttlDays = 90;
+  const expiresAt = new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000).toISOString();
+
+  const { error: insertErr } = await supabase.from('wallet_alias_commitments').insert({
+    root_identity_id: input.rootIdentityId,
+    did_persona_id: null,
+    chain: input.chain,
+    alias_commitment: commitment,
+    address_fingerprint: fingerprint,
+    mailbox_id: generateMailboxId(),
+    alias_ttl_days: ttlDays,
+    expires_at: expiresAt,
+    status: 'active',
+  });
+  if (!insertErr) return { ok: true, created: true };
+
+  // A concurrent proof for the same wallet could race past the SELECT above
+  // and hit uniq_wac_address_fingerprint_active. Re-read rather than assume:
+  // if the row that won the race bound the SAME root, this is a benign
+  // double-submit (e.g. the citizen's own retry), not a conflict.
+  const { data: raceRow } = await supabase
+    .from('wallet_alias_commitments')
+    .select('root_identity_id')
+    .eq('address_fingerprint', fingerprint)
+    .eq('status', 'active')
+    .maybeSingle();
+  if (raceRow && (raceRow as { root_identity_id: string | null }).root_identity_id === input.rootIdentityId) {
+    return { ok: true, created: false };
+  }
+  return { ok: false, reason: 'conflict_different_root' };
+}

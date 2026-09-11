@@ -16,6 +16,7 @@ import {
   Trash2,
   Loader2,
   RotateCcw,
+  Copy,
 } from 'lucide-react';
 import { PersonaQube } from '@/types/persona';
 import { PersonaState } from '@/types/smartWallet';
@@ -25,6 +26,7 @@ import {
 } from '@/services/wallet/personaService';
 import { isWalletUnlocked } from '@/services/wallet/sessionService';
 import { usePersonaSafe } from '@/app/contexts/PersonaContext';
+import { isAgentPersonaKind } from '@/utils/personaKind';
 
 // =============================================================================
 // TYPES
@@ -238,11 +240,13 @@ export function PersonaSelector({
     );
   };
 
-  // Check if persona is an agent (has 'aigent' in name or domain)
+  // Check if persona is an agent — from the persisted world_id_status field
+  // ONLY (utils/personaKind.ts), never from name/domain. PersonaQube-shaped
+  // personas (the local encrypted-wallet type) carry no worldIdStatus and
+  // have no agent-representing type variant, so they are correctly always
+  // 'human' here — not a guess, a fact about that type's own definition.
   const isAgentPersona = (persona: PersonaData): boolean => {
-    const name = getDisplayName(persona).toLowerCase();
-    const domain = getDomain(persona)?.toLowerCase() || '';
-    return name.includes('aigent') || domain.includes('aigent') || name.includes('agent');
+    return isAgentPersonaKind('worldIdStatus' in persona ? persona.worldIdStatus : undefined);
   };
 
   // Get domain icon - use Bot for agents, User for humans
@@ -259,17 +263,6 @@ export function PersonaSelector({
     if ('fioHandle' in persona && persona.fioHandle) return persona.fioHandle;
     if ('displayName' in persona) return persona.displayName;
     return 'Unknown';
-  };
-  
-  // Helper to get domain from persona
-  const getDomain = (persona: PersonaData): string | undefined => {
-    if ('fioDomain' in persona) return persona.fioDomain;
-    // Try to extract from fioHandle if available
-    if ('fioHandle' in persona && persona.fioHandle) {
-      const parts = persona.fioHandle.split('@');
-      return parts.length > 1 ? parts[1] : undefined;
-    }
-    return undefined;
   };
   
   // Helper to get avatar URI
@@ -396,12 +389,29 @@ export function PersonaSelector({
                   {!allowManage && persona.id === activePersona?.id && (
                     <Check className="w-4 h-4 text-purple-400 shrink-0" />
                   )}
+                  {/* Copy UUID — always visible on hover, even without allowManage */}
+                  {!allowManage && (
+                    <button
+                      title={`Copy persona ID: ${persona.id}`}
+                      onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(persona.id); }}
+                      className="p-1 rounded hover:bg-white/10 text-white/0 group-hover:text-white/40 hover:!text-cyan-400 transition-colors shrink-0"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </button>
+                  )}
                   {allowManage && !isConfirming && (
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                       {isPending
                         ? <Loader2 className="w-3.5 h-3.5 animate-spin text-white/40" />
                         : (
                           <>
+                            <button
+                              title={`Copy persona ID: ${persona.id}`}
+                              onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(persona.id); }}
+                              className="p-1 rounded hover:bg-white/10 text-white/40 hover:text-cyan-400 transition-colors"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
                             <button
                               title={isArchived ? 'Restore' : 'Archive'}
                               onClick={() => handleArchive(persona.id, !isArchived)}

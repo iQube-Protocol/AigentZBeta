@@ -71,16 +71,16 @@ function th(d: boolean) {
     divider:       d ? 'border-white/[0.07]' : 'border-slate-200',
     label:         d ? 'text-slate-400 text-xs font-medium mb-1.5 block' : 'text-slate-600 text-xs font-medium mb-1.5 block',
     inputBase:     d
-      ? 'w-full bg-slate-900/60 border border-white/10 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-rose-500/40 rounded-lg px-3 py-2 text-sm'
-      : 'w-full bg-white border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-rose-400 rounded-lg px-3 py-2 text-sm',
+      ? 'w-full bg-slate-900/60 border border-white/10 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-pink-400/40 rounded-lg px-3 py-2 text-sm'
+      : 'w-full bg-white border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-pink-300 rounded-lg px-3 py-2 text-sm',
     textareaBase:  d
-      ? 'w-full bg-slate-900/60 border border-white/10 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-rose-500/40 rounded-lg px-3 py-2.5 text-sm resize-none'
-      : 'w-full bg-white border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-rose-400 rounded-lg px-3 py-2.5 text-sm resize-none',
+      ? 'w-full bg-slate-900/60 border border-white/10 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-pink-400/40 rounded-lg px-3 py-2.5 text-sm resize-none'
+      : 'w-full bg-white border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-pink-300 rounded-lg px-3 py-2.5 text-sm resize-none',
     selectBase:    d
-      ? 'w-full appearance-none bg-slate-900/60 border border-white/10 text-slate-200 focus:outline-none focus:border-rose-500/40 rounded-lg px-3 py-2 text-sm'
-      : 'w-full appearance-none bg-white border border-slate-300 text-slate-800 focus:outline-none focus:border-rose-400 rounded-lg px-3 py-2 text-sm',
+      ? 'w-full appearance-none bg-slate-900/60 border border-white/10 text-slate-200 focus:outline-none focus:border-pink-400/40 rounded-lg px-3 py-2 text-sm'
+      : 'w-full appearance-none bg-white border border-slate-300 text-slate-800 focus:outline-none focus:border-pink-300 rounded-lg px-3 py-2 text-sm',
     btnGhost:      d ? 'border border-white/10 bg-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]' : 'border border-slate-200 bg-transparent text-slate-600 hover:text-slate-800 hover:bg-slate-50',
-    btnRose:       d ? 'border border-rose-500/30 bg-rose-500/[0.08] text-rose-300 hover:bg-rose-500/[0.15] hover:border-rose-500/40' : 'border border-rose-500/40 bg-rose-50 text-rose-700 hover:bg-rose-100',
+    btnRose:       d ? 'border border-pink-400/30 bg-pink-400/[0.08] text-pink-300 hover:bg-pink-400/[0.15] hover:border-pink-400/40' : 'border border-pink-400/40 bg-pink-50 text-pink-600 hover:bg-pink-100',
     btnEmerald:    d ? 'border border-emerald-500/25 bg-emerald-500/[0.07] text-emerald-300 hover:bg-emerald-500/[0.15]' : 'border border-emerald-500/40 bg-emerald-50 text-emerald-700 hover:bg-emerald-100',
     btnIndigo:     d ? 'border border-indigo-500/30 bg-indigo-500/[0.08] text-indigo-300 hover:bg-indigo-500/[0.15]' : 'border border-indigo-500/40 bg-indigo-50 text-indigo-700 hover:bg-indigo-100',
     targetActive:  (color: string) => d
@@ -247,7 +247,7 @@ export function MarketaPublishTab({ theme = 'dark' }: Props) {
         <div className={`rounded-xl ${s.card} p-3 sm:p-4`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Eye className="w-4 h-4 text-rose-400" />
+              <Eye className="w-4 h-4 text-pink-300" />
               <span className={`text-sm font-semibold ${s.textPrimary}`}>Draft Preview</span>
               <Badge className={d ? 'bg-amber-500/10 text-amber-300 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-200'}>
                 Draft
@@ -286,7 +286,7 @@ export function MarketaPublishTab({ theme = 'dark' }: Props) {
                 onClick={() => setActivePreview(tab)}
                 className={`px-4 py-2.5 text-xs font-medium capitalize border-b-2 transition-all ${
                   activePreview === tab
-                    ? d ? 'text-slate-100 border-rose-500/60' : 'text-slate-900 border-rose-600/70'
+                    ? d ? 'text-slate-100 border-pink-400/60' : 'text-slate-900 border-pink-500/70'
                     : d ? 'text-slate-500 hover:text-slate-300 border-transparent' : 'text-slate-400 hover:text-slate-700 border-transparent'
                 }`}
               >
@@ -308,7 +308,7 @@ export function MarketaPublishTab({ theme = 'dark' }: Props) {
                 )}
                 <h1 className={`text-xl font-bold leading-tight ${s.textPrimary}`}>{title || 'Untitled'}</h1>
                 {excerpt && (
-                  <p className={`text-sm italic ${s.textMuted} border-l-2 ${d ? 'border-rose-500/40 pl-3' : 'border-rose-300 pl-3'}`}>{excerpt}</p>
+                  <p className={`text-sm italic ${s.textMuted} border-l-2 ${d ? 'border-pink-400/40 pl-3' : 'border-pink-300 pl-3'}`}>{excerpt}</p>
                 )}
                 <div className={`pt-2 border-t ${s.divider}`}>
                   <MarkdownPreview body={bodyMd} isDark={d} s={s} />

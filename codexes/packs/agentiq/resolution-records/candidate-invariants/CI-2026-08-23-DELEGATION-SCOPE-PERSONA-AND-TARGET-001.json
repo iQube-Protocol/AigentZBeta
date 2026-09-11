@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-23-DELEGATION-SCOPE-PERSONA-AND-TARGET-001",
+  "statement": "A check answering \"does the current caller have an active bounded delegation to this specific agent\" MUST filter by BOTH the requesting principal's persona AND the exact target agent's identity (e.g. its RootDID). A query scoped only to the target agent's identity (e.g. `delegation_grants WHERE agent_root_did = ?`, with no `persona_id` filter) is over-permissive — it would accept ANY persona's grant to that agent — and is a DIFFERENT, separately-incorrect answer from the persona-scoped question a per-principal authorization decision actually needs to ask. Fixing the over-permissiveness does not by itself fix a caller who was asking the wrong question; both must be corrected together.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "A scope-mismatch defect: a durable-truth query answers a broader question (global fact about an agent) than the one the calling authorization decision actually needs (a per-principal fact about a specific agent). Distinct from, but related to, the three-valued-collapse family — this is about WHICH rows a query includes, not about how a result's absence/failure is interpreted.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/financial-services-runtime.test.ts",
+      "assertion": "An authenticated principal whose active grant targets a DIFFERENT agent's RootDID resolves NOT_DELEGATED_TO_CURRENT_PRINCIPAL for the agent actually being requested — never NOT_ADMITTED, and never silently treated as delegated because the DID happens to have some active grant somewhere.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/journey/agentAdmissionState.ts",
+      "defect": "The delegation read powering `AgentAdmissionState.delegationActive` filters `delegation_grants` by `agent_root_did` only, with no `persona_id` filter — correct for the original 'is this agent delegated to ANYONE at all' admission question, but the Financial Services Runtime's own per-request authorization needed a persona-scoped answer this shared field could not honestly provide, revealing that a single boolean cannot serve both the coarse (agent-wide) and fine-grained (per-principal) questions.",
+      "resolutionId": "RES-2026-08-23-FSVC-INTEGRATION-REPAIR-001",
+      "evidence": [
+        "services/financialServices/agentEligibilityContext.ts",
+        "services/delegation/delegationGrantStore.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-23-FSVC-INTEGRATION-REPAIR-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "The fix did NOT change `agentAdmissionState.ts`'s own `delegationActive` field or its query (that field is still legitimately used, unmodified, by Gate 1's own coarse admission check in services/registry/capabilityInvocationGates.ts) — it added a SEPARATE, persona-scoped computation (`personaScopedDelegationActive` in services/financialServices/agentEligibilityContext.ts) using the existing canonical `readActiveGrant(personaId)` store, compared against the target agent's own `agentRootDid`. Two distinct questions now have two distinct, honestly-named answers rather than one field asked to serve both.",
+    "Operator correction preserved verbatim: the missing persona_id filter is a real defect, but by itself it explains a POTENTIAL over-admission, not the live under-admission symptom that triggered this whole repair pass — a genuine `false`/no-grant-found means the query, however scoped, found nothing for this specific caller's real grant. Both facts are true and this candidate records only the scope-mismatch half; the audit-gap-collapse half is CI-2026-08-22-THREE-VALUED-NEGATION-COLLAPSE-001."
+  ]
+}

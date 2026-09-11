@@ -4,10 +4,11 @@ import { PersonaRepo, getCallerAuthProfileId } from '@/services/wallet/personaRe
 export const dynamic = 'force-dynamic';
 
 interface RouteParams {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+export async function PATCH(request: NextRequest, props: RouteParams) {
+  const params = await props.params;
   try {
     const callerAuthProfileId = await getCallerAuthProfileId(request);
     if (!callerAuthProfileId) {

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { getCallerAuthProfileId } from '@/services/wallet/personaRepo';
-import { getMergedLinkedAuthProfileIds, getPersonaPrefs } from '@/services/wallet/multiEmailIdentity';
+import { dedupePersonaInventory, listVisiblePersonaInventory } from '@/services/wallet/personaInventory';
 
 // Anon client for validating user JWTs (service role client cannot use getUser with token).
 // Keep on bare createClient — JWT validation hits /auth/v1/user, not the DB, so the
@@ -14,7 +14,7 @@ const supabaseAnon = createClient(
 
 export const dynamic = 'force-dynamic';
 
-type PersonaRow = {
+export type PersonaRow = {
   id: string;
   tenant_id: string;
   auth_profile_id: string | null;
@@ -34,27 +34,8 @@ type PersonaRow = {
   updated_at: string;
 };
 
-type UserIQubeGrant = {
-  personaId?: string;
-  tenantId?: string;
-  role?: 'owner' | 'operator' | 'viewer';
-  active?: boolean;
-};
-
-type UserIQubeRow = {
-  auth_profile_id: string;
-  allowed_tenant_ids: string[] | null;
-  persona_grants: UserIQubeGrant[] | null;
-  status: string;
-};
-
-const personaSelect =
-  'id,tenant_id,auth_profile_id,display_name,avatar_uri,fio_handle,fio_domain,discoverable_within_tenant,reputation_score,reputation_bucket,badges,default_identity_state,world_id_status,app_origin,status,created_at,updated_at,evm_address,evm_key';
-
-function dedupeById(rows: PersonaRow[]): PersonaRow[] {
-  const byId = new Map<string, PersonaRow>();
-  for (const row of rows) byId.set(row.id, row);
-  return Array.from(byId.values()).sort((a, b) => (a.created_at > b.created_at ? -1 : 1));
+export function dedupeById(rows: PersonaRow[]): PersonaRow[] {
+  return dedupePersonaInventory(rows);
 }
 
 function toOwnerSafePersona(record: any) {
@@ -96,31 +77,6 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const tenantId = searchParams.get('tenantId');
 
-    const { data: iqubeData } = await supabase
-      .from('user_iqubes')
-      .select('auth_profile_id,allowed_tenant_ids,persona_grants,status')
-      .eq('auth_profile_id', callerAuthProfileId)
-      .eq('status', 'active')
-      .maybeSingle();
-
-    const iqube = (iqubeData as UserIQubeRow | null) ?? null;
-    const allowedTenantIds = new Set((iqube?.allowed_tenant_ids || []).filter(Boolean));
-    const activeGrants = (iqube?.persona_grants || []).filter((grant) => grant?.active !== false);
-    const grantedPersonaIds = Array.from(
-      new Set(activeGrants.map((grant) => grant.personaId).filter((id): id is string => !!id))
-    );
-
-    if (tenantId && allowedTenantIds.size > 0 && !allowedTenantIds.has(tenantId)) {
-      return NextResponse.json([]);
-    }
-
-    let linkedAuthProfileIds: string[] = [];
-    try {
-      linkedAuthProfileIds = await getMergedLinkedAuthProfileIds(callerAuthProfileId);
-    } catch {
-      // crm_auth_profile_links table unavailable — continue with just the caller's ID
-    }
-
     // Also include the raw Supabase auth.users.id — personas created before
     // canonicalization may still carry this UUID as their auth_profile_id.
     const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
@@ -131,64 +87,12 @@ export async function GET(request: NextRequest) {
       if (userData?.user?.id) supabaseUserId = userData.user.id;
     }
 
-    const visibleAuthProfileIds = Array.from(
-      new Set([callerAuthProfileId, ...linkedAuthProfileIds, ...(supabaseUserId ? [supabaseUserId] : [])])
-    );
-
     const includeArchived = searchParams.get('includeArchived') === 'true';
-    const statusFilter = includeArchived ? ['active', 'inactive'] : ['active'];
-
-    let ownerQuery = supabase.from('personas').select(personaSelect);
-    if (visibleAuthProfileIds.length === 1) {
-      ownerQuery = ownerQuery.eq('auth_profile_id', visibleAuthProfileIds[0]);
-    } else {
-      ownerQuery = ownerQuery.in('auth_profile_id', visibleAuthProfileIds);
-    }
-    ownerQuery = ownerQuery.in('status', statusFilter);
-    if (tenantId) ownerQuery = ownerQuery.eq('tenant_id', tenantId);
-
-    const { data: ownerRows, error: ownerError } = await ownerQuery;
-    if (ownerError) {
-      return NextResponse.json({ error: 'Failed to fetch owner personas' }, { status: 500 });
-    }
-
-    let grantRows: PersonaRow[] = [];
-    if (grantedPersonaIds.length > 0) {
-      let grantQuery = supabase
-        .from('personas')
-        .select(personaSelect)
-        .in('id', grantedPersonaIds);
-
-      if (tenantId) {
-        grantQuery = grantQuery.eq('tenant_id', tenantId);
-      } else if (allowedTenantIds.size > 0) {
-        grantQuery = grantQuery.in('tenant_id', Array.from(allowedTenantIds));
-      }
-
-      const { data, error } = await grantQuery;
-      if (error) {
-        return NextResponse.json({ error: 'Failed to fetch granted personas' }, { status: 500 });
-      }
-      grantRows = (data || []) as PersonaRow[];
-    }
-
-    let prefRows: { persona_id: string; access_mode: string }[] = [];
-    try {
-      prefRows = await getPersonaPrefs(callerAuthProfileId);
-    } catch {
-      // crm_persona_access_preferences table unavailable — allow all personas
-    }
-    const deniedPersonaIds = new Set(
-      prefRows.filter((row: any) => row?.access_mode === 'deny').map((row: any) => String(row.persona_id))
-    );
-    const allowedPersonaIds = new Set(
-      prefRows.filter((row: any) => row?.access_mode === 'allow').map((row: any) => String(row.persona_id))
-    );
-
-    const merged = dedupeById([...((ownerRows || []) as PersonaRow[]), ...grantRows]).filter((row) => {
-      if (deniedPersonaIds.has(row.id)) return false;
-      if (allowedPersonaIds.size === 0) return true;
-      return allowedPersonaIds.has(row.id) || row.auth_profile_id === callerAuthProfileId;
+    const merged = await listVisiblePersonaInventory(supabase, {
+      callerAuthProfileId,
+      legacyAuthUserId: supabaseUserId,
+      tenantId,
+      includeArchived,
     });
     return NextResponse.json(merged.map(toOwnerSafePersona));
   } catch (error) {
@@ -198,4 +102,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

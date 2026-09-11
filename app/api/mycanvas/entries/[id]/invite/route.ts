@@ -3,17 +3,20 @@
  * POST /api/mycanvas/entries/[id]/invite — invite a persona to this entry
  *
  * Body accepts EITHER:
- *   { invitedPersonaId: string, role?: 'viewer'|'commenter' }   — T0 path (legacy)
- *   { invitedHandle: string,    role?: 'viewer'|'commenter' }   — T1 path (preferred)
+ *   { invitedPersonaId: string, role?: 'viewer'|'commenter' }   — T0 path (legacy, internal callers only)
+ *   { invitedHandle: string,    role?: 'viewer'|'commenter' }   — T1 path (preferred; the only path a human-facing UI should use)
  *
  * The T1 path keeps persona_id off the wire — clients send a handle
- * (@knyt, name@fio-domain, 0x address, did:iq:<id>) and the server
- * resolves to persona_id internally before recording the invite.
+ * (@knyt, name@fio-domain, 0x address, did:iq:<id>, or a Persona Public
+ * Reference — PERSONA-PUBLIC-REF-001) and the server resolves to persona_id
+ * internally before recording the invite. Never accepts a raw persona UUID
+ * as a "handle" — that would defeat the point of this path.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getActivePersona } from '@/services/identity/getActivePersona';
+import { resolvePersonaIdByPublicRef } from '@/services/identity/personaReferences';
 import { inviteToEntry, listInvites } from '@/services/mycanvas/canvasService';
 
 export const dynamic = 'force-dynamic';
@@ -21,11 +24,17 @@ export const dynamic = 'force-dynamic';
 const EVM_RE = /^0x[0-9a-fA-F]{40}$/;
 
 /**
- * Resolves a handle / DID / UUID / EVM address to a persona_id without
- * ever returning the persona_id to the browser. Used by the invite
+ * Resolves a handle / DID / public reference / EVM address to a persona_id
+ * without ever returning the persona_id to the browser. Used by the invite
  * endpoint so clients can send T1 identifiers and the server keeps
  * the T0 mapping internal. Mirrors /api/identity/resolve-recipient
  * but returns the persona_id (T0) instead of the EVM address.
+ *
+ * PERSONA-PUBLIC-REF-001 (2026-08-24): a raw persona UUID is deliberately
+ * NOT accepted here — the whole point of this "T1 path" is that persona_id
+ * never has to be known by, or travel through, whoever is being invited.
+ * A 16-hex Persona Public Reference is the normal identifier instead,
+ * resolved via the persisted `personas.public_ref` column.
  */
 async function resolveHandleToPersonaId(rawHandle: string): Promise<string | null> {
   const q = rawHandle.trim();
@@ -39,11 +48,11 @@ async function resolveHandleToPersonaId(rawHandle: string): Promise<string | nul
   const normalised = q.startsWith('@') ? q.slice(1) : q;
   const localPart = normalised.includes('@') ? normalised.split('@')[0] : normalised;
 
-  // 1) Direct UUID — caller already knows the persona_id
-  const uuidMatch = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(normalised);
-  if (uuidMatch) {
-    const { data } = await sb.from('personas').select('id').eq('id', normalised).maybeSingle();
-    if (data) return (data as { id: string }).id;
+  // 1) Persona Public Reference — the normal way to name a persona here.
+  const publicRefMatch = /^[0-9a-f]{16}$/i.test(normalised) ? normalised.toLowerCase() : null;
+  if (publicRefMatch) {
+    const resolved = await resolvePersonaIdByPublicRef(sb, publicRefMatch);
+    if (resolved) return resolved;
   }
 
   // 2) did:iq:<32-hex> → reinsert hyphens → personas.id
@@ -126,7 +135,7 @@ export async function POST(
     const resolved = await resolveHandleToPersonaId(body.invitedHandle);
     if (!resolved) {
       return NextResponse.json(
-        { error: `couldn't resolve "${body.invitedHandle}" to a persona — accepted: @handle, name@fio-domain, did:iq:<id>, 0x address, or persona UUID` },
+        { error: `couldn't resolve "${body.invitedHandle}" to a persona — accepted: @handle, name@fio-domain, did:iq:<id>, 0x address, or a persona public reference` },
         { status: 404 },
       );
     }

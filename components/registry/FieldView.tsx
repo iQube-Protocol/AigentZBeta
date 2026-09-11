@@ -1,0 +1,747 @@
+"use client";
+
+/**
+ * FieldView — the Constitutional Observatory (CFS-035 §12), the iQube Registry's
+ * third top-level view beside Assets + Activity. The operator's framing: the
+ * constitutional field is the perimeter of the Constitutional Internet, and
+ * invariants are a lens/substrate on state — so this view shows the field as
+ * nodes, fields, projections, and health, not just assets.
+ *
+ * It READS the engine (GET /api/invariants/observatory) — it never re-instruments.
+ * Five perspectives: Node · Field · Projection · Platform Health (+ Graph, a
+ * follow-on). Slate house style (bg-slate-900/40, border-slate-800). The route
+ * is spine-gated, so data is fetched with personaFetch (Bearer token attached).
+ */
+
+import React, { useCallback, useEffect, useState } from "react";
+import { personaFetch } from "@/utils/personaSpine";
+
+// ── API shape (mirrors app/api/invariants/observatory/route.ts) ──────────────
+interface NodeMeta {
+  id: string;
+  kind: string;
+  dimensions: string[];
+  surface: string;
+  description: string;
+  lastObservation:
+    | { nodeId: string; topAgreement?: boolean; rankAgreement?: number; delta?: number; itemCount?: number }
+    | null;
+  history:
+    | { nodeId: string; kind: string; count: number; meanRankAgreement: number | null; meanAbsValueDelta: number | null; lastObservedAt: string | null }
+    | null;
+}
+interface NamespaceMeasurement {
+  namespace: string;
+  invariants: number;
+  avgStanding: number;
+  avgReach: number;
+  consequenceAccuracy: number | null;
+  timesValidated: number;
+  timesContradicted: number;
+}
+interface TopReused {
+  id: string;
+  seedId: string | null;
+  statement: string;
+  namespace: string;
+  standing: number;
+  reach: number;
+}
+interface DiscoveryDimension {
+  dimension: "importance" | "novelty" | "trust" | "need";
+  seedId: string;
+  standing: number;
+  status: string | null;
+  weight: number;
+}
+interface ObservatoryResponse {
+  ok: boolean;
+  generatedAt: string;
+  viewer?: { isAdmin: boolean };
+  nodes: NodeMeta[];
+  field: {
+    canonVersion: string | null;
+    totalInvariants: number;
+    byNamespace: NamespaceMeasurement[];
+    topReused: TopReused[];
+  };
+  projection:
+    | { nodeId: string; dimensions: DiscoveryDimension[]; diverges: boolean; authoritative: boolean; flippedAt: string | null }
+    | null;
+  health: {
+    nodesRegistered: number;
+    nodesObserved: number;
+    totalInvariants: number;
+    meanRankAgreement: number | null;
+    meanValueDelta: number | null;
+    persistedObservations: number;
+    persistenceAvailable: boolean;
+    groundedReceiptCount: number | null;
+  };
+  note?: string;
+}
+
+// ── shared slate primitives ──────────────────────────────────────────────────
+const PANEL = "rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm";
+const SUBPANEL = "rounded-lg border border-slate-800 bg-slate-950/60";
+
+const Metric: React.FC<{ label: string; value: React.ReactNode; hint?: string }> = ({ label, value, hint }) => (
+  <div className={`${SUBPANEL} p-3 flex flex-col gap-1`}>
+    <span className="text-[11px] uppercase tracking-wide text-slate-500">{label}</span>
+    <span className="text-lg font-semibold text-slate-100 tabular-nums">{value}</span>
+    {hint ? <span className="text-[11px] text-slate-500">{hint}</span> : null}
+  </div>
+);
+
+/** Standing bar (0–100), purple ramp for high, matching the trust colour language. */
+const StandingBar: React.FC<{ value: number; max?: number }> = ({ value, max = 100 }) => {
+  const pct = Math.max(0, Math.min(100, (value / max) * 100));
+  const tone = value <= 30 ? "bg-red-500" : value <= 60 ? "bg-yellow-500" : "bg-purple-500";
+  return (
+    <div className="h-1.5 w-full rounded-full bg-slate-700 overflow-hidden">
+      <div className={`h-full ${tone} transition-all duration-300`} style={{ width: `${pct}%` }} />
+    </div>
+  );
+};
+
+function fmt(n: number | null | undefined, digits = 2): string {
+  return typeof n === "number" ? n.toFixed(digits) : "—";
+}
+
+type Perspective = "health" | "projection" | "nodes" | "field" | "graph" | "resolve";
+
+const PERSPECTIVES: Array<{ id: Perspective; label: string }> = [
+  { id: "health", label: "Health" },
+  { id: "projection", label: "Projection" },
+  { id: "nodes", label: "Nodes" },
+  { id: "field", label: "Field" },
+  { id: "graph", label: "Graph" },
+  { id: "resolve", label: "Resolve" },
+];
+
+// ── Graph data (GET /api/invariants/graph?view=field) ────────────────────────
+interface GraphNode {
+  id: string;
+  seedId: string | null;
+  namespace: string;
+  status: string;
+  standing: number;
+  label: string;
+  statement: string;
+}
+interface GraphEdge {
+  id: string;
+  from: string;
+  to: string;
+  type: string;
+  weight: number;
+}
+interface GraphResponse {
+  ok: boolean;
+  nodeCount: number;
+  edgeCount: number;
+  capped: boolean;
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+// Deterministic namespace colour ramp (no external palette dep).
+const NS_COLORS: Record<string, string> = {
+  reasoning: "#a78bfa",
+  constitutional: "#f472b6",
+  engineering: "#60a5fa",
+  experience: "#34d399",
+  capability: "#fbbf24",
+  style: "#f87171",
+  narrative: "#c084fc",
+  sovereignty: "#22d3ee",
+  cybernetics: "#4ade80",
+  interaction: "#fb923c",
+  epistemology: "#e879f9",
+  representation: "#2dd4bf",
+};
+function nsColor(ns: string): string {
+  return NS_COLORS[ns] ?? "#94a3b8";
+}
+
+export const FieldView: React.FC<{ className?: string }> = ({ className }) => {
+  const [data, setData] = useState<ObservatoryResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [perspective, setPerspective] = useState<Perspective>("health");
+  const [graph, setGraph] = useState<GraphResponse | null>(null);
+  const [graphLoading, setGraphLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await personaFetch("/api/invariants/observatory", { cache: "no-store" });
+      const json = (await res.json()) as ObservatoryResponse;
+      if (!res.ok || !json.ok) throw new Error((json as { error?: string })?.error || `HTTP ${res.status}`);
+      setData(json);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load the constitutional field");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const [flipBusy, setFlipBusy] = useState(false);
+  const flip = useCallback(
+    async (nodeId: string, authoritative: boolean) => {
+      setFlipBusy(true);
+      try {
+        const res = await personaFetch("/api/invariants/flip", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nodeId,
+            authoritative,
+            rationale: authoritative ? "flipped authoritative from the Observatory" : "reverted to shadow from the Observatory",
+          }),
+        });
+        if (!res.ok) {
+          const j = (await res.json().catch(() => ({}))) as { error?: string };
+          setError(j.error || `Flip failed (HTTP ${res.status})`);
+        } else {
+          await load();
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Flip failed");
+      } finally {
+        setFlipBusy(false);
+      }
+    },
+    [load],
+  );
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  // Lazy-load the graph the first time the Graph perspective is opened.
+  useEffect(() => {
+    if (perspective !== "graph" || graph || graphLoading) return;
+    setGraphLoading(true);
+    void (async () => {
+      try {
+        const res = await personaFetch("/api/invariants/graph?view=field", { cache: "no-store" });
+        const json = (await res.json()) as GraphResponse;
+        if (res.ok && json.ok) setGraph(json);
+      } catch {
+        /* graph is best-effort — perspective renders an empty-state */
+      } finally {
+        setGraphLoading(false);
+      }
+    })();
+  }, [perspective, graph, graphLoading]);
+
+  return (
+    <div className={`flex flex-col gap-4 ${className || ""}`}>
+      {/* header + perspective switch */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-100">Constitutional Field</h2>
+          <p className="text-xs text-slate-500">
+            The Observatory — the field as nodes, projections, and health. Reads the engine; never re-instruments.
+          </p>
+        </div>
+        <div className="inline-flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-950/60 p-1">
+          {PERSPECTIVES.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => setPerspective(p.id)}
+              className={`px-3 py-1 text-xs rounded-md transition ${
+                perspective === p.id ? "bg-slate-700 text-white" : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+          <button
+            onClick={() => void load()}
+            className="px-2 py-1 text-xs rounded-md text-slate-400 hover:text-slate-200 transition"
+            title="Refresh"
+            aria-label="Refresh"
+          >
+            ↻
+          </button>
+        </div>
+      </div>
+
+      {loading && !data ? (
+        <div className={`${PANEL} p-8 text-center text-sm text-slate-500`}>Reading the constitutional field…</div>
+      ) : error ? (
+        <div className={`${PANEL} p-6 text-sm text-red-300`}>
+          {error}
+          <button onClick={() => void load()} className="ml-3 underline hover:text-red-200">
+            retry
+          </button>
+        </div>
+      ) : data ? (
+        <>
+          {perspective === "health" && <HealthPerspective data={data} />}
+          {perspective === "projection" && (
+            <ProjectionPerspective
+              data={data}
+              isAdmin={data.viewer?.isAdmin === true}
+              flipBusy={flipBusy}
+              onFlip={flip}
+            />
+          )}
+          {perspective === "nodes" && <NodesPerspective data={data} />}
+          {perspective === "field" && <FieldPerspective data={data} />}
+          {perspective === "graph" && <GraphPerspective graph={graph} loading={graphLoading} />}
+          {perspective === "resolve" && <ResolvePerspective />}
+
+          <p className="text-[11px] text-slate-600 px-1">
+            {data.note} · canon {data.field.canonVersion || "—"} · generated{" "}
+            {new Date(data.generatedAt).toLocaleTimeString()}
+          </p>
+        </>
+      ) : null}
+    </div>
+  );
+};
+
+// ── Resolve — the Constitutional Field Observatory's Resolved-Field view ──────
+// (CFS-041 / PRD-CFO-001). Enter an intent; the IRE (CFS-037) resolves the
+// region of the constitutional field it requires + its calibrated coordinates.
+// Read-only; POSTs to /api/invariants/resolve via personaFetch (spine Bearer).
+interface ResolveResponse {
+  ok: boolean;
+  phase?: string;
+  resolvedIntent?: { text: string; domains: string[]; qualificationConfidence: number };
+  confidence?: number;
+  operational?: Record<string, { value: number; basis: string }>;
+  coordinates?: Array<{ invariantId: string; seedId: string | null; structural: Record<string, { value: number; basis: string }>; constitutional: null }>;
+  invariantCount?: number;
+  citedCount?: number;
+  describe?: string;
+  basis?: { operational: Array<{ key: string; class: string }>; researchCount: number; byClass: Record<string, number> };
+  ipeProjection?: { node: string; meanAbsDelta: number; diverges: boolean; describe: string };
+  error?: string;
+}
+
+const ResolvePerspective: React.FC = () => {
+  const [intent, setIntent] = useState("Recommend the best treasury allocation given constitutional standing and evidence");
+  const [res, setRes] = useState<ResolveResponse | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const run = useCallback(async () => {
+    setBusy(true);
+    setErr(null);
+    setRes(null);
+    try {
+      const r = await personaFetch("/api/invariants/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intent }),
+      });
+      const data = (await r.json()) as ResolveResponse;
+      if (!r.ok || !data.ok) setErr(data.error || `resolve failed (${r.status})`);
+      else setRes(data);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "resolve error");
+    } finally {
+      setBusy(false);
+    }
+  }, [intent]);
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-slate-400">
+        Resolution precedes reasoning — enter an intent and the IRE constructs the region of the constitutional
+        field it requires (before any iQube/agent/LLM). Read-only.
+      </p>
+      <textarea
+        value={intent}
+        onChange={(e) => setIntent(e.target.value)}
+        rows={2}
+        className="w-full rounded-lg border border-slate-800 bg-slate-950/50 p-2 text-sm text-slate-200 outline-none focus:border-slate-600"
+      />
+      <button onClick={() => void run()} disabled={busy} className="rounded-lg border border-violet-500/40 bg-violet-500/15 px-3 py-1.5 text-sm text-violet-200 hover:bg-violet-500/25 disabled:opacity-50">
+        {busy ? "Resolving…" : "Resolve field"}
+      </button>
+      {err && <div className="text-xs text-rose-300">{err}</div>}
+      {res && res.ok && (
+        <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/40 p-3 text-xs">
+          <div className="text-slate-300">{res.describe}</div>
+          <div className="text-slate-500">
+            domains: {res.resolvedIntent?.domains.join(", ") || "unscoped"} · confidence {(res.confidence ?? 0).toFixed(2)} · {res.invariantCount ?? 0} invariant(s) · phase {res.phase}
+          </div>
+          {res.operational && (
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(res.operational).map(([k, v]) => (
+                <span key={k} className="rounded border border-slate-700 bg-slate-800/50 px-1.5 py-0.5 text-slate-300" title={v.basis}>
+                  {k} {v.value.toFixed(2)}
+                </span>
+              ))}
+            </div>
+          )}
+          {res.basis && (
+            <div className="border-t border-slate-800 pt-2 text-slate-500">
+              CCR basis: {res.basis.operational.length} operational (computed) · {res.basis.researchCount} research (declared) · structural {res.basis.byClass.structural} / constitutional {res.basis.byClass.constitutional} / operational {res.basis.byClass.operational}
+            </div>
+          )}
+          {res.ipeProjection && (
+            <div className="border-t border-slate-800 pt-2 text-slate-500" title="Standing-derived vs coordinate-derived node weights (shadow)">
+              {res.ipeProjection.describe}
+            </div>
+          )}
+          {res.coordinates && res.coordinates.length > 0 && (
+            <div className="max-h-64 space-y-1 overflow-y-auto border-t border-slate-800 pt-2">
+              {res.coordinates.slice(0, 12).map((c) => (
+                <div key={c.invariantId} className="flex items-center justify-between gap-2">
+                  <span className="truncate text-slate-400">{c.invariantId}</span>
+                  <span className="shrink-0 text-slate-500">
+                    v {c.structural.verifiability.value.toFixed(2)} · e {c.structural.evidenceDensity.value.toFixed(2)} · a {c.structural.adoption.value.toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── Platform Health — Constitutional Observability metrics ───────────────────
+const HealthPerspective: React.FC<{ data: ObservatoryResponse }> = ({ data }) => {
+  const h = data.health;
+  return (
+    <div className={`${PANEL} p-4`}>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        <Metric label="Invariants" value={h.totalInvariants} hint="in the field" />
+        <Metric label="Decision Nodes" value={`${h.nodesObserved}/${h.nodesRegistered}`} hint="observed / registered" />
+        <Metric
+          label="Projection accuracy"
+          value={h.meanRankAgreement === null ? "—" : fmt(h.meanRankAgreement, 3)}
+          hint="mean rank agreement (1 = faithful)"
+        />
+        <Metric
+          label="Value delta"
+          value={h.meanValueDelta === null ? "—" : fmt(h.meanValueDelta, 3)}
+          hint="mean |Δ| vs incumbent (0 = faithful)"
+        />
+        <Metric
+          label="Observations"
+          value={h.persistedObservations}
+          hint={h.persistenceAvailable ? "persisted history" : "in-memory only"}
+        />
+        <Metric
+          label="Grounded receipts"
+          value={h.groundedReceiptCount === null ? "unmeasured" : h.groundedReceiptCount}
+          hint="cited an invariant"
+        />
+      </div>
+      {!h.persistenceAvailable ? (
+        <p className="mt-3 text-[11px] text-amber-500/80">
+          Observation persistence table not found — Health reads the per-instance snapshot only. Apply migration{" "}
+          <code className="text-amber-300">20260718000000_invariant_shadow_observations</code> to accrue durable history.
+        </p>
+      ) : h.meanRankAgreement === null && h.meanValueDelta === null ? (
+        <p className="mt-3 text-[11px] text-slate-500">
+          No shadow observations recorded yet — projections observe as the surfaces run.
+        </p>
+      ) : null}
+    </div>
+  );
+};
+
+// ── Projection — the discovery node's live dimension weights + flip control ──
+const ProjectionPerspective: React.FC<{
+  data: ObservatoryResponse;
+  isAdmin: boolean;
+  flipBusy: boolean;
+  onFlip: (nodeId: string, authoritative: boolean) => void;
+}> = ({ data, isAdmin, flipBusy, onFlip }) => {
+  const p = data.projection;
+  if (!p) return <div className={`${PANEL} p-6 text-sm text-slate-500`}>No projection node available.</div>;
+  return (
+    <div className={`${PANEL} p-4 flex flex-col gap-3`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-100">{p.nodeId}</h3>
+          <p className="text-xs text-slate-500">
+            Discovery ranking as a projection over four invariant dimensions. Weight ∝ each dimension's governing
+            invariant's earned standing (mean-normalised to 1).
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <span
+            className={`text-[11px] px-2 py-1 rounded-md border ${
+              p.authoritative
+                ? "border-emerald-700 bg-emerald-950/40 text-emerald-300"
+                : p.diverges
+                ? "border-purple-700 bg-purple-950/40 text-purple-300"
+                : "border-slate-700 bg-slate-950/60 text-slate-400"
+            }`}
+          >
+            {p.authoritative ? "AUTHORITATIVE (served)" : p.diverges ? "shadow · diverges" : "shadow · faithful"}
+          </span>
+        </div>
+      </div>
+
+      {/* operator-gated flip control */}
+      {isAdmin ? (
+        <div className={`${SUBPANEL} p-3 flex items-center justify-between gap-3`}>
+          <div className="text-xs text-slate-400">
+            {p.authoritative ? (
+              <>This node's projection is <span className="text-emerald-300">served live</span>. Revert to serve the incumbent heuristic.</>
+            ) : (
+              <>This node runs in shadow. Flipping makes its projection the <span className="text-purple-300">served order</span> — a consequential, receipted change.</>
+            )}
+            {p.flippedAt ? <span className="text-slate-600"> · last change {new Date(p.flippedAt).toLocaleString()}</span> : null}
+          </div>
+          <button
+            disabled={flipBusy}
+            onClick={() => onFlip(p.nodeId, !p.authoritative)}
+            className={`px-3 py-1.5 text-xs rounded-md border transition disabled:opacity-50 ${
+              p.authoritative
+                ? "border-slate-600 bg-slate-800/60 text-slate-200 hover:bg-slate-700"
+                : "border-emerald-700 bg-emerald-900/40 text-emerald-200 hover:bg-emerald-800/50"
+            }`}
+          >
+            {flipBusy ? "…" : p.authoritative ? "Revert to shadow" : "Flip to authoritative"}
+          </button>
+        </div>
+      ) : null}
+      <div className="flex flex-col gap-2">
+        {p.dimensions.map((d) => (
+          <div key={d.dimension} className={`${SUBPANEL} p-3`}>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm text-slate-200 capitalize">{d.dimension}</span>
+              <span className="text-xs text-slate-400 tabular-nums">
+                standing {fmt(d.standing, 1)} · weight ×{fmt(d.weight, 2)}
+                <span
+                  className={`ml-2 text-[10px] uppercase ${
+                    d.status === "validated" || d.status === "canonical" ? "text-emerald-400" : "text-slate-500"
+                  }`}
+                >
+                  {d.status || "unseeded"}
+                </span>
+              </span>
+            </div>
+            <StandingBar value={d.standing} />
+            <div className="mt-1 text-[10px] text-slate-600 font-mono">{d.seedId}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ── Node View — every registered Invariant Decision Node ─────────────────────
+const NodesPerspective: React.FC<{ data: ObservatoryResponse }> = ({ data }) => (
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+    {data.nodes.map((n) => (
+      <div key={n.id} className={`${PANEL} p-4 flex flex-col gap-2`}>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-slate-100">{n.id}</h3>
+          <span className="text-[10px] uppercase tracking-wide text-slate-500 px-2 py-0.5 rounded border border-slate-800">
+            {n.kind}
+          </span>
+        </div>
+        <p className="text-xs text-slate-400">{n.description}</p>
+        <div className="flex flex-wrap gap-1">
+          {n.dimensions.map((d) => (
+            <span key={d} className="text-[10px] text-slate-400 px-1.5 py-0.5 rounded bg-slate-800/60">
+              {d}
+            </span>
+          ))}
+        </div>
+        <div className="text-[11px] text-slate-500">
+          surface <span className="text-slate-300">{n.surface}</span>
+          {n.lastObservation ? (
+            <span className="ml-2">
+              · last:{" "}
+              {typeof n.lastObservation.rankAgreement === "number"
+                ? `rankAgreement ${fmt(n.lastObservation.rankAgreement, 3)}`
+                : typeof n.lastObservation.delta === "number"
+                ? `Δ ${fmt(n.lastObservation.delta, 3)}`
+                : "recorded"}
+            </span>
+          ) : (
+            <span className="ml-2 text-slate-600">· not yet observed this instance</span>
+          )}
+        </div>
+        {n.history ? (
+          <div className="text-[11px] text-slate-500 border-t border-slate-800 pt-2">
+            history: <span className="text-slate-300 tabular-nums">{n.history.count}</span> obs ·{" "}
+            {n.history.meanRankAgreement !== null
+              ? `mean rankAgreement ${fmt(n.history.meanRankAgreement, 3)}`
+              : n.history.meanAbsValueDelta !== null
+              ? `mean |Δ| ${fmt(n.history.meanAbsValueDelta, 3)}`
+              : "—"}
+          </div>
+        ) : null}
+      </div>
+    ))}
+  </div>
+);
+
+// ── Field — invariants as fields (per-namespace) + adoption leaders ──────────
+const FieldPerspective: React.FC<{ data: ObservatoryResponse }> = ({ data }) => (
+  <div className="flex flex-col gap-4">
+    <div className={`${PANEL} p-4`}>
+      <h3 className="text-sm font-semibold text-slate-100 mb-3">Fields by namespace</h3>
+      <div className="flex flex-col gap-2">
+        {data.field.byNamespace.map((ns) => (
+          <div key={ns.namespace} className={`${SUBPANEL} p-3`}>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm text-slate-200">{ns.namespace}</span>
+              <span className="text-xs text-slate-400 tabular-nums">
+                {ns.invariants} inv · standing {fmt(ns.avgStanding, 1)} · reach {fmt(ns.avgReach, 1)}
+                {ns.consequenceAccuracy !== null ? ` · accuracy ${fmt(ns.consequenceAccuracy, 2)}` : ""}
+              </span>
+            </div>
+            <StandingBar value={ns.avgStanding} />
+          </div>
+        ))}
+        {data.field.byNamespace.length === 0 ? (
+          <p className="text-xs text-slate-500">No invariants ingested yet.</p>
+        ) : null}
+      </div>
+    </div>
+
+    {data.field.topReused.length > 0 ? (
+      <div className={`${PANEL} p-4`}>
+        <h3 className="text-sm font-semibold text-slate-100 mb-1">Adoption leaders</h3>
+        <p className="text-[11px] text-slate-500 mb-3">Most-reused invariants — adoption (Reach), never presented as authority (Law XII).</p>
+        <div className="flex flex-col gap-2">
+          {data.field.topReused.map((inv) => (
+            <div key={inv.id} className={`${SUBPANEL} p-3`}>
+              <div className="flex items-start justify-between gap-3">
+                <span className="text-xs text-slate-300 line-clamp-2">{inv.statement}</span>
+                <span className="text-[11px] text-slate-500 whitespace-nowrap tabular-nums">
+                  reach {fmt(inv.reach, 1)} · standing {fmt(inv.standing, 1)}
+                </span>
+              </div>
+              <div className="mt-1 text-[10px] text-slate-600 font-mono">{inv.seedId || inv.id} · {inv.namespace}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    ) : null}
+  </div>
+);
+
+// ── Graph — the field as a node-link diagram (namespace-clustered, no lib) ────
+const GraphPerspective: React.FC<{ graph: GraphResponse | null; loading: boolean }> = ({ graph, loading }) => {
+  const [selected, setSelected] = useState<string | null>(null);
+
+  // Deterministic namespace-clustered layout: clusters on a big ring, nodes on a
+  // small ring within each cluster. Node radius ∝ standing. No physics/lib.
+  const layout = React.useMemo(() => {
+    if (!graph) return null;
+    const W = 760;
+    const H = 520;
+    const cx = W / 2;
+    const cy = H / 2;
+    const byNs = new Map<string, GraphNode[]>();
+    for (const n of graph.nodes) {
+      const arr = byNs.get(n.namespace) ?? [];
+      arr.push(n);
+      byNs.set(n.namespace, arr);
+    }
+    const namespaces = [...byNs.keys()].sort();
+    const clusterR = Math.min(W, H) * 0.36;
+    const pos = new Map<string, { x: number; y: number; r: number; color: string }>();
+    namespaces.forEach((ns, ci) => {
+      const nodesIn = byNs.get(ns)!;
+      const clusterAngle = (ci / Math.max(1, namespaces.length)) * Math.PI * 2 - Math.PI / 2;
+      const gx = cx + Math.cos(clusterAngle) * clusterR;
+      const gy = cy + Math.sin(clusterAngle) * clusterR;
+      const innerR = 20 + Math.min(60, nodesIn.length * 6);
+      nodesIn.forEach((node, ni) => {
+        const a = (ni / Math.max(1, nodesIn.length)) * Math.PI * 2;
+        const x = nodesIn.length === 1 ? gx : gx + Math.cos(a) * innerR;
+        const y = nodesIn.length === 1 ? gy : gy + Math.sin(a) * innerR;
+        const r = 3 + Math.min(7, (node.standing / 100) * 7);
+        pos.set(node.id, { x, y, r, color: nsColor(ns) });
+      });
+    });
+    return { W, H, pos, namespaces };
+  }, [graph]);
+
+  if (loading && !graph) return <div className={`${PANEL} p-8 text-center text-sm text-slate-500`}>Building the field graph…</div>;
+  if (!graph || !layout) return <div className={`${PANEL} p-6 text-sm text-slate-500`}>No graph data available.</div>;
+
+  const selNode = selected ? graph.nodes.find((n) => n.id === selected) ?? null : null;
+
+  return (
+    <div className={`${PANEL} p-4`}>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-semibold text-slate-100">Field graph</h3>
+        <span className="text-[11px] text-slate-500">
+          {graph.nodeCount} nodes · {graph.edgeCount} edges{graph.capped ? " · capped" : ""}
+        </span>
+      </div>
+
+      <div className="w-full overflow-x-auto">
+        <svg viewBox={`0 0 ${layout.W} ${layout.H}`} className="w-full" style={{ maxHeight: 520 }} role="img" aria-label="Constitutional field graph">
+          {/* edges */}
+          {graph.edges.map((e) => {
+            const a = layout.pos.get(e.from);
+            const b = layout.pos.get(e.to);
+            if (!a || !b) return null;
+            return <line key={e.id} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#334155" strokeWidth={0.6 + e.weight * 0.4} strokeOpacity={0.5} />;
+          })}
+          {/* nodes */}
+          {graph.nodes.map((n) => {
+            const p = layout.pos.get(n.id);
+            if (!p) return null;
+            const isSel = selected === n.id;
+            return (
+              <circle
+                key={n.id}
+                cx={p.x}
+                cy={p.y}
+                r={isSel ? p.r + 2 : p.r}
+                fill={p.color}
+                fillOpacity={selected && !isSel ? 0.35 : 0.9}
+                stroke={isSel ? "#e2e8f0" : "transparent"}
+                strokeWidth={isSel ? 1.5 : 0}
+                className="cursor-pointer transition-all duration-150"
+                onClick={() => setSelected(isSel ? null : n.id)}
+              >
+                <title>{`${n.label} · ${n.namespace} · standing ${fmt(n.standing, 1)}`}</title>
+              </circle>
+            );
+          })}
+        </svg>
+      </div>
+
+      {/* namespace legend */}
+      <div className="flex flex-wrap gap-2 mt-2">
+        {layout.namespaces.map((ns) => (
+          <span key={ns} className="inline-flex items-center gap-1 text-[10px] text-slate-400">
+            <span className="w-2 h-2 rounded-full" style={{ background: nsColor(ns) }} />
+            {ns}
+          </span>
+        ))}
+      </div>
+
+      {/* selected node detail */}
+      {selNode ? (
+        <div className={`${SUBPANEL} p-3 mt-3`}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-mono text-slate-300">{selNode.label}</span>
+            <span className="text-[11px] text-slate-500">
+              {selNode.namespace} · {selNode.status} · standing {fmt(selNode.standing, 1)}
+            </span>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">{selNode.statement}</p>
+        </div>
+      ) : (
+        <p className="text-[11px] text-slate-600 mt-2">Click a node to inspect its statement. Node size ∝ standing; colour = namespace.</p>
+      )}
+    </div>
+  );
+};
+
+export default FieldView;

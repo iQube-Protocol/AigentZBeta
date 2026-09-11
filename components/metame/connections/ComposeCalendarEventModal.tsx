@@ -14,7 +14,7 @@
  *     when attendees are present (approval-gated send).
  */
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Loader2, X, Calendar, Sparkles } from "lucide-react";
 import { MicButton } from "@/components/ui/MicButton";
 import { transformEmailDictation } from "@/hooks/useSpeechRecognition";
@@ -41,6 +41,10 @@ interface Props {
     source: 'llm' | 'template';
   }>;
   theme?: "light" | "dark";
+  /** See ComposeGmailDraftModal — Phase 2 inline host mode. */
+  inline?: boolean;
+  /** See ComposeGoogleDocModal — auto-fires draft on mount when set. */
+  initialPrompt?: string;
 }
 
 /** Convert RFC3339 → datetime-local value (no trailing Z, no offset). */
@@ -72,6 +76,8 @@ export function ComposeCalendarEventModal({
   onCreate,
   onDraftWithAigentMe,
   theme = "dark",
+  inline = false,
+  initialPrompt,
 }: Props) {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiDrafting, setAiDrafting] = useState(false);
@@ -102,15 +108,13 @@ export function ComposeCalendarEventModal({
     ? "border border-slate-700 text-slate-300 hover:border-slate-500"
     : "border border-slate-300 text-slate-700 hover:border-slate-500";
 
-  const handleDraft = useCallback(async () => {
+  const draftWithPrompt = useCallback(async (promptToUse: string) => {
+    const trimmed = promptToUse.trim();
+    if (!trimmed) return;
     setError(null);
-    if (!aiPrompt.trim()) {
-      setError('Tell aigentMe what the meeting is for.');
-      return;
-    }
     setAiDrafting(true);
     try {
-      const draft = await onDraftWithAigentMe(aiPrompt.trim());
+      const draft = await onDraftWithAigentMe(trimmed);
       setSummary(draft.summary ?? "");
       setDescription(draft.description ?? "");
       setStartLocal(isoToLocalInput(draft.startIso));
@@ -124,7 +128,25 @@ export function ComposeCalendarEventModal({
     } finally {
       setAiDrafting(false);
     }
-  }, [aiPrompt, onDraftWithAigentMe]);
+  }, [onDraftWithAigentMe]);
+
+  const handleDraft = useCallback(() => {
+    if (!aiPrompt.trim()) {
+      setError('Tell aigentMe what the meeting is for.');
+      return;
+    }
+    void draftWithPrompt(aiPrompt);
+  }, [aiPrompt, draftWithPrompt]);
+
+  // Mount-fire from initialPrompt — see ComposeGoogleDocModal.
+  const lastInitialPromptRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialPrompt || !initialPrompt.trim()) return;
+    if (lastInitialPromptRef.current === initialPrompt) return;
+    lastInitialPromptRef.current = initialPrompt;
+    setAiPrompt(initialPrompt);
+    void draftWithPrompt(initialPrompt);
+  }, [initialPrompt, draftWithPrompt]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,25 +186,21 @@ export function ComposeCalendarEventModal({
     }
   }, [summary, description, startLocal, endLocal, timeZone, attendees, onCreate, onClose]);
 
-  if (!open) return null;
+  if (!inline && !open) return null;
 
-  return (
-    <div
-      className={overlayClass}
-      role="dialog"
-      aria-modal="true"
-      onClick={(e) => { if (e.target === e.currentTarget && !submitting) onClose(); }}
-    >
-      <form onSubmit={handleSubmit} className={`rounded-lg p-5 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl ${panelClass}`}>
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-violet-400" />
-            <h3 className="font-semibold">Compose Calendar event</h3>
+  const formBody = (
+      <form onSubmit={handleSubmit} className={inline ? "w-full" : `rounded-lg p-5 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl ${panelClass}`}>
+        {!inline && (
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-violet-400" />
+              <h3 className="font-semibold">Compose Calendar event</h3>
+            </div>
+            <button type="button" onClick={onClose} disabled={submitting} className="p-1 rounded hover:bg-slate-800/40" aria-label="Close">
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <button type="button" onClick={onClose} disabled={submitting} className="p-1 rounded hover:bg-slate-800/40" aria-label="Close">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        )}
 
         <div className={`mb-3 p-3 rounded border ${isDark ? 'border-violet-500/30 bg-violet-500/5' : 'border-violet-300 bg-violet-50'}`}>
           <label className="block">
@@ -275,6 +293,18 @@ export function ComposeCalendarEventModal({
           </button>
         </div>
       </form>
+  );
+
+  if (inline) return formBody;
+
+  return (
+    <div
+      className={overlayClass}
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => { if (e.target === e.currentTarget && !submitting) onClose(); }}
+    >
+      {formBody}
     </div>
   );
 }

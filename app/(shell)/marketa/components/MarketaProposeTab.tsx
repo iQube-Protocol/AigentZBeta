@@ -353,7 +353,7 @@ export function MarketaProposeTab({ theme = 'dark', partnerId }: Props) {
               variant="outline"
               onClick={handleSubmit}
               disabled={submitting}
-              className={`font-semibold bg-transparent ${d ? 'border-rose-500/30 text-rose-300 hover:bg-rose-500/10 hover:border-rose-500/40' : 'border-rose-500/40 text-rose-700 hover:bg-rose-50'}`}
+              className={`font-semibold bg-transparent ${d ? 'border-pink-400/30 text-pink-300 hover:bg-pink-400/10 hover:border-pink-400/40' : 'border-pink-400/40 text-pink-600 hover:bg-pink-50'}`}
             >
               {submitting ? (
                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Submitting…</>

@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-15-EXPLICIT-ANCHOR-AUTHORITATIVE-001",
+  "statement": "Once a record's own explicit identity anchor has been reconciled by a resolver that itself performed the full, authenticated principal-resolution walk (auth_user_id -> root_identity -> kybe_id), a DOWNSTREAM consumer that only needs 'what root/kybe does this record name' must read that record's own anchor columns directly and must NOT re-run the stricter auth-user-disambiguation walk a second time. Re-deriving an already-resolved principal re-litigates a completed decision and can incorrectly refuse on a totally unrelated historical condition (e.g. sibling identity rows under other logins) that has nothing to do with the record's own named anchor. The stricter, authentication-sensitive resolver stays exactly as strict as it needs to be for its OWN callers (fresh session-grade resolution); a narrower, separate resolver is added for the downstream 'read the already-settled answer' question rather than weakening the strict one.",
+  "classification": "Engineering/architectural invariant (candidate causal pattern) about re-derivation vs reuse of an already-resolved identity anchor, in the Chrysalis Homecoming (CFS-023) constitutional anchoring repair.",
+  "family": "engineering",
+  "scope": "local",
+  "status": "observed",
+  "ratifiedSource": null,
+  "parentCandidateId": null,
+  "supersededBy": null,
+  "governingPrinciple": false,
+  "derivedFrom": [
+    "RES-2026-08-15-ALETHEON-EXPLICIT-ANCHOR-REPAIR-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/agents/repairDelegationAnchor.ts (fixed 2026-08-15) — previously called resolvePassportPrincipalById, now calls resolvePassportExplicitAnchor",
+      "defect": "repairDelegationAnchor resolved a sponsor Passport's principal via resolvePassportPrincipalById, which re-runs auth-user sibling-root disambiguation even when the Passport's own root_identity_id/kybe_identity_id had ALREADY been reconciled (by services/passport/legacyPassportLinkageRepair.ts, itself resolved from the caller's authenticated session). The re-derivation correctly refused the moment the resolved kybe also had unrelated historical sibling root_identity rows under other auth users — a real condition, but irrelevant to what the Passport itself names as its root.",
+      "resolutionId": "RES-2026-08-15-ALETHEON-EXPLICIT-ANCHOR-REPAIR-001",
+      "evidence": [
+        "services/identity/passportPrincipal.ts",
+        "services/agents/repairDelegationAnchor.ts",
+        "tests/passport-explicit-anchor-resolution.test.ts"
+      ]
+    }
+  ],
+  "canaries": [
+    {
+      "path": "tests/passport-explicit-anchor-resolution.test.ts",
+      "assertion": "resolvePassportExplicitAnchor resolves a Passport's root/kybe purely from its own columns, structurally never issuing a kybe-wide sibling scan (a single root_identity query by primary key only), and succeeds even when the resolved kybe has multiple sibling root_identity rows under different auth users seeded in the fake table.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/agent-delegation-anchor-repair.test.ts",
+      "assertion": "The 'LIVE REGRESSION' canary reproduces the exact live condition (sponsor Passport with a valid explicit anchor, kybe with unrelated sibling auth roots) and confirms repairDelegationAnchor succeeds using only the Passport's own recorded root, never touching root_identity directly.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "projections": {
+    "targets": [
+      "constitutional-computing",
+      "irl"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "notes": [
+    "Does NOT weaken resolvePassportPrincipalById or resolveAuthUserForKybe — both are unchanged and remain correct for their existing authentication-sensitive callers (wallet/WorldID/passkey connection flows), which genuinely need session-grade auth-user certainty from zero prior context.",
+    "The multi-auth-user-under-one-kybe condition itself (the operator's own account spanning more than one Supabase login under one personhood) is NOT resolved by this invariant or its resolution record — it remains a real, separate PRD-PAG-001 Amendment A §A.5 'Passport consolidation' question, deliberately out of scope here per explicit operator instruction.",
+    "Relationship to CI-2026-08-15-PRINCIPAL-RESOLUTION-NEVER-VIA-PERSONA-DID-001: that invariant governs how a principal is FIRST established (from auth_user_id, never from a persona-owned DID-shaped field). This invariant governs REUSE of a principal already established — once settled and recorded on a specific row, a downstream consumer of that row reads it directly rather than re-running the establishment walk. Complementary, not overlapping: one is about origination, the other about propagation."
+  ]
+}

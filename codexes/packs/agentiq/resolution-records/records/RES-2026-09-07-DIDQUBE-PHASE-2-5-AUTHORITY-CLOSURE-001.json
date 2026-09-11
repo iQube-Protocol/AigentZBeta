@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-07",
+  "resolutionId": "RES-2026-09-07-DIDQUBE-PHASE-2-5-AUTHORITY-CLOSURE-001",
+  "capability": "didqube-identity-resolution",
+  "milestone": "DiDQube Phase 2.5 authority closure — the one consequential personas.root_did consumer left unresolved by RES-2026-09-07-DIDQUBE-PHASE-2-5-ROOT-DID-ELIMINATION-001, now closed. Phase 2.5 is COMPLETE.",
+  "problem": "services/constitutional/constitutionalAgreement.ts consumed services/passport/bureauIdentityService.ts's exported resolveRootDidCommitment(personaId) (which reads personas.root_did and matches it against root_identity.did_uri) as the AUTHORITY ANCHOR for ROOT_DID-bound Constitutional Agreement cross-persona authorization: 'equality is what lets a different persona under the same RootDID authorize what a different persona formed.' This is a genuinely consequential (execution-gating) use of the same broken legacy-column walk the main Phase 2.5 pass eliminated everywhere else, flagged explicitly as an unresolved risk in that pass's own resolution record rather than rushed.",
+  "observedFailure": [
+    "personas.root_did is written once at bind time (bindBureauIdentity) and never updated on RootDID rotation, so the OLD comparison (hash(personas.root_did-derived commitment at formation) === hash(personas.root_did-derived commitment at authorize time)) could not distinguish 'the human rotated their RootDID' from 'a different human entirely' — both produce a changed/absent commitment.",
+      "A copied or coincidentally-similar personas.root_did value for an unrelated persona could, in principle, satisfy the old string-equality check without ever being verified through the canonical auth_user_id -> root_identity -> kybe_identity chain."
+  ],
+  "rootCauses": [
+    "Cross-persona agreement authority was anchored to a ROTATABLE identity primitive (RootDID) read through a legacy, non-canonical column (personas.root_did) instead of the STABLE constitutional container (DiDQube) resolved through the canonical chain.",
+    "The main Phase 2.5 pass correctly scoped this out as requiring its own persona-id -> principal walk design (constitutionalAgreement.ts needs to resolve the AUTHORIZING/FORMING persona's principal, not necessarily the current caller's default resolution path used elsewhere) rather than being rushed into that pass."
+  ],
+  "resolution": [
+    "services/constitutional/constitutionalAgreement.ts: AgreementPayload gained principalDiDQubeCommitment/principalDiDQubeCommitmentVersion — a versioned, stable DiDQube public commitment resolved via resolveDiDQube({kind:'auth_user_id', authUserId}) (composed from the Phase 2 canonical resolver, never re-derived) and pinned once at formation. THE authority anchor for new-model agreements. The legacy principalRootDidCommitment field is retained but is now informational only for new agreements (derived from the resolved primitive's currentIdentityPrimitive.didUri, never from personas.root_did).",
+    "formAgreement/authorizeAgreement gained a callerAuthUserId parameter (mirroring the sponsorAuthUserId pattern from the main Phase 2.5 pass), supplied by app/api/constitutional/agreement/route.ts via the EXISTING getCallerIdentityContext(request) helper — never a client-supplied value, required only when authorityBinding === 'ROOT_DID'.",
+    "authorizeAgreement's ROOT_DID branch fails closed on any resolveDiDQube state other than 'resolved', then compares DiDQube public commitments via the new shared agreementPrincipalMatches predicate — exported and reused identically by the GET listing route's viewer-equivalence check, so visibility and authority can never disagree (inv.engineering.036/037).",
+    "Legacy compatibility verifier (legacyRootDidCommitmentBelongsToKybe): for ROOT_DID agreements formed BEFORE this closure (no principalDiDQubeCommitment pinned), proves the historical RootDID belonged to the SAME canonically-resolved DiDQube by enumerating every root_identity row ever issued under that DiDQube's own kybe_identity anchor and hash-comparing each did_uri — never reads personas.root_did. This also gives legacy agreements RootDID-rotation tolerance the old literal-hash comparison never had.",
+    "Existing signed agreements and their termsCommitment/payload content are never mutated by this closure — only the pre-existing, unrelated lifecycle.state and provenance.receiptIds change on authorize."
+  ],
+  "rejectedApproaches": [
+    "Falling back to personas.root_did for the legacy-agreement compatibility path — rejected per explicit operator instruction: the compatibility verifier must prove the historical RootDID belonged to the same canonically resolved DiDQube, never read the legacy column.",
+    "Renaming the persisted authorityBinding enum value 'ROOT_DID' to something DiDQube-specific — rejected: existing rows already persist 'ROOT_DID' as a stored string; the enum name is retained while its resolution semantics move to DiDQube-anchored comparison, avoiding an unnecessary migration for a naming-only concern.",
+    "Deleting the now-unused resolveRootDidCommitment export from bureauIdentityService.ts — rejected as outside this closure's narrow scope; left in place, unused, for potential future reference."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-23-CANONICAL-IDENTITY-CHAIN-OVER-FUZZY-MATCH-001"
+  ],
+  "canaries": [
+    "tests/constitutional-agreement-rootdid-authority.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "milestone-complete",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/constitutional-agreement-rootdid-authority.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "services/constitutional/constitutionalAgreement.ts",
+    "app/api/constitutional/agreement/route.ts",
+    "services/identity/didQubeResolver.ts",
+    "codexes/packs/agentiq/updates/2026-09-07_didqube-canonical-resolver-execution-plan.md",
+    "codexes/packs/agentiq/resolution-records/records/RES-2026-09-07-DIDQUBE-PHASE-2-5-ROOT-DID-ELIMINATION-001.json"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "unresolvedRisks": [
+    "Targeted regression only was run for this closure (this file + 8 related test files, 219/219 passing) per delivery-discipline instruction to run targeted tests per commit and the full suite only at phase closure; a full-suite sweep against the documented 17-failed-file/65-failed-test baseline is still owed at the close of the current work session's overall phase boundary.",
+    "resolveRootDidCommitment (services/passport/bureauIdentityService.ts) remains exported and unused in production code — a future cleanup pass may remove it once confirmed to have no other consumers, but that is outside this closure's scope."
+  ]
+}

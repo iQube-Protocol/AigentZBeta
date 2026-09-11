@@ -292,8 +292,22 @@ export async function loadPackCodexes(): Promise<CodexConfig[]> {
 
       // Skip AgentiQ pack directories — AGENTIQ_CARTRIDGE in data/codex-configs.ts is the
       // single canonical definition and merges content from both aigency + agentiq pack files.
+      // Skip "agentiq-os" too: AGENTIQ_OS_CARTRIDGE in data/codex-configs.ts is the canonical
+      // hand-curated registration (rich tab structure + interactive components, slug
+      // `agentiq-os-cartridge` that metaMe's QuickLinksCard targets). The pack content under
+      // codexes/packs/agentiq-os/ is still consumed via AgentiqCartridgeTab props inside the
+      // hand-curated tabs — pack docs are not lost, only the duplicate auto-registration is.
       const lowered = dirent.name.toLowerCase();
-      if (lowered === "agentiq" || lowered === "aigentiq" || lowered === "aigency") continue;
+      if (lowered === "agentiq" || lowered === "aigentiq" || lowered === "aigency" || lowered === "agentiq-os") continue;
+      // polity-core is hand-curated in CODEX_DEFINITIONS (POLITY_CORE_CARTRIDGE);
+      // its pack supplies markdown via AgentiqCartridgeTab. Skip auto-gen to
+      // avoid a duplicate cartridge.
+      if (lowered === "polity-core") continue;
+      // irl is hand-curated in CODEX_DEFINITIONS (IRL_CARTRIDGE, slug
+      // `irl-cartridge`; legacy `ccrl-*` slugs alias-resolve); its pack (the migrated constitutional research
+      // corpus, CFS-019 Phase D) supplies markdown via AgentiqCartridgeTab.
+      // Skip auto-gen to avoid a duplicate cartridge.
+      if (lowered === "irl") continue;
 
       const codex = await buildCodexConfigFromPack(dirent.name);
       if (!codex) continue;
@@ -326,6 +340,10 @@ export function codexToListItem(codex: CodexConfig): CodexListItem {
   return {
     id: codex.id,
     name: codex.name,
+    // Carried through so the picker can render the cartridge's picker name
+    // without a second lookup. Undefined stays undefined — the consumer's
+    // `shortName ?? name` fallback is the one place that decision lives.
+    ...(codex.shortName ? { shortName: codex.shortName } : {}),
     slug: codex.slug,
     enabled: codex.enabled,
     owner: codex.owner,

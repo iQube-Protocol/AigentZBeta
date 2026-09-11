@@ -1,0 +1,39 @@
+name: provision-owner-wallet
+
+# One-off, manually-triggered OWNER/CONTROL wallet provisioning (Factor/Aegis
+# identity provisioning + security correction, operator directive
+# 2026-09-05). Calls /api/ops/wallet/provision-owner-wallet — the secure
+# replacement for the unauthenticated /api/admin/register-agent-keys.
+# Idempotent — returns the existing owner wallet if one is already
+# provisioned, never rotates. Never returns private key material.
+on:
+  workflow_dispatch:
+    inputs:
+      runtimeAgentId:
+        description: 'Agent runtime id, e.g. aigent-factor'
+        required: true
+      agentName:
+        description: 'Display name, e.g. Factor'
+        required: true
+      fioHandle:
+        description: 'Optional requested FIO handle, e.g. factor@aigent'
+        required: false
+        default: ''
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Provision owner/control wallet
+        env:
+          CRON_TRIGGER_TOKEN: ${{ secrets.CRON_TRIGGER_TOKEN }}
+        run: |
+          if [ -z "$CRON_TRIGGER_TOKEN" ]; then
+            echo "::error::CRON_TRIGGER_TOKEN secret not set in repo settings"
+            exit 1
+          fi
+          curl -sS --max-time 60 -X POST \
+            -H "x-cron-token: $CRON_TRIGGER_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"runtimeAgentId":"${{ inputs.runtimeAgentId }}","agentName":"${{ inputs.agentName }}","fioHandle":"${{ inputs.fioHandle }}"}' \
+            "https://dev-beta.aigentz.me/api/ops/wallet/provision-owner-wallet"

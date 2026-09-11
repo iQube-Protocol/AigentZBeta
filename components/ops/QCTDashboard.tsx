@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Coins, Globe, TrendingUp, Activity, ExternalLink, Copy, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { btcTxUrl } from '@/services/ops/btcExplorer';
 
 interface QCTDashboardProps {
   title: string;
@@ -30,7 +31,7 @@ export function QCTDashboard({ title, className }: QCTDashboardProps) {
       name: 'Bitcoin Testnet',
       establishmentTx: 'caaabee2695d173d718f012b065514f1b313fcad767dc3d836056cdb74de1903',
       address: 'tb1qywewf6kshzgvq9awzr46awhylu40v68tr8acm2',
-      explorer: 'https://mempool.space/testnet/tx/caaabee2695d173d718f012b065514f1b313fcad767dc3d836056cdb74de1903',
+      explorer: btcTxUrl('caaabee2695d173d718f012b065514f1b313fcad767dc3d836056cdb74de1903'),
       supply: '100,000,000',
       decimals: 8,
       icon: '₿',

@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-07-GOVERNED-ACT-ELIGIBILITY-INDEPENDENT-OF-SLOW-COMPOSITION-001",
+  "statement": "A separately-authorized governed act's eligibility (e.g. 'may this specific artifact be frozen right now') must be derived directly from that act's own authoritative state (the artifact's own lifecycle + the operator's own recorded authorization) — never gated behind the success or completion of an unrelated, slower, multi-signal composition (e.g. a whole workflow's stage-projection read) that answers a DIFFERENT question. A slow or degraded broader projection is allowed to say honestly 'this composite view is stale/incomplete'; it must never be allowed to hide, by construction, an independently-ready act that does not depend on it. Practically: render/derive the governed act from its own fast, narrow read; never thread a slower composition's output (or its own loading/error state) into the gate that decides whether the act is offered.",
+  "family": "engineering",
+  "classification": "Operator ruling, 2026-09-07, verbatim: \"Track 2 is allowed to say science still has limitations. It is not allowed to hide a separately authorized lifecycle act. The Freeze button should not be waiting for the programme projector to decide the whole world is perfect. We already made the operator decision. Now the UI needs to honor it and close this.\"",
+  "parentCandidateId": null,
+  "governingPrinciple": false,
+  "scope": "local",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-09-07-EXP-P1-FREEZE-UI-ORCHESTRATION-REPAIR-001"
+  ],
+  "occurrences": [
+    {
+      "site": "components/research/Track2ProgrammePanel.tsx + components/composer/IRLResearchCopilotTab.tsx — the EXP-P1/crystal-vP2 internal-pilot freeze control",
+      "defect": "The freeze action (eligible whenever the Crystal artifact is `validated` and internal-pilot-authorized — an independent, already-established fact) was rendered only inside `{programme && (...)}`, gated on `loadTrack2ProgrammeState()` (a slow, multi-signal Track 2 composition answering a materially different question) succeeding, and additionally consumed a `readiness` prop sourced from that same slow composition when the identical data was already available faster and independently via the freeze-preview route. A slow/failed Track 2 read therefore hid an artifact-level fact that Track 2's own composition does not even need to answer.",
+      "resolutionId": "RES-2026-09-07-EXP-P1-FREEZE-UI-ORCHESTRATION-REPAIR-001",
+      "evidence": [
+        "components/research/FreezeVP2InternalPilotAction.tsx — the extracted, standalone component deriving eligibility from `GET .../freeze` (artifact lifecycle only) and `POST .../freeze-preview` (readiness, independently computed) — never from `loadTrack2ProgrammeState`",
+        "tests/freeze-vp2-independent-of-programme-composition.test.ts — pins that both host surfaces mount this component before, and independent of, their own `{programme && (...)}` gate",
+        "tests/freeze-vp2-internal-pilot-action.test.tsx — behavioral proof the component's own eligibility/data derivation never depends on a `readiness`/`programme` prop"
+      ]
+    }
+  ],
+  "canaries": [
+    {
+      "path": "tests/freeze-vp2-independent-of-programme-composition.test.ts",
+      "assertion": "Both `Track2ProgrammePanel.tsx` and `IRLResearchCopilotTab.tsx` mount `<FreezeVP2InternalPilotAction>` textually and structurally BEFORE their own `{programme && (...)}` gate, passing it no `readiness`/`programme` prop — so the render call itself cannot regress back into depending on the slow composition's success.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/freeze-vp2-internal-pilot-action.test.tsx",
+      "assertion": "The component derives its eligible/frozen/not-eligible phase and its failing-checks list entirely from the fast `GET .../freeze` + `POST .../freeze-preview` reads, mocked at the one IO seam (`personaFetch`) — no `readiness`/`programme` prop exists on its interface at all for a future caller to reintroduce.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "notes": [
+    "This is the SAME category error, one layer up, as CI-2026-09-05-MEMBERSHIP-RECOVERY-MUST-BOUND-GENERATION-001 and the crystal-freeze-execution-designation lineage: a read that answers 'what does the SHARED, SLOWER substrate currently say' being wrongly substituted for 'what is true of the SPECIFIC, NARROWER thing being asked about'. Different mechanism, same shape.",
+    "Occurrence count is 1 — per the resolution-loop ladder, an agent may not raise this candidate above `candidate` on a single occurrence; promotion to `validated` requires a second recorded occurrence or demonstrated regression prevention, and `ratified`/`canonical` require a named operator act in `ratifiedSource`, which only the operator can supply.",
+    "The operator's own framing here ('Track 2 is allowed to say science still has limitations. It is not allowed to hide a separately authorized lifecycle act.') is close in spirit to the Constitutional Execution Family's 'Exception Isolation' principle (CI-2026-08-03-CONTROL-CONSTRAINS-RECORD-001: 'unsafe records are isolated; safe records continue') — this candidate is left un-parented (`parentCandidateId: null`) rather than asserted as a corollary, since that relationship is itself an operator classification this agent may not self-assign."
+  ],
+  "supersededBy": null,
+  "ratifiedSource": null,
+  "projections": {
+    "targets": [
+      "devon",
+      "ux-framework",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

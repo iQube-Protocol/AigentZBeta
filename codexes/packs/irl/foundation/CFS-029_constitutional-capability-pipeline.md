@@ -1,0 +1,109 @@
+# CFS-029 — The Constitutional Capability Pipeline (completion)
+
+**Chrysalis Foundation Specification · v1.0 · Status: ADOPTED by operator direction 2026-07-13; core increments built same day.**
+Companions: CFS-015 (the pipeline's PRD — this spec completes its constitutional lifecycle), CFS-016 (deployment), CFS-025 (Artifact Runtime), CS-001 (the grounding case study).
+
+## 1. The threshold this spec marks
+
+Until now the Capability Pipeline prepared better *instructions for implementation*. With this spec it **reasons constitutionally about capability before implementation**: the pack is no longer the end of the reasoning process but one artifact within it. Operator framing, adopted verbatim as the design intent:
+
+> "Here's what constitutional capability should emerge" — not "here's what Claude should build."
+
+## 2. The completed stage sequence
+
+```
+IntentQube
+   ↓
+ContextPack
+   ↓
+CapabilityGapReport        (the DCC Gap Analysis — existing/missing/reuse)
+   ↓
+CapabilityEvidence         ← PERSISTED constitutional primitive (evidence outlives sessions)
+   ↓
+ConsequenceCanvas
+   ↓
+Constitutional Decision    ← explicit: HOW is the capability realized? (nine mechanisms + 'none')
+   ↓
+Implementation Pack        (one artifact of the reasoning, not its terminus)
+```
+
+## 3. Capability Evidence — evidence persists; sessions don't
+
+`SessionFindings` (the transport object of the 2026-07-13 workflow-gap fix) is re-homed as **CapabilityEvidence**, a first-class persisted primitive:
+
+- Leaf module `services/constitutional/capabilityEvidence.ts` (type + pure folding helpers + store; legacy `SessionFindings` aliases retained).
+- Table `capability_evidence` (migration `20260713010000`): keyed by a one-way goal hash — T2-safe, capability facts only, no subject identifiers.
+- Pack generation **persists** fresh evidence and **reads persisted evidence back** when none is supplied — a pack generated outside the originating session still knows what exists. A constitutional pipeline never "forgets" constitutional state between stages (the CS-001 defect class, eliminated).
+- The pack carries `capabilityEvidence` + `capabilityEvidenceId` (the durable pointer).
+
+## 4. The Constitutional Decision stage
+
+Before any pack is drafted, `decideRealizationMechanism(goal, evidence)` explicitly decides **how the capability should be realized**, over the vocabulary:
+
+`none` (capability exists — compose, build nothing) · `code` · `configuration` · `registry` · `prompt` · `policy` · `schema` · `knowledge` · `automation` · `documentation`
+
+- Two-tier: LLM decision through the constitutional router (`callStage 'capability'`), with a PURE deterministic floor (`heuristicDecision`, canary-pinned) that never fabricates.
+- The decision is recorded ON the pack (`constitutionalDecision`: mechanism, `noBuildRequired`, rationale, alternatives weighed, decidedBy) — auditable, never implicit.
+- The decided mechanism is authoritative over the draft's; a `none` decision empties `areasToTouch` and instructs the draft to plan **composition, not construction**.
+- Sometimes the answer is *no code required* — that is what makes this a **capability** pipeline.
+
+## 5. Constitutional semantics (renames)
+
+Pack renders now say **Constitutional Validation** and **Constitutional Receipt** (was: Validation plan / Receipt plan) — these are constitutional evidence, not implementation artifacts. Internal field names (`validationPlan`, `receiptPlan`) are unchanged (extend, don't break).
+
+## 6. Classification: Constitutional Blindness
+
+`empty-canon` is reclassified from *defect* to **Constitutional Blindness**: the reasoning pipeline running ahead of the constitutional knowledge graph. Resolved separately the same day (seed advancement `proposed → validated`, 12-namespace widening). The healthy reading stands: implementation capability should never wait for the canon, and the canon should catch up — visibly.
+
+## 7. Follow-ons (each its own ratification)
+
+1. **DCC "Decision" stage capsule** — surface the Constitutional Decision as a first-class ICE stage in the Dev Command Center strip (today it renders inside the pack).
+2. **CapabilityEvidence as a full ConstitutionalObject** — standing, lifecycle, provenance receipts (today: durable row + pack pointer).
+3. **Evidence freshness policy** — when persisted evidence is stale relative to the capability graph (CFS-028), prompt for a re-inventory instead of grounding on it silently.
+4. **CS-001 formal publication** through the CPS when the operator schedules it.
+
+## Ratification record
+
+- [x] **ADOPTED 2026-07-13 by operator direction** (the "three things happening" review). Built same day: CapabilityEvidence primitive + store + migration, Constitutional Decision stage (LLM + pure floor + canary), pack fields + markdown sections, semantic renames, CS-001 case study.
+- [x] **§7 RATIFIED — 2026-07-13, by operator direction.** Built same day:
+  §7.1 the DCC **Decision capsule** — `constitutional_decision` is a first-class ICE stage (stage union + strip chip + advance gate + `DecisionLayout` driving `POST /api/constitutional/decision`); the taken decision writes into the session and travels VERBATIM into pack generation (the pipeline decides once).
+  §7.2 **evidence as a constitutional object** — persistence is receipted (`knowledge_curated`, attached to the row via `receipt_id`) and `buildCapabilityEvidenceObject` composes the persisted evidence as a well-formed ConstitutionalObject (T2-safe goal-hash ref; standing 0.5 design value, session-validated).
+  §7.3 **freshness policy** — persisted evidence older than `EVIDENCE_FRESHNESS_WINDOW_DAYS` (7, design value) is flagged `persisted-stale` on the pack, and the draft prompt is instructed to include a re-inventory step: stale evidence grounds LOUDLY, never silently.
+  §7.4 **CS-001 publication** — registered as **IRL-0002** in the Publication Registry (reserved; production follows the deferred CPS path with IRL-0001).
+
+
+---
+
+## Amendment — Evidence Split + Constitutional Ratification (operator-ratified 2026-07-13, with CCE-006)
+
+### A. Runtime Evidence vs Constitutional Evidence
+
+Evidence divides into two constitutional categories, and the Decision stage reasons over BOTH:
+
+- **Runtime Evidence** — observed during the run itself: a phantom endpoint, a duplicate
+  implementation, a routing bypass. Fresh, session-scoped in origin, persisted on capture.
+- **Constitutional Evidence** — already known to the platform: registry state, previous
+  receipts, the capability graph (CFS-028), standing, invariants.
+
+Target shape (arrives with the CFS-028→CFS-029 bridge — the next ratified increment):
+
+```
+Capability Graph → Constitutional Evidence → Runtime/Session Evidence → Decision → Pack
+```
+
+A completely cold request then starts from constitutional memory, not from zero.
+
+### B. Constitutional Ratification (conceptual, pre-D2 — not yet a code object)
+
+One more constitutional object completes the audit chain: **Ratification**, after Receipt.
+A receipt says *this happened*; ratification says *this is now accepted as part of the
+constitutional state of the platform*. Not every successful execution becomes constitutional
+truth — some changes remain experimental; others, after review or sufficient evidence, enter
+the canonical operating model. The Artifact Runtime's promotion ceremony
+(operational → constitutional, CFS-025) is ratification's first embodiment; the generalized
+object is designed alongside D2 (where per-deploy approval is itself a ratification act).
+
+The full audit chain the pipeline now records — **Evidence → Decision → Execution → Validation →
+Receipt (→ Ratification)** — is the platform's own reasoning history: what was observed, why the
+remedy was chosen, what changed, whether it worked, and what is now accepted as constitutional
+state. CCE-006 is its first complete instance.

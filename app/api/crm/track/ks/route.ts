@@ -19,12 +19,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCrmClient } from '@/services/crm/crmDataAccess';
 import { logClick } from '@/services/campaign/knytTrackingService';
-import { KS_REWARDS, buildDirectKsUrl } from '@/services/campaign/ksRewards';
+import { KS_REWARDS, buildDirectKsUrl, KS_BASE_URL } from '@/services/campaign/ksRewards';
 
 export const dynamic = 'force-dynamic';
 
 const KS_REF_TAG     = '9pbmus';
-const KS_BASE_URL    = 'https://www.kickstarter.com/projects/430245948/metaknyt-the-legend-of-kn0w1-and-the-21-sats';
 const CLICK_ADVANCE_STATES = new Set(['sent', 'opened']);
 
 // ── Build redirect URL ────────────────────────────────────────────────────────

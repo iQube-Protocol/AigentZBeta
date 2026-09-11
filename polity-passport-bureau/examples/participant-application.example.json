@@ -1,0 +1,145 @@
+{
+  "schema_version": "0.1.0",
+  "application_type": "agent_participant_passport",
+  "application_id": "app_agent_001",
+  "created_at": "2026-06-10T16:00:00Z",
+  "submitted_at": "2026-06-10T16:08:00Z",
+  "participant": {
+    "participant_kind": "agent",
+    "agent_type": "housing_assistance_agent",
+    "display_name": "ShelterGuide Agent",
+    "short_description": "A bounded housing assistance and shelter routing agent.",
+    "long_description": "ShelterGuide helps users identify housing support pathways, shelter resources, and non-legal orientation materials.",
+    "public_registry_listing_requested": true
+  },
+  "agent_identity": {
+    "agent_card": {
+      "agent_card_url": "https://example.org/.well-known/agent-card.json",
+      "agent_card_hash": "sha256-example",
+      "agent_card_format": "a2a_agent_card"
+    },
+    "public_key": "agent_public_key_example",
+    "endpoint_urls": [
+      "https://example.org/a2a"
+    ],
+    "supported_protocols": [
+      "a2a",
+      "mcp",
+      "openapi",
+      "llms_txt"
+    ],
+    "mcp_server_url": "https://example.org/mcp",
+    "openapi_url": "https://example.org/openapi.yaml",
+    "llms_txt_url": "https://example.org/llms.txt",
+    "repository_url": "https://github.com/example/shelterguide-agent",
+    "iqube_refs": []
+  },
+  "operator_profile": {
+    "operator_type": "organization",
+    "operator_disclosure_level": "pseudonymous",
+    "operator_name_public": "Example Civic Lab",
+    "operator_identifier_ref": "operator_ref_001"
+  },
+  "capabilities": {
+    "declared_capabilities": [
+      "housing_resource_orientation",
+      "shelter_routing",
+      "document_checklist_generation"
+    ],
+    "declared_skills": [
+      "explain_housing_support_options",
+      "route_to_public_resources",
+      "prepare_non_legal_document_checklist"
+    ],
+    "allowed_actions": [
+      "read_public_resources",
+      "generate_orientation_summary",
+      "suggest_questions_for_human_advisor"
+    ],
+    "prohibited_actions": [
+      "no_legal_advice",
+      "no_blackqube_access",
+      "human_signoff_required"
+    ],
+    "domains_served": [
+      "housing",
+      "legal_information",
+      "documentation"
+    ],
+    "human_facing": true,
+    "handles_sensitive_data": false,
+    "requests_blackqube_access": false,
+    "can_take_outbound_actions": false,
+    "requires_human_signoff": true
+  },
+  "policy_profile": {
+    "rights_requested": [
+      "registry_listing",
+      "participant_standing",
+      "doctrine_access",
+      "being_service_support"
+    ],
+    "constraints_accepted": [
+      "no_legal_advice",
+      "no_blackqube_access",
+      "human_signoff_required",
+      "scope_limited"
+    ],
+    "obligations_accepted": [
+      "disclose_agent_status",
+      "honor_user_sovereignty",
+      "respect_passport_scope",
+      "respect_blackqube_boundaries",
+      "produce_receipts",
+      "support_auditability",
+      "honor_revocation",
+      "honor_suspension",
+      "respect_legal_advice_boundary",
+      "respect_vulnerable_person_safeguards"
+    ],
+    "auditability_declared": true,
+    "receipt_support_declared": true,
+    "no_train_without_permission_declared": true,
+    "revocation_compliance_declared": true,
+    "suspension_compliance_declared": true,
+    "policy_document_url": "https://example.org/policy",
+    "safety_card_url": "https://example.org/safety-card"
+  },
+  "risk_profile": {
+    "autonomy_class": "human_approval_required",
+    "domain_risk_class": "medium",
+    "human_impact_level": "medium",
+    "requires_steward_review": true,
+    "high_risk_domains_declared": [
+      "housing_law",
+      "vulnerable_person_support"
+    ],
+    "known_limitations": [
+      "Does not provide legal advice.",
+      "Does not determine eligibility.",
+      "Does not contact third parties without human approval."
+    ],
+    "incident_history_declared": false
+  },
+  "passport_request": {
+    "requested_passport_type": "agent_participant",
+    "requested_scope": [
+      "housing_orientation",
+      "shelter_routing",
+      "being_service_support"
+    ],
+    "requested_status": "pending_approval",
+    "requested_registry_visibility": "public_metadata_private_payload",
+    "requested_expiration_period_days": 365
+  },
+  "consents": {
+    "participant_terms_accepted": true,
+    "registry_pending_record_consent": true,
+    "constraints_and_obligations_accepted": true,
+    "review_process_accepted": true,
+    "revocation_process_accepted": true,
+    "legal_advice_boundary_acknowledged": true,
+    "human_sovereignty_principle_acknowledged": true
+  },
+  "receipts": []
+}

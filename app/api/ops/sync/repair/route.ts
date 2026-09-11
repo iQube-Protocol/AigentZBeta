@@ -46,30 +46,66 @@ export async function POST(request: Request) {
     let newPosCount = posCount;
     let newDvnCount = dvnCount;
 
+    /*
+     * ── THE `balance` STRATEGY IS REMOVED (operator ruling, 2026-08-08) ─────
+     *
+     * It "repaired" drift by FABRICATING whichever side had fewer entries:
+     * `pos.issue_receipt('sync_repair_...')` when PoS was short, or a
+     * `SYNC_REPAIR` DVN message when DVN was. Those PoS receipts are not
+     * inert — they enter the genuine Merkle-batch → Bitcoin-anchor path and
+     * are anchored for real.
+     *
+     * Measured live, 2026-08-08: of 624 receipts across the PoS canister's
+     * 161 batches, 263 were `sync_*`, 143 `test_*` and 55 `anchor*` — 74% of
+     * everything ever committed to Bitcoin by this system was synthetic, and
+     * `sync_*` alone was the single largest population. Not one activity
+     * receipt was present, because the constitutional pipeline never called
+     * `issue_receipt` at all until the dual-leg repair in the same change.
+     *
+     * So this loop was writing filler into the Bitcoin provenance stream to
+     * make a metric agree — and the metric it satisfied was itself meaningless
+     * (see the drift note in ../status/route.ts: two unrelated populations).
+     *
+     * Historical `sync_*` anchors stay where they are: Bitcoin history is
+     * immutable and nothing here rewrites it. They are classified as synthetic
+     * diagnostic artifacts, never constitutional provenance.
+     *
+     * `strategy: 'balance'` is now REFUSED rather than silently ignored — a
+     * caller asking for it is asking for fabrication, and must be told the
+     * capability is gone rather than believing it ran.
+     */
+    if (strategy === 'balance') {
+      return NextResponse.json(
+        {
+          ok: false,
+          refusalCode: 'BALANCE_STRATEGY_REMOVED',
+          error:
+            'The `balance` repair strategy has been removed. It equalised the PoS and DVN counters by ' +
+            'issuing synthetic `sync_repair_*` receipts into the real Bitcoin anchor path, which wrote ' +
+            'filler into the constitutional provenance stream to satisfy a metric that compares two ' +
+            'unrelated populations. Genuine reconciliation is per-commitment, not per-count.',
+          before: { posCount, dvnCount },
+          at: new Date().toISOString(),
+        },
+        { status: 400 },
+      );
+    }
+
     // Repair strategy based on which canister has more items
-    if (strategy === 'auto' || strategy === 'balance') {
+    if (strategy === 'auto') {
       if (posCount > dvnCount) {
-        // More receipts than DVN messages - this is unusual, create DVN messages to match
-        const deficit = posCount - dvnCount;
-        for (let i = 0; i < deficit; i++) {
-          try {
-            const syncData = `sync_repair_${Date.now()}_${i}`;
-            await dvn.submit_dvn_message(
-              80002, // Chain ID
-              0,     // Destination chain (ICP)
-              Array.from(new TextEncoder().encode(JSON.stringify({
-                action: 'SYNC_REPAIR',
-                reason: 'balance_canisters',
-                timestamp: Date.now()
-              }))),
-              `sync_repair_${Date.now()}`
-            );
-            repairActions.push(`Created DVN message ${i + 1}/${deficit}`);
-          } catch (e: any) {
-            repairActions.push(`Failed to create DVN message ${i + 1}: ${e.message}`);
-          }
-        }
-        newDvnCount = dvnCount + deficit;
+        /*
+         * PoS ahead of DVN. Previously this fabricated SYNC_REPAIR DVN
+         * messages to close the gap; that is the same fabrication as the
+         * `balance` branch above and is equally removed. Reported, not
+         * "repaired" — with no shared commitment there is nothing here to
+         * legitimately reconcile.
+         */
+        repairActions.push(
+          `PoS pending (${posCount}) exceeds DVN pending (${dvnCount}) by ${posCount - dvnCount}. ` +
+            'No synthetic DVN messages were created: fabricating one side to match the other is not ' +
+            'reconciliation. Real drift is a shared commitment present on one leg and absent on the other.',
+        );
       } else {
         // More DVN messages than receipts
         const deficit = dvnCount - posCount;
@@ -120,18 +156,6 @@ export async function POST(request: Request) {
               at: new Date().toISOString()
             }, { status: 500 });
           }
-        } else if (strategy === 'balance') {
-          // Force balance by creating sync receipts (manual override)
-          for (let i = 0; i < deficit; i++) {
-            try {
-              const syncData = `sync_repair_${Date.now()}_${i}`;
-              await pos.issue_receipt(syncData);
-              repairActions.push(`Created receipt ${i + 1}/${deficit}`);
-            } catch (e: any) {
-              repairActions.push(`Failed to create receipt ${i + 1}: ${e.message}`);
-            }
-          }
-          newPosCount = posCount + deficit;
         } else {
           // Small drift (<10) - process via LayerZero without batching
           repairActions.push(`Detected ${deficit} DVN messages awaiting processing`);

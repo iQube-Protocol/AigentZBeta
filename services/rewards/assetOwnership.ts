@@ -157,7 +157,91 @@ function skuCoversAsset(sku: StoreSku, meta: AssetMeta): boolean {
 /**
  * Does the persona own the asset, either directly or via an SKU grant?
  */
-export async function userOwnsAsset(personaId: string, assetId: string): Promise<{ owned: boolean; via: 'direct' | 'sku' | null }> {
+export async function userOwnsAsset(personaId: string, assetId: string): Promise<{
+  owned: boolean;
+  via: 'direct' | 'edition' | 'sku' | 'locker' | 'room' | null;
+}> {
+  // Locker-native assets and RoomQubes are persona-owned constitutional
+  // objects. Active RoomQube membership also grants the member access to the
+  // room and to assets curated into it. This is checked before legacy commerce
+  // entitlements so private sharing never masquerades as a payment grant.
+  const { data: lockerAsset } = await supa()
+    .from('asset_records')
+    .select('owner_persona_id')
+    .eq('id', assetId)
+    .maybeSingle();
+  if (lockerAsset) {
+    if ((lockerAsset as { owner_persona_id: string }).owner_persona_id === personaId) {
+      return { owned: true, via: 'locker' };
+    }
+    const { data: memberships } = await supa()
+      .from('roomqube_members')
+      .select('roomqube_id, expires_at')
+      .eq('subject_type', 'person')
+      .eq('subject_persona_id', personaId)
+      .is('removed_at', null)
+      .limit(500);
+    const now = Date.now();
+    const activeRoomIds = (memberships ?? [])
+      .filter((row) => !(row as { expires_at: string | null }).expires_at
+        || Date.parse((row as { expires_at: string }).expires_at) > now)
+      .map((row) => (row as { roomqube_id: string }).roomqube_id);
+    if (activeRoomIds.length > 0) {
+      const { data: placement } = await supa()
+        .from('roomqube_placements')
+        .select('id')
+        .eq('asset_id', assetId)
+        .in('roomqube_id', activeRoomIds)
+        .limit(1)
+        .maybeSingle();
+      if (placement) return { owned: true, via: 'room' };
+    }
+    return { owned: false, via: null };
+  }
+
+  const { data: room } = await supa()
+    .from('roomqubes')
+    .select('owner_persona_id')
+    .eq('id', assetId)
+    .maybeSingle();
+  if (room) {
+    if ((room as { owner_persona_id: string }).owner_persona_id === personaId) {
+      return { owned: true, via: 'locker' };
+    }
+    const { data: membership } = await supa()
+      .from('roomqube_members')
+      .select('id, expires_at')
+      .eq('roomqube_id', assetId)
+      .eq('subject_type', 'person')
+      .eq('subject_persona_id', personaId)
+      .is('removed_at', null)
+      .limit(1)
+      .maybeSingle();
+    if (membership) {
+      const expiresAt = (membership as { expires_at: string | null }).expires_at;
+      if (!expiresAt || Date.parse(expiresAt) > Date.now()) {
+        return { owned: true, via: 'room' };
+      }
+    }
+    return { owned: false, via: null };
+  }
+
+  // ContentQube editions are persona-scoped ownership records in their own
+  // right. The generic Registry and MCP projection address the ContentQube by
+  // its canonical UUID, so this check must happen before legacy entitlement /
+  // SKU expansion. released_at marks a relinquished activation/edition.
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(assetId)) {
+    const { data: edition } = await supa()
+      .from('content_qube_editions')
+      .select('id')
+      .eq('content_qube_id', assetId)
+      .eq('persona_id', personaId)
+      .is('released_at', null)
+      .limit(1)
+      .maybeSingle();
+    if (edition) return { owned: true, via: 'edition' };
+  }
+
   const ents = await getEntitlementService().getPersonaEntitlements(personaId);
 
   // 1. Direct grant

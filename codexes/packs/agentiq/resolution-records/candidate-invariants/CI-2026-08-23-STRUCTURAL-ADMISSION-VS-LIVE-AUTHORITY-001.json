@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-23-STRUCTURAL-ADMISSION-VS-LIVE-AUTHORITY-001",
+  "statement": "Discoverability/eligibility for a principal-to-agent relationship (\"is this agent admitted and bound to this principal at all\") MUST be derived from a durable, multi-membership STRUCTURAL store (e.g. an assignment/roster table with no cardinality limit per principal). It MUST NEVER be derived from a single-slot LIVE AUTHORITY store (e.g. a current-delegation/current-session/active-grant table intentionally limited to one active row per principal), because doing so makes eligibility for every OTHER structurally-admitted relationship flicker based on whichever one relationship currently occupies that single slot. The live-authority store remains the correct and ONLY source for a later, per-action authority/mandate decision — the two questions are answered by two different mechanisms, never one.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "A structural/governance-boundary confusion: a single-cardinality live-control mechanism was reused to answer a multi-cardinality structural-membership question, because both mechanisms happened to expose a similarly-shaped 'is X currently true for (principal, target)' boolean. The two are only superficially similar signatures over genuinely different domains (durable structural fact vs. transient exclusive control).",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/financial-services-runtime.test.ts",
+      "assertion": "A structurally assigned consumer with NO current delegation grant is still ELIGIBLE for every Financial Service; discovery's Runtime authority prerequisite reads PENDING (non-blocking) rather than the service being marked ineligible.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/financialServices/eligibility.ts",
+      "defect": "Financial Services eligibility/discovery required `readActiveGrant(personaId)` (delegation_grants, deliberately capped at one active grant per persona) to return a grant matching the exact target agent — so a persona managing several structurally assigned agents could only ever have ONE agent read as eligible at a time, with eligibility flickering based on which agent's grant happened to be currently active rather than on durable admission/assignment facts.",
+      "resolutionId": "RES-2026-08-23-FSVC-DELEGATION-VS-ASSIGNMENT-ELIGIBILITY-001",
+      "evidence": [
+        "services/financialServices/agentEligibilityContext.ts",
+        "services/identity/personaAssignmentStore.ts",
+        "services/delegation/delegationGrantStore.ts",
+        "tests/financial-services-runtime.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-23-FSVC-DELEGATION-VS-ASSIGNMENT-ELIGIBILITY-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This is a specialization of `inv.engineering.036`/`037` (one authoritative location per concern; a parallel implementation is a defect) applied to a subtler case: not a duplicated implementation, but ONE implementation reused across two concerns it was never designed to serve simultaneously.",
+    "The generic shape to watch for elsewhere in this codebase: any 'is currently active' store whose write path explicitly supersedes/replaces a prior row for the same principal (grants, sessions, active-assignment-of-one-kind fields) is a LIVE-AUTHORITY store by construction, and is the wrong source for a multi-membership eligibility/roster question, however convenient its boolean-shaped read looks at a single call site."
+  ]
+}

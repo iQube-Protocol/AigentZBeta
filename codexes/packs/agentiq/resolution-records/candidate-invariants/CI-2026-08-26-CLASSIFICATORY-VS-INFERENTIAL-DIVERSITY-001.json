@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-26-CLASSIFICATORY-VS-INFERENTIAL-DIVERSITY-001",
+  "statement": "Syntactic or classificatory diversity is not equivalent to inferential diversity. A corpus may draw on multiple independent external sources, vary lexically, and span several classification labels while still possessing very little reasoning-bearing structure — so a measure of source count, lexical distance, or type-label spread is not evidence that the corpus can support inference, and must never be substituted for one.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "irl",
+      "research-registry"
+    ],
+    "researchRequired": true,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "AN EMPIRICAL CLAIM ABOUT CORPORA, not a definition, method or governance rule — which is why it stays a candidate. Per this repo's Hypothesis-vs-Canon discipline, a claim about the world that experiments exist to test may not enter the canon as ratified before its evidence exists; doing so would undermine the falsifiability the research programme depends on. Crystal vP1 is ONE observation consistent with it (multiple external sources, lexical variation and classificatory spread, alongside near-zero inferential capacity as measured by conjunction entailment). One observation of a distinction is not the distinction established.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/crystal-instrument-remediation.test.ts",
+      "assertion": "On a 15-statement fixture of bare necessity generalities, the LABEL-DIVERSITY proxy reads 1.0 (every member carries semanticType constraint|law, clearing the retired 20% bar) while `assessInferentialCapacity` reports 0 relational members, 0 entailment chains and an inferential-capacity fraction of 0, and `derivation-headroom` fails. The two measures are asserted in the same test so that any change collapsing them back into one fails the build.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/crystalReadiness.ts — the `derivation-headroom` check",
+      "defect": "The gate read `semanticType ∈ {constraint, law}` OR a logical-connective word and reported the result as evidence that the collection was 'not only atomic assertions'. A corpus of bare 'X is essential for Y' generalities scored 100% on that proxy and passed, while its conjunctions entailed nothing unstated — so the 12 registered derivation tasks and the generative-sufficiency probe had nothing to measure.",
+      "resolutionId": "RES-2026-08-26-CRYSTAL-INSTRUMENT-MEASUREMENT-LAYER-001",
+      "evidence": [
+        "services/research/crystalSemanticStructure.ts",
+        "services/research/crystalReadiness.ts",
+        "tests/crystal-instrument-remediation.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-26-CRYSTAL-INSTRUMENT-MEASUREMENT-LAYER-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "PROMOTION BAR, RECORDED HERE SO A FUTURE AGENT CANNOT PROMOTE THIS EARLY. Operator, verbatim (2026-08-26): 'I would leave \"Syntactic or classificatory diversity is not equivalent to inferential diversity\" at candidate/validated status until we have at least vP1 and vP2 evidence showing the distinction survives a materially improved substrate. That would turn it from a good retrospective observation into something much more defensible.' So: vP1 evidence ALONE is not sufficient, and passing vP2 readiness is not sufficient either. What is required is a measurement on a MATERIALLY IMPROVED substrate (vP2) in which the two measures still come apart — i.e. the distinction is shown to be a real property of corpora rather than an artifact of a weak one.",
+    "A `ratified` or `canonical` status additionally requires a named operator act in `ratifiedSource`, which no agent may supply. `validated` additionally requires two recorded occurrences or demonstrated regression prevention; only one occurrence exists.",
+    "This is the retrospective observation the remediation cycle preserved, and it is deliberately the WEAKEST-status output of that cycle. The three sibling candidates from the same resolution are engineering rules about how gates must be built; this one is a claim about the world, and it carries a higher evidence bar for exactly that reason.",
+    "SCOPE DELIBERATELY RECORDED AS `local`, not cross-capability, even though the rule reads as a general one. The validator's nudge is correct: generality is a claim earned by RECURRENCE across capabilities, and this candidate has one recorded occurrence. Widen the scope when a second, genuinely different capability records an occurrence — never because the sentence sounds general."
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-04",
+  "resolutionId": "RES-2026-09-04-TRACK2-COMPOSITION-COST-001",
+  "capability": "exp-p1-track2-programme-state-composition",
+  "milestone": "EXP-P1 / Track 2 — 'Run until you need me' live-blocking (post classify-provenance N+1 fix, commit 213536298)",
+  "problem": "Earlier the same session, a genuine N+1 in Stage 5's provenance-classification preparation (services/research/provenanceCohortPreparation.ts) was found and batched (commit 213536298), fixing a documented 15s-timeout symptom on classify-provenance specifically. The underlying symptom PERSISTED at the level of the FULL programme-state composition: POST /api/research/programme/EXP-P1/advance ('Run until you need me') reported 'programme state composition exceeded its 15000ms safety budget... Nothing was written and no act was attempted', and a retry returned a bare HTTP 504 with an empty body. The earlier fix removed one real cost driver but was not the dominant one for the FULL loadTrack2ProgrammeState composition (as opposed to the narrower classify-provenance cohort-preparation read alone).",
+  "observedFailure": [
+    "loadTrack2ProgrammeState (services/research/researchProgrammeOrchestrator.ts) times only two phases: 'readiness' (the top-level runCrystalReadinessReport call) and one lumped 'programme-state-derivation' bucket covering everything else. This granularity was insufficient to identify which of the function's several substrate reads actually dominated cost — the coordinator's own diagnostic request named this explicitly as a required fix ('add finer-grained phase breakdowns if the existing ones aren't granular enough').",
+    "resolveFrozenPredecessorContext (services/research/crystalCohortMembership.ts) is called unconditionally, in parallel, on EVERY loadTrack2ProgrammeState read, to recover the frozen predecessor generation's member ids (needed for successor-scoping every downstream count). It did so by calling buildFrozenCrystalManifest (services/research/crystalFrozenManifest.ts) in FULL mode and using only ONE field of its return value (recoveredInvariants) — discarding knownLimitations and derivedTopology entirely.",
+    "buildFrozenCrystalManifest's full-mode knownLimitations computation calls runCrystalReadinessReport directly, THEN separately calls runCrystalStatisticsReport — which itself calls runCrystalReadinessReport AGAIN internally (services/research/crystalStatistics.ts, confirmed by reading the function body: 'const readiness: CrystalReadinessReport = await runCrystalReadinessReport(...)' inside runCrystalStatisticsReport). Its derivedTopology computation performs a further, separate fetchIntraCrystalEdges call.",
+    "Net effect: a single loadTrack2ProgrammeState call computed the crystal's readiness report (each computation carrying its own O(n^2) duplicate-detection and inferential-capacity passes plus an intra-crystal edge fetch) THREE TIMES over the identical frozen-predecessor domain -- once directly at the top of loadTrack2ProgrammeState (the one already-timed 'readiness' phase, genuinely needed), and TWICE MORE, wastefully, inside resolveFrozenPredecessorContext's call chain, for a caller that reads none of the discarded results -- plus a further, separate edge fetch for the also-discarded derivedTopology. Traced by direct code reading (crystalFrozenManifest.ts lines ~382-397 pre-fix, crystalStatistics.ts line ~181) and confirmed via unit-test call-count instrumentation (see canaries) rather than a live 15s reproduction: no SUPABASE_SERVICE_ROLE_KEY is available in this sandbox, so a live authenticated re-test of the actual wall-clock reduction against production-scale data could not be performed from this session -- see rejectedApproaches for why a purely local, RLS-limited profiling attempt was inconclusive on timing alone."
+  ],
+  "rootCauses": [
+    "A general-purpose, EXTERNAL-REVIEW-shaped function (buildFrozenCrystalManifest -- built for a human reviewer reading a frozen crystal's full detail, including its known limitations and relationship topology) was reused, at FULL fidelity, by a lightweight internal caller (resolveFrozenPredecessorContext) that needed only its cheapest field (recoveredInvariants, the hash-verified membership list). No bounded-projection mode existed for the membership-only use case, so every caller paid for the full analytical payload regardless of whether it read the result.",
+    "crystalStatistics.ts's runCrystalStatisticsReport independently recomputes runCrystalReadinessReport internally rather than accepting a caller-supplied readiness report, so any caller needing both (as buildFrozenCrystalManifest's knownLimitations block does) pays for readiness twice by construction -- a second, narrower instance of the same 'recompute rather than reuse' root cause, not fixed in this pass (see rejectedApproaches) but named here for a future pass.",
+    "The composition's OWN phase-timing instrumentation (added 2026-08-30 for the 'empty 504' repair) was coarse enough (2 buckets) to make this specific redundancy invisible in its own forensic log -- a slow run's timing snapshot could name 'programme-state-derivation: 4200ms' without naming which of its several sub-reads produced that number."
+  ],
+  "resolution": [
+    "buildFrozenCrystalManifest (services/research/crystalFrozenManifest.ts) gained an optional `scope: 'full' | 'membership-only'` input, defaulting to 'full' -- the EXACT same bounded-projection discipline crystalReadiness.ts's own `scope: 'full' | 'acquisition-gate'` already established for the identical class of problem (its own header names the precedent: 'the dominant reason a recomposition at Crystal v2's now-larger corpus size can exceed a 15s request budget'). 'membership-only' skips the knownLimitations block (readiness + statistics, i.e. the two wasted extra readiness computations) and the derivedTopology edge fetch entirely; the hash-verification machinery, `members`, and `legacyContentVerification` are computed IDENTICALLY in both scopes, by the same code. The manifest's own `scope` field is returned so nothing downstream can mistake a bounded projection for the full picture.",
+    "resolveFrozenPredecessorContext (services/research/crystalCohortMembership.ts) now passes `scope: 'membership-only'` -- it only ever read `manifest.recoveredInvariants`, so this is a pure removal of discarded work with no behavioural change to any field it returns.",
+    "Verified query-count reduction (unit test, mocked substrate): 'full' scope makes 4 listInvariants + >=2 listEdgesForInvariants round trips for one manifest build (manifest's own read, readiness's own read+edge-fetch, statistics' internal readiness read+edge-fetch, statistics' own re-fetch, derivedTopology's own edge-fetch); 'membership-only' makes exactly 1 listInvariants + 0 listEdgesForInvariants -- the one read the hash-verification genuinely needs. Combined with loadTrack2ProgrammeState's own top-level readiness call, this reduces the frozen-predecessor-context area of one full programme-state composition from ~9 sequential-ish substrate round trips to ~3.",
+    "loadTrack2ProgrammeState gained a `phase()` helper and now times SIX further sub-phases beyond the pre-existing 'readiness' bucket: parallel-signals, cohort-reconciliation, provenance-triage, acquisition-pending-decision, review-promote-queue, admission-queue -- additive only (input.timer stays optional; every phase falls through to a plain call when absent, so the untimed GET route and every existing test are unaffected). The next timeout's forensic log (advanceResearchProgramme's orphaned-read .then, unchanged) now names which specific sub-composition was slow instead of one lumped 'programme-state-derivation' number.",
+    "A separate, pre-existing (zero-live-impact today, verified via Supabase project bsjhfvctmduxhohtllly: promoted_invariant_id IS NULL count = 0 for the current cohort) but structurally identical N+1 was also found and fixed in the same review pass: populationReconciliation.ts's reconcilePromotedCohort ran one findDuplicates call (a fresh up-to-500-row domain scan) PER candidate missing a promoted_invariant_id, sequentially in a for-loop -- the exact same shape the classify-provenance fix (commit 213536298) removed from provenanceCohortPreparation.ts. Replaced with batchFindExactStatementMatches: one listInvariants read per DISTINCT namespace across the whole batch, computed once, then a local (in-memory) exact-match test per candidate."
+  ],
+  "rejectedApproaches": [
+    "Raising the 15000ms STATE_COMPOSITION_DEADLINE_MS safety budget -- explicitly forbidden by the operator; would hide the cost rather than remove it, and Lambda/API Gateway's own request ceiling would eventually re-surface the same failure as an even less diagnosable timeout.",
+    "Adding a retry/backoff around the 504 -- would mask the redundant-computation defect probabilistically (a lucky fast run passes, an unlucky one still fails) rather than close it, the same rejected-approach reasoning RES-2026-09-01-TRACK2-FAIL-SOFT-SWALLOWED-001 already recorded for a different Track 2 symptom.",
+    "Persisting a checkpoint/cache table for the frozen-predecessor manifest, per the coordinator's suggested 'reuse durable cohorts' strategy -- considered, but rejected for THIS specific redundancy: the wasted computation (knownLimitations, derivedTopology) was never read by the caller at all, so the correct fix is to stop computing it, not to compute it once and cache it. A cache would add migration risk, staleness-invalidation logic, and operational surface for work that should simply not run. The 'reuse durable cohorts' strategy remains correct and already-applied elsewhere in this exact area (the provenance-cohort route's own cohort-hash-bound preparation, referenced by the coordinator) -- it was not the right tool for this particular defect.",
+    "Also giving runCrystalStatisticsReport an optional caller-supplied readiness report (removing its OWN internal double-computation of readiness, which affects every 'full'-scope caller of buildFrozenCrystalManifest, not only resolveFrozenPredecessorContext) -- a real, related opportunity (named in rootCauses), but deferred: it touches a shared function consumed by multiple external-review-facing routes (instrument-falsification, the Validation Programme agent-package route) outside this session's verified scope, and the resolveFrozenPredecessorContext fix alone already removes the dominant, provably-wasted cost from the live-blocking hot path. Flagged here rather than attempted under time pressure with unverified downstream impact.",
+    "A live, credentialed 10-consecutive-call timing verification against the deployed GET /api/research/track2/EXP-P1 endpoint, as the coordinator's acceptance criteria requested -- could not be performed from this session: no SUPABASE_SERVICE_ROLE_KEY is available locally (only the anon key, which RLS blocks from reading discovery_candidates/invariants meaningfully), and no authenticated admin persona session exists to call the route over HTTP. This is the same credential wall named in this session's own dispatch for a separate task (validating 2 stray invariants). Local profiling via direct function calls against the live Supabase project (using the anon key) was attempted and is reported, but returned RLS-empty results for the tables that matter, so it could only confirm round-trip latency shape, not real-data-volume timing. The query-count reduction is verified deterministically (unit tests, mocked substrate); the real-data wall-clock improvement needs a follow-up verification from a session or environment with genuine service-role or authenticated-admin access."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-04-BOUNDED-PROJECTION-FOR-DISCARDED-FIELDS-001"
+  ],
+  "canaries": [
+    "tests/crystal-frozen-manifest.test.ts",
+    "tests/crystal-cohort-membership.test.ts",
+    "tests/population-reconciliation.test.ts",
+    "tests/pipeline-continuity.test.ts",
+    "tests/research-programme-orchestrator.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "defect-recurred",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/crystal-frozen-manifest.test.ts",
+      "tests/crystal-cohort-membership.test.ts",
+      "tests/population-reconciliation.test.ts",
+      "tests/pipeline-continuity.test.ts",
+      "tests/research-programme-orchestrator.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "Coordinator-relayed operator report, 2026-09-04: 'Run until you need me' against EXP-P1 returns 'programme state composition exceeded its 15000ms safety budget... Nothing was written and no act was attempted', retry returns HTTP 504 with empty body.",
+      "Supabase project bsjhfvctmduxhohtllly, read-only diagnostic query, 2026-09-04: research_objects WHERE object_id LIKE 'EXP-P1/%' -- exactly one row, 'EXP-P1/crystal-vP1', lifecycle_state 'frozen' (confirms resolveFrozenPredecessorContext's manifest-build branch is live/reachable on every read, not a dead code path)."
+    ]
+  },
+  "sourceDocs": [],
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  }
+}

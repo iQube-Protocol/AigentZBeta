@@ -38,10 +38,117 @@ async function resolveCodex(codexId: string): Promise<CodexConfig | undefined> {
   );
 }
 
+type RegistryTab = CodexConfig['tabs'][number];
+
+/**
+ * Union-merge static (CODEX_DEFINITIONS) tabs with DB (codex_tabs) rows.
+ *
+ * The hand-written configs are canonical — they carry static component tabs
+ * (e.g. FactoryIntabeTab, AgentiqCartridgeTab, InvariantRegistryTab) that
+ * packs and DB rows cannot express — so static is the source of truth for
+ * structure/config; DB rows supply only the enabled-state override (matching
+ * the KNYT branch's `enabled: enabledBySlug[...] ?? tab.enabled` pattern).
+ * Genuinely DB-authored tabs (slug not present in the static set — e.g. tabs
+ * added via the Codex Manager) are appended.
+ *
+ * This fixes the prior `dbTabs.length > 0 ? dbTabs : static` logic, which let
+ * a stale DB tab set REPLACE the static set wholesale — so newly-added static
+ * tabs never appeared once any codex_tabs row existed for the cartridge.
+ * When there are no static tabs (a purely DB/pack cartridge) it returns the
+ * DB tabs unchanged, so behaviour is a strict no-op in that case.
+ */
+function mergeStaticAndDbTabs(staticTabs: RegistryTab[], dbTabs: RegistryTab[]): RegistryTab[] {
+  if (!staticTabs || staticTabs.length === 0) return dbTabs;
+  const dbBySlug = new Map(dbTabs.map((t) => [t.slug, t]));
+  const staticSlugs = new Set(staticTabs.map((t) => t.slug));
+  const merged: RegistryTab[] = staticTabs.map((tab) => {
+    const dbRow = dbBySlug.get(tab.slug);
+    return dbRow ? { ...tab, enabled: dbRow.enabled } : tab;
+  });
+  for (const dbRow of dbTabs) {
+    if (!staticSlugs.has(dbRow.slug)) merged.push(dbRow);
+  }
+  return merged;
+}
+
 export const dynamic = 'force-dynamic';
 
 interface RouteContext {
-  params: { codexId: string };
+  params: Promise<{ codexId: string }>;
+}
+
+/**
+ * Personal-cartridge isolation gate for the detail route.
+ *
+ * Mirrors the registry list route's owner_persona_id discriminator
+ * (codexes/packs/agentiq/updates/2026-06-02_mycartridge-personal-system-isolation-fix.md).
+ *
+ * Returns true when the caller is allowed to see this row:
+ *   - The row is a system cartridge (owner_persona_id IS NULL), OR
+ *   - The caller is the owner persona of a personal cartridge, OR
+ *   - The caller is a platform-tier admin (cartridgeFlags.isAdmin) OR
+ *     has the cartridge in their adminCartridges grants, OR
+ *   - The caller holds a non-owner role on the cartridge per
+ *     cartridge_memberships (Phase 4b projection).
+ *
+ * Personal rows that fail the check produce a 404 (not 403) so the
+ * detail route doesn't leak the existence of the row to enumeration.
+ */
+async function personalConfigVisibleToCaller(
+  request: NextRequest,
+  config: { owner_persona_id?: string | null; slug?: string },
+): Promise<{ visible: boolean; callerPersonaId: string | null }> {
+  if (!config.owner_persona_id) {
+    // System row — caller does not need to be resolved for visibility.
+    return { visible: true, callerPersonaId: null };
+  }
+  try {
+    const { getActivePersona } = await import('@/services/identity/getActivePersona');
+    const persona = await getActivePersona(request);
+    if (!persona) return { visible: false, callerPersonaId: null };
+    const callerPersonaId = persona.personaId;
+    if (callerPersonaId === config.owner_persona_id) {
+      return { visible: true, callerPersonaId };
+    }
+    const flags = persona.cartridgeFlags;
+    if (flags.isAdmin) return { visible: true, callerPersonaId };
+    if (config.slug && Array.isArray(flags.adminCartridges) && flags.adminCartridges.includes(config.slug)) {
+      return { visible: true, callerPersonaId };
+    }
+    if (config.slug) {
+      const role = flags.cartridgeMemberships?.[config.slug];
+      if (role) return { visible: true, callerPersonaId };
+    }
+    return { visible: false, callerPersonaId };
+  } catch {
+    return { visible: false, callerPersonaId: null }; // fail-closed
+  }
+}
+
+/**
+ * Owner-field redaction. The legacy `codex_configs.owner` text column
+ * stores the persona id for wizard-created rows (a T0 leak through the
+ * legacy NOT NULL column). When emitting a list-item or full config to
+ * the API boundary, replace this with a display token so the caller
+ * never sees the underlying persona id of a personal cartridge they
+ * don't own.
+ *
+ * System cartridges (owner_persona_id IS NULL) carry display strings
+ * like "aigent-z" or "iqube-protocol" in `owner`; those pass through
+ * unredacted.
+ */
+function redactOwnerField(
+  rawOwner: string | null | undefined,
+  ownerPersonaId: string | null | undefined,
+  callerPersonaId: string | null,
+): string {
+  if (!ownerPersonaId) return rawOwner ?? ''; // system row
+  if (callerPersonaId && callerPersonaId === ownerPersonaId) {
+    return rawOwner ?? ''; // owner sees their own — fine
+  }
+  // Visible to a non-owner (admin / member). Surface a short display
+  // token, not the canonical persona id.
+  return `persona-${String(ownerPersonaId).slice(0, 8)}`;
 }
 
 function withKnytStaticTabs(codex: CodexConfig): CodexConfig {
@@ -69,7 +176,8 @@ function withKnytStaticTabs(codex: CodexConfig): CodexConfig {
  * GET /api/codex/registry/[codexId]
  * Get complete codex configuration including tabs
  */
-export async function GET(request: NextRequest, { params }: RouteContext) {
+export async function GET(request: NextRequest, props: RouteContext) {
+  const params = await props.params;
   try {
     const { codexId } = params;
     const searchParams = request.nextUrl.searchParams;
@@ -126,6 +234,22 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
           .single();
 
         if (config) {
+          // Personal-cartridge isolation gate (2026-06-02). If this row is
+          // a personal cartridge and the caller is neither the owner nor an
+          // admin/member, return 404 rather than leaking the config or its
+          // existence.
+          const visibility = await personalConfigVisibleToCaller(request, config);
+          if (!visibility.visible) {
+            return NextResponse.json<CodexRegistryResponse>(
+              { success: false, error: 'Codex not found' },
+              { status: 404 },
+            );
+          }
+          const redactedOwnerDefaults = redactOwnerField(
+            config.owner,
+            config.owner_persona_id,
+            visibility.callerPersonaId,
+          );
           // CODEX_DEFINITIONS takes priority over auto-generated pack configs — hand-written
           // configs are canonical and include static component tabs that packs can't express.
           const fallbackCodex = await resolveCodex(codexId);
@@ -154,7 +278,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
             metadata: t.metadata
           }));
 
-          const mergedTabs = dbTabs.length > 0 ? dbTabs : (fallbackCodex?.tabs ?? []);
+          const mergedTabs = mergeStaticAndDbTabs(fallbackCodex?.tabs ?? [], dbTabs);
 
           const codex: CodexConfig = {
             id: config.id,
@@ -162,7 +286,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
             slug: config.slug,
             enabled: config.enabled,
             version: config.version,
-            owner: config.owner,
+            owner: redactedOwnerDefaults,
             metadata: config.metadata,
             tabs: mergedTabs,
             permissions: config.permissions,
@@ -202,6 +326,20 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       .eq('id', codexId)
       .single();
 
+    // Personal-cartridge isolation gate (2026-06-02) — same as the
+    // defaults path above. Personal rows resolve via the spine; only
+    // owners + admins + members see them. Otherwise 404 (don't leak
+    // existence).
+    const visibilityDirect = config
+      ? await personalConfigVisibleToCaller(request, config)
+      : { visible: true, callerPersonaId: null as string | null };
+    if (config && !visibilityDirect.visible) {
+      return NextResponse.json<CodexRegistryResponse>(
+        { success: false, error: 'Codex not found' },
+        { status: 404 },
+      );
+    }
+
     if (configError || !config) {
       const fallbackCodex = await resolveCodex(codexId);
       if (fallbackCodex) {
@@ -231,24 +369,34 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       }, { status: 500 });
     }
 
+    const dbTabsDirect: RegistryTab[] = (tabs || []).map(t => ({
+      id: t.id,
+      label: t.label,
+      slug: t.slug,
+      enabled: t.enabled,
+      order: t.order,
+      type: t.type,
+      config: t.config,
+      metadata: t.metadata
+    }));
+    // Static CODEX_DEFINITIONS tabs are canonical (carry component configs the
+    // DB can't express); DB rows override enabled-state + append DB-only tabs.
+    const fallbackDirect = await resolveCodex(codexId);
+    const mergedTabsDirect = mergeStaticAndDbTabs(fallbackDirect?.tabs ?? [], dbTabsDirect);
+
     const codex: CodexConfig = {
       id: config.id,
       name: config.name,
       slug: config.slug,
       enabled: config.enabled,
       version: config.version,
-      owner: config.owner,
+      owner: redactOwnerField(
+        config.owner,
+        config.owner_persona_id,
+        visibilityDirect.callerPersonaId,
+      ),
       metadata: config.metadata,
-      tabs: (tabs || []).map(t => ({
-        id: t.id,
-        label: t.label,
-        slug: t.slug,
-        enabled: t.enabled,
-        order: t.order,
-        type: t.type,
-        config: t.config,
-        metadata: t.metadata
-      })),
+      tabs: mergedTabsDirect,
       permissions: config.permissions,
       liquidUI: config.liquid_ui,
       createdAt: config.created_at,
@@ -273,7 +421,8 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
  * PUT /api/codex/registry/[codexId]
  * Update codex configuration
  */
-export async function PUT(request: NextRequest, { params }: RouteContext) {
+export async function PUT(request: NextRequest, props: RouteContext) {
+  const params = await props.params;
   try {
     const { codexId } = params;
     const body: UpdateCodexRequest = await request.json();
@@ -380,7 +529,8 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
  * PATCH /api/codex/registry/[codexId]
  * Partial update - primarily for enable/disable
  */
-export async function PATCH(request: NextRequest, { params }: RouteContext) {
+export async function PATCH(request: NextRequest, props: RouteContext) {
+  const params = await props.params;
   try {
     const { codexId } = params;
     const body = await request.json();
@@ -435,7 +585,8 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
  * DELETE /api/codex/registry/[codexId]
  * Delete codex and all its tabs
  */
-export async function DELETE(request: NextRequest, { params }: RouteContext) {
+export async function DELETE(request: NextRequest, props: RouteContext) {
+  const params = await props.params;
   try {
     const { codexId } = params;
 

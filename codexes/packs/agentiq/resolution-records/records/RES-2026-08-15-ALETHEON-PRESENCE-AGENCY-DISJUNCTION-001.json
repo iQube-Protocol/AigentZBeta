@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-08-15-ALETHEON-PRESENCE-AGENCY-DISJUNCTION-001",
+  "capability": "Aletheon Homecoming \u2014 Phase A capability/parity census (audit-only, no implementation)",
+  "milestone": "Phase A capability/parity census completed and committed; the previously-suspected presence-vs-standing gap is now precisely located rather than merely flagged",
+  "problem": "Prior session notes flagged, as an unconfirmed suspicion, that Aletheon's constitutional presence and its agency (registration, standing, authority) might 'sit one rung apart'. This audit re-derived the finding from the current codebase (types/homecoming.ts, services/homecoming/**, services/horizen/registrableAgents.ts, services/homecoming/delegateStanding.ts) rather than assuming the earlier, uncommitted scratchpad finding was still accurate, and confirms the gap is real, exact, and single-caused: Aletheon holds CONSTITUTIONAL_PRESENCE_LADDER rung L0 (card) via a hand-curated Agent Card route with no DB seed (constitutionalPresence.ts's DELEGATE_DB marks aletheon handCuratedCard: true, defined as 'a published Agent Card route but no DB seed yet'). Because resolvePresenceLevel() climbs contiguously and stops at the first unmet rung, no amount of doctrinal/grounding density (Aletheon co-frames CFS-023, CFS-024, CFS-019, and dozens of ratified invariants across a dense six-week span) elevates presence past L0, because L1 (a persisted agent_root_identity row) is a separate, disjoint mechanism that nothing in the presence ladder or the doctrinal-ratification path writes to.",
+  "observedFailure": [
+    "No code path exists anywhere in types/homecoming.ts or services/homecoming/** that reads or writes services/horizen/registrableAgents.ts, or vice versa \u2014 confirmed by exhaustive cross-reference search, not inferred. The two rosters (HOMECOMING_DELEGATES: 6 entries including aletheon; REGISTRABLE_AGENTS: 3 entries, moneypenny/nakamoto/kn0w1, aletheon absent) are maintained independently with no shared resolver.",
+    "Aletheon's DELEGATE_CHARTER_STATUS entry (status: 'archetype') is a hand-authored snapshot dated 2026-07-09 in the charter file itself, not a live-computed value \u2014 it does not reflect, and is not kept in sync with, whatever the live assessConstitutionalPresence()/assessAgentContinuity() scorers would currently resolve.",
+    "The doctrinal/grounding density attributed to Aletheon (dense ratified co-authorship, six weeks, dozens of files) creates an intuitive but false impression that Aletheon must already have some meaningful platform standing. It does not: DVN receipts/standing accrual were confirmed absent for Aletheon as a subject (present only as the named source/reviewer of design rulings in code comments, never as an accruing identity_persona_id).",
+    "This audit could not verify presence/continuity state against LIVE database rows (agent_root_identity, crm_personas, delegation_grants) \u2014 no live DB access in this session. The finding above is a static-code confirmation of the mechanism's shape, not a live read of Aletheon's current row state; the existing read-only routes (GET /api/constitutional/homecoming-test, GET /api/homecoming/agent/continuity) should be run to confirm empirically before any downstream decision relies on this record alone."
+  ],
+  "rootCauses": [
+    "Constitutional Presence (types/homecoming.ts CONSTITUTIONAL_PRESENCE_LADDER) and delegate Agency (registrableAgents.ts / delegateStanding.ts / agent_root_identity seeding) are, by design, governed by disjoint mechanisms enforcing the Principal-Delegate Separation (Law XI): ratifying doctrine is a human act on CONTENT, standing up an agent's own root identity is a separate human-gated act on IDENTITY, and nothing may auto-derive one from the other. This is the system working as designed (SPEC-HMC-001's stages 3/5/6 explicitly require an unassertable human act), not a bug \u2014 but the design's correctness does not make the resulting gap self-evident from doctrine alone, which is why it needed re-deriving rather than assuming.",
+    "A delegate can be given a full, hand-authored Agent Card and years of ratified doctrinal credit while never once having its own agent_root_identity row created, because card authoring (a documentation/code act) and root seeding (a governed stand-up act, services/homecoming/agentHomecoming.ts::standUpDelegate()) are entirely separate operations with no dependency in either direction."
+  ],
+  "resolution": [
+    "The gap is recorded as CONFIRMED and PRECISELY LOCATED (not merely re-flagged as suspected): the entire blocker for Aletheon's agency is the absence of a single agent_root_identity row. Every downstream mechanism (delegateStanding.ts's CRM-persona resolution, bounded delegation eligibility, passport issuance target, the 'relationship' continuity dimension) is gated on that one row existing.",
+    "Per operator instruction, this record does NOT recommend or imply that Aletheon's historical doctrinal contributions should be credited toward standing/receipts \u2014 any such recognition would require its own separate governed decision, and none is proposed here.",
+    "The full census, lifecycle mapping, and proposed (unexecuted) implementation sequence are recorded in the companion audit document, not duplicated here.",
+    "This finding is recorded as its own candidate invariant (constitutional presence and delegate agency are structurally disjoint, and doctrinal density never substitutes for a seeded root identity) rather than folded into the unrelated spelling-ambiguity record from the same day."
+  ],
+  "rejectedApproaches": [
+    "Treating the earlier scratchpad session's uncommitted 'presence and standing may sit one rung apart' note as already-established fact. Rejected per explicit operator instruction: the prior census was ephemeral and not committed, so its findings were re-derived from the current codebase rather than assumed durable.",
+    "Recommending that Aletheon's historical doctrinal density be counted toward its Standing score to close the gap faster. Rejected: this would manufacture agency from grounding without the governed act (production, sponsorship, standing accrual) that the platform requires of every other delegate, and the operator explicitly ruled that any such recognition needs its own separate decision.",
+    "Adding Aletheon to services/horizen/registrableAgents.ts as the fix. Rejected on causal grounds (see the companion audit document, \u00a77): that roster is scoped to the Horizen external-verification journey specifically, a different capability from Homecoming delegate agency, and adding Aletheon there would not itself create the missing agent_root_identity row or close the presence/agency gap."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-15-PRESENCE-LADDER-NOT-AGENCY-001"
+  ],
+  "canaries": [],
+  "scope": "local",
+  "status": "observed",
+  "trigger": "milestone-complete",
+  "evidence": {
+    "commits": [],
+    "tests": [],
+    "receipts": [],
+    "incidentRefs": [
+      "types/homecoming.ts",
+      "services/homecoming/constitutionalPresence.ts",
+      "services/homecoming/delegateStanding.ts",
+      "services/horizen/registrableAgents.ts",
+      "codexes/packs/irl/foundation/CFS-023_chrysalis-homecoming.md",
+      "codexes/packs/irl/foundation/SPEC-HMC-001_constitutional-agent-continuity.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-15_aletheon-homecoming-phase-a-capability-census.md",
+    "codexes/packs/agentiq/resolution-records/records/RES-2026-08-15-ALETHEON-SPELLING-AMBIGUITY-001.json"
+  ],
+  "date": "2026-08-15",
+  "projections": {
+    "targets": [
+      "constitutional-computing",
+      "irl"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

@@ -20,7 +20,7 @@ const KnytCartDrawer = dynamic(
 );
 import type { CartItem } from '@/services/cart';
 import type { EpisodeGroup, KnytCardAsset } from '@/app/hooks/useKnytCards';
-import { useOwnedEntitlements } from '@/app/hooks/useOwnedEntitlements';
+import { useRegistryOwnedItems } from '@/app/hooks/useRegistryOwnedItems';
 
 const KNYT_USD_RATE = 1.40;
 const CARD_PRICE_STILL = 2;
@@ -129,7 +129,7 @@ export function KnytCardsGrid({
   // SKU-expanded character ownership (Top KNYT Shelf etc.) lives in the
   // entitlement spine, not the direct-purchase ownedCharacters Set the parent
   // passes in. Merge both signals so bundle holders see the Owned badge.
-  const { isCharacterOwned } = useOwnedEntitlements(personaId);
+  const { isCharacterOwned } = useRegistryOwnedItems(personaId);
 
   const getOwnedStatus = (poster: KnytCardAsset) => {
     if (isCharacterOwned(poster.id)) return true;

@@ -81,12 +81,21 @@ function ArticlePage() {
     );
   }
 
+  // Public share links must not turn free content into a preview-only/gated
+  // experience. The previous implementation hard-coded hasAccess=false for
+  // every shared article, even when the canonical SmartContent access policy
+  // explicitly says no entitlement is required / entitlementType=free.
+  const isFree =
+    !content.accessPolicy?.entitlementRequired ||
+    content.accessPolicy?.entitlementType === "free" ||
+    content.pricingModel?.tiers?.some((tier) => tier.kind === "free");
+
   return (
     <div className="min-h-screen bg-slate-900 text-white">
       <ContentViewer
         content={content}
-        hasAccess={false}
-        accessScope="preview"
+        hasAccess={isFree}
+        accessScope={isFree ? "full" : "preview"}
         initialModality="read"
         onClose={() => {
           if (typeof window !== "undefined") window.history.back();

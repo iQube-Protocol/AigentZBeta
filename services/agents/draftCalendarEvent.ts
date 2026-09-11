@@ -16,6 +16,7 @@
  */
 
 import type { ExperienceQubeMeta } from '@/services/iqube/experienceQube';
+import { callDraftLlm } from './_lib/llmDraftHelper';
 
 export interface DraftCalendarContext {
   experience?: Pick<
@@ -148,7 +149,7 @@ export async function draftCalendarEvent(input: DraftCalendarInput): Promise<Dra
     };
   }
 
-  const raw = await callOpenAi(SYSTEM_PROMPT, userPrompt({ ...input, prompt }));
+  const raw = await callDraftLlm(SYSTEM_PROMPT, userPrompt({ ...input, prompt }), 800);
   if (raw) {
     try {
       const parsed = JSON.parse(raw) as Partial<DraftCalendarOutput>;

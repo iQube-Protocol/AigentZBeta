@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-05-MEMBERSHIP-RECOVERY-MUST-BOUND-GENERATION-001",
+  "statement": "A membership-recovery read that reconstructs 'the set of members belonging to an already-frozen or historical generation' from a live, generation-blind table (no version/generation column, and no time boundary the code actually applies) must never be trusted as that generation's membership once new members can be written into the same table after the freeze. The read must be bounded by an explicit, verified generation/cohort marker — never merely 'whatever the shared table currently contains, filtered only by domain' — or it will silently re-absorb every subsequently-assigned member as if it were part of the original frozen snapshot.",
+  "family": "engineering",
+  "classification": null,
+  "parentCandidateId": null,
+  "governingPrinciple": false,
+  "scope": "local",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-09-05-TRACK2-MEMBERSHIP-RECOVERY-GENERATION-BLIND-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/crystalCohortMembership.ts — resolveFrozenPredecessorContext / isSuccessorScopedCandidate (the ONE shared resolver researchProgrammeOrchestrator.ts's loadTrack2ProgrammeState Stage 3/4/6/7 counts, the review-and-promote queue, and every other route resolveSuccessorConstructionCohort serves all read through)",
+      "defect": "`recoveredInvariants` (crystalFrozenManifest.ts's domain-scoped, status-unfiltered, time-unbounded `listInvariants({domain: crystalDomain})` read) was treated as 'the frozen predecessor generation's membership' with no generation boundary applied. The moment 53 new successor members were assigned into the same `financial-risk-value-systems` domain (Stage 8, 2026-09-05T10:06:41.303889Z, receipt b28284b6-7b26-4362-b89b-c866fa690967), they became indistinguishable, to this read, from the 15-member vP1 predecessor batch assigned 2026-08-04T21:27:49. `isSuccessorScopedCandidate` then excluded all 53 from the successor-scoped cohort, collapsing Track 2's live successor-cohort view from 58 members to 5.",
+      "resolutionId": "RES-2026-09-05-TRACK2-MEMBERSHIP-RECOVERY-GENERATION-BLIND-001",
+      "evidence": [
+        "services/research/crystalFrozenManifest.ts:340-346 (listInvariants({domain, limit}) — no status filter by design, no time/generation filter of any kind)",
+        "services/research/crystalCohortMembership.ts:76-128 (resolveFrozenPredecessorContext / isSuccessorScopedCandidate)",
+        "Supabase project bsjhfvctmduxhohtllly, invariant_contexts joined to invariants, ordered by invariant_contexts.created_at — 15 rows @ 2026-08-04T21:27:49.xxx, 53 rows @ 2026-09-05T10:06:41.303889, 68 total, read-only diagnostic query"
+      ]
+    }
+  ],
+  "canaries": [
+    {
+      "path": "tests/crystal-cohort-membership.test.ts",
+      "assertion": "resolveFrozenPredecessorContext calls listInvariants with BOTH {domain, crystalGenerationId: frozenPredecessor.id} (never domain alone); with a fake substrate holding 15 predecessor (vP1) + 53 successor (vP2) members in the SAME domain, the resolver returns exactly the 15 predecessor ids regardless of the 53 successor rows also present. isSuccessorScopedCandidate then keeps all 53 successor members successor-scoped, and resolveSuccessorConstructionCohort reports all 58 successor candidates (53 promoted + 5 not-yet-promoted) rather than collapsing to 5.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/crystal-generation-identity.test.ts",
+      "assertion": "(a) store.ts's listInvariants applies crystal_generation_id nested inside the domain branch, never globally; upsertContext/mapContextRow round-trip crystal_generation_id verbatim. (b) artifacts.ts's ensureCurrentCrystalGenerationId provisions the current generation's research_objects row exactly once and is idempotent on a second call. (c) evaluateCrystalAssignment (pure, untouched) reproduces the 53-eligible/5-provenance-ineligible-of-58 shape. (d) the Stage 8 assign route resolves the generation once per request, only on a real write, refuses (503) on resolution failure, and stamps every upsertContext call. (e) THE PARITY/CANARY: resolveFrozenPredecessorContext's listInvariants call is regex-anchored to carry crystalGenerationId, and buildFrozenCrystalManifest no longer appears as code (only in prose) in crystalCohortMembership.ts. (f) the migration's exact-count assertions and idempotent re-run guards are present verbatim.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/research-programme-orchestrator.test.ts",
+      "assertion": "loadTrack2ProgrammeState's own frozen-generation-boundary and Stage 3→4 handoff-gap fixtures (now driven by mockListInvariants({crystalGenerationId}) rather than the retired buildFrozenCrystalManifest mock) still correctly exclude vP1-residue promotions from Stage 4's promoted count and still hold the total === awaitingReview + promoted + rejected accounting invariant.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "notes": [
+    "This is the SAME architectural gap already named (not fixed) in codexes/packs/agentiq/updates/2026-09-05_exp-p1-stage8-successor-assignment-and-generation-gap.md's 'Crystal generations are not represented in invariant_contexts' section, one layer downstream: that doc named the gap's effect on Stage 8's own completion signal (`populated = readiness.invariantCount > 0` in services/research/track2Programme.ts). This occurrence is the SAME schema gap producing a second, independently-confirmed symptom in the successor-scope predicate every other Track 2 stage (3, 4, 6, 7) and every relationship-adjudication route shares through crystalCohortMembership.ts. One root cause, two now-confirmed symptoms.",
+    "FIX IMPLEMENTED 2026-09-05, per explicit operator direction (schema-level, option (1) of the two proposed here): `invariant_contexts` gained an explicit `crystal_generation_id text` column (migration supabase/migrations/20260930200000_invariant_contexts_crystal_generation.sql), valued with the ASSIGNING crystal-version artifact's own `research_objects.object_id` (e.g. 'EXP-P1/crystal-vP1') — never a freeform 'v1'/'v2' string, per the operator's own naming guidance. Backfilled mechanically: the 15 rows dated 2026-08-04 -> 'EXP-P1/crystal-vP1'; the 53 rows at the exact 2026-09-05T10:06:41.303889Z assignment timestamp -> 'EXP-P1/crystal-vP2' (also provisioned as a first-class `research_objects` row at `draft` lifecycle in the same migration, mirroring the existing crystal-version artifact model). `services/research/artifacts.ts::ensureCurrentCrystalGenerationId` resolves + idempotently provisions the CURRENT generation for every future Stage 8 assignment (app/api/research/crystal/[experimentId]/assign/route.ts's POST handler), so no future assignment can land untagged. `resolveFrozenPredecessorContext` now reads membership DIRECTLY via `listInvariants({domain, crystalGenerationId: frozenPredecessor.id})` — bounded to the frozen predecessor's own generation, never a re-derivation of 'whatever the domain currently contains'. `crystalFrozenManifest.ts`'s own domain-wide hash-verification read is UNCHANGED — it answers a different question (does the live corpus byte-reproduce the frozen hash) and was deliberately left untouched; legacy freeze semantics (`verifiedAgainstFreeze: false`, `legacyVerificationState: 'scientific-content-verified'` for the historical vP1 freeze) are unaffected by this repair, which touches only membership RECOVERY, never hash verification.",
+    "Occurrence count remains 1 (this defect, one site) — per the resolution-loop ladder, an agent may not raise this candidate to 'validated' on a single occurrence even with a canary now attached (that requires reuse or a second recorded sighting, or a named operator ratification act). Left at 'candidate', with real, OS-9-verified canaries (each confirmed to fail against the pre-fix code via a targeted git-stash re-run before the fix was restored) — evidence attached, promotion deferred to the operator per instruction.",
+    "Regression tests now cover, per the operator's explicit list: 15 predecessor members remaining exactly 15 after the 53-member successor assignment; the 58/53/5 successor-candidate/eligible/provenance-ineligible shape (via evaluateCrystalAssignment, pure and untouched); the successor cohort not collapsing after Stage 8 (58, not 5); and the parity/canary against a future membership read omitting crystalGenerationId. 'Readiness sees the correct currently assigned eligible population' was not given a synthetic unit test — crystalReadiness.ts/crystalDomains.ts are untouched by this repair, and the number is confirmed instead via the live read-only reconciliation this record's authoring session ran immediately after applying the migration."
+  ],
+  "supersededBy": null,
+  "ratifiedSource": null,
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

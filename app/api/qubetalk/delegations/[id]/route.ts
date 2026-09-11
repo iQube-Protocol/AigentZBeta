@@ -4,9 +4,16 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { receiptService } from '@/services/receipts/receiptService';
+import { requireChannelAccess } from '@/app/api/qubetalk/_lib/requireChannelAccess';
 
-// Import the mock storage from parent route
+// NOTE ON THIS ROUTE'S STATE. `delegations` is a module-local Map that nothing
+// ever writes to — the comment claims to "import the mock storage from parent
+// route" but no such import exists, so every GET returns 404. It is inert.
+//
+// It is gated anyway. An inert route that returns delegation CONTENT the moment
+// someone wires the store up is a leak with a commit's delay on it, and the
+// cost of the gate is one line. (CB-1: a mechanism that cannot fire today is
+// not the same as one that is safe.)
 const delegations = new Map();
 
 interface RouteParams {
@@ -16,13 +23,19 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    
+
     if (!id) {
       return NextResponse.json({
         error: 'Delegation ID is required',
         code: 'MISSING_ID'
       }, { status: 400 });
     }
+
+    const gate = await requireChannelAccess(
+      request,
+      new URL(request.url).searchParams.get('tenant_id'),
+    );
+    if (!gate.ok) return gate.response;
 
     const delegation = delegations.get(id);
 

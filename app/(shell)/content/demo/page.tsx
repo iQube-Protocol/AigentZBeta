@@ -153,12 +153,12 @@ export default function ContentDemoPage() {
     let active = true;
     const loadTemplateRegistry = async () => {
       try {
-        const res = await fetch("/api/registry/templates?type=LiquidUITemplateArchetypeQube&limit=50");
+        const res = await fetch("/api/registry/templates?type=DataQube&category=ui_template_archetype&limit=50");
         const json = await res.json();
         let items: IQubeTemplate[] = Array.isArray(json?.data) ? json.data : [];
 
         if (!items.length) {
-          const fallbackRes = await fetch("/api/registry/templates?type=LiquidUITemplateArchetypeQube&limit=50&forceFallback=1");
+          const fallbackRes = await fetch("/api/registry/templates?type=DataQube&category=ui_template_archetype&limit=50&forceFallback=1");
           const fallbackJson = await fallbackRes.json();
           items = Array.isArray(fallbackJson?.data) ? fallbackJson.data : [];
         }

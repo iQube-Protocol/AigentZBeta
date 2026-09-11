@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>metaMe Companion</title>
+    <style>
+      /*
+       * (2026-07-23) Hosted via chrome.sidePanel (manifest.json's
+       * side_panel.default_path), opened from popup.js's manageBtn handler
+       * via chrome.sidePanel.open({ windowId }). A floating popup-window
+       * variant was tried in between and reverted the same day — it read as
+       * "a popup" rather than an integrated panel. Accepted trade-off,
+       * unchanged from the original discussion: the side panel docks into
+       * the browser window and reflows/pushes the host page's viewport to
+       * make room for it — that's inherent to chrome.sidePanel, not a bug.
+       *
+       * This page's only job is to iframe the real Companion page
+       * (dev-beta.aigentz.me/triad/embed/companion — see
+       * app/(embed)/triad/embed/companion/page.tsx). chrome.sidePanel can't
+       * point `url:` at an external https:// origin directly in a way that
+       * keeps the CSP frame-ancestors allowlist narrow, so this local
+       * extension document (chrome-extension://<pinned-id>/sidepanel.html,
+       * already the one origin allowlisted in
+       * configs/embed/policy.v1.json) is the iframe host.
+       */
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #020617;
+      }
+      iframe {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      allow="clipboard-write" is required: this iframe is cross-origin
+      (chrome-extension://<id> parent, https://dev-beta.aigentz.me child),
+      and browsers deny navigator.clipboard.writeText() by default inside a
+      cross-origin iframe unless the parent explicitly grants it here. Every
+      "copy" button rendered inside the Companion (persona UUID included,
+      app/components/identity/PersonaReferencesInventory.tsx's CopyButton)
+      was silently failing without this — operator report, 2026-07-24: copy
+      worked from the main app (no iframe boundary) but not from Companion.
+    -->
+    <iframe id="companionFrame" title="metaMe Companion" allow="clipboard-write"></iframe>
+    <script src="constants.js"></script>
+    <script src="sidepanel.js"></script>
+  </body>
+</html>

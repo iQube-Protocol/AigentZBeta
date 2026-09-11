@@ -48,7 +48,7 @@ function seed(): IQubeTemplate[] {
       name: 'LiquidUI Drawer Grid (Catalog)',
       description: 'Catalog or gallery grid with drawer framing.',
       createdAt: '2026-01-28T00:00:00Z',
-      iQubeType: 'LiquidUITemplateArchetypeQube',
+      iQubeType: 'DataQube',
       iQubeInstanceType: 'template',
       businessModel: 'License',
       sensitivityScore: 0,
@@ -66,7 +66,7 @@ function seed(): IQubeTemplate[] {
       name: 'LiquidUI Drawer Grid 1A (Feed Stream)',
       description: 'Feed-focused grid layout with a strong hero emphasis.',
       createdAt: '2026-01-28T00:00:00Z',
-      iQubeType: 'LiquidUITemplateArchetypeQube',
+      iQubeType: 'DataQube',
       iQubeInstanceType: 'template',
       businessModel: 'License',
       sensitivityScore: 0,
@@ -84,7 +84,7 @@ function seed(): IQubeTemplate[] {
       name: 'LiquidUI Drawer Grid 1B (Search Results)',
       description: 'Search results grid with tighter density.',
       createdAt: '2026-01-28T00:00:00Z',
-      iQubeType: 'LiquidUITemplateArchetypeQube',
+      iQubeType: 'DataQube',
       iQubeInstanceType: 'template',
       businessModel: 'License',
       sensitivityScore: 0,
@@ -102,7 +102,7 @@ function seed(): IQubeTemplate[] {
       name: 'LiquidUI Drawer Grid 1C (Compare)',
       description: 'Featured comparison grid with a decision focus.',
       createdAt: '2026-01-28T00:00:00Z',
-      iQubeType: 'LiquidUITemplateArchetypeQube',
+      iQubeType: 'DataQube',
       iQubeInstanceType: 'template',
       businessModel: 'License',
       sensitivityScore: 0,
@@ -120,7 +120,7 @@ function seed(): IQubeTemplate[] {
       name: 'LiquidUI Drawer Grid 2A (Dashboard)',
       description: 'Dashboard grid with KPIs and featured highlights.',
       createdAt: '2026-01-28T00:00:00Z',
-      iQubeType: 'LiquidUITemplateArchetypeQube',
+      iQubeType: 'DataQube',
       iQubeInstanceType: 'template',
       businessModel: 'License',
       sensitivityScore: 0,
@@ -138,7 +138,7 @@ function seed(): IQubeTemplate[] {
       name: 'LiquidUI Drawer Grid 2B (Workspace)',
       description: 'Workspace grid with list-detail emphasis.',
       createdAt: '2026-01-28T00:00:00Z',
-      iQubeType: 'LiquidUITemplateArchetypeQube',
+      iQubeType: 'DataQube',
       iQubeInstanceType: 'template',
       businessModel: 'License',
       sensitivityScore: 0,
@@ -155,7 +155,7 @@ function seed(): IQubeTemplate[] {
       name: 'LiquidUI Drawer Grid 2C (Entity Detail)',
       description: 'Entity detail grid with primary focus area.',
       createdAt: '2026-01-28T00:00:00Z',
-      iQubeType: 'LiquidUITemplateArchetypeQube',
+      iQubeType: 'DataQube',
       iQubeInstanceType: 'template',
       businessModel: 'License',
       sensitivityScore: 0,
@@ -172,7 +172,7 @@ function seed(): IQubeTemplate[] {
       name: 'LiquidUI Drawer Grid 3A (Inbox)',
       description: 'Inbox and thread list grid.',
       createdAt: '2026-01-28T00:00:00Z',
-      iQubeType: 'LiquidUITemplateArchetypeQube',
+      iQubeType: 'DataQube',
       iQubeInstanceType: 'template',
       businessModel: 'License',
       sensitivityScore: 0,
@@ -189,7 +189,7 @@ function seed(): IQubeTemplate[] {
       name: 'LiquidUI Drawer Grid 3B (Community)',
       description: 'Community and forum grid.',
       createdAt: '2026-01-28T00:00:00Z',
-      iQubeType: 'LiquidUITemplateArchetypeQube',
+      iQubeType: 'DataQube',
       iQubeInstanceType: 'template',
       businessModel: 'License',
       sensitivityScore: 0,
@@ -206,7 +206,7 @@ function seed(): IQubeTemplate[] {
       name: 'LiquidUI Reader',
       description: 'Long-form reader and media viewer.',
       createdAt: '2026-01-28T00:00:00Z',
-      iQubeType: 'LiquidUITemplateArchetypeQube',
+      iQubeType: 'DataQube',
       iQubeInstanceType: 'template',
       businessModel: 'License',
       sensitivityScore: 0,
@@ -223,7 +223,7 @@ function seed(): IQubeTemplate[] {
       name: 'LiquidUI Timeline',
       description: 'Activity timeline and changelog.',
       createdAt: '2026-01-28T00:00:00Z',
-      iQubeType: 'LiquidUITemplateArchetypeQube',
+      iQubeType: 'DataQube',
       iQubeInstanceType: 'template',
       businessModel: 'License',
       sensitivityScore: 0,
@@ -240,7 +240,7 @@ function seed(): IQubeTemplate[] {
       name: 'LiquidUI Chat',
       description: 'Conversational chat and agent threads.',
       createdAt: '2026-01-28T00:00:00Z',
-      iQubeType: 'LiquidUITemplateArchetypeQube',
+      iQubeType: 'DataQube',
       iQubeInstanceType: 'template',
       businessModel: 'License',
       sensitivityScore: 0,
@@ -257,7 +257,7 @@ function seed(): IQubeTemplate[] {
       name: 'LiquidUI Live Room',
       description: 'Live meeting room for audio/video sessions.',
       createdAt: '2026-01-28T00:00:00Z',
-      iQubeType: 'LiquidUITemplateArchetypeQube',
+      iQubeType: 'DataQube',
       iQubeInstanceType: 'template',
       businessModel: 'License',
       sensitivityScore: 0,
@@ -274,7 +274,7 @@ function seed(): IQubeTemplate[] {
       name: 'LiquidUI Editor',
       description: 'Structured editor for creating and publishing.',
       createdAt: '2026-01-28T00:00:00Z',
-      iQubeType: 'LiquidUITemplateArchetypeQube',
+      iQubeType: 'DataQube',
       iQubeInstanceType: 'template',
       businessModel: 'License',
       sensitivityScore: 0,
@@ -291,7 +291,7 @@ function seed(): IQubeTemplate[] {
       name: 'LiquidUI Canvas',
       description: 'Spatial canvas for freeform work.',
       createdAt: '2026-01-28T00:00:00Z',
-      iQubeType: 'LiquidUITemplateArchetypeQube',
+      iQubeType: 'DataQube',
       iQubeInstanceType: 'template',
       businessModel: 'License',
       sensitivityScore: 0,
@@ -308,7 +308,7 @@ function seed(): IQubeTemplate[] {
       name: 'LiquidUI Builder',
       description: 'Builder or IDE workspace.',
       createdAt: '2026-01-28T00:00:00Z',
-      iQubeType: 'LiquidUITemplateArchetypeQube',
+      iQubeType: 'DataQube',
       iQubeInstanceType: 'template',
       businessModel: 'License',
       sensitivityScore: 0,
@@ -325,7 +325,7 @@ function seed(): IQubeTemplate[] {
       name: 'LiquidUI Notebook',
       description: 'Notebook and experiment lab.',
       createdAt: '2026-01-28T00:00:00Z',
-      iQubeType: 'LiquidUITemplateArchetypeQube',
+      iQubeType: 'DataQube',
       iQubeInstanceType: 'template',
       businessModel: 'License',
       sensitivityScore: 0,
@@ -342,7 +342,7 @@ function seed(): IQubeTemplate[] {
       name: 'LiquidUI Checkout',
       description: 'Checkout and payment flow.',
       createdAt: '2026-01-28T00:00:00Z',
-      iQubeType: 'LiquidUITemplateArchetypeQube',
+      iQubeType: 'DataQube',
       iQubeInstanceType: 'template',
       businessModel: 'License',
       sensitivityScore: 0,
@@ -359,7 +359,7 @@ function seed(): IQubeTemplate[] {
       name: 'LiquidUI Marketplace',
       description: 'Marketplace and exchange layout.',
       createdAt: '2026-01-28T00:00:00Z',
-      iQubeType: 'LiquidUITemplateArchetypeQube',
+      iQubeType: 'DataQube',
       iQubeInstanceType: 'template',
       businessModel: 'License',
       sensitivityScore: 0,
@@ -376,7 +376,7 @@ function seed(): IQubeTemplate[] {
       name: 'LiquidUI Board',
       description: 'Kanban or stage board.',
       createdAt: '2026-01-28T00:00:00Z',
-      iQubeType: 'LiquidUITemplateArchetypeQube',
+      iQubeType: 'DataQube',
       iQubeInstanceType: 'template',
       businessModel: 'License',
       sensitivityScore: 0,
@@ -391,9 +391,21 @@ function seed(): IQubeTemplate[] {
   ];
 }
 
+// Stage 1 reclassification (PRD v1.1 §A.2): templates previously typed as
+// 'LiquidUITemplateArchetypeQube' are now 'DataQube' with a
+// `category: 'ui_template_archetype'` metaExtras tag injected at read time.
+// The id prefix `liquidui-template-` is the stable discriminator while these
+// remain in code seeds. When they migrate to DB the tag becomes a column.
+function withLiquidUiCategory(t: IQubeTemplate): IQubeTemplate {
+  if (!t.id?.startsWith('liquidui-template-')) return t;
+  const extras = Array.isArray(t.metaExtras) ? t.metaExtras : [];
+  if (extras.some((x) => x?.k === 'category')) return t;
+  return { ...t, metaExtras: [{ k: 'category', v: 'ui_template_archetype' }, ...extras] };
+}
+
 export function getStore(): IQubeTemplate[] {
   if (!templates) templates = seed();
-  return templates;
+  return templates.map(withLiquidUiCategory);
 }
 
 export function setStore(next: IQubeTemplate[]) {

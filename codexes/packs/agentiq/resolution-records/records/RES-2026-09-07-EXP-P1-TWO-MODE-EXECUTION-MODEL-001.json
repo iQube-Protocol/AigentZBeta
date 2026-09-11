@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-07",
+  "resolutionId": "RES-2026-09-07-EXP-P1-TWO-MODE-EXECUTION-MODEL-001",
+  "capability": "exp-p1-execution-model",
+  "milestone": "EXP-P1 / Crystal vP2 — implementing the two-mode execution model (internal rehearsal vs. confirmatory execution) so the operator can rehearse internally without weakening the registered confirmatory protocol",
+  "problem": "With EXP-P1/crystal-vP2 frozen under executionDesignation 'internal-pilot' (RES-2026-09-05-CRYSTAL-FREEZE-EXECUTION-DESIGNATION-001), the next governed action ('Run EXP-P1 internally') was only ever EXPOSED, never EXECUTABLE — nextGovernedActionForFrozenCrystal's own doc comment stated plainly that no execution-run runner existed anywhere in this codebase. The deployed EXP-P1 UI still (a) had no hardcoded reference to a specific stale generation in its live rendering path (readinessDashboard.ts's Crystal section text was the one exception — see observedFailure), (b) had no way to distinguish an internal rehearsal from a confirmatory execution once one existed, and (c) risked, once ANY execution-run artifact existed, reading as 'the confirmatory execution has occurred' via readinessDashboard.ts's kind-only filter. The operator required a real, working rehearsal path against the frozen internal-pilot substrate that could never satisfy, or be mistaken for satisfying, the registered confirmatory protocol's own prerequisites (external countersignature, sealed held-out task set, externally-authored Arm D prose).",
+  "observedFailure": [
+    "services/research/readinessDashboard.ts's Crystal section, in its green branch, hardcoded the literal string 'Crystal vP1 snapshot is frozen + hash-committed.' regardless of which generation was ACTUALLY frozen — stale the moment vP2 froze under internal-pilot designation (operator report, 2026-09-07: 'the deployed UI... references frozen Crystal vP1').",
+    "services/research/readinessDashboard.ts's Execution section computed `executionRuns = artifacts.filter(a => a.kind === 'execution-run')` and flipped green the moment ANY execution-run artifact existed, with no way to exclude a non-confirmatory (internal-rehearsal) run — the exact 'confirmatory result queries must exclude rehearsal runs by construction' gap the operator's own brief named explicitly.",
+    "No execution-run artifact had ever been constructed by any code path in this repository — confirmed independently three ways: a direct grep of services/research/ and services/experiments/ for four-arm/Arm-A-D construction found nothing EXP-P1-specific; the app/api/research/ route tree had no execution/run endpoint; and nextGovernedActionForFrozenCrystal's own doc comment named the gap verbatim ('no code path drives an actual run').",
+    "types/research.ts had no field, on any artifact type, distinguishing a RUN's own execution designation (internal-rehearsal vs. confirmatory) from the FROZEN CRYSTAL's freeze-time executionDesignation ('confirmatory' | 'internal-pilot') — reusing the latter for the former would have collapsed two distinct governed questions (is this generation authorized for pilot use vs. is THIS RUN a confirmatory result) into one, the exact category error CI-2026-08-03-GOVERNED-ACTS-DISTINCT-001 already forbids one level up the stack."
+  ],
+  "rootCauses": [
+    "The prior EXP-P1 freeze-execution-designation work (RES-2026-09-05-CRYSTAL-FREEZE-EXECUTION-DESIGNATION-001, RES-2026-09-06-ITERATIVE-CRYSTAL-VERSIONING-001) deliberately, correctly scoped OUT building an execution-run runner as a materially larger, separately-chartered change — leaving 'Run EXP-P1 internally' truthfully exposed but genuinely inert. That gap became load-bearing the moment the operator asked to actually rehearse.",
+    "readinessDashboard.ts's Execution section was written before any execution-run artifact could exist at all, so 'any execution-run exists' and 'a confirmatory execution-run exists' were never distinguished — an omission that stayed invisible until the FIRST execution-run artifact of any kind could be constructed.",
+    "The Crystal section's hardcoded 'vP1' string predates the iterative-Crystal-versioning work (vP2 is the first-ever successor generation) — nothing forced it to become dynamic until a SECOND generation actually froze."
+  ],
+  "resolution": [
+    "types/research.ts (additive only): TASK_SET_PROVENANCE ('external-held-out' | 'provisional' | 'synthetic'), REHEARSAL_ARM_IDS ('A'|'B'|'C'|'D', read from the REGISTERED protocol's own Cold/Full-Runtime/Flattened/Expert-Prose design — never invented), RUN_EXECUTION_DESIGNATIONS ('internal-rehearsal' | 'confirmatory' — a NEW, run-level designation, deliberately never reusing ArtifactExecutionDesignation, which answers a different governed question about the FROZEN CRYSTAL), RehearsalArmTaskResult/RehearsalTaskResult, and ExecutionRunArtifact extends FrozenArtifact (kind: 'execution-run') carrying confirmatoryEligible — the ONE field every confirmatory-result reader must filter on.",
+    "services/research/artifacts.ts: recordExecutionRun (writes an execution-run artifact directly at lifecycle 'executed' — deliberately isolated from the freeze/upsertArtifact/toPayload/fromRow machinery every OTHER kind shares, since an execution-run is never frozen via checkFreezeGate) refuses outright if a caller ever supplies runExecutionDesignation: 'internal-rehearsal' together with confirmatoryEligible: true — the one invariant this whole feature exists to protect, enforced at the ONE choke point every write passes through, not left to caller discipline. listExecutionRuns reads the full ExecutionRunArtifact shape back (the generic listArtifacts/fromRow path does not reconstruct kind-specific fields).",
+    "services/research/expP1Rehearsal.ts (new): rehearsalEligibility requires a frozen crystal-version generation with executionDesignation 'internal-pilot' AND a persisted memberSnapshot — resolved via latestFrozenCrystalArtifact, the SAME generation-aware resolver FreezeVP2InternalPilotAction already established, never a hardcoded id. runExpP1Rehearsal constructs the REAL four arms (A — Cold, empty grounding; B — Full Runtime, the REAL buildInvariantSlice production selection path, constrained to ids that are ALSO members of the frozen memberSnapshot so a live-table drift since freeze can never leak in; C — Flattened Invariants, a genuine ≤40% fixed subset of the frozen snapshot mirroring the registered protocol's own collection-size guard; D — Expert Prose, a fixed, IRL-authored PROVISIONAL placeholder, explicitly labeled, never Austin's real prose) against an IRL-authored PROVISIONAL task set, mechanically scored (no live judge/rubric exists in this codebase for EXP-P1 — judge config + rubric are Austin's deliverable per the registered protocol's own division of responsibility), and persists via recordExecutionRun with runExecutionDesignation 'internal-rehearsal' and confirmatoryEligible: false, unconditionally. Refuses outright if ever asked to load an 'external-held-out' task set. Never calls recordExperimentRunLifecycle/EXPERIMENT_LIFECYCLE — the experiment's own designed->protocol-ratified->running->... macro-transition is untouched and unreachable regardless (protocol-ratified cannot legally be reached yet: task-set, arm-config, answer-key, judge-config, analysis-config, interpretation-table are all still unfrozen).",
+    "app/api/research/crystal/[experimentId]/rehearsal/route.ts (new): GET resolves the frozen substrate label from rehearsalEligibility (never hardcoded), the confirmatory blockers from the REGISTERED protocol's own deriveProtocolRatified missing-kind list (plus a static, honest 'awaiting external countersignature' note — this codebase has no mechanism to track Austin's out-of-band countersignature and none was invented), and past rehearsal runs (filtered to internal-rehearsal via listExecutionRuns, never the generic kind-only filter). POST launches ONE rehearsal run and NEVER accepts a caller-supplied runExecutionDesignation/confirmatoryEligible — the request body is ignored entirely for those fields; both are fixed unconditionally by the runner. Admin-gated, mirroring the freeze route's own posture.",
+    "components/research/ExpP1ExecutionStatus.tsx (new): the two-mode UI — 'Frozen substrate: Crystal vP2 · internal/pilot' (server-resolved), 'Internal rehearsal — READY' with a run button and an unmistakable INTERNAL / NON-CONFIRMATORY / NOT VALID SCIENTIFIC EVIDENCE label, and 'Confirmatory execution — BLOCKED' always shown, listing the server's own blocker list. Mounted UNCONDITIONALLY in both Track2ProgrammePanel.tsx and IRLResearchCopilotTab.tsx, before their own `{programme && (...)}` gate — the SAME 'governed act eligibility is independent of slow composition' discipline FreezeVP2InternalPilotAction already established (CI-2026-09-07-GOVERNED-ACT-ELIGIBILITY-INDEPENDENT-OF-SLOW-COMPOSITION-001), one governed act higher up.",
+    "services/research/readinessDashboard.ts: fixed the hardcoded 'Crystal vP1' string to name the ACTUAL frozen generation (read from the same listArtifacts call already in scope, no second read needed) plus its executionDesignation; fixed the Execution section to read via listExecutionRuns and filter on confirmatoryEligible — an internal-rehearsal run now keeps this section RED, with an honest note naming how many rehearsal runs exist and that they are never counted toward it."
+  ],
+  "rejectedApproaches": [
+    "Reusing ArtifactExecutionDesignation ('confirmatory' | 'internal-pilot') for the RUN's own designation instead of a new RunExecutionDesignation type — rejected: the crystal's freeze-time designation answers 'is this generation authorized for pilot use', a different governed question from 'is THIS RUN a confirmatory result'. Collapsing them would repeat, one level up, the exact category error CI-2026-08-03-GOVERNED-ACTS-DISTINCT-001 already forbids for declare/constitute/assess/freeze.",
+    "Calling recordExperimentRunLifecycle('run-started') from the rehearsal runner so the experiment's own EXPERIMENT_LIFECYCLE would show 'running' — rejected outright: that macro-transition is reserved for the real confirmatory execution, protocol-ratified cannot legally be reached yet (six of seven PROTOCOL_FREEZE_ARTIFACT_KINDS remain unfrozen), and a rehearsal run must never be able to advance, or be read as advancing, that lifecycle.",
+    "Calling a live model/judge to produce real inference answers for each arm — rejected as scope creep and a category error: no judge-config, rubric, or model-calling seam exists anywhere in this codebase for EXP-P1 (judge config + rubric are explicitly Austin's deliverable per the registered protocol's own division of responsibility). Mechanical, deterministic scoring (mirroring services/experiments/expP3.ts's established precision/recall convention for a different experiment) exercises the real plumbing (task loading, arm construction, retrieval, receipts, persistence) without inventing a confirmatory-grade judge this codebase has no authority to build unilaterally.",
+    "Authoring Arm D's prose from Austin's real methodology (independent curation without access to the invariant decomposition) — impossible without Austin; instead built a FIXED, IRL-authored, unmistakably-labeled PROVISIONAL placeholder, scored by keyword coverage of its text rather than by invariant-id overlap (which would defeat the arm's structural role as a discrete-citation-free baseline).",
+    "Letting Arm B's live selection (buildInvariantSlice) run unconstrained against the live invariant table — rejected: the live table may have moved on since the crystal froze (a successor generation under construction), and a rehearsal against 'the frozen substrate' must stay scoped to what was ACTUALLY frozen, never to whatever the live table currently holds. Constrained to ids that are also members of the frozen memberSnapshot.",
+    "Building a fifth, generic 'confirmatory execution' runner alongside the rehearsal runner as future-proofing — rejected as speculative: nothing in this codebase can construct 'external-held-out' materials, and building an unused code path for a capability nobody can invoke yet is exactly the over-engineering CLAUDE.md's Change Sizing section forbids."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-07-RUN-DESIGNATION-DISTINCT-FROM-FREEZE-DESIGNATION-001"
+  ],
+  "canaries": [
+    "tests/exp-p1-execution-run-persistence.test.ts",
+    "tests/exp-p1-rehearsal-runner.test.ts",
+    "tests/exp-p1-rehearsal-route.test.ts",
+    "tests/exp-p1-execution-status-ui.test.tsx",
+    "tests/exp-p1-readiness-dashboard-generation-and-confirmatory.test.ts",
+    "tests/freeze-vp2-independent-of-programme-composition.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "milestone-complete",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/exp-p1-execution-run-persistence.test.ts",
+      "tests/exp-p1-rehearsal-runner.test.ts",
+      "tests/exp-p1-rehearsal-route.test.ts",
+      "tests/exp-p1-execution-status-ui.test.tsx",
+      "tests/exp-p1-readiness-dashboard-generation-and-confirmatory.test.ts",
+      "tests/freeze-vp2-independent-of-programme-composition.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "Operator instruction, 2026-09-07, verbatim: \"EXP-P1 now has a frozen internal-pilot substrate. Update the experiment execution model so we can rehearse internally without weakening the registered confirmatory protocol... Do not change the registered protocol or weaken confirmatory prerequisites... Stop after the rehearsal is runnable and visible. Do not invite Austin or start a confirmatory run automatically.\""
+    ]
+  },
+  "sourceDocs": [],
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

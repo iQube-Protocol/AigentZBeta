@@ -16,7 +16,16 @@
 
 import type { NbeCandidate } from '@/services/orchestration/nbeCatalog';
 import type { InferredStrategy } from '@/services/strategy/strategyInference';
-import type { ActiveCartridgeSlug, ExperienceStage } from '@/services/iqube/experienceQube';
+import type { ActiveCartridgeSlug, ConstitutionalActionMode, ExperienceStage, OperatorArchetype } from '@/services/iqube/experienceQube';
+import { GROUNDING_MANDATE } from '@/services/orchestration/groundingContract';
+import { citeInvariants, type InvariantSlice } from '@/services/invariants';
+import { resolveConstitutionalField } from '@/services/invariants/resolution';
+import {
+  resolveOntology,
+  ontologyPromptBlock,
+  citeResolvedConcepts,
+} from '@/services/constitutional/ontologyResolver';
+import type { OntologyResolution } from '@/types/constitutional';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const ANTHROPIC_MODEL =
@@ -27,7 +36,13 @@ const SYSTEM_PROMPT = `You rerank an eligible Next-Best-Experience (NBE) candida
 Return ONE JSON object exactly:
 {
   "order": [ "<nbe id>", ... ],
-  "topReason": "<one short sentence — why the new #1 is the strongest move right now>"
+  "topReason": "<one short sentence — why the new #1 is the strongest move right now>",
+  "nbaContextualTitles": {
+    "<nbe id>": "<≤140-char contextual rewrite of the catalogue label — see Rules>"
+  },
+  "nbaPromptHints": {
+    "<nbe id>": "<≤200-char concrete compose / action prompt tailored to this persona — see Rules>"
+  }
 }
 
 Rules:
@@ -37,8 +52,52 @@ Rules:
   1. clears the persona's biggest current blocker, OR
   2. directly serves the inferred-strategy headline / primary goal, OR
   3. unlocks compounding moves (e.g. workspace draft → outreach).
+- When "activeActionModes" is present, also bias toward candidates matching
+  the persona's currently active Constitutional Action Mode(s) (e.g.
+  Build → venture/partner motion, Develop → technical/build-loop moves,
+  Research → discovery/validation moves, Create → editorial/narrative
+  moves, Safeguard → legal/compliance/governance/risk moves), ranking
+  everything else slightly lower — an additional weighting pass on top of
+  the rules above, never a replacement for them.
+- When a "liveContext" string is provided, treat it as a fresh signal
+  from a capability tool (e.g. web-search, owned-content-scan). Use it
+  to break ties or boost a candidate whose rationale lines up with the
+  signal — but never let it override the deterministic eligibility set,
+  and never invent ids. If it's noise, ignore it.
 - Penalise candidates that duplicate work the persona has already done.
-- topReason: ≤ 140 chars, concrete (reference the actual blocker or goal). No markdown.`;
+- topReason: ≤ 140 chars, concrete (reference the actual blocker or goal, or the live signal when it drove the pick). No markdown.
+- nbaContextualTitles — for EACH id in your "order" array, rewrite the
+  catalogue's generic label into a contextually-specific TITLE the
+  operator will read on the NBA card. Each title MUST:
+    * Reference the persona's actual venture, partner, goal, or
+      cartridge by name — never generic ("partner proposal" alone is
+      not enough; "Metaiye Media partner proposal" is correct).
+    * Stay verb-first and imperative, matching the catalogue label's
+      voice ("Ask Marketa for a Metaiye Media partner proposal",
+      "Generate the metaKnyts venture progress report", "Draft a Gmail
+      outreach to <named partner> on Operation metaWill launch").
+    * Be ≤ 140 chars (drops into an h4 on the NBA card).
+    * Skip the title (omit the key) ONLY when you genuinely have no
+      grounded signal — the catalogue label will render verbatim as
+      the fallback. NEVER invent a partner name or metric.
+    * No markdown, no JSON-escaped newlines, no T0 ids (personaId /
+      auth_profile_id / tenant_id / kybe_did).
+- nbaPromptHints — for EACH id in your "order" array, emit one short
+  prompt string the operator could feed straight into a compose modal
+  (or use as a starting frame for non-compose actions). Each hint MUST:
+    * Reference the persona's actual primary goal, stage, active
+      cartridges, or experienceGoals — never generic copy.
+    * Be ≤ 200 chars.
+    * Sound like instructions to a drafting assistant ("Draft an
+      outreach to <named partner> about <specific situation>…",
+      "Working spec for <specific deliverable> anchored to <named
+      goal>…", "Add a KPI for <specific metric> targeting <number>…").
+    * Skip the hint (omit the key) ONLY when you genuinely have no
+      grounded signal for that NBA — never invent a name or number.
+    * No markdown, no JSON-escaped newlines, no T0 ids (personaId /
+      auth_profile_id / tenant_id / kybe_did).
+
+${GROUNDING_MANDATE}`;
 
 interface RerankContext {
   currentStage: ExperienceStage;
@@ -46,16 +105,109 @@ interface RerankContext {
   primaryGoal: string | null;
   experienceGoals: string[];
   strategy: InferredStrategy | null;
+  /**
+   * Polity Participation Model archetype. When set, the reranker biases
+   * toward archetype-appropriate NBEs (e.g. Entrepreneurial → venture
+   * formation moves; Creative → content/cultural moves).
+   */
+  operatorArchetype?: OperatorArchetype | null;
+  /**
+   * Founder Office Action Modes amendment (ratified 2026-07-22) — the
+   * persona's currently active Constitutional Action Modes, when known.
+   * Per the amendment's §5/§8 resolution this is an ADDITIONAL WEIGHTING
+   * SIGNAL layered on top of the existing archetype/venture/standing-driven
+   * ranking, never a replacement axis or a parallel reranking algorithm —
+   * see the SYSTEM_PROMPT rule below. Session/runtime state, not persisted
+   * profile data (`services/iqube/actionModes.ts`).
+   */
+  activeActionModes?: ConstitutionalActionMode[];
+  /**
+   * Optional Capability Gateway pre-flight summary (e.g. web-search
+   * digest, owned-content-scan finding). Surfaces as a `liveContext`
+   * field in the prompt body. Empty / null => omitted entirely so the
+   * prompt shape stays stable for callers that don't have a gather.
+   */
+  liveContext?: string | null;
+  /**
+   * Plan-tier model override from `getPlanModelId(personaPlan)`.
+   * Replaces the env-var default so sovereign/steward/FO personas get Sonnet
+   * while free citizens get Haiku — per the Polity Alpha pricing tiers.
+   */
+  modelOverride?: string | null;
+}
+
+/**
+ * Invariant grounding slice for the rerank pass (CFS-006 §2) — validated
+ * constitutional memory applicable to this persona's context, scoped to the
+ * active cartridges with a whole-canon fallback so the slice is never empty
+ * on a seeded substrate (mirrors the ask-agent exemplar). Enrichment-only:
+ * any failure yields null and the rerank proceeds ungrounded.
+ */
+async function buildRerankInvariantSlice(
+  intentText: string,
+  domains: string[],
+): Promise<InvariantSlice | null> {
+  try {
+    // IRE → IPE (operator ruling 2026-07-27). The rerank is a GOVERNED
+    // reasoning surface: an LLM reasons from this slice to reorder what the
+    // operator is offered next. It therefore RESOLVES the field the operator's
+    // context requires instead of issuing a raw substrate query — the domains
+    // stay as the overlay, `intentText` is the intent the IRE qualifies.
+    // Registered as `nbe-llm-rerank` in GROUNDING_SURFACES.
+    const scoped = domains.length
+      ? (await resolveConstitutionalField(intentText, { domains, limit: 8 })).snapshot?.slice ?? null
+      : null;
+    if (scoped && scoped.items.length > 0) return scoped;
+    // A scoped miss falls back to the unscoped field, never to nothing — the
+    // overlay narrows which invariants surface, it can never subtract the
+    // substrate (same discipline as resolveCitableInvariants).
+    return (await resolveConstitutionalField(intentText, { limit: 8 })).snapshot?.slice ?? null;
+  } catch (err) {
+    console.warn('[nbeLlmRerank] invariant slice build failed (non-fatal):', err);
+    return null;
+  }
+}
+
+/**
+ * The operator/journey context text the rerank reasons against — primary
+ * goal, experience goals, inferred-strategy posture, live capability signal.
+ * This is what the Canonical Ontology Service resolves BEFORE reasoning
+ * (CFS-015 principle 5).
+ */
+function ontologyInputText(ctx: RerankContext): string {
+  return [
+    ctx.primaryGoal,
+    ...ctx.experienceGoals.slice(0, 16),
+    ctx.strategy?.headline,
+    ...(ctx.strategy?.venturePosture.blockers ?? []),
+    ...(ctx.strategy?.venturePosture.unlocks ?? []),
+    ctx.liveContext,
+  ]
+    .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+    .join('\n');
+}
+
+/** Compact statement block with seed markers — ask-agent packet style. */
+function invariantSliceBlock(slice: InvariantSlice): string {
+  return [
+    'Validated invariants applicable to this rerank (canonical memory — reason from these; they never add or remove candidate ids):',
+    ...slice.items.map(
+      // Cite by seedId (e.g. inv.constitutional.001) — the stable,
+      // human-legible marker, never the raw invariant UUID.
+      (inv) => `- ${inv.seedId ? `[${inv.seedId}] ` : ''}(${inv.namespace}) ${inv.statement}`,
+    ),
+  ].join('\n');
 }
 
 function stripJsonFences(raw: string): string {
   return raw.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
 }
 
-async function callAnthropic(userPrompt: string): Promise<string | null> {
+async function callAnthropic(userPrompt: string, modelId?: string | null): Promise<string | null> {
   if (!ANTHROPIC_API_KEY) return null;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8_000);
+  const timeoutId = setTimeout(() => controller.abort(), 12_000);
+  const resolvedModel = modelId || ANTHROPIC_MODEL;
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -65,8 +217,14 @@ async function callAnthropic(userPrompt: string): Promise<string | null> {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
-        max_tokens: 400,
+        model: resolvedModel,
+        // 1500-token ceiling — old budget was 400, which truncated the
+        // response once nbaContextualTitles joined nbaPromptHints
+        // (≤140 + ≤200 chars per candidate × 5 candidates ≈ 425 tokens
+        // before JSON structure overhead). Truncated JSON → parse fail
+        // → empty {nbaContextualTitles:{}, nbaPromptHints:{}, topNbeReason:null}
+        // in the brief response. 1500 covers 10+ candidates comfortably.
+        max_tokens: 1500,
         temperature: 0.2,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userPrompt }],
@@ -88,6 +246,10 @@ function summariseForPrompt(
   candidates: NbeCandidate[],
   ctx: RerankContext,
 ): string {
+  const liveContext =
+    typeof ctx.liveContext === 'string' && ctx.liveContext.trim().length > 0
+      ? ctx.liveContext.trim().slice(0, 600)
+      : null;
   return JSON.stringify(
     {
       persona: {
@@ -95,6 +257,8 @@ function summariseForPrompt(
         activeCartridges: ctx.activeCartridges,
         primaryGoal: ctx.primaryGoal,
         experienceGoals: ctx.experienceGoals.slice(0, 16),
+        ...(ctx.operatorArchetype ? { operatorArchetype: ctx.operatorArchetype } : {}),
+        ...(ctx.activeActionModes?.length ? { activeActionModes: ctx.activeActionModes } : {}),
       },
       strategy: ctx.strategy
         ? {
@@ -104,6 +268,7 @@ function summariseForPrompt(
             coherence: ctx.strategy.coherenceNote,
           }
         : null,
+      ...(liveContext ? { liveContext } : {}),
       candidates: candidates.map((c) => ({
         id: c.id,
         label: c.label,
@@ -126,6 +291,20 @@ export interface NbeRerankResult {
   ranked: NbeCandidate[];
   /** ≤140-char rationale for the new top pick. Null when no LLM pass ran. */
   topReason: string | null;
+  /**
+   * Optional per-NBA contextual title rewrites, keyed by NBE id.
+   * Renders in place of the catalogue label on the NBA card so each
+   * card reads with the operator's actual venture / partner / goal
+   * names instead of generic copy. Falls through to the catalogue
+   * label when the LLM didn't emit one for a given id.
+   */
+  nbaContextualTitles: Record<string, string>;
+  /**
+   * Optional per-NBA compose / action prompt hints, keyed by NBE id.
+   * Renders as the italic "aigentMe's take" line on the NBA card and
+   * doubles as composerInitialPrompt when Act maps to a compose modal.
+   */
+  nbaPromptHints: Record<string, string>;
   /** True when the LLM call succeeded and produced a usable order. */
   llmApplied: boolean;
 }
@@ -138,20 +317,52 @@ export async function llmRerankNbeCandidates(
   candidates: NbeCandidate[],
   ctx: RerankContext,
 ): Promise<NbeRerankResult> {
-  if (!ANTHROPIC_API_KEY) return { ranked: candidates, topReason: null, llmApplied: false };
-  if (candidates.length < 2) return { ranked: candidates, topReason: null, llmApplied: false };
+  if (!ANTHROPIC_API_KEY) return { ranked: candidates, topReason: null, nbaContextualTitles: {}, nbaPromptHints: {}, llmApplied: false };
+  if (candidates.length < 2) return { ranked: candidates, topReason: null, nbaContextualTitles: {}, nbaPromptHints: {}, llmApplied: false };
 
-  const raw = await callAnthropic(summariseForPrompt(candidates, ctx));
-  if (!raw) return { ranked: candidates, topReason: null, llmApplied: false };
+  // Constitutional instrumentation (Chrysalis Phase 2) — invariant grounding
+  // slice + canonical-ontology resolution, fetched in parallel. Both are
+  // enrichment-only: any failure yields null and the rerank runs exactly as
+  // before. NO receipts here — this is a hot surface; Learning flows via
+  // Reach citation after a successful LLM pass.
+  const ontologyText = ontologyInputText(ctx);
+  const [slice, resolution]: [InvariantSlice | null, OntologyResolution | null] =
+    await Promise.all([
+      // `ontologyText` is the operator's context stated as text — the same
+      // intent the ontology service resolves. The IRE qualifies it too, so
+      // both halves of "resolution precedes reasoning" read one intent.
+      buildRerankInvariantSlice(ontologyText, ctx.activeCartridges),
+      ontologyText
+        ? resolveOntology(ontologyText).catch((err) => {
+            console.warn('[nbeLlmRerank] ontology resolution failed (non-fatal):', err);
+            return null;
+          })
+        : Promise.resolve(null),
+    ]);
 
-  let parsed: { order?: unknown; topReason?: unknown };
+  const promptParts = [summariseForPrompt(candidates, ctx)];
+  if (slice && slice.items.length > 0) promptParts.push(invariantSliceBlock(slice));
+  if (resolution) {
+    const ontologyBlock = ontologyPromptBlock(resolution);
+    if (ontologyBlock) promptParts.push(ontologyBlock);
+  }
+
+  const raw = await callAnthropic(promptParts.join('\n\n'), ctx.modelOverride);
+  if (!raw) return { ranked: candidates, topReason: null, nbaContextualTitles: {}, nbaPromptHints: {}, llmApplied: false };
+
+  let parsed: { order?: unknown; topReason?: unknown; nbaContextualTitles?: unknown; nbaPromptHints?: unknown };
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return { ranked: candidates, topReason: null, llmApplied: false };
+    // Common cause: response truncated by max_tokens before the closing
+    // brace lands. Log the first 200 chars so we can confirm vs blame
+    // a quota / shape issue.
+    console.warn(`[nbeLlmRerank] JSON.parse failed; raw head: ${raw.slice(0, 200)}`);
+    return { ranked: candidates, topReason: null, nbaContextualTitles: {}, nbaPromptHints: {}, llmApplied: false };
   }
   if (!parsed || !Array.isArray(parsed.order)) {
-    return { ranked: candidates, topReason: null, llmApplied: false };
+    console.warn(`[nbeLlmRerank] parsed shape missing order array: ${JSON.stringify(parsed).slice(0, 200)}`);
+    return { ranked: candidates, topReason: null, nbaContextualTitles: {}, nbaPromptHints: {}, llmApplied: false };
   }
 
   const validIds = new Set(candidates.map((c) => c.id));
@@ -175,5 +386,42 @@ export async function llmRerankNbeCandidates(
       ? parsed.topReason.trim().slice(0, 200)
       : null;
 
-  return { ranked, topReason, llmApplied: true };
+  const nbaContextualTitles: Record<string, string> = {};
+  if (parsed.nbaContextualTitles && typeof parsed.nbaContextualTitles === 'object' && !Array.isArray(parsed.nbaContextualTitles)) {
+    for (const [id, title] of Object.entries(parsed.nbaContextualTitles as Record<string, unknown>)) {
+      if (!validIds.has(id)) continue;
+      if (typeof title !== 'string') continue;
+      // Strip Markdown emphasis — Sonnet sometimes wraps the contextual
+      // title in **bold** even after a "no markdown" instruction. The
+      // NBA card renders the title verbatim as an h4, so unstripped
+      // asterisks ship as visible chrome.
+      const stripped = title
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/__([^_]+)__/g, '$1')
+        .replace(/`([^`\n]+)`/g, '$1')
+        .replace(/^#{1,6}\s+/g, '')
+        .trim();
+      if (stripped.length === 0) continue;
+      nbaContextualTitles[id] = stripped.slice(0, 140);
+    }
+  }
+
+  const nbaPromptHints: Record<string, string> = {};
+  if (parsed.nbaPromptHints && typeof parsed.nbaPromptHints === 'object' && !Array.isArray(parsed.nbaPromptHints)) {
+    for (const [id, hint] of Object.entries(parsed.nbaPromptHints as Record<string, unknown>)) {
+      if (!validIds.has(id)) continue;
+      if (typeof hint !== 'string') continue;
+      const trimmed = hint.trim();
+      if (trimmed.length === 0) continue;
+      nbaPromptHints[id] = trimmed.slice(0, 200);
+    }
+  }
+
+  // Reach citation (CFS-006 §4, Law XII) — the LLM pass succeeded and its
+  // grounded output is being applied, so cite what was actually used.
+  // Fire-and-forget: the flywheel never blocks or breaks the rerank.
+  if (slice && slice.citedIds.length > 0) void citeInvariants(slice.citedIds).catch(() => {});
+  if (resolution) void citeResolvedConcepts(resolution).catch(() => {});
+
+  return { ranked, topReason, nbaContextualTitles, nbaPromptHints, llmApplied: true };
 }

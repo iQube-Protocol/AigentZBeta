@@ -1,0 +1,8 @@
+{
+  "$comment": "Bitcent (B¢) testnet etch — deployment-specific facts only (the transaction, not the tokenomics). Tokenomics (rune name, premine, allocation, custodian address) live solely in scripts/bitcent-issuance-record.json — the single source of truth. Mirrors the deployments/qct-*-addresses.json precedent for other chains.",
+  "network": "testnet",
+  "txHash": "551bbaaa50b5ed91c585aee90af1e8f41932da80a93525fd1eebe234a68deb65",
+  "deployerAddress": "tb1qdhc2l3d3w348re4j70a0cykvmh47ptwu8fk9nh",
+  "mandateCommitment": "ba69bc0bfe319dae7591006a213f4e1b5dd90772da749f3a9f53531d87a1d644",
+  "broadcastAt": "2026-07-30T18:08:05Z"
+}

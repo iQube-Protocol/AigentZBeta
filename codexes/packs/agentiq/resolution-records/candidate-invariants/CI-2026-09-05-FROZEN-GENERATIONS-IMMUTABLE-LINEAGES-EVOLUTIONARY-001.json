@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "Generalizes the operator's EXP-P1/Crystal-vP2 ruling into a Crystal-wide (not EXP-P1-specific) rule about freeze acts: a freeze ratifies WHAT a generation contains (immutable, forever) and, SEPARATELY, an execution designation naming what PURPOSE it is authorized for right now (a confirmatory result, or a narrower internal/pilot execution). These are two different governance questions and must never be collapsed into one boolean readiness gate.",
+    "Operator's own framing for why this generalizes beyond EXP-P1 (verbatim, relayed 2026-09-05): 'That is a much better model for IRL generally. Science shouldn't require us to perfect the experimental substrate before we're allowed to experiment with it. It requires us to preserve exactly what we experimented with, learn from it, and make subsequent changes explicit and reproducible.'",
+    "The mechanism this invariant requires: (1) an execution-designation field on the frozen artifact, defaulting to the strict historical behavior (every gating check must pass) so no existing caller is affected; (2) a NAMED, per-check deviation list for any designation that proceeds past a failing check - never a blanket waiver flag that suppresses gating wholesale; (3) every deviation's 'what was measured' text is ALWAYS computed server-side from the live check result at the moment of the act, never accepted as caller input, so a recorded limitation can never be invented, edited, or drift from the real measurement; (4) the full underlying readiness/quality report is persisted verbatim alongside the deviations, so the frozen record can always be audited against what the checks actually said; (5) the checks, their thresholds, and their pass/fail semantics are NEVER touched by this mechanism - it changes only whether an otherwise-blocking, individually-named failure is allowed to proceed to freeze for a narrower, explicitly non-confirmatory purpose.",
+    "The remediation path for an insufficient substrate is UNCHANGED and remains the only one: observe limitation -> record finding -> expand evidence corpus -> constitute a successor generation -> readiness -> freeze successor -> rerun. This invariant does not create, and must never be read as creating, any path by which a FROZEN generation's own recorded content or recorded measurements are mutated after the fact. 'Mutate the frozen artifact's stored readiness numbers to make it look ready' or 'reset a frozen generation back to validated to try again' are both violations of this invariant, not applications of it.",
+    "Distinct from ordinary readiness/quality gating (e.g. CFS-054's Crystal Readiness Instrument Suite, or any per-domain quality gate elsewhere in IRL): those checks decide WHETHER a candidate freeze meets a bar. This invariant governs a layer above that - what it means, structurally, for a freeze act to proceed with KNOWN, NAMED exceptions to that bar for a narrower, explicitly recorded purpose, without weakening the bar or lying about the exceptions."
+  ],
+  "canaries": [
+    {
+      "path": "tests/crystal-internal-pilot-execution-designation.test.ts",
+      "assertion": "executionDesignation defaults to 'confirmatory' and every historical caller (readiness must fully pass) is unaffected; under 'internal-pilot', a freeze is refused unless EVERY currently-failing scientific-readiness check is individually named in scientificDeviations; the persisted readiness report and each deviation's measuredDetail always reflect the REAL, server-computed measurement, never a caller-supplied value, and readiness.ok is never flipped to true to 'pass' a pilot freeze.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/crystal-freeze-route.test.ts",
+      "assertion": "the freeze route validates executionDesignation/scientificDeviations shape and rejects malformed input (unknown designation, deviations without a designation, empty deviations under internal-pilot, missing checkName/rationale) before ever calling freezeArtifact, and surfaces nextGovernedAction on a successful freeze.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "candidateId": "CI-2026-09-05-FROZEN-GENERATIONS-IMMUTABLE-LINEAGES-EVOLUTIONARY-001",
+  "statement": "A frozen generation (in any Crystal-lineage or similarly-versioned constitutional artifact) is immutable, but the lineage it belongs to is evolutionary: a freeze act must be able to carry an explicit, operator-authorized EXECUTION DESIGNATION (e.g. 'confirmatory' vs. a narrower 'internal-pilot' purpose) separate from whether every quality/readiness check passed. Proceeding past a failing check under a non-default designation requires NAMING that specific check individually (never a blanket waiver), and the measurement recorded for it must always be computed server-side from the real, live check result at the moment of the act - never caller-supplied, never redacted, never silently re-scored as passing. The underlying checks, thresholds, and pass/fail semantics are never altered by this mechanism. The only remediation path for a substrate an internal/pilot run reveals to be insufficient is: observe limitation -> record finding -> expand evidence corpus -> constitute a successor generation -> readiness -> freeze successor -> rerun - a frozen generation is never mutated to fix what was measured about it.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-09-05-CRYSTAL-FREEZE-EXECUTION-DESIGNATION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/artifacts.ts — checkFreezeGate / freezeArtifact, kind: 'crystal-version'",
+      "defect": "checkFreezeGate treated 'may this generation freeze at all' and 'is it fit for a confirmatory result' as the same boolean (readiness.ok), leaving no way to freeze Crystal vP2 for an operator-authorized internal/pilot EXP-P1 run while its derivation-headroom and boundary-coverage deficiencies stayed honestly recorded, without either blocking all progress or weakening a threshold.",
+      "resolutionId": "RES-2026-09-05-CRYSTAL-FREEZE-EXECUTION-DESIGNATION-001",
+      "evidence": [
+        "tests/crystal-internal-pilot-execution-designation.test.ts"
+      ]
+    }
+  ]
+}

@@ -37,6 +37,9 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getIntentQube } from '@/services/iqube/intentQube';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { getGoogleConnector } from '@/services/google/connectors';
+// CFS-025 increment 3 — additive consequence tiering for business artifacts.
+// Best-effort + failure-isolated: never changes how artifacts are created.
+import { tierBusinessArtifact } from '@/services/artifact/businessArtifactTiering';
 
 export const dynamic = 'force-dynamic';
 
@@ -102,9 +105,28 @@ interface CreateArtifactSurface {
   message: string;
   createdAt: string;
   locationUrl?: string | null;
+  /**
+   * Optional connector-emitted warning when a partial success
+   * happened (e.g. Drive created the doc but the Docs API was
+   * disabled so the body insert failed 403). Surfaced as an amber
+   * callout on the artifact card. When the warning text contains a
+   * Google Cloud Console URL, the card extracts it as a clickable
+   * "Enable API" CTA so the operator can fix the disabled-API issue
+   * in one click and re-run.
+   */
+  warning?: string | null;
   actionConnectorId?: string;
   actionConnectorLabel?: string;
   actionInput?: Record<string, unknown>;
+  /**
+   * CFS-025 increment 3 — ADDITIVE tiering fields (absent on legacy/error
+   * paths). Business artifacts are born disposable (gmail drafts) or
+   * operational (docs/sheets/slides/calendar) — never constitutional; the
+   * operator promotes later.
+   */
+  consequenceClass?: 'disposable' | 'operational';
+  /** artifact_records id when an operational production was persisted. */
+  artifactRecordId?: string;
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -213,12 +235,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const draftId = (draftResult.output as { draftId?: string } | undefined)?.draftId ?? '';
       const locationUrl = draftId ? `https://mail.google.com/mail/u/0/#drafts/${draftId}` : null;
 
+      // Surface attachment count in the receipt summary so it's clear
+      // post-hoc whether the operator's selected uploads actually rode
+      // with the draft (versus the picker silently rendering empty and
+      // the email shipping without).
+      const draftAttachmentInput = (input as { attachmentUploadIds?: unknown }).attachmentUploadIds;
+      const draftAttachmentCount = Array.isArray(draftAttachmentInput) ? draftAttachmentInput.length : 0;
+      const gmailActionInput = draftId ? { fromDraftId: draftId } : input;
       const receipt = await createActivityReceipt({
         personaId: context.personaId,
         intentId: body.sourceIntentId ?? null,
         activeCartridge: cartridge,
         actionType: 'artifact_created',
-        summary: `Created Gmail draft: ${derivedTitle}`,
+        summary:
+          draftAttachmentCount > 0
+            ? `Created Gmail draft: ${derivedTitle} (${draftAttachmentCount} attachment${draftAttachmentCount === 1 ? '' : 's'})`
+            : `Created Gmail draft: ${derivedTitle}`,
         agentsInvoked: [
           'aigent-me',
           ...(body.specialistId ? [body.specialistId] : []),
@@ -228,9 +260,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         contextShared: ['intent-summary', 'experience-meta-slice'],
         artifactsCreated: [`gmail-draft:${draftId || derivedTitle}`],
         approvalsGranted: body.sourceIntentId ? [body.sourceIntentId] : [],
+        actionConnectorId: 'google.gmail.send',
+        actionConnectorLabel: 'Send draft',
+        actionInput: gmailActionInput as Record<string, unknown>,
+      });
+
+      // CFS-025 tiering (additive, never throws): a draft is disposable.
+      const tiering = await tierBusinessArtifact({
+        connectorId: 'google.gmail.draft',
+        artifactId,
+        title: derivedTitle,
+        locationUrl,
+        receiptId: receipt?.id ?? null,
+        goal: derivedTitle,
       });
 
       const surface: CreateArtifactSurface = {
+        ...tiering,
         artifactId,
         artifactType: 'gmail-draft',
         title: derivedTitle,
@@ -245,10 +291,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         locationUrl,
         actionConnectorId: 'google.gmail.send',
         actionConnectorLabel: 'Send draft',
-        // Forward the draft id so the send connector targets it directly.
-        // gmail.send keys on `fromDraftId`; fall back to the raw compose
-        // input when the draft id is missing.
-        actionInput: draftId ? { fromDraftId: draftId } : input,
+        actionInput: gmailActionInput,
       };
 
       return NextResponse.json(surface, {
@@ -334,7 +377,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           approvalsGranted: body.sourceIntentId ? [body.sourceIntentId] : [],
         });
 
+        // CFS-025 tiering (additive, never throws): operational work product.
+        const tiering = await tierBusinessArtifact({
+          connectorId: 'google.calendar.create-event',
+          artifactId,
+          title: input.summary,
+          locationUrl,
+          receiptId: receipt?.id ?? null,
+          goal: derivedTitle,
+        });
+
         const surface: CreateArtifactSurface = {
+          ...tiering,
           artifactId,
           artifactType: 'calendar-block',
           title: input.summary,
@@ -350,6 +404,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
 
       // External attendees present — defer creation behind the approval gate.
+      const calInviteInput = {
+        summary: input.summary,
+        description: input.description ?? '',
+        startIso: input.startIso,
+        endIso: input.endIso,
+        timeZone: input.timeZone ?? 'UTC',
+        attendeeEmails,
+        sendUpdates: 'all',
+      };
       const receipt = await createActivityReceipt({
         personaId: context.personaId,
         intentId: body.sourceIntentId ?? null,
@@ -362,6 +425,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         contextShared: ['intent-summary', 'experience-meta-slice'],
         artifactsCreated: [`calendar-block:${input.summary}`],
         approvalsGranted: body.sourceIntentId ? [body.sourceIntentId] : [],
+        actionConnectorId: 'google.calendar.invite-external',
+        actionConnectorLabel: 'Send invites',
+        actionInput: calInviteInput,
       });
 
       const surface: CreateArtifactSurface = {
@@ -378,15 +444,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         createdAt,
         actionConnectorId: 'google.calendar.invite-external',
         actionConnectorLabel: 'Send invites',
-        actionInput: {
-          summary: input.summary,
-          description: input.description ?? '',
-          startIso: input.startIso,
-          endIso: input.endIso,
-          timeZone: input.timeZone ?? 'UTC',
-          attendeeEmails,
-          sendUpdates: 'all',
-        },
+        actionInput: calInviteInput,
       };
       return NextResponse.json(surface, { headers: { 'Cache-Control': 'no-store' } });
     }
@@ -455,6 +513,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const shareSuggestions = Array.isArray(input.shareSuggestions) ? input.shareSuggestions : [];
         const firstShare = shareSuggestions.find((s) => s && typeof s.email === 'string' && /@/.test(s.email));
 
+        const driveShareInput = firstShare && documentId
+          ? { documentId, email: firstShare.email, role: firstShare.role, sendNotification: true }
+          : null;
+
         const receipt = await createActivityReceipt({
           personaId: context.personaId,
           intentId: body.sourceIntentId ?? null,
@@ -467,9 +529,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           contextShared: ['intent-summary', 'experience-meta-slice'],
           artifactsCreated: [`google-doc:${documentId || input.title}`],
           approvalsGranted: body.sourceIntentId ? [body.sourceIntentId] : [],
+          ...(driveShareInput
+            ? {
+                actionConnectorId: 'google.drive.share-doc',
+                actionConnectorLabel: `Share with ${firstShare!.email}`,
+                actionInput: driveShareInput,
+              }
+            : {}),
+        });
+
+        // CFS-025 tiering (additive, never throws): operational work product.
+        const tiering = await tierBusinessArtifact({
+          connectorId: 'google.drive.create-doc',
+          artifactId,
+          title: input.title,
+          locationUrl,
+          receiptId: receipt?.id ?? null,
+          goal: derivedTitle,
         });
 
         const surface: CreateArtifactSurface = {
+          ...tiering,
           artifactId,
           artifactType: 'google-doc',
           title: input.title,
@@ -477,23 +557,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           status: 'draft',
           receiptId: receipt?.id ?? null,
           intentId: body.sourceIntentId ?? null,
-          message: bodyWarning
-            ? `Doc created (title only). ${bodyWarning}`
-            : firstShare
-              ? `Doc created. Click "Share doc" to grant ${firstShare.email} ${firstShare.role} access — approval required.`
-              : 'Doc created privately in your Drive.',
+          message: firstShare
+            ? `Doc created. Click "Share doc" to grant ${firstShare.email} ${firstShare.role} access — approval required.`
+            : 'Doc created privately in your Drive.',
           createdAt,
           locationUrl,
-          ...(firstShare && documentId
+          ...(bodyWarning ? { warning: bodyWarning } : {}),
+          ...(driveShareInput
             ? {
                 actionConnectorId: 'google.drive.share-doc',
-                actionConnectorLabel: `Share with ${firstShare.email}`,
-                actionInput: {
-                  documentId,
-                  email: firstShare.email,
-                  role: firstShare.role,
-                  sendNotification: true,
-                },
+                actionConnectorLabel: `Share with ${firstShare!.email}`,
+                actionInput: driveShareInput,
               }
             : {}),
         };
@@ -551,7 +625,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           approvalsGranted: body.sourceIntentId ? [body.sourceIntentId] : [],
         });
 
+        // CFS-025 tiering (additive, never throws): operational work product.
+        const tiering = await tierBusinessArtifact({
+          connectorId: 'google.sheets.create',
+          artifactId,
+          title: input.title,
+          locationUrl,
+          receiptId: receipt?.id ?? null,
+          goal: derivedTitle,
+        });
+
         const surface: CreateArtifactSurface = {
+          ...tiering,
           artifactId,
           artifactType: 'google-sheet',
           title: input.title,
@@ -617,7 +702,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         approvalsGranted: body.sourceIntentId ? [body.sourceIntentId] : [],
       });
 
+      // CFS-025 tiering (additive, never throws): operational work product.
+      const tiering = await tierBusinessArtifact({
+        connectorId: 'google.slides.create',
+        artifactId,
+        title: input.title,
+        locationUrl,
+        receiptId: receipt?.id ?? null,
+        goal: derivedTitle,
+      });
+
       const surface: CreateArtifactSurface = {
+        ...tiering,
         artifactId,
         artifactType: 'slide-outline',
         title: input.title,
@@ -648,25 +744,109 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         fromName?: string;
         campaignId?: string;
         cohortId?: string;
+        /** Persona upload ids selected as attachments by the operator
+         *  in the compose modal. Resolved server-side by the marketa
+         *  connector at send time via the upload service. */
+        attachmentUploadIds?: string[];
       };
+      // Cohort branch — when the operator picked a campaign + cohort,
+      // the artifact targets the marketa.send-cohort connector which
+      // fans out via Mailjet batch to every member. Single approval
+      // for the whole cohort; `to` field becomes optional (and gets
+      // dropped from actionInput since the connector resolves
+      // recipients server-side from the CRM).
+      const isCohortSend = !!input.campaignId && (!!input.cohortId || input.campaignId === 'ks_prospects');
+      if (isCohortSend) {
+        if (!input.subject || !input.bodyText) {
+          return NextResponse.json(
+            { error: 'invalid-connector-input', detail: 'subject + bodyText required for cohort send' },
+            { status: 400, headers: { 'Cache-Control': 'no-store' } },
+          );
+        }
+        const cohortLabel = `${input.campaignId}${input.cohortId ? `:${input.cohortId}` : ''}`;
+        const cohortActionInput: Record<string, unknown> = {
+          campaignId: input.campaignId,
+          ...(input.cohortId ? { cohortId: input.cohortId } : {}),
+          subject: input.subject,
+          bodyText: input.bodyText,
+          ...(input.fromName ? { fromName: input.fromName } : {}),
+          ...(Array.isArray(input.attachmentUploadIds) && input.attachmentUploadIds.length > 0
+            ? { attachmentUploadIds: input.attachmentUploadIds }
+            : {}),
+        };
+        const receiptRow = await createActivityReceipt({
+          personaId: context.personaId,
+          intentId: body.sourceIntentId ?? null,
+          activeCartridge: cartridge,
+          actionType: 'artifact_created',
+          summary: `Drafted Marketa cohort email: ${input.subject} → ${cohortLabel}`,
+          agentsInvoked: ['aigent-me', 'marketa'],
+          toolsUsed: ['runtime'],
+          iqubesUsed: ['PersonaQube', 'ExperienceQube', 'IntentQube'],
+          contextShared: ['intent-summary', 'experience-meta-slice'],
+          artifactsCreated: [`marketa-cohort-email:${input.subject}`],
+          approvalsGranted: body.sourceIntentId ? [body.sourceIntentId] : [],
+          actionConnectorId: 'marketa.send-cohort',
+          actionConnectorLabel: 'Approve & send to cohort',
+          actionInput: cohortActionInput,
+        });
+        const surface: CreateArtifactSurface = {
+          artifactId,
+          artifactType: 'marketa-cohort-email',
+          title: `${input.subject} → ${cohortLabel}`,
+          destination: 'runtime',
+          status: 'draft',
+          receiptId: receiptRow?.id ?? null,
+          intentId: body.sourceIntentId ?? null,
+          message: `Marketa cohort email drafted for ${cohortLabel}. Click "Approve & send" to fan out to every member via Mailjet.`,
+          createdAt,
+          actionConnectorId: 'marketa.send-cohort',
+          actionConnectorLabel: 'Approve & send to cohort',
+          actionInput: cohortActionInput,
+        };
+        return NextResponse.json(surface, { headers: { 'Cache-Control': 'no-store' } });
+      }
+
+      // Single-recipient branch — the legacy transactional path.
       if (!input.to || !input.subject || !input.bodyText) {
         return NextResponse.json(
           { error: 'invalid-connector-input', detail: 'to + subject + bodyText required' },
           { status: 400, headers: { 'Cache-Control': 'no-store' } },
         );
       }
+      const marketaAttachmentCount =
+        Array.isArray(input.attachmentUploadIds) ? input.attachmentUploadIds.length : 0;
+      const marketaTransactionalInput: Record<string, unknown> = {
+        to: input.to,
+        subject: input.subject,
+        bodyText: input.bodyText,
+        ...(input.cc ? { cc: input.cc } : {}),
+        ...(input.bcc ? { bcc: input.bcc } : {}),
+        ...(input.fromName ? { fromName: input.fromName } : {}),
+        ...(input.campaignId ? { campaignId: input.campaignId } : {}),
+        ...(input.cohortId ? { cohortId: input.cohortId } : {}),
+        ...(Array.isArray(input.attachmentUploadIds) && input.attachmentUploadIds.length > 0
+          ? { attachmentUploadIds: input.attachmentUploadIds }
+          : {}),
+      };
       const receiptRow = await createActivityReceipt({
         personaId: context.personaId,
         intentId: body.sourceIntentId ?? null,
         activeCartridge: cartridge,
         actionType: 'artifact_created',
-        summary: `Drafted Marketa email: ${input.subject}`,
+        summary:
+          marketaAttachmentCount > 0
+            ? `Drafted Marketa email: ${input.subject} (${marketaAttachmentCount} attachment${marketaAttachmentCount === 1 ? '' : 's'})`
+            : `Drafted Marketa email: ${input.subject}`,
         agentsInvoked: ['aigent-me', 'marketa'],
         toolsUsed: ['runtime'],
         iqubesUsed: ['PersonaQube', 'ExperienceQube', 'IntentQube'],
         contextShared: ['intent-summary', 'experience-meta-slice'],
         artifactsCreated: [`marketa-email:${input.subject}`],
         approvalsGranted: body.sourceIntentId ? [body.sourceIntentId] : [],
+        actionConnectorId: 'marketa.send-transactional',
+        actionConnectorLabel: 'Send via Mailjet',
+        actionInput: marketaTransactionalInput,
       });
       const surface: CreateArtifactSurface = {
         artifactId,
@@ -680,16 +860,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         createdAt,
         actionConnectorId: 'marketa.send-transactional',
         actionConnectorLabel: 'Send via Mailjet',
-        actionInput: {
-          to: input.to,
-          subject: input.subject,
-          bodyText: input.bodyText,
-          ...(input.cc ? { cc: input.cc } : {}),
-          ...(input.bcc ? { bcc: input.bcc } : {}),
-          ...(input.fromName ? { fromName: input.fromName } : {}),
-          ...(input.campaignId ? { campaignId: input.campaignId } : {}),
-          ...(input.cohortId ? { cohortId: input.cohortId } : {}),
-        },
+        actionInput: marketaTransactionalInput,
       };
       return NextResponse.json(surface, { headers: { 'Cache-Control': 'no-store' } });
     }

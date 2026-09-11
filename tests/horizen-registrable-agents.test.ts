@@ -1,0 +1,86 @@
+/**
+ * services/horizen/registrableAgents.ts — the config table that replaced the
+ * 7 hardcoded 'aigentqube-moneypenny'/'aigent-moneypenny' constants scattered
+ * across the Register/Verify/Claim/state routes (agent-selectable Register
+ * stage, 2026-07-31). Pure data + pure lookup functions — no mocks needed.
+ */
+
+import { describe, it, expect } from 'vitest';
+import {
+  REGISTRABLE_AGENTS,
+  DEFAULT_REGISTRABLE_AGENT_SLUG,
+  resolveRegistrableAgent,
+  listRegistrableAgents,
+} from '@/services/horizen/registrableAgents';
+
+describe('registrableAgents', () => {
+  it('resolves moneypenny and nakamoto by slug', () => {
+    expect(resolveRegistrableAgent('moneypenny')).toMatchObject({
+      slug: 'moneypenny',
+      displayName: 'Aigent MoneyPenny',
+      runtimeAgentId: 'aigent-moneypenny',
+      aigentQubeId: 'aigentqube-moneypenny',
+      agentCardPath: '/api/agents/moneypenny/agent-card.json',
+      fioHandle: 'moneypenny@aigent',
+    });
+    expect(resolveRegistrableAgent('nakamoto')).toMatchObject({
+      slug: 'nakamoto',
+      displayName: 'Aigent Nakamoto',
+      runtimeAgentId: 'aigent-nakamoto',
+      aigentQubeId: 'aigentqube-nakamoto',
+      agentCardPath: '/api/agents/nakamoto/agent-card.json',
+      fioHandle: 'nakamoto@aigent',
+    });
+  });
+
+  it('resolves factor with the SAME shape as nakamoto — the same generic config table, never a Factor-specific journey (MoneyPenny x Horizen journey-completion pass, 2026-09-05)', () => {
+    const factor = resolveRegistrableAgent('factor');
+    const nakamoto = resolveRegistrableAgent('nakamoto');
+    expect(factor).toMatchObject({
+      slug: 'factor',
+      displayName: 'Aigent Factor',
+      runtimeAgentId: 'aigent-factor',
+      aigentQubeId: 'aigentqube-factor',
+      agentCardPath: '/api/agents/factor/agent-card.json',
+      fioHandle: 'factor@aigent',
+    });
+    // Same fields, same shape — Factor is a config ROW, not a forked journey.
+    expect(Object.keys(factor!).sort()).toEqual(Object.keys(nakamoto!).sort());
+  });
+
+  it('Register\'s agent dropdown (RegisterAgentPanel.tsx) is built from listRegistrableAgents() — factor is reachable there without a Factor-specific branch', () => {
+    const agents = listRegistrableAgents();
+    expect(agents.some((a) => a.slug === 'factor')).toBe(true);
+  });
+
+  it('never reintroduces a per-agent env-var signing dependency — Register signs through the same agent_keys custody path as Verify/Claim (operator ruling 2026-08-01)', () => {
+    for (const agent of listRegistrableAgents()) {
+      expect(agent).not.toHaveProperty('ownerPrivateKeyEnvVar');
+    }
+  });
+
+  it('returns null for an unknown slug rather than a guessed default', () => {
+    expect(resolveRegistrableAgent('unknown-agent')).toBeNull();
+    expect(resolveRegistrableAgent(null)).toBeNull();
+    expect(resolveRegistrableAgent(undefined)).toBeNull();
+  });
+
+  it('defaults to moneypenny — the demo agent — never nakamoto, the dry-run agent', () => {
+    expect(DEFAULT_REGISTRABLE_AGENT_SLUG).toBe('moneypenny');
+  });
+
+  it('every config entry has a distinct aigentQubeId, runtimeAgentId, and agentCardPath — no two agents can collide on the same registry row', () => {
+    const agents = listRegistrableAgents();
+    expect(agents.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(agents.map((a) => a.aigentQubeId)).size).toBe(agents.length);
+    expect(new Set(agents.map((a) => a.runtimeAgentId)).size).toBe(agents.length);
+    expect(new Set(agents.map((a) => a.agentCardPath)).size).toBe(agents.length);
+    expect(new Set(agents.map((a) => a.fioHandle)).size).toBe(agents.length);
+  });
+
+  it('every entry in REGISTRABLE_AGENTS is keyed by its own slug', () => {
+    for (const [key, config] of Object.entries(REGISTRABLE_AGENTS)) {
+      expect(config.slug).toBe(key);
+    }
+  });
+});

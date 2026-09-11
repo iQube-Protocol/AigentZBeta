@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.metame.com/polity/passport/v0.1/polity-passport.reputation-binding.schema.json",
+  "title": "Polity Passport Reputation Binding",
+  "description": "PRD Addendum E layering: reputation is managed at the RootDID / DiDQube level. For citizen holders, this binding attaches through the holder's RootDID-layer identity (persona → RootDID → ReputationQube) and feeds the citizen privilege-standing object ONLY — it is never bound to the Citizen Passport credential itself, which is a KybeDID-level proof-of-personhood primitive. kybe_did_continuity_ref is continuity plumbing for reputation inheritance across RootDID rotation, not reputation management at the KybeDID level. KybeDID-bound reputational classes (e.g. sanctions/AML flags) are a separate future primitive outside this schema's scope.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "reputation_binding_id",
+    "passport_id",
+    "holder_type",
+    "standing_status",
+    "reputation_system_ref",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "reputation_binding_id": {
+      "type": "string"
+    },
+    "passport_id": {
+      "type": "string"
+    },
+    "registry_record_id": {
+      "type": "string"
+    },
+    "holder_type": {
+      "type": "string",
+      "enum": [
+        "citizen",
+        "agent_participant",
+        "robot_participant",
+        "organization_participant"
+      ]
+    },
+    "reputation_system_ref": {
+      "type": "string",
+      "description": "Reference to ReputationQube, ReputationQube Hub, or other canonical reputation record."
+    },
+    "standing_status": {
+      "type": "string",
+      "enum": [
+        "good_standing",
+        "watchlist",
+        "limited_standing",
+        "restricted_standing",
+        "under_review",
+        "suspended_standing",
+        "revoked_standing",
+        "inactive"
+      ]
+    },
+    "citizen_passport_irrevocable": {
+      "type": "boolean",
+      "description": "Must be true for citizen passports. Citizen personhood recognition is not revocable by reputation.",
+      "default": true
+    },
+    "participation_rights_conditioned_on_reputation": {
+      "type": "boolean",
+      "description": "True for agents and other non-human participants. Optional/limited for citizen privileges.",
+      "default": false
+    },
+    "identity_refs": {
+      "type": "object",
+      "$comment": "T0 WARNING: persona_id, kybe_did, and root_did are server-internal identifiers. They MUST NOT appear in browser-bound JSON, public registry projections, or chain-bound receipts — use public commitment references in those surfaces.",
+      "properties": {
+        "persona_id": {
+          "type": "string"
+        },
+        "kybe_did": {
+          "type": "string"
+        },
+        "root_did": {
+          "type": "string"
+        },
+        "root_did_reputation_ref": {
+          "type": "string"
+        },
+        "kybe_did_continuity_ref": {
+          "type": "string",
+          "description": "Anchor for reputation continuity across RootDID rotation."
+        },
+        "agent_id": {
+          "type": "string"
+        },
+        "agent_card_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "agent_iqube_id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "reputation_summary": {
+      "type": "object",
+      "properties": {
+        "public_score": {
+          "type": "number"
+        },
+        "private_score_ref": {
+          "type": "string",
+          "description": "Reference to private or steward-only score detail."
+        },
+        "infraction_count_public": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "active_restriction_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "last_reputation_check_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "active_restrictions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "restriction_id",
+          "restriction_type",
+          "scope",
+          "effective_at"
+        ],
+        "properties": {
+          "restriction_id": {
+            "type": "string"
+          },
+          "restriction_type": {
+            "type": "string",
+            "enum": [
+              "cartridge_access",
+              "resource_access",
+              "governance_participation",
+              "agent_interaction",
+              "blackqube_access",
+              "outbound_action",
+              "steward_role",
+              "guardian_role",
+              "application_specific_privilege",
+              "other"
+            ]
+          },
+          "scope": {
+            "type": "string"
+          },
+          "effective_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "appeal_available": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false
+}

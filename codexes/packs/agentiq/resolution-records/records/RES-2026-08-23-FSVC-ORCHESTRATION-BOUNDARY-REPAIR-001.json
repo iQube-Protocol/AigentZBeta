@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-23",
+  "resolutionId": "RES-2026-08-23-FSVC-ORCHESTRATION-BOUNDARY-REPAIR-001",
+  "capability": "phase-3-moneypenny-financial-services-runtime",
+  "milestone": "Phase 3 Track A fourth repair pass — live browser verification confirmed Nakamoto/Kn0w1 Advisor/Architect read ELIGIBLE (RES-2026-08-23-FSVC-CONSUMER-VERIFICATION-OVERREACH-001 landed correctly). The operator ruled the service-admission boundary reached and identified the NEXT layer down: the POST dispatch path itself carried two deterministic defects plus a missing error boundary — orchestration/input/error-boundary defects, explicitly NOT authorization defects, and the operator required admission/assignment/verification/Gate 1 to stay untouched for this pass.",
+  "problem": "The oversight console's POST handler (app/api/moneypenny/service-orchestration/route.ts) unconditionally computed a public consequence forecast via `forecastConsequences(['inv.finance.001'])` before dispatching ANY service — including Advisor/Architect, which declare `projectionRequirement: 'NOT_REQUIRED'` and `executionReachable: false` and never consume a forecast. The hardcoded id was also structurally invalid: `forecastConsequences()` traverses the invariant graph by UUID (`invariants.id`), while `'inv.finance.001'` is a human-readable seed id (`invariants.seed_id`) — no live row matched it. Separately, the Trigger button had no way to supply `input.intent`/`input.message` for Advisor/Architect (dispatchInformationalProvider() requires one), so every trigger click for those services was guaranteed to resolve UNRESOLVED with an opaque generic failure, and the panel collapsed EVERY POST failure shape into the same 'Request ... failed' string, with no top-level exception boundary on the route at all.",
+  "observedFailure": [
+    "Live console: Advisor/Architect for both agents now read ELIGIBLE (confirming the prior repair), but clicking Trigger with no way to enter a request produced an opaque failure with no actionable reason, and any unexpected exception in the POST lifecycle would have surfaced as an unhandled 500 with no diagnostic body."
+  ],
+  "rootCauses": [
+    "A public-projection call that was written for the Runtime-only, hard-coded rehearsal path (scripts/financial-services-rehearsal.ts's synthetic `['inv.finance.001']` forecast) was copied into the live oversight route without gating it on `executionPolicy.executionReachable` — the exact condition `requestFinancialService()` itself already uses to decide whether a projection is even composed.",
+      "The UI was built service-agnostic (one generic Trigger button) without accounting for the two providerModes (ADVISOR/ARCHITECT) that require caller-supplied `input.intent`/`input.message` before their real provider (`runMoneyPennyChat`/`draftFinancialStructure`) can be invoked.",
+    "The POST handler had no top-level try/catch; every failure path relied on each internal call already resolving to a clean JSON shape, which is true for the deterministic INELIGIBLE/REFUSED/UNRESOLVED/DELIVERED/AUTHORISED outcomes but not for a genuinely unexpected technical exception."
+  ],
+  "resolution": [
+    "Route now resolves the service definition FIRST and only computes a public forecast when `definition.executionPolicy.executionReachable` is true (Runtime today) — Advisor/Architect never call `knowledgeCuration`/`forecastConsequences` at all.",
+    "When a forecast IS needed, real persisted invariant UUIDs are resolved through the canonical invariant service (`knowledgeCuration({ namespace: 'finance' })` -> `listInvariants`) — never a hardcoded seed-id string. If no `finance`-namespace invariants are live yet, the route returns a clean `ok:true` response with outcome.status `UNRESOLVED` and an explicit reason, never a throw and never a fabricated/backfilled `inv.finance.001` row.",
+    "`RequestFinancialServiceInput.publicForecast` (serviceRequestOrchestrator.ts) is now optional/nullable; `requestFinancialService()` itself resolves UNRESOLVED with an explicit reason if an executionReachable service reaches the projection step without one, rather than assuming its caller always supplies one.",
+    "ServiceOrchestrationPanel.tsx gained a compact inline composer (textarea, no modal) rendered only for ADVISOR/ARCHITECT providerModes, posting `input: { intent: <operator-entered text> }` — the human principal remains the operator, `requestingAgentId` remains the selected agent; no synthesized intent.",
+    "POST handler wrapped in a top-level try/catch with a bounded `stage` marker (INPUT/PUBLIC_PROJECTION/GATEWAY) — every response, including an unexpected exception, is now structured JSON `{ok:false, error, stage}`. The panel surfaces the route's own structured `error`/`stage` instead of collapsing every failure into a generic string.",
+    "Panel's Trigger `disabled` condition changed from `eligibility?.eligible === false` (an UNDETERMINED/`undefined` eligibility was still clickable) to `eligibility?.eligible !== true` — an unresolved Standing/admission/assignment read can no longer be triggered."
+  ],
+  "rejectedApproaches": [
+    "Seeding a real `inv.finance.001` row so the hardcoded call would resolve — rejected per explicit operator instruction: fabricating persisted data to satisfy a route is backfilling evidence, not fixing the defect, and would mask the real bug (the unconditional call) behind a database patch that has nothing to do with why Advisor/Architect were even calling it.",
+    "Widening Gate 1/2/3 or touching admission/assignment/verification to accommodate the POST path's defects — rejected: the operator was explicit that these are orchestration/input/error-boundary defects, not authorization defects, and the constitutional gates were confirmed correct and frozen for this pass."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-23-PROJECTION-GATED-ON-EXECUTION-REACHABILITY-001"
+  ],
+  "canaries": [
+    "tests/moneypenny-service-orchestration-route.test.ts",
+    "tests/financial-services-runtime.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "multi-cycle-repair",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/moneypenny-service-orchestration-route.test.ts",
+      "tests/financial-services-runtime.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-22_phase3-track-a-service-orchestration-console.md",
+    "services/invariants/store.ts",
+    "services/consequence/stages.ts"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

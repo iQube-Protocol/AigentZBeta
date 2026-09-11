@@ -1,0 +1,74 @@
+{
+  "id": "founder-office-charter",
+  "title": "The Founder Office Charter",
+  "version": "1.0.0",
+  "status": "ratified",
+  "ratifiedAt": "2026-06-17",
+  "boundConstitutionVersion": "1.0.0",
+  "classification": "sub_metacommons_artefact",
+  "subCharterOf": "metacommons-charter",
+  "calibratedBy": "standing-charter",
+  "subtitle": "Capability Discovery, Opportunity Intelligence, and Venture Formation",
+  "purpose": "Help founders discover, evaluate, and transform latent capability within the Polity into products, services, ventures, institutions, and outcomes.",
+  "isNot": "primarily a software suite",
+  "is": "a capability discovery and opportunity intelligence service powered by the metaCommons",
+  "firstPrinciple": {
+    "foundersDoNotCreateValueFromInformationAlone": true,
+    "foundersCreateValueBy": "identifying capability latent within information and transforming that capability into useful work",
+    "reduces": ["uncertainty", "time_to_value", "cost_of_discovering_meaningful_opportunities"]
+  },
+  "foundersChallenge": {
+    "traditionalEnvironmentsWhere": [
+      "demand_is_difficult_to_observe",
+      "capability_is_difficult_to_discover",
+      "trust_is_difficult_to_establish",
+      "opportunity_is_difficult_to_validate"
+    ],
+    "polityImprovesEachCondition": true
+  },
+  "metacommonsInterface": {
+    "isPrimaryInstitutionalInterfaceBetweenFoundersAndMetacommons": true,
+    "consumesSignals": [
+      "intent_signals",
+      "demand_signals",
+      "capability_signals",
+      "opportunity_signals",
+      "standing_signals",
+      "proof_of_work_potential"
+    ],
+    "transformsSignalsInto": "actionable_opportunities"
+  },
+  "proofOfWorkPotential": {
+    "premise": "The most valuable opportunities are often invisible before they are realized.",
+    "enablesDiscoveryOf": [
+      "unmet_needs",
+      "emerging_needs",
+      "latent_capability",
+      "undeveloped_markets",
+      "unrealized_opportunities"
+    ],
+    "enablesActionBeforeTraditionalMarketsRecognize": true,
+    "note": "PoWP is defined and enshrined in the Polity Paper series (Qriptopian codex) — pending ingestion as constitutional commentary."
+  },
+  "standingAndFounderDiscovery": {
+    "standingDoesNotDetermineWhoReceivesOpportunities": true,
+    "standingCalibratesConfidenceInSignals": true,
+    "usedToReduceUncertaintyWhenEvaluating": [
+      "needs",
+      "opportunities",
+      "capabilities",
+      "partnerships",
+      "ventures"
+    ]
+  },
+  "responsibilities": [
+    "surface_meaningful_opportunities",
+    "reduce_discovery_costs",
+    "reduce_coordination_costs",
+    "reduce_time_to_value",
+    "increase_probability_of_successful_venture_formation",
+    "increase_probability_of_useful_capability_deployment"
+  ],
+  "constitutionalPrinciple": "Founder Office exists to help citizens transform truthful information into useful capability and useful capability into meaningful outcomes. Its purpose is not extraction; its purpose is venture formation, capability development, and value creation within the Polity.",
+  "engineStatus": "constitutional_only — the operational Founder Office (the Founder Operator Venture Blueprint engine downstream of the metaCommons) is a later workstream; PRD and schema pending."
+}

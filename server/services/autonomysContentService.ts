@@ -537,7 +537,13 @@ export function validateFileType(
     episode_print: ['application/pdf'], // Complete print edition PDFs
     character_poster: ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'],
     powers_sheet: ['application/pdf', 'image/png', 'image/jpeg'],
-    background_lore_doc: ['application/pdf', 'text/plain', 'text/markdown'],
+    background_lore_doc: [
+      'application/pdf',
+      'text/plain',
+      'text/markdown',
+      'application/json',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ],
     game_concept_doc: ['application/pdf', 'text/plain', 'text/markdown'],
     game_still: ['image/png', 'image/jpeg', 'image/webp'],
     game_video: ['video/mp4', 'video/webm'],

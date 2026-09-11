@@ -3,6 +3,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CodexUploadModal } from '@/app/(shell)/admin/codex/components/CodexUploadModal';
 import { StoreSkusPanel } from '@/app/triad/components/codex/admin/StoreSkusPanel';
+import { KnytsBridgeAdminPanel } from '@/components/journey/KnytsBridgeAdminPanel';
+import { CI_BRIDGE_VIEW_CONTENT } from '@/services/journey/constitutionalInternetBridgeViewContent';
+import { FS_STAGE_IDS, fsBridgeSectionKey, fsLearnPlateSectionKey } from '@/services/journey/knytsBridgeEditorialConfig';
+import { personaFetch } from '@/utils/personaSpine';
+import type { BridgeContentPlacement, PlacementSlot } from '@/services/journey/bridgeContentPlacements';
 import {
   Activity,
   AlertCircle,
@@ -65,7 +70,8 @@ type AdminView =
   | { kind: 'editor'; id: string | null; section: string }
   | { kind: 'codex' }
   | { kind: 'import' }
-  | { kind: 'embed-health' };
+  | { kind: 'embed-health' }
+  | { kind: 'bridges' };
 
 interface Props {
   isAdmin?: boolean;
@@ -102,6 +108,7 @@ const DASHBOARD_SECTIONS = [
   { key: 'staybull',     title: 'StayBull',                 description: 'Market updates',                       icon: TrendingUp,  section: 'staybull'    },
   { key: 'codex',        title: 'SmartTriad Codex Manager', description: 'Episodes, covers, Autonomys uploads',  icon: Layers,      section: null },
   { key: 'embed-health', title: 'Embed Health Check',        description: 'Test iframe compatibility',            icon: Activity,    section: null },
+  { key: 'bridges',      title: 'Bridges',                   description: 'CI/KNYTS bridge editorial copy & media', icon: Share2,     section: null },
 ];
 
 // ── Modality chips ────────────────────────────────────────────────────────────
@@ -989,6 +996,61 @@ function CodexManager() {
   const [detailError,    setDetailError]    = useState<string | null>(null);
   const [copiedCid,      setCopiedCid]      = useState<string | null>(null);
 
+  // Qriptopian asset list — every uploaded row (covers AND papers) is
+  // surfaced as its own line so the operator can see whether the cover
+  // they think they uploaded actually exists, what scope it's in, and
+  // whether it matches the paper. Endpoint returns `assets` (full list)
+  // alongside `papers` (paper-with-cover bundles consumed by the codex
+  // tab) — admin uses `assets`.
+  type QriptoAdminRow = {
+    id: string; title: string; scope: string; scopeLabel: string;
+    role: 'cover' | 'paper';
+    assetKind: string | null;
+    storageUrl: string;
+    coverThumbUrl: string | null;
+    mimeType: string;
+    uploadedAt: string | null;
+  };
+  const [qriptoRows, setQriptoRows] = useState<QriptoAdminRow[]>([]);
+  const [qriptoLoading, setQriptoLoading] = useState(false);
+  const [qriptoError, setQriptoError] = useState<string | null>(null);
+  const [qriptoDiag, setQriptoDiag] = useState<{ totalRows: number; unparseable: number; bucketCount: number } | null>(null);
+  useEffect(() => {
+    if (activeTab !== 'qriptopian') return;
+    let cancelled = false;
+    (async () => {
+      setQriptoLoading(true); setQriptoError(null);
+      try {
+        const [papersRes, magsRes] = await Promise.all([
+          fetch('/api/codex/qripto/papers?group=papers', { cache: 'no-store' }),
+          fetch('/api/codex/qripto/papers?group=magazines', { cache: 'no-store' }),
+        ]);
+        const papersJson = await papersRes.json();
+        const magsJson = await magsRes.json();
+        if (cancelled) return;
+        const combined: QriptoAdminRow[] = [
+          ...(Array.isArray(papersJson.assets) ? papersJson.assets : []),
+          ...(Array.isArray(magsJson.assets) ? magsJson.assets : []),
+        ];
+        combined.sort((a, b) => (b.uploadedAt ?? '').localeCompare(a.uploadedAt ?? ''));
+        setQriptoRows(combined);
+        // Sum diagnostics across the two group calls.
+        const d1 = papersJson.diagnostics || { totalRows: 0, unparseable: 0, bucketCount: 0 };
+        const d2 = magsJson.diagnostics || { totalRows: 0, unparseable: 0, bucketCount: 0 };
+        setQriptoDiag({
+          totalRows: d1.totalRows,
+          unparseable: d1.unparseable,
+          bucketCount: d1.bucketCount + d2.bucketCount,
+        });
+      } catch (e) {
+        if (!cancelled) setQriptoError((e as Error)?.message || 'Failed to load Qripto assets');
+      } finally {
+        if (!cancelled) setQriptoLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeTab, uploadOpen]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -1019,7 +1081,12 @@ function CodexManager() {
     try {
       const series = activeTab === 'knyt' ? 'metaKnyts' : 'qriptopian';
       const archivedParam = showArchived ? '&includeArchived=true' : '';
-      const res = await fetch(`/api/admin/codex/assets-by-category?series=${series}&category=${category}${archivedParam}`);
+      // 2026-09-02 authorization repair: this route is now admin-gated —
+      // personaFetch attaches the Bearer token requireAdminPersona needs
+      // (CodexManager has no personaId prop of its own; personaFetch falls
+      // back to the spine's own localStorage record, per its documented
+      // contract).
+      const res = await personaFetch(`/api/admin/codex/assets-by-category?series=${series}&category=${category}${archivedParam}`);
       const json = await res.json() as { assets?: CategoryAssetRow[]; error?: string };
       if (!res.ok) throw new Error(json.error ?? 'Failed to load assets');
       setDetailRows(json.assets ?? []);
@@ -1167,8 +1234,109 @@ function CodexManager() {
       ) : error ? (
         <div className="rounded-xl border border-red-800/40 bg-red-950/20 p-4 text-xs text-red-400">{error}</div>
       ) : activeTab === 'qriptopian' ? (
-        <div className="rounded-xl border border-white/5 bg-slate-800/50 p-8 text-center text-sm text-slate-400">
-          Qriptopian Codex — Coming Soon
+        <div className="space-y-3">
+          {qriptoLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-teal-400" />
+            </div>
+          ) : qriptoError ? (
+            <div className="rounded-xl border border-red-800/40 bg-red-950/20 p-4 text-xs text-red-400">{qriptoError}</div>
+          ) : qriptoRows.length === 0 ? (
+            <div className="rounded-xl border border-white/5 bg-slate-800/50 p-8 text-center text-sm text-slate-400">
+              No Qriptopian assets uploaded yet. Use <span className="text-teal-400">Upload Content</span> to add papers, magazines, or covers.
+            </div>
+          ) : (
+            <>
+              {qriptoDiag && (
+                <div className="rounded-md border border-white/5 bg-slate-900/40 px-3 py-1.5 text-[11px] text-slate-400">
+                  {qriptoDiag.totalRows} total row{qriptoDiag.totalRows === 1 ? '' : 's'} ·
+                  {' '}{qriptoDiag.bucketCount} scope{qriptoDiag.bucketCount === 1 ? '' : 's'}
+                  {qriptoDiag.unparseable > 0 && (
+                    <span className="ml-2 text-amber-400">
+                      · {qriptoDiag.unparseable} row{qriptoDiag.unparseable === 1 ? '' : 's'} have a storage filename that doesn&apos;t match the (papers|magazines)-&lt;slug&gt;_&lt;ts&gt; pattern and aren&apos;t being grouped — check the upload Series picker
+                    </span>
+                  )}
+                </div>
+              )}
+              <div className="overflow-x-auto rounded-xl border border-white/5 bg-slate-900/40">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-900/60 text-[10px] uppercase tracking-wider text-slate-500">
+                    <tr>
+                      <th className="px-3 py-2">Thumb</th>
+                      <th className="px-3 py-2">Role</th>
+                      <th className="px-3 py-2">Title</th>
+                      <th className="px-3 py-2">Series</th>
+                      <th className="px-3 py-2">Kind</th>
+                      <th className="px-3 py-2">Mime</th>
+                      <th className="px-3 py-2">ID</th>
+                      <th className="px-3 py-2">URL</th>
+                      <th className="px-3 py-2">Uploaded</th>
+                      <th className="px-3 py-2 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {qriptoRows.map((r) => {
+                      const thumbSrc = r.coverThumbUrl
+                        || (r.role === 'cover' && r.mimeType.startsWith('image/') ? r.storageUrl : null)
+                        || (r.mimeType.startsWith('image/') ? r.storageUrl : null);
+                      return (
+                        <tr key={r.id} className="hover:bg-slate-800/40">
+                          <td className="px-3 py-2">
+                            {thumbSrc ? (
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img src={thumbSrc} alt="" className="h-12 w-9 rounded object-cover" />
+                            ) : (
+                              <div className="flex h-12 w-9 items-center justify-center rounded bg-slate-800 text-[10px] text-slate-500">—</div>
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className={`rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${r.role === 'cover' ? 'bg-purple-500/15 text-purple-300' : 'bg-teal-500/15 text-teal-300'}`}>
+                              {r.role}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-slate-200 max-w-[180px] truncate" title={r.title}>{r.title}</td>
+                          <td className="px-3 py-2 text-slate-400">{r.scopeLabel}</td>
+                          <td className="px-3 py-2 text-slate-500">{r.assetKind || '—'}</td>
+                          <td className="px-3 py-2 text-slate-500">{r.mimeType}</td>
+                          <td className="px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={() => navigator.clipboard?.writeText(r.id)}
+                              className="font-mono text-[10px] text-slate-400 hover:text-teal-300"
+                              title="Click to copy ID"
+                            >
+                              {r.id.slice(0, 8)}…
+                            </button>
+                          </td>
+                          <td className="px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={() => navigator.clipboard?.writeText(r.storageUrl)}
+                              className="font-mono text-[10px] text-slate-400 hover:text-teal-300 max-w-[200px] truncate inline-block align-bottom"
+                              title={r.storageUrl}
+                            >
+                              {r.storageUrl.replace(/^https?:\/\/[^/]+/, '')}
+                            </button>
+                          </td>
+                          <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{r.uploadedAt ? new Date(r.uploadedAt).toLocaleString() : '—'}</td>
+                          <td className="px-3 py-2 text-right whitespace-nowrap">
+                            <a
+                              href={r.storageUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs text-teal-400 hover:text-teal-300"
+                            >
+                              Open
+                            </a>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </div>
       ) : (
         <>
@@ -1915,6 +2083,653 @@ function EmbedHealthCheck() {
   );
 }
 
+// ── Bridges (QRP-BRIDGE-ADMIN A0/A1 first slice, 2026-09-01) ────────────────────
+
+/**
+ * Native Bridges sub-view — CI/KNYTS editorial parity with the existing
+ * page-local modals in app/bridge/ci/page.tsx and app/bridge/knyts/page.tsx.
+ * Reuses `KnytsBridgeAdminPanel` and `knyts_bridge_editorial_config` (via
+ * the existing GET/PUT /api/journey/knyts-bridge/editorial-config route)
+ * completely unchanged — no new table, no new route, no forked editor. The
+ * section list for each bridge is copied verbatim from the two existing
+ * modal mounts so this native tab is a rehost, not a reimplementation.
+ * Publication is immediate (Save & publish), matching the existing
+ * behavior exactly — this slice migrates the editing surface only.
+ */
+type BridgeKey = 'ci' | 'knyts' | 'moneypenny';
+
+const BRIDGE_LABELS: Record<BridgeKey, string> = {
+  ci: 'Constitutional Internet Bridge',
+  knyts: 'KNYTS Bridge',
+  // MoneyPenny Cartridge C-15/A3 (2026-09-02, acceptance-gap fix) — the
+  // 'moneypenny-financial-basics' section was already live server-side
+  // (KNYTS_BRIDGE_ALLOWED_SECTIONS, moneyPennyEducationalMedia.ts) but had
+  // no entry point in this tab's own bridge picker, so an admin could never
+  // actually reach it to assign/publish/replace media without a raw API
+  // call. Reuses the SAME KnytsBridgeAdminPanel + PlacementAssetsPanel pair
+  // every other section already renders — no new component.
+  moneypenny: 'MoneyPenny (Financial Sovereignty basics)',
+};
+
+function bridgeSections(bridge: BridgeKey): string[] {
+  // CFS content pack (2026-09-03) — the six fs-* stage placements append to
+  // both CI and KNYTS, same fsBridgeSectionKey helper every reader uses so
+  // this list can never drift from KNYTS_BRIDGE_ALLOWED_SECTIONS.
+  if (bridge === 'knyts')
+    return [
+      'home',
+      'orient',
+      'choose',
+      ...FS_STAGE_IDS.map((s) => fsBridgeSectionKey('knyts', s)),
+      fsLearnPlateSectionKey('knyts', 1),
+      fsLearnPlateSectionKey('knyts', 2),
+    ];
+  if (bridge === 'moneypenny') return ['moneypenny-financial-basics'];
+  return [
+    'ci-home',
+    'ci-orient',
+    'ci-passport-established',
+    ...CI_BRIDGE_VIEW_CONTENT.map((b) => `ci-view-${b.id}`),
+    ...FS_STAGE_IDS.map((s) => fsBridgeSectionKey('ci', s)),
+    fsLearnPlateSectionKey('ci', 1),
+    fsLearnPlateSectionKey('ci', 2),
+  ];
+}
+
+/** Bridge-slot -> codex asset-kind mapping (2026-09-02 A2 completion). Bridge
+ *  media reuses the EXISTING 'social_campaign_video'/'social_campaign_image'
+ *  asset kinds (the same ones CodexUploadModal.tsx's own "Infographics"
+ *  Qripto category already maps to, per its ASSET_KIND_BY_CATEGORY) rather
+ *  than inventing new kinds — poster and infographic share a kind (both are
+ *  static images) and are told apart by title/context, matching the
+ *  existing modal's own choice. */
+const BRIDGE_SLOT_ASSET_KIND: Record<PlacementSlot, string> = {
+  video: 'social_campaign_video',
+  poster: 'social_campaign_image',
+  infographic: 'social_campaign_image',
+};
+const BRIDGE_ASSET_SERIES = 'bridge';
+const BRIDGE_ASSET_ACCEPT: Record<PlacementSlot, string> = {
+  video: 'video/mp4,video/webm,video/quicktime',
+  poster: 'image/png,image/jpeg,image/webp',
+  infographic: 'image/svg+xml,image/png,image/jpeg,application/pdf',
+};
+
+/**
+ * PlacementAssetsPanel — the A2 asset picker/preview/publish loop for one
+ * section, sitting alongside (never inside) KnytsBridgeAdminPanel's existing
+ * copy/URL fields. Backed entirely by the new
+ * /api/journey/knyts-bridge/placements route + bridgeContentPlacements.ts —
+ * publish writes into the SAME knyts_bridge_editorial_config row the plain
+ * text fields above already edit, for all three slots (video/poster/
+ * infographic, the last added 2026-09-02), so both stay a single source of
+ * truth.
+ *
+ * A2 completion (2026-09-02): assigning a draft now supports THREE paths,
+ * never a fourth parallel upload mechanism —
+ *   1. Browse already-uploaded bridge assets via the EXISTING, now-gated
+ *      GET /api/admin/codex/assets-by-category (series='bridge').
+ *   2. Upload a new asset via the EXISTING sign -> PUT -> register pipeline
+ *      CodexUploadModal.tsx already uses (series='bridge' so it stays
+ *      genuinely public/unencrypted — see codexStorageRegisterHandler.ts).
+ *   3. Paste an already-uploaded asset's URL directly (the original
+ *      first-slice path, kept as a fallback for externally-hosted assets).
+ */
+function PlacementAssetsPanel({ section, personaId }: { section: string; personaId?: string }) {
+  const [placements, setPlacements] = useState<Record<PlacementSlot, BridgeContentPlacement | null> | null>(null);
+  const [drafts, setDrafts] = useState<Record<PlacementSlot, string>>({ video: '', poster: '', infographic: '' });
+  const [busy, setBusy] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [browseSlot, setBrowseSlot] = useState<PlacementSlot | null>(null);
+  const [browseAssets, setBrowseAssets] = useState<CategoryAssetRow[] | null>(null);
+  const [browseError, setBrowseError] = useState<string | null>(null);
+  const fileInputRefs = useRef<Partial<Record<PlacementSlot, HTMLInputElement | null>>>({});
+
+  const load = useCallback(async () => {
+    try {
+      const res = await personaFetch(`/api/journey/knyts-bridge/placements?section=${encodeURIComponent(section)}`, {
+        personaIdHint: personaId,
+      });
+      const json = await res.json();
+      if (json.ok) setPlacements(json.placements);
+    } catch {
+      /* leave placements null — panel shows its own empty state, never a fabricated one */
+    }
+  }, [section, personaId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const handleAssign = useCallback(async (slot: PlacementSlot, urlOverride?: string) => {
+    const assetUrl = (urlOverride ?? drafts[slot]).trim();
+    if (!assetUrl) return;
+    setBusy(`${slot}:assign`);
+    setNotice(null);
+    try {
+      const res = await personaFetch('/api/journey/knyts-bridge/placements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        personaIdHint: personaId,
+        body: JSON.stringify({ section, slot, action: 'assign', assetUrl }),
+      });
+      const json = await res.json();
+      if (!json.ok) {
+        setNotice(
+          json.error === 'bridge-placements-unavailable'
+            ? 'Bridge asset placements are not set up in this environment yet (migration not applied).'
+            : json.error || 'Assign failed',
+        );
+        return;
+      }
+      await load();
+      setNotice(`${slot} draft assigned.`);
+      setBrowseSlot(null);
+    } finally {
+      setBusy(null);
+    }
+  }, [drafts, load, personaId, section]);
+
+  const openBrowse = useCallback(async (slot: PlacementSlot) => {
+    setBrowseSlot(slot);
+    setBrowseAssets(null);
+    setBrowseError(null);
+    try {
+      const res = await personaFetch(
+        `/api/admin/codex/assets-by-category?series=${BRIDGE_ASSET_SERIES}&category=social`,
+        { personaIdHint: personaId },
+      );
+      const json = await res.json() as { assets?: CategoryAssetRow[]; error?: string };
+      if (!res.ok) throw new Error(json.error ?? 'Failed to load assets');
+      const kind = BRIDGE_SLOT_ASSET_KIND[slot];
+      setBrowseAssets((json.assets ?? []).filter((a) => a.assetKind === kind));
+    } catch (e) {
+      setBrowseError(e instanceof Error ? e.message : 'Failed to load assets');
+      setBrowseAssets([]);
+    }
+  }, [personaId]);
+
+  const handleUploadFile = useCallback(async (slot: PlacementSlot, file: File) => {
+    setBusy(`${slot}:upload`);
+    setNotice(null);
+    try {
+      const signRes = await personaFetch('/api/admin/codex/storage/sign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        personaIdHint: personaId,
+        body: JSON.stringify({
+          category: 'social',
+          series: BRIDGE_ASSET_SERIES,
+          assetKind: BRIDGE_SLOT_ASSET_KIND[slot],
+          fileName: file.name,
+          mimeType: file.type || undefined,
+        }),
+      });
+      const signJson = await signRes.json() as { signedUrl?: string; path?: string; bucket?: string; error?: string };
+      if (!signRes.ok || !signJson.signedUrl) throw new Error(signJson.error || `sign failed (${signRes.status})`);
+
+      const putRes = await fetch(signJson.signedUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        body: file,
+      });
+      if (!putRes.ok) throw new Error(`storage upload rejected (${putRes.status})`);
+
+      const regRes = await personaFetch('/api/admin/codex/storage/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        personaIdHint: personaId,
+        body: JSON.stringify({
+          path: signJson.path,
+          bucket: signJson.bucket,
+          category: 'social',
+          title: `${section} ${slot} — ${file.name}`,
+          series: BRIDGE_ASSET_SERIES,
+          assetKind: BRIDGE_SLOT_ASSET_KIND[slot],
+          mimeType: file.type || undefined,
+          fileSize: file.size,
+          // Explicit intent signal — series='bridge' alone does not authorize public exposure (2026-09-02).
+          makePublic: true,
+        }),
+      });
+      const regJson = await regRes.json() as { storageUrl?: string; error?: string };
+      if (!regRes.ok || !regJson.storageUrl) throw new Error(regJson.error || `register failed (${regRes.status})`);
+
+      await handleAssign(slot, regJson.storageUrl);
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'Upload failed');
+    } finally {
+      setBusy(null);
+    }
+  }, [handleAssign, personaId, section]);
+
+  const handlePublish = async (slot: PlacementSlot) => {
+    setBusy(`${slot}:publish`);
+    setNotice(null);
+    try {
+      const res = await personaFetch('/api/journey/knyts-bridge/placements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        personaIdHint: personaId,
+        body: JSON.stringify({ section, slot, action: 'publish' }),
+      });
+      const json = await res.json();
+      if (!json.ok) { setNotice(json.error || 'Publish failed'); return; }
+      await load();
+      setNotice(`${slot} published (revision ${json.placement?.revision ?? '?'}).`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="border-t border-white/10 p-4">
+      <h3 className="mb-2 text-sm font-semibold text-slate-200">Assets — draft &amp; publish</h3>
+      {(['video', 'poster', 'infographic'] as const).map((slot) => {
+        const placement = placements?.[slot] ?? null;
+        const isImage = slot === 'poster' || slot === 'infographic';
+        return (
+          <div key={slot} className="mb-4 rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400">{slot}</p>
+            <p className="mb-2 text-xs text-slate-500">
+              Published: {placement?.publishedAssetUrl ? (
+                <span className="text-slate-300">{placement.publishedAssetUrl} (rev {placement.revision})</span>
+              ) : (
+                <span className="italic">none yet</span>
+              )}
+            </p>
+
+            <div className="mb-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void openBrowse(slot)}
+                className="rounded-md border border-slate-700 px-2 py-1 text-xs font-medium text-slate-200 hover:border-slate-500"
+              >
+                Browse existing
+              </button>
+              <input
+                ref={(el) => { fileInputRefs.current[slot] = el; }}
+                type="file"
+                accept={BRIDGE_ASSET_ACCEPT[slot]}
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void handleUploadFile(slot, file);
+                  e.target.value = '';
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRefs.current[slot]?.click()}
+                disabled={busy === `${slot}:upload`}
+                className="rounded-md border border-slate-700 px-2 py-1 text-xs font-medium text-slate-200 hover:border-slate-500 disabled:opacity-50"
+              >
+                {busy === `${slot}:upload` ? 'Uploading…' : 'Upload new'}
+              </button>
+            </div>
+
+            {browseSlot === slot && (
+              <div className="mb-2 max-h-48 overflow-y-auto rounded-md border border-slate-800 bg-slate-950/60 p-2">
+                {browseError && <p className="text-xs text-rose-400">{browseError}</p>}
+                {browseAssets === null && !browseError && <p className="text-xs text-slate-500">Loading…</p>}
+                {browseAssets?.length === 0 && !browseError && (
+                  <p className="text-xs text-slate-500">No existing {slot} assets tagged series=&quot;bridge&quot; yet — upload one.</p>
+                )}
+                <div className="grid grid-cols-3 gap-2">
+                  {browseAssets?.map((asset) => (
+                    <button
+                      key={asset.id}
+                      type="button"
+                      onClick={() => asset.cid && void handleAssign(slot, asset.cid)}
+                      disabled={!asset.cid || busy === `${slot}:assign`}
+                      className="rounded border border-slate-800 p-1 text-left hover:border-teal-600 disabled:opacity-50"
+                      title={asset.title ?? asset.id}
+                    >
+                      {asset.thumbUrl ? (
+                        <img src={asset.thumbUrl} alt="" className="mb-1 h-12 w-full rounded object-cover" />
+                      ) : null}
+                      <span className="block truncate text-[10px] text-slate-300">{asset.supabaseTitle ?? asset.title ?? asset.id}</span>
+                    </button>
+                  ))}
+                </div>
+                <button type="button" onClick={() => setBrowseSlot(null)} className="mt-1 text-[10px] text-slate-500 underline">
+                  Close
+                </button>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="…or paste an already-uploaded asset URL"
+                value={drafts[slot]}
+                onChange={(e) => setDrafts((d) => ({ ...d, [slot]: e.target.value }))}
+                className="flex-1 rounded-md border border-slate-800 bg-slate-900/60 px-2 py-1 text-xs text-slate-100"
+              />
+              <button
+                type="button"
+                onClick={() => void handleAssign(slot)}
+                disabled={busy === `${slot}:assign`}
+                className="rounded-md bg-slate-700 px-2 py-1 text-xs font-medium text-white hover:bg-slate-600 disabled:opacity-50"
+              >
+                Assign draft
+              </button>
+            </div>
+            {placement?.draftAssetUrl && (
+              <div className="mt-2">
+                <p className="mb-1 text-xs text-slate-500">Draft preview:</p>
+                {isImage ? (
+                  <img src={placement.draftAssetUrl} alt={`Draft ${slot} preview`} className="max-h-32 rounded-md border border-slate-800" />
+                ) : (
+                  <video src={placement.draftAssetUrl} controls className="max-h-32 rounded-md border border-slate-800" />
+                )}
+                <button
+                  type="button"
+                  onClick={() => void handlePublish(slot)}
+                  disabled={busy === `${slot}:publish`}
+                  className="mt-2 rounded-md bg-teal-600 px-3 py-1 text-xs font-semibold text-white hover:bg-teal-500 disabled:opacity-50"
+                >
+                  {busy === `${slot}:publish` ? 'Publishing…' : 'Publish draft'}
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {notice && <p className="text-xs text-slate-400">{notice}</p>}
+    </div>
+  );
+}
+
+// ── CFS structured-content editorial coverage (2026-09-03) ──────────────────
+
+/** True for any of the 16 CFS placement sections — gates whether this panel renders at all. */
+function isFsSection(section: string): boolean {
+  return section.startsWith('fs-') || section.startsWith('ci-fs-');
+}
+
+interface FsTopicDraft { id: string; title: string; body: string; }
+interface FsCheckOptionDraft { id: string; text: string; }
+interface FsCheckDraft { id: string; title: string; prompt: string; options: FsCheckOptionDraft[]; correctOption: string; feedback: string; }
+interface FsStructuredContentDraft {
+  topics: FsTopicDraft[];
+  checks: FsCheckDraft[];
+  exerciseSummary: string;
+  contextualLine: string;
+  assetCaption: string;
+  assetAlt: string;
+  lessonLabel?: string;
+}
+
+const EMPTY_STRUCTURED_CONTENT: FsStructuredContentDraft = {
+  topics: [],
+  checks: [],
+  exerciseSummary: '',
+  contextualLine: '',
+  assetCaption: '',
+  assetAlt: '',
+};
+
+/**
+ * FsStructuredContentPanel — the ONE admin surface for a CFS section's
+ * topics/understanding-checks/exercise summary/contextual line/asset
+ * caption+alt/(Learn) lesson label. Reads/writes through the SAME
+ * knyts_bridge_editorial_config row and PUT route every other field on this
+ * section already uses (structuredContent on KnytsBridgeEditorialUpdate) —
+ * never a second table or route. Saves the whole blob in one PUT, so
+ * related copy always publishes together, never as mismatched partial
+ * revisions (operator directive, 2026-09-03).
+ */
+function FsStructuredContentPanel({ section, personaId }: { section: string; personaId?: string }) {
+  const [draft, setDraft] = useState<FsStructuredContentDraft>(EMPTY_STRUCTURED_CONTENT);
+  const [loaded, setLoaded] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/journey/knyts-bridge/editorial-config?section=${encodeURIComponent(section)}`, { cache: 'no-store' });
+      const json = await res.json();
+      if (json.ok) {
+        const sc = json.config?.structuredContent;
+        setDraft(sc && typeof sc === 'object' ? { ...EMPTY_STRUCTURED_CONTENT, ...sc } : EMPTY_STRUCTURED_CONTENT);
+      }
+    } finally {
+      setLoaded(true);
+    }
+  }, [section]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const handleSave = async () => {
+    setBusy(true);
+    setNotice(null);
+    try {
+      const res = await personaFetch('/api/journey/knyts-bridge/editorial-config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        personaIdHint: personaId,
+        body: JSON.stringify({ section, structuredContent: draft }),
+      });
+      const json = await res.json();
+      setNotice(json.ok ? 'Saved — topics, checks, exercise summary, contextual line and captions published together.' : json.error || 'Save failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!loaded) return <div className="border-t border-white/10 p-4 text-xs text-slate-500">Loading structured content…</div>;
+
+  const addTopic = () => setDraft((d) => ({ ...d, topics: [...d.topics, { id: `topic-${d.topics.length + 1}`, title: '', body: '' }] }));
+  const moveTopic = (i: number, dir: -1 | 1) => setDraft((d) => {
+    const topics = [...d.topics];
+    const j = i + dir;
+    if (j < 0 || j >= topics.length) return d;
+    [topics[i], topics[j]] = [topics[j], topics[i]];
+    return { ...d, topics };
+  });
+  const removeTopic = (i: number) => setDraft((d) => ({ ...d, topics: d.topics.filter((_, idx) => idx !== i) }));
+
+  const addCheck = () => setDraft((d) => ({
+    ...d,
+    checks: [...d.checks, { id: `check-${d.checks.length + 1}`, title: '', prompt: '', options: [{ id: 'A', text: '' }, { id: 'B', text: '' }, { id: 'C', text: '' }], correctOption: 'A', feedback: '' }],
+  }));
+  const removeCheck = (i: number) => setDraft((d) => ({ ...d, checks: d.checks.filter((_, idx) => idx !== i) }));
+
+  return (
+    <div className="border-t border-white/10 p-4">
+      <h3 className="mb-2 text-sm font-semibold text-slate-200">Editorial coverage — topics, checks, exercise, captions</h3>
+      <p className="mb-3 text-xs text-slate-500">
+        Published together in one save. Media (the plate image) publishes separately via the Assets panel below.
+      </p>
+
+      <div className="mb-4">
+        <div className="mb-1 flex items-center justify-between">
+          <label className="text-xs font-medium text-slate-400">Topics</label>
+          <button type="button" onClick={addTopic} className="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300 hover:border-slate-500">+ Add topic</button>
+        </div>
+        {draft.topics.map((topic, i) => (
+          <div key={i} className="mb-2 rounded-md border border-slate-800 bg-slate-900/40 p-2">
+            <div className="mb-1 flex items-center gap-1">
+              <input
+                type="text"
+                placeholder="Topic title"
+                value={topic.title}
+                onChange={(e) => setDraft((d) => ({ ...d, topics: d.topics.map((t, idx) => (idx === i ? { ...t, title: e.target.value } : t)) }))}
+                className="flex-1 rounded border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-100"
+              />
+              <button type="button" onClick={() => moveTopic(i, -1)} disabled={i === 0} className="rounded border border-slate-700 px-1.5 py-1 text-[10px] text-slate-300 disabled:opacity-30">↑</button>
+              <button type="button" onClick={() => moveTopic(i, 1)} disabled={i === draft.topics.length - 1} className="rounded border border-slate-700 px-1.5 py-1 text-[10px] text-slate-300 disabled:opacity-30">↓</button>
+              <button type="button" onClick={() => removeTopic(i)} className="rounded border border-rose-800 px-1.5 py-1 text-[10px] text-rose-300">✕</button>
+            </div>
+            <textarea
+              placeholder="Topic body"
+              value={topic.body}
+              onChange={(e) => setDraft((d) => ({ ...d, topics: d.topics.map((t, idx) => (idx === i ? { ...t, body: e.target.value } : t)) }))}
+              rows={2}
+              className="w-full rounded border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-100"
+            />
+          </div>
+        ))}
+      </div>
+
+      <div className="mb-4">
+        <div className="mb-1 flex items-center justify-between">
+          <label className="text-xs font-medium text-slate-400">Understanding checks</label>
+          <button type="button" onClick={addCheck} className="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300 hover:border-slate-500">+ Add check</button>
+        </div>
+        {draft.checks.map((check, i) => (
+          <div key={i} className="mb-2 rounded-md border border-slate-800 bg-slate-900/40 p-2 space-y-1">
+            <div className="flex items-center gap-1">
+              <input
+                type="text"
+                placeholder="Prompt"
+                value={check.prompt}
+                onChange={(e) => setDraft((d) => ({ ...d, checks: d.checks.map((c, idx) => (idx === i ? { ...c, prompt: e.target.value } : c)) }))}
+                className="flex-1 rounded border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-100"
+              />
+              <button type="button" onClick={() => removeCheck(i)} className="rounded border border-rose-800 px-1.5 py-1 text-[10px] text-rose-300">✕</button>
+            </div>
+            {check.options.map((opt, oi) => (
+              <div key={opt.id} className="flex items-center gap-1">
+                <span className="w-4 text-[10px] text-slate-500">{opt.id}</span>
+                <input
+                  type="text"
+                  placeholder={`Option ${opt.id}`}
+                  value={opt.text}
+                  onChange={(e) => setDraft((d) => ({
+                    ...d,
+                    checks: d.checks.map((c, idx) => idx === i ? { ...c, options: c.options.map((o, ooi) => ooi === oi ? { ...o, text: e.target.value } : o) } : c),
+                  }))}
+                  className="flex-1 rounded border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-100"
+                />
+              </div>
+            ))}
+            <div className="flex items-center gap-2">
+              <label className="text-[10px] text-slate-500">Correct:</label>
+              <select
+                value={check.correctOption}
+                onChange={(e) => setDraft((d) => ({ ...d, checks: d.checks.map((c, idx) => (idx === i ? { ...c, correctOption: e.target.value } : c)) }))}
+                className="rounded border border-slate-800 bg-slate-950/60 px-1 py-0.5 text-xs text-slate-100"
+              >
+                {check.options.map((o) => <option key={o.id} value={o.id}>{o.id}</option>)}
+              </select>
+            </div>
+            <textarea
+              placeholder="Feedback"
+              value={check.feedback}
+              onChange={(e) => setDraft((d) => ({ ...d, checks: d.checks.map((c, idx) => (idx === i ? { ...c, feedback: e.target.value } : c)) }))}
+              rows={2}
+              className="w-full rounded border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-100"
+            />
+          </div>
+        ))}
+      </div>
+
+      <div className="mb-2">
+        <label className="mb-1 block text-xs font-medium text-slate-400">Exercise summary</label>
+        <textarea
+          value={draft.exerciseSummary}
+          onChange={(e) => setDraft((d) => ({ ...d, exerciseSummary: e.target.value }))}
+          rows={2}
+          className="w-full rounded border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-100"
+        />
+      </div>
+      <div className="mb-2">
+        <label className="mb-1 block text-xs font-medium text-slate-400">Contextual line (this bridge)</label>
+        <input
+          type="text"
+          value={draft.contextualLine}
+          onChange={(e) => setDraft((d) => ({ ...d, contextualLine: e.target.value }))}
+          className="w-full rounded border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-100"
+        />
+      </div>
+      <div className="mb-2 grid grid-cols-2 gap-2">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-400">Asset caption</label>
+          <input
+            type="text"
+            value={draft.assetCaption}
+            onChange={(e) => setDraft((d) => ({ ...d, assetCaption: e.target.value }))}
+            className="w-full rounded border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-100"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-400">Asset alt text</label>
+          <input
+            type="text"
+            value={draft.assetAlt}
+            onChange={(e) => setDraft((d) => ({ ...d, assetAlt: e.target.value }))}
+            className="w-full rounded border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-100"
+          />
+        </div>
+      </div>
+      {section.includes('fs-learn') && (
+        <div className="mb-2">
+          <label className="mb-1 block text-xs font-medium text-slate-400">Lesson label (Learn plate only)</label>
+          <input
+            type="text"
+            value={draft.lessonLabel ?? ''}
+            onChange={(e) => setDraft((d) => ({ ...d, lessonLabel: e.target.value }))}
+            className="w-full rounded border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-100"
+          />
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => void handleSave()}
+        disabled={busy}
+        className="mt-2 rounded-md bg-teal-600 px-3 py-1 text-xs font-semibold text-white hover:bg-teal-500 disabled:opacity-50"
+      >
+        {busy ? 'Saving…' : 'Save editorial coverage'}
+      </button>
+      {notice && <p className="mt-2 text-xs text-slate-400">{notice}</p>}
+    </div>
+  );
+}
+
+function BridgesManager({ personaId }: { personaId?: string }) {
+  const [bridge, setBridge] = useState<BridgeKey>('ci');
+
+  return (
+    <div className="p-4">
+      <div className="mb-4">
+        <h2 className="text-lg font-bold text-white">Bridges</h2>
+        <p className="text-xs text-slate-400">
+          Editorial copy and media for the CI/KNYTS Financial Sovereignty bridges — the same
+          knyts_bridge_editorial_config table and PUT route the previous page-local modals used.
+        </p>
+      </div>
+      <div className="mb-4 flex gap-2">
+        {(['ci', 'knyts', 'moneypenny'] as const).map((key) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setBridge(key)}
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              bridge === key
+                ? 'bg-teal-600 text-white'
+                : 'border border-slate-700 text-slate-300 hover:border-slate-500 hover:text-white'
+            }`}
+          >
+            {BRIDGE_LABELS[key]}
+          </button>
+        ))}
+      </div>
+      <div className="divide-y divide-white/10 rounded-xl border border-white/10 bg-slate-900/40">
+        {bridgeSections(bridge).map((section) => (
+          <div key={`${bridge}:${section}`}>
+            <KnytsBridgeAdminPanel section={section} personaId={personaId} bridgeLabel={BRIDGE_LABELS[bridge]} />
+            {isFsSection(section) && <FsStructuredContentPanel section={section} personaId={personaId} />}
+            <PlacementAssetsPanel section={section} personaId={personaId} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Root tab ──────────────────────────────────────────────────────────────────
 
 export function QriptopianAdminTab({ isAdmin, theme, personaId }: Props) {
@@ -1929,6 +2744,8 @@ export function QriptopianAdminTab({ isAdmin, theme, personaId }: Props) {
       setView({ kind: 'import' });
     } else if (key === 'embed-health') {
       setView({ kind: 'embed-health' });
+    } else if (key === 'bridges') {
+      setView({ kind: 'bridges' });
     }
   };
 
@@ -1952,6 +2769,7 @@ export function QriptopianAdminTab({ isAdmin, theme, personaId }: Props) {
     : view.kind === 'codex' ? 'SmartTriad Codex Manager'
     : view.kind === 'import' ? 'Bulk Import'
     : view.kind === 'embed-health' ? 'Embed Health Check'
+    : view.kind === 'bridges' ? 'Bridges'
     : null;
 
   return (
@@ -1997,6 +2815,7 @@ export function QriptopianAdminTab({ isAdmin, theme, personaId }: Props) {
         {view.kind === 'codex' && <CodexManager />}
         {view.kind === 'import' && <BulkImporter />}
         {view.kind === 'embed-health' && <EmbedHealthCheck />}
+        {view.kind === 'bridges' && <BridgesManager personaId={personaId} />}
       </div>
     </div>
   );

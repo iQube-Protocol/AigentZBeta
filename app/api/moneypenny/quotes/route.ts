@@ -5,26 +5,39 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { simulateQuote, simulationSource, timeBucket } from '@/services/moneypenny/marketSimulation';
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const chains = searchParams.get('chains')?.split(',') || ['ETH', 'ARB', 'BASE', 'POLYGON', 'OPTIMISM'];
 
-    // Mock quote data - in production this would fetch from real market data
-    const quotes = chains.map(chain => ({
-      chain,
-      edge_bps: Math.random() * 50 - 25, // Random between -25 and +25
-      floor_bps: Math.random() * 10 - 5,
-      price_usdc: 0.01 + Math.random() * 0.002, // Random around $0.01
-      qty_qc: Math.random() * 10000,
-      ts: new Date().toISOString(),
-    }));
+    // Simulated quote data — there is no real Q¢ market-data feed today
+    // (confirmed by codexes/packs/agentiq/updates/2026-09-02_mpy2-0b-moneypenny002-real-source-audit.md
+    // §3). 2026-09-04 "atomic, capsule-composable surfaces" ruling: values
+    // now come from the ONE deterministic, seeded simulation service
+    // (services/moneypenny/marketSimulation.ts) instead of `Math.random()`,
+    // and every quote carries an explicit source classification rather than
+    // an unlabelled number.
+    const bucket = timeBucket();
+    const observedAt = new Date().toISOString();
+    const quotes = chains.map(chain => {
+      const q = simulateQuote(chain, bucket);
+      return {
+        chain,
+        edge_bps: q.edgeBps,
+        floor_bps: q.floorBps,
+        price_usdc: q.priceUsdc,
+        qty_qc: q.qtyQc,
+        ts: observedAt,
+      };
+    });
 
     return NextResponse.json({
       success: true,
       data: quotes,
-      timestamp: new Date().toISOString(),
+      source: simulationSource(observedAt),
+      timestamp: observedAt,
     });
 
   } catch (error) {

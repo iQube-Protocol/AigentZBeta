@@ -1,0 +1,70 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-09-06-RECONCILE-PARALLEL-CRYSTAL-FREEZE-IMPLEMENTATIONS-001",
+  "capability": "exp-p1-crystal-freeze-gate",
+  "milestone": "EXP-P1 / Crystal vP2 — merging the internal-pilot execution-designation session branch to dev",
+  "problem": "Two independent Claude Code sessions, working the same operator ruling (\"Frozen generations are immutable; Crystal lineages are evolutionary\") without any file-scope announcement or origin/dev check between them, each implemented a complete, tested, self-contained internal-pilot execution-designation mechanism for the Crystal freeze gate — one on `dev` directly (commit 72c692d, 2026-09-05T21:37:39Z), the other on a session branch (RES-2026-09-06-ITERATIVE-CRYSTAL-VERSIONING-001, commit 37b2c52, 2026-09-05T22:16:12Z, ~39 minutes later). Neither session was aware of the other. The session branch's push to dev was rejected by the `merge-claude-to-dev.yml` auto-merge workflow with real content conflicts in all four touched files (types/research.ts, services/research/artifacts.ts, the freeze route, tests/crystal-freeze-route.test.ts) — filed as GitHub issue #106, per the workflow's own conflict-escalation path (CLAUDE.md's \"auto-merge workflow's conflict resolution path\" section).",
+  "observedFailure": [
+    "GitHub Actions run 34016671116 (`merge-claude-to-dev.yml`, triggered by pushing `claude/exp-p1-followup-35197`) failed with `CONFLICT (content)` in `app/api/research/crystal/[experimentId]/freeze/route.ts`, `services/research/artifacts.ts`, `tests/crystal-freeze-route.test.ts`, and `types/research.ts` — the merge was aborted (dev left untouched) and GitHub issue #106 (\"dev merge conflict: claude/exp-p1-followup-35197\") was filed automatically, exactly as the workflow's documented conflict-resolution path specifies.",
+    "Reading both sides confirmed they were not incidental overlaps but two COMPLETE, independent implementations of the identical capability: same operator ruling quoted verbatim in both, same mechanism shape (an execution-designation enum defaulting to 'confirmatory', a per-check deviation list, a next-governed-action exposure function), different naming (this session's CrystalExecutionDesignation/FreezeAuthorizationRecord/deriveNextGovernedAction vs. dev's ArtifactExecutionDesignation/ScientificDeviation/nextGovernedActionForFrozenCrystal), and each with its own resolution record + candidate invariant already committed (this session's RES-2026-09-06-ITERATIVE-CRYSTAL-VERSIONING-001 / CI-2026-09-06-FROZEN-GENERATIONS-IMMUTABLE-LINEAGES-EVOLUTIONARY-001 vs. dev's RES-2026-09-05-CRYSTAL-FREEZE-EXECUTION-DESIGNATION-001 / CI-2026-09-05-FROZEN-GENERATIONS-IMMUTABLE-LINEAGES-EVOLUTIONARY-001 — near-identical candidate ids, one day apart).",
+    "dev's already-merged implementation had a genuine gap relative to the operator's explicit requirements: it persisted `freezeRationale`, `scientificDeviations` (with server-computed `measuredDetail`), and the full `readinessReportAtFreeze`, but never persisted the hash pre-image (`memberSnapshot` / `HashCoveredMember[]`) the operator explicitly asked for (\"complete hash pre-image sufficient for future verification\") — confirmed by grepping dev's diff for `sortedHashCoveredProjection`/`memberSnapshot`/`HashCoveredMember` (zero matches). This session's own (abandoned) implementation had built exactly that missing piece.",
+    "Overwriting `services/research/artifacts.ts` wholesale with dev's version (the chosen reconciliation strategy, see below) silently dropped `ensureCurrentCrystalGenerationId` — a function from this session's EARLIER, already-committed, unrelated fix (82c626c, the generation-identity repair, RES-2026-09-05-TRACK2-MEMBERSHIP-RECOVERY-GENERATION-BLIND-001) that dev had never received. `npx tsc --noEmit` caught the resulting break immediately: `app/api/research/crystal/[experimentId]/assign/route.ts` importing a now-missing export."
+  ],
+  "rootCauses": [
+    "CLAUDE.md's own \"Multi-Agent Coordination\" section requires, before merging to dev, checking `git diff origin/dev --name-only` / `git show origin/dev --stat` for files another agent recently changed — this step was not performed before implementing the Crystal execution-designation mechanism, so the collision was invisible until the automated merge itself surfaced it, ~13 hours later, on a completely different task (\"confirm deployment\").",
+    "A wholesale file-replace (`cp` the other side's clean version) is a fast, low-error way to resolve a many-hunk conflict for CONTENT that is genuinely a duplicate — but it is blind to content in the FILE that isn't part of the duplicated feature at all. `ensureCurrentCrystalGenerationId` lived in the same file as the conflicting hunks purely by proximity, not by relation to the conflict, and a hunk-by-hunk `git merge` resolution would have kept it automatically; the wholesale replace had to be checked for exactly this with an explicit `diff` against the pre-overwrite version, which is the step that caught it."
+  ],
+  "resolution": [
+    "Read both implementations in full (via `git show <sha>:<path>` for the already-merged dev commit, and the working tree for this session's version) before choosing a side — never picked blindly, per CLAUDE.md's own conflict-resolution guidance to read both sides.",
+    "Kept dev's implementation as the canonical mechanism (it merged to dev first, ~39 minutes earlier, and is otherwise equivalently scoped/tested/documented) for `types/research.ts` (`ArtifactExecutionDesignation`, `ScientificDeviation`, the additive `FrozenArtifact` fields), `services/research/artifacts.ts` (`checkFreezeGate`, `freezeArtifact`, `nextGovernedActionForFrozenCrystal`), the freeze route, and `tests/crystal-freeze-route.test.ts` — resolved via `git show origin/dev:<path>` overwriting the conflicted working-tree file wholesale, per each file.",
+    "Ported the ONE genuine capability gap in dev's version — the `memberSnapshot` hash pre-image, an explicit operator requirement — onto dev's surviving schema/mechanism as a pure ADDITION: a new optional `FrozenArtifact.memberSnapshot` field (types/research.ts), a required-for-crystal-version parameter on `freezeArtifact` (services/research/artifacts.ts), and a `listInvariants` + `sortedHashCoveredProjection` read in the freeze route built the same way this session's abandoned implementation had built it. Nothing about dev's naming, defaults, or validation logic was changed to make room for this — it is additive exactly the way `inv.engineering.036`/`037` require an extension to compose rather than fork.",
+    "Deleted this session's own duplicate implementation entirely rather than keep both side by side: `tests/crystal-execution-designation.test.ts` removed (superseded by dev's `tests/crystal-internal-pilot-execution-designation.test.ts`, augmented with the new memberSnapshot tests); `CI-2026-09-06-FROZEN-GENERATIONS-IMMUTABLE-LINEAGES-EVOLUTIONARY-001` marked `status: deprecated`, `supersededBy: CI-2026-09-05-FROZEN-GENERATIONS-IMMUTABLE-LINEAGES-EVOLUTIONARY-001`, its canary paths updated to the surviving test files (never left pointing at deleted code).",
+    "Restored `ensureCurrentCrystalGenerationId`, caught by `npx tsc --noEmit` immediately after the wholesale file replace (679 baseline vs 680 with the break; back to 679, matching dev's own documented baseline, after restoring it) — diffed the pre-overwrite file against dev's clean version in full to confirm nothing else unique had been silently dropped.",
+    "Verified non-regression two ways: (1) the full Crystal/EXP-P1-scoped test surface plus the complete repo test suite, both run against the reconciled tree; (2) every one of the 17 test files that still failed after reconciliation was independently re-run against a clean `git worktree` of `origin/dev` alone (no reconciliation changes at all) and failed IDENTICALLY there — confirming all 17 are pre-existing `dev` state, not introduced by this reconciliation. `npx tsc --noEmit` — 679 errors, matching dev's own documented baseline exactly."
+  ],
+  "rejectedApproaches": [
+    "Keeping both implementations side by side (e.g. two parallel execution-designation schemes, or a compatibility shim translating between them) — rejected outright as the textbook case `inv.engineering.037` (\"a parallel implementation of an existing capability is a defect\") exists to forbid; two names for the identical governed concept is exactly the confusion the rule prevents.",
+    "Taking this session's own (later-committed) implementation wholesale and discarding dev's — rejected: dev's landed first, is equivalently complete and tested, and discarding a colleague session's already-merged, already-deployed-pending work in favor of a later duplicate has no justification once the two are confirmed equivalent in substance.",
+    "Taking dev's implementation wholesale with NO addition — rejected: it would have silently dropped the memberSnapshot/hash-pre-image capability, a requirement the operator stated explicitly (\"complete hash pre-image sufficient for future verification\") that happened to survive only in the losing implementation. Discarding a genuine, evidenced requirement because it arrived on the losing side of a naming collision would itself be a defect.",
+    "Re-deriving a NEW, third naming scheme for the merged mechanism to be 'neutral' between the two sessions — rejected as pure churn: dev's naming has zero reason to change, and inventing a third vocabulary the moment after eliminating a second one would repeat the exact mistake this record exists to close out."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-06-CHECK-DEV-BEFORE-IMPLEMENTING-RULING-001"
+  ],
+  "canaries": [
+    "tests/crystal-internal-pilot-execution-designation.test.ts",
+    "tests/crystal-freeze-route.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "subsystems-disagreed",
+  "evidence": {
+    "commits": [
+      "72c692d",
+      "37b2c52",
+      "82c626c"
+    ],
+    "tests": [
+      "tests/crystal-internal-pilot-execution-designation.test.ts",
+      "tests/crystal-freeze-route.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "GitHub Actions run https://github.com/iQube-Protocol/AigentZBeta/actions/runs/34016671116 (job 101441522125, \"Auto-merge to dev\") — CONFLICT (content) in the four files named above",
+      "GitHub issue #106, \"dev merge conflict: claude/exp-p1-followup-35197\", filed automatically by merge-claude-to-dev.yml"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-05_crystal-vp2-internal-pilot-execution-designation.md"
+  ],
+  "date": "2026-09-06",
+  "projections": {
+    "targets": [
+      "devon",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  }
+}

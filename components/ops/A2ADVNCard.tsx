@@ -1,7 +1,16 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Activity, ArrowRight, Clock, CheckCircle2 } from "lucide-react";
+import { Activity, ArrowRight, Clock, CheckCircle2, ShieldCheck } from "lucide-react";
+
+interface AuthorisationReceipt {
+  id: string;
+  action_type: string;
+  receipt_status: string;
+  summary: string | null;
+  created_at: string;
+  dvn_receipt_id: string | null;
+}
 
 interface A2AMessage {
   messageId: string;
@@ -26,36 +35,35 @@ interface A2AStatus {
 
 export function A2ADVNCard({ title }: { title: string }) {
   const [status, setStatus] = useState<A2AStatus | null>(null);
-  const [loading, setLoading] = useState(false); // Start with false to prevent initial flash
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [authReceipts, setAuthReceipts] = useState<AuthorisationReceipt[]>([]);
   const fetchingRef = useRef(false);
 
   const fetchStatus = useCallback(async () => {
-    // Prevent multiple simultaneous requests
     if (fetchingRef.current) return;
     fetchingRef.current = true;
-    
+
     try {
       setLoading(true);
-      const response = await fetch("/api/ops/a2a/status", {
-        cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      
+      const [a2aRes, authRes] = await Promise.all([
+        fetch("/api/ops/a2a/status", { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } }),
+        fetch("/api/ops/dvn/activity-receipts", { cache: 'no-store' }),
+      ]);
+
+      if (!a2aRes.ok) throw new Error(`HTTP ${a2aRes.status}: ${a2aRes.statusText}`);
+      const data = await a2aRes.json();
       if (data.ok && data.a2aStatus) {
         setStatus(data.a2aStatus);
         setError(null);
       } else {
         setError(data.error || "Invalid A2A status response");
+      }
+
+      if (authRes.ok) {
+        const authData = await authRes.json();
+        setAuthReceipts(authData.receipts ?? []);
       }
     } catch (err: any) {
       console.error('A2A DVN Card fetch error:', err);
@@ -69,16 +77,11 @@ export function A2ADVNCard({ title }: { title: string }) {
   useEffect(() => {
     setMounted(true);
     fetchStatus();
-    
-    // Add a gentle auto-refresh every 60 seconds
     const interval = setInterval(() => {
-      if (!fetchingRef.current) {
-        fetchStatus();
-      }
+      if (!fetchingRef.current) fetchStatus();
     }, 60000);
-    
     return () => clearInterval(interval);
-  }, []); // Empty dependency array
+  }, []);
 
   const getChainName = (chainId: number) => {
     switch (chainId) {
@@ -172,11 +175,11 @@ export function A2ADVNCard({ title }: { title: string }) {
         </div>
       </div>
 
-      {/* Recent A2A Messages */}
+      {/* Agent Payments */}
       <div className="space-y-2">
         <h3 className="text-sm font-medium text-slate-300 flex items-center gap-2">
           <ArrowRight size={14} />
-          Recent A2A DVN Messages
+          Agent Payments
         </h3>
         <div className="space-y-2 max-h-64 overflow-y-auto">
           {status?.recentA2AMessages?.length ? (
@@ -206,6 +209,41 @@ export function A2ADVNCard({ title }: { title: string }) {
             })
           ) : (
             <div className="text-slate-400 text-sm">No recent A2A messages</div>
+          )}
+        </div>
+      </div>
+
+      {/* Agent Authorisations */}
+      <div className="space-y-2 border-t border-slate-700 pt-3">
+        <h3 className="text-sm font-medium text-slate-300 flex items-center gap-2">
+          <ShieldCheck size={14} className="text-emerald-400" />
+          Agent Authorisations
+        </h3>
+        <div className="space-y-1.5 max-h-48 overflow-y-auto">
+          {authReceipts.length > 0 ? authReceipts.map((r) => {
+            const isGrant = r.action_type === 'agent_delegated';
+            const statusColor = r.receipt_status === 'dvn_recorded'
+              ? 'text-emerald-400'
+              : r.receipt_status === 'dvn_pending'
+              ? 'text-amber-400'
+              : r.receipt_status === 'dvn_failed'
+              ? 'text-red-400'
+              : 'text-slate-400';
+            const ts = new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            return (
+              <div key={r.id} className="bg-slate-900/30 rounded px-3 py-2 text-xs flex items-start gap-2">
+                <span className={`shrink-0 font-medium ${isGrant ? 'text-emerald-300' : 'text-rose-300'}`}>
+                  {isGrant ? 'Grant' : 'Revoke'}
+                </span>
+                <span className="text-slate-400 truncate flex-1 min-w-0">
+                  {r.summary ? r.summary.slice(0, 64) : r.id.slice(0, 8)}
+                </span>
+                <span className={`shrink-0 ${statusColor}`}>{r.receipt_status.replace('dvn_', '')}</span>
+                <span className="shrink-0 text-slate-500">{ts}</span>
+              </div>
+            );
+          }) : (
+            <div className="text-slate-500 text-xs">No delegation receipts yet</div>
           )}
         </div>
       </div>

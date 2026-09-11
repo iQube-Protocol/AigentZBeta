@@ -22,8 +22,9 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY 
-  || process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY 
+// SECURITY (2026-07-30): never a NEXT_PUBLIC_-prefixed fallback for a
+// service-role credential -- see app/api/identity/persona/route.ts.
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 /**

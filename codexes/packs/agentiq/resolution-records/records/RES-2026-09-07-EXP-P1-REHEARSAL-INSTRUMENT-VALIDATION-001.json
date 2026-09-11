@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-07",
+  "resolutionId": "RES-2026-09-07-EXP-P1-REHEARSAL-INSTRUMENT-VALIDATION-001",
+  "capability": "exp-p1-execution-model",
+  "milestone": "First EXP-P1 internal rehearsal run (EXP-P1/execution-run/internal-rehearsal/2026-09-06T17:47:45.131Z) appraised as an instrument-validation run, per operator instruction: 'Do not change the frozen Crystal and do not treat the observed B>C scores as scientific evidence yet.'",
+  "problem": "The first internal rehearsal completed and persisted a non-confirmatory execution receipt, but its own output revealed the mechanical harness itself was not measuring what it claimed to. Arm B's `groundingInvariantIds` was the ENTIRE 63-member frozen population on every one of the 6 tasks, identical to the frozen population size — vs Arm C's genuine 25-member (⌊63×0.4⌋) fixed slice. Two tasks (`rehearsal-003`, `rehearsal-005`) had empty `groundTruthInvariantIds`, and the mechanical scorer's defensive `groundTruthIds.length === 0 ? 0` branch silently reported this as a real '0% recall' score, indistinguishable from an arm that had material to recall and failed to. The run also persisted `contentHash: null, commitmentHash: null` with no reproducibility hash of any kind, and the single `score`/`groundingInvariantIds` fields conflated two non-commensurable metrics (arms A/B/C's invariant-id recall vs. arm D's keyword-substring-coverage) with no persisted label distinguishing them.",
+  "observedFailure": [
+    "services/research/expP1Rehearsal.ts's Arm B construction called `buildInvariantSlice({ domains, limit: members.length })` — passing the FROZEN POPULATION SIZE as the limit defeats `buildInvariantSlice`'s standing-ranked `.slice(0, limit)` truncation entirely (a no-op once limit >= the candidate pool), so Arm B was given the domain-filtered candidate pool UNTRUNCATED rather than a genuinely selected subset.",
+      "Verified live against the actual persisted run (Supabase, project bsjhfvctmduxhohtllly, research_objects.object_id = 'EXP-P1/execution-run/internal-rehearsal/2026-09-06T17:47:45.131Z'): every task's Arm B `groundingInvariantIds` had length 63, identical to `EXP-P1/crystal-vP2`'s own memberSnapshot length (63), while Arm C's had length 25. Since every task's `groundTruthInvariantIds` is itself drawn FROM the frozen population, an arm holding the whole population recalls 100% of any ground truth BY CONSTRUCTION regardless of selection quality — confirmed: Arm B scored exactly 1.0 on every one of the 4 scorable tasks, vs Arm C's 0.538/0/0/0.6.",
+      "Verified live that zero of the 63 frozen `EXP-P1/crystal-vP2` invariant statements contain the substrings 'settlement', 'value', or 'reserve' — confirming `rehearsal-003` (keywords settlement/value) and `rehearsal-005` (keyword reserve) have a genuinely empty ground-truth set, not a harness bug in the matching itself; the DEFECT is that `idRecallScore`'s defensive zero for an empty ground truth was being read as a real score rather than flagged unscorable.",
+    "`services/research/artifacts.ts::recordExecutionRun` hardcoded `contentHash: null, commitmentHash: null` unconditionally for every execution-run write, even though `types/research.ts`'s own `FrozenArtifact.contentHash` doc comment already stated execution-run 'gets it when the run closes' — the implementation never fulfilled its own type's documented contract."
+  ],
+  "rootCauses": [
+    "The rehearsal harness's own header comment described Arm B's call as 'the REAL, live production selection path (buildInvariantSlice)... every task shares the same domain-filtered, standing-ranked slice' — true of the FUNCTION called, but the `limit: members.length` argument silently converted a genuine ranked selection into an unranked pass-through of the whole candidate pool. The comment's own honesty about the simplification (no per-task intent scoping) did not extend to auditing whether the SAME call's `limit` argument preserved the truncation step that makes it 'selection' at all.",
+    "`RehearsalArmTaskResult` had exactly ONE invariant-id field (`groundingInvariantIds`), collapsing three genuinely distinct concepts — what an arm COULD see (available), what its selection procedure CHOSE (selected), and what actually grounded its score (actually-grounded) — into one name. With only one field, there was no way to express 'this arm's available pool is large but its selected slice is small', so the same field carrying the whole population read as if it were the same kind of thing as Arm C's genuinely-selected slice.",
+    "`idRecallScore`'s `groundTruthIds.length === 0 ? 0 : ...` branch was written as a divide-by-zero guard (mirroring the identical pattern in the established EXP-012 `services/experiments/expP3.ts::scoreSet` precedent), never as a considered scoring-specification decision about what an empty-reference task should contribute to an aggregate. The rehearsal harness's own provisional task set's keywords were authored without cross-checking them against the frozen crystal-vP2 corpus's actual content, so two of six tasks matched nothing.",
+    "`recordExecutionRun` was written in the same change that introduced the execution-run kind at all (RES-2026-09-07-EXP-P1-TWO-MODE-EXECUTION-MODEL-001), before any reproducibility-hash requirement had been considered — the FrozenArtifact type's inherited `contentHash`/`commitmentHash` fields were simply defaulted to null rather than computed, and nothing forced the gap to surface until a reader asked 'is this run reproducible'."
+  ],
+  "resolution": [
+    "types/research.ts (additive): `RehearsalArmTaskResult` now carries three distinct invariant-id fields — `availableInvariantIds` (the domain-filtered candidate pool, NEVER used to ground a score), `selectedInvariantIds` (what the arm's REGISTERED selection procedure actually chose), and `actuallyGroundedInvariantIds` (what the score was actually computed against) — plus a `scoreMetric: 'invariant-id-recall' | 'keyword-substring-coverage'` field so arms A/B/C's metric is never silently compared to arm D's different one. `RehearsalTaskResult` gained `scorable: boolean` + `unscorableReason: string | null`. `ExecutionRunArtifact` gained `armDProvenance`, `armConfiguration`, `scoringConfiguration` (verbatim audit-trail blobs, mirroring the existing `readinessReportAtFreeze` precedent). New `RehearsalRunSummary`/`RehearsalArmSummary` types for the proper aggregate.",
+    "services/research/expP1Rehearsal.ts: split the single Arm B call into two — an AVAILABLE call (`limit: members.length`, kept ONLY as a diagnostic upper bound) and a SELECTED call (`buildInvariantSlice` with NO limit override at all, i.e. its own unmodified default — the registered Arm B selection procedure actually enforced). Arm C's available/selected are the whole frozen population vs. its existing fixed ≤40% slice. A task's `scorable` is `groundTruthInvariantIds.length > 0`; an unscorable task's raw per-arm scores are still computed and persisted (diagnostics, never dropped) but flagged with an explicit reason. Added `summarizeRehearsalRun(run)`: per-arm mean score split scored-vs-unscorable and recall-vs-derivation, plus B available/selected and C fixed-slice sizes — derived entirely from `taskResults` at read time, never persisted redundantly (`inv.engineering.036`/`037`).",
+    "services/research/artifacts.ts::recordExecutionRun: computes a deterministic `contentHash` (`commit()`, the existing sha256-over-canonical-JSON helper already used for crystal-content hashing) over exactly {frozenCrystalContentHash, taskSetId, taskSetProvenance, armIds, armConfiguration, scoringConfiguration, providerModel} — the run's CONFIGURATION, deliberately never its output (`taskResults`), so the hash lets a reader verify a re-run used identical inputs rather than 'verifying itself'. `commitmentHash` stays `null` for every `internal-rehearsal` run — reserved for a real confirmatory protocol commitment (README §10), which this codebase does not construct.",
+    "app/api/research/crystal/[experimentId]/rehearsal/route.ts + components/research/ExpP1ExecutionStatus.tsx: both GET `?runId=` and POST responses now also return `summary: summarizeRehearsalRun(run)`; the UI renders a compact aggregate block (scored/unscorable counts, per-arm means split recall/derivation, B selected-vs-available and C fixed-slice sizes) above the existing per-task list, and flags an unscorable task's row distinctly with its reason.",
+    "Verified live against the REAL frozen `EXP-P1/crystal-vP2` substrate (63 members, via direct Supabase read access) that the fix produces a genuine, non-trivial comparison: Arm B's real standing-ranked default-limit (12) selection vs. Arm C's fixed 25-member slice now score 29.7% vs 28.5% overall (vs. the pre-fix run's 100% vs. 54%/0%/0%/60%) — the exact confound this fix exists to remove. The two tasks with empty ground truth (`rehearsal-003`, `rehearsal-005`) are correctly excluded from every arm's aggregate mean while their raw scores remain visible as diagnostics."
+  ],
+  "rejectedApproaches": [
+    "Editing the provisional task set's keywords so `rehearsal-003`/`rehearsal-005` would match something in the frozen crystal — rejected: this would erase the diagnostic (an authored rehearsal fixture that was never cross-checked against the actual corpus) rather than report it, and the operator's own instruction was explicit: 'Mark genuinely unscorable rehearsal tasks distinctly ... while retaining them as instrument diagnostics', not silently make them scorable.",
+    "Computing Arm B's SELECTED set with a rehearsal-specific hardcoded limit (e.g. a literal `12`) instead of omitting the `limit` argument entirely — rejected: a hardcoded number risks silently drifting from `buildInvariantSlice`'s real production default if that default ever changes, and the operator's instruction was to 'enforce the registered Arm B selection procedure', which means using EXACTLY what production call sites use, unmodified, not reinventing a rehearsal-specific number.",
+    "Adding precision/F1 alongside recall (mirroring EXP-012's full `scoreSet` convention) — rejected as out of the scope actually requested: the operator's item 3 asked to DETERMINE AND DOCUMENT what the existing `score` value measures, not to add a new metric. Documented plainly (via the new `scoreMetric` field and `scoringConfiguration` blob) that it is recall only, with the known limitation named explicitly.",
+    "Persisting the second (post-fix) rehearsal run into `research_objects` via a hand-constructed raw SQL INSERT — rejected: the real `recordExecutionRun` write path always goes through `writeLifecycleReceipt` (which in turn touches the receipts ledger this agent has not fully inspected), and a hand-inserted row risks an orphan, receipt-less artifact inconsistent with every other row the real system produces — exactly the kind of parallel, improvised write path `inv.engineering.037` forbids for an append-only ledger-like table. Instead computed and reported a full preview using the FIXED algorithm against the REAL live frozen substrate (read-only), and recommended the authoritative second run be triggered through the real, deployed POST route.",
+    "Collapsing `scorable: false` to mean 'exclude the whole task from the persisted `taskResults` array' — rejected: the operator's instruction was explicit that unscorable tasks must be 'retained as instrument diagnostics', so the fix keeps every task and every arm's raw score in the persisted record, and only `summarizeRehearsalRun`'s aggregates skip them."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-07-AVAILABLE-VS-SELECTED-VS-GROUNDED-001",
+    "CI-2026-09-07-EMPTY-REFERENCE-IS-UNSCORABLE-NOT-ZERO-001"
+  ],
+  "canaries": [
+    "tests/exp-p1-rehearsal-runner.test.ts",
+    "tests/exp-p1-execution-run-persistence.test.ts",
+    "tests/exp-p1-rehearsal-route.test.ts",
+    "tests/exp-p1-execution-status-ui.test.tsx"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/exp-p1-rehearsal-runner.test.ts",
+      "tests/exp-p1-execution-run-persistence.test.ts",
+      "tests/exp-p1-rehearsal-route.test.ts",
+      "tests/exp-p1-execution-status-ui.test.tsx"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "Operator instruction, 2026-09-07, verbatim: \"Appraise the first EXP-P1 internal rehearsal as an instrument-validation run. Do not change the frozen Crystal and do not treat the observed B>C scores as scientific evidence yet... Do not modify EXP-P1/crystal-vP2, add invariants, change readiness thresholds, or invite Austin yet.\""
+    ]
+  },
+  "sourceDocs": [],
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

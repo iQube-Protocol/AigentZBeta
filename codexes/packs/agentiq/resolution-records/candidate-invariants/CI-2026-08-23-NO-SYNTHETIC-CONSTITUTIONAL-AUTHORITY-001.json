@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-23-NO-SYNTHETIC-CONSTITUTIONAL-AUTHORITY-001",
+  "statement": "A `ConstitutionalAuthority` (or any object of its class — a value asserting who may act, under what authority, for what mandate) MUST be derived from real, resolvable identity/authority/mandate records, never fabricated with a hardcoded `state: 'ACTIVE'` or synthesized ref strings to satisfy a downstream type. An unexpired delegation grant proves bounded delegation ONLY — it does not by itself prove a purpose-bound mandate exists; deriving `ACTIVE` from delegation alone MUST NOT happen. Any input to a constitutional gate whose value the calling client could assert unilaterally (e.g. a `standingPersonaId` read from a POST body) MUST instead be resolved server-side from the authenticated caller's own identity.",
+  "family": "constitutional",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "constitutional-computing",
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "classification": "A constitutional-authority-specific instance of 'no client assertions on constitutional gates' (CLAUDE.md's own Security/Access-Gates and Identity-Spine sections) — the client-input half is a re-derivation of an existing rule; the fabricated-authority-object half (a caller constructing its own ConstitutionalAuthority literal rather than resolving one) is the new, generalizable half of this occurrence.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/financial-services-runtime.test.ts",
+      "assertion": "requestFinancialService() resolves standingPersonaId via resolveAgentStandingPersonaId() (never client input) and the mandate via requireAuthorizedAgreement() (never a synthesized mandate-fsvc-* string); an unexpired delegation grant without an authorized agreement resolves authority.state === 'BOUNDED', not 'ACTIVE', and deriveActionAuthorisation() correctly REFUSES a runtime-class request under that state.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "app/api/moneypenny/service-orchestration/route.ts",
+      "defect": "POST handler constructed a hardcoded `ConstitutionalAuthority` literal with `state: 'ACTIVE'`, `principalRef: 'polref-${agentId}-oversight'`, and `mandateRef: 'mandate-fsvc-oversight-${agentId}'` regardless of any real identity/delegation/mandate state, and accepted an optional `standingPersonaId` directly from the POST body for a Standing-threshold policy check.",
+      "resolutionId": "RES-2026-08-23-FSVC-INTEGRATION-REPAIR-001",
+      "evidence": [
+        "app/api/moneypenny/service-orchestration/route.ts",
+        "services/financialServices/constitutionalAuthorityAdapter.ts",
+        "services/standing/agentStandingPersona.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-23-FSVC-INTEGRATION-REPAIR-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "The correction is a COMPOSITION over existing canonical records (personaPublicRef(), a direct citizen-passport read, readActiveGrant(), requireAuthorizedAgreement()) — not a new authority system. `types/constitutionalCommerce.ts`'s own T0 discipline comment ('no personaId ... only opaque refs') is what caught that principalRef must be personaPublicRef(personaId), a one-way T2-safe hash, never the raw personaId, since ConstitutionalAuthority flows into DVN-anchored commerce receipts.",
+    "BOUNDED vs ACTIVE is the load-bearing distinction this candidate protects: BOUNDED = admitted + persona-scoped delegation established, no mandate yet; ACTIVE = the same, plus an authorized Constitutional Agreement for the exact capability+agent pair."
+  ]
+}

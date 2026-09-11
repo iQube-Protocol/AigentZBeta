@@ -11,6 +11,13 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 export interface AgentKeys {
   agentId: string;
   agentName: string;
+  /** Optional — set only by callers that provision a fresh agent_keys row
+   *  and want fio_handle/entity_type recorded alongside it (e.g. the
+   *  owner-wallet provisioner, services/wallet/agentPurposeWalletService.ts).
+   *  Never set by rotateKeys' merge, since those columns don't change on
+   *  a key rotation. */
+  fioHandle?: string;
+  entityType?: string;
   evmPrivateKey?: string;
   btcPrivateKey?: string;
   solanaPrivateKey?: string;
@@ -84,6 +91,8 @@ export class AgentKeyService {
       .upsert({
         agent_id: keys.agentId,
         agent_name: keys.agentName,
+        ...(keys.fioHandle !== undefined ? { fio_handle: keys.fioHandle } : {}),
+        ...(keys.entityType !== undefined ? { entity_type: keys.entityType } : {}),
         evm_private_key_encrypted: keys.evmPrivateKey ? this.encrypt(keys.evmPrivateKey) : null,
         btc_private_key_encrypted: keys.btcPrivateKey ? this.encrypt(keys.btcPrivateKey) : null,
         solana_private_key_encrypted: keys.solanaPrivateKey ? this.encrypt(keys.solanaPrivateKey) : null,
@@ -91,7 +100,7 @@ export class AgentKeyService {
         btc_address: keys.btcAddress,
         solana_address: keys.solanaAddress,
         updated_at: new Date().toISOString()
-      });
+      }, { onConflict: 'agent_id' });
 
     if (error) throw error;
   }

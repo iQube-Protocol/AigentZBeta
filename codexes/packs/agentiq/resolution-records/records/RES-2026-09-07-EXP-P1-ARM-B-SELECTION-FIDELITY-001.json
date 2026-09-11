@@ -1,0 +1,80 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-07",
+  "resolutionId": "RES-2026-09-07-EXP-P1-ARM-B-SELECTION-FIDELITY-001",
+  "capability": "exp-p1-execution-model",
+  "milestone": "Operator audit of Arm B's selection pipeline before trusting the 16-task rehearsal's B<C recall delta as anything beyond instrument diagnostics — 'The current rehearsal suggests Arm B may be selecting primarily by standing. That would be a treatment-design defect if standing is being used as a global ranking criterion rather than as a calibrator among semantically relevant and functionally comparable invariants... Establish mechanically what the current Arm B selector does.'",
+  "problem": "Arm B (`services/research/expP1Rehearsal.ts`) called `buildInvariantSlice` (`services/invariants/grounding.ts`) ONCE PER RUN, not once per task, with a single run-level domain constant. The function's only eligibility gate was domain/namespace/status membership — coarse, task-blind, and identical for every task over a single-domain 63-member corpus. `semanticType` (functional role) was read nowhere in the path. No relational/graph structure was ever consulted. Standing (`rankByStanding`) was therefore the ONLY discriminating signal over an undifferentiated pool — a GLOBAL ranking criterion, not a calibrator among already-relevant, functionally comparable candidates, in direct violation of the required runtime principle: 'Intent and functional relevance determine candidate eligibility. Standing calibrates evidentiary strength among sufficiently relevant, functionally comparable candidates. Standing must never substitute one invariant type or relational role for another that the intent requires.'",
+  "observedFailure": [
+    "`services/invariants/grounding.ts::buildInvariantSlice` verified by direct code read: `GroundingContext` has no field for free intent text, no `semanticType` filter, and its pipeline is `domain/namespace/status filter -> dedupe -> sort(rankByStanding) -> slice(0, limit)` — relevance and relational structure are never consulted at any stage.",
+    "`services/research/expP1Rehearsal.ts` (pre-fix) called `buildInvariantSlice` exactly twice per RUN (an 'available' call with `limit: members.length` and a 'selected' call with the default limit), both OUTSIDE the per-task loop — confirmed by re-reading the code: the same `armBSelectedIds` array grounded the score for all 16 tasks in a run. Arm B's 'selection' therefore never varied by task at all.",
+    "The IRE (`services/invariants/resolution.ts::resolveConstitutionalField`), the codebase's actual governed per-intent resolution path, would not have fixed this either if Arm B had merely been routed through it: `services/invariants/perception.ts::DOMAIN_VOCABULARY` has zero terms overlapping this experiment's finance/compliance domain, so `extractField` would return `extraction.empty: true` for every one of the 16 rehearsal tasks and silently fall back to the generic constitutional/epistemology proxy namespaces — a worse outcome than the pre-fix explicit domain constant, and confirmation that the defect lived in the shared `buildInvariantSlice` substrate reader, not merely in how the rehearsal harness happened to call it.",
+    "Consequence for the three persisted internal-rehearsal runs constructed under this selector — `EXP-P1/execution-run/internal-rehearsal/2026-09-06T17:47:45.131Z` (6 tasks), `.../2026-09-07T15:58:43.405Z` (6 tasks), `.../2026-09-07T21:11:38.247Z` (16 tasks, B 24.5%/C 36.7%/A 0% overall recall as reported) — any B-vs-C, B-vs-A, or cross-arm delta computed from them measures the OLD selector's task-blind, standing-dominated retrieval-set recall, never the runtime hypothesis EXP-P1 exists to test."
+  ],
+  "rootCauses": [
+    "`buildInvariantSlice` was designed for context-scoped grounding (a caller-supplied domain/namespace/ontologyClass context, e.g. a cartridge overlay), never for free-text per-task intent scoping — it had no relevance stage because none of its existing callers needed one; EXP-P1's rehearsal harness reused it as if it already were a per-task selector without checking that assumption.",
+    "The three-way `availableInvariantIds`/`selectedInvariantIds`/`actuallyGroundedInvariantIds` split (from the same-day `RES-2026-09-07-EXP-P1-REHEARSAL-INSTRUMENT-VALIDATION-001` fix) correctly separated CONTEXT-QUANTITY confounds from SELECTION, but did not itself question whether the underlying SELECTION mechanism honored relevance before standing — a narrower audit stopped one layer short of the actual defect.",
+    "No existing runtime surface in this codebase performs 'relevance/role eligibility, then relational completion, then standing calibration within the relevant set' as a named, reusable stage sequence — `rankByStanding` had exactly one caller pattern (rank an already-context-filtered pool), so nothing previously exercised the failure mode of ranking an UNFILTERED-by-relevance pool by standing alone."
+  ],
+  "resolution": [
+    "New module `services/invariants/taskScopedSelection.ts` (`selectTaskScopedInvariants`, `TASK_SCOPED_SELECTOR_VERSION`) implementing the corrected order: intent (task.prompt, verbatim) -> functional necessity/relevance (lexical-overlap eligibility gate against a standard, generic English stopword list — never a domain-specific vocabulary, never task.keywords) -> relational completion (graph expansion via `dependencyClosure`, BEFORE truncation) -> evidentiary standing (`rankByStanding`, applied ONLY within the relevant+expanded set) -> a named no-op consequence/value-calibration stage (RESERVED for a future ratified model; `valueEstimate`/`riskOfRepairEstimate` always `null`) -> bounded representation (truncate to `limit` last). Composes the SAME underlying substrate/graph services (`listInvariants`, `dependencyClosure`) as a DISTINCT pipeline, never mutating `buildInvariantSlice`'s contract for its other (non-EXP-P1) callers.",
+    "`services/invariants/grounding.ts`: `rankByStanding`, `dedupeById`, `GROUNDING_STATUSES` exported (additive, no behavior change) so the new selector reuses them rather than hand-copying (inv.engineering.036/037).",
+    "`services/research/expP1Rehearsal.ts`: Arm B construction moved INSIDE the per-task loop (`Promise.all` over an async map), calling `selectTaskScopedInvariants({ intentText: task.prompt, domains, restrictToIds: [...memberIds] })` — `task.keywords` (the answer-key field) is never passed. `armConfiguration.armB` now records `selectorVersion` and a per-task diagnostic (`availableSize`/`selectedSize`/`usedRelevanceFallback`) instead of one run-level set-size pair.",
+    "New, unseen `EXP-P1/rehearsal-task-set-provisional-v3` (`UNSEEN_REHEARSAL_TASK_SET`) authored for evaluating the corrected selector — 16 keyword-phrases verified, by a live SQL count against the frozen `EXP-P1/crystal-vP2` `memberSnapshot`, to be genuinely distinct from every keyword `PROVISIONAL_REHEARSAL_TASK_SET` (v1) and `LARGER_REHEARSAL_TASK_SET` (v2) already used, and never authored by tuning against, or in response to, any observed 16-task B/C outcome. Wired into the route's `TASK_SET_ALLOWLIST` (`taskSetVersion: 'v3'`) and a third UI button.",
+    "The three persisted runs built under the old selector are PERMANENTLY reclassified `treatment-fidelity-diagnostic` — documented here and in `expP1Rehearsal.ts`'s own third header section. They are left byte-for-byte UNMUTATED (no `upsertResearchObject` call was made against any of them); the classification is an out-of-band record, never a change to the persisted rows.",
+    "Ten new tests in `tests/task-scoped-selection.test.ts` proving: (1) two materially different tasks produce different selections; (2) a highly-standing but irrelevant candidate cannot displace a lower-standing relevant one; (3) standing orders comparable relevant candidates; (4) a graph-required supporting invariant can enter before truncation with zero direct lexical relevance; (5) no answer-key-shaped field affects selection (two calls differing only in such data produce byte-identical output); (6) determinism given identical intent + pool + selector version, including an explicit id-ascending tiebreak under exact standing/confidence/reach ties; plus that `semanticType` is never a hard gate, the empty-relevance fallback is honestly flagged, and stage 5 (`valueEstimate`/`riskOfRepairEstimate`) stays null."
+  ],
+  "rejectedApproaches": [
+    "Passing `task.keywords` (or any answer-key-derived field) into the selector to improve its relevance signal — rejected outright per the operator's own constraint: 'no answer-key field affects selection'. The selector's input type has no such field at all, structurally as well as behaviorally.",
+    "Routing Arm B through the existing IRE (`resolveConstitutionalField`) instead of building a new module — rejected: mechanically verified that `perception.ts::DOMAIN_VOCABULARY` has zero overlap with this experiment's domain, so the IRE's own empty-perception fallback would silently substitute the generic constitutional/epistemology proxy for genuine relevance — a worse, not better, outcome, and explicitly ruled out by the operator ('Do not simply route Arm B through the existing IRE if that would fall back to the generic constitutional/epistemology proxy').",
+    "Mutating `buildInvariantSlice`'s own contract (e.g. adding an optional `intentText` parameter) rather than building a distinct module — rejected: `buildInvariantSlice` has other callers (cartridge/copilot grounding surfaces) that pass structured context, never free intent text; changing its contract for EXP-P1's benefit risked altering behavior for callers this fix has no mandate to touch (operator instruction: 'rather than mutating the generic buildInvariantSlice contract for unrelated callers').",
+    "Hard-gating candidate eligibility on `semanticType` — rejected per explicit instruction: no existing runtime semantics justify treating a semantic type as a categorical exclusion; `functionalRole` is carried through for transparency and future diversity use, never a filter, in this version.",
+    "Computing a real `valueEstimate`/`riskOfRepairEstimate` now, informed by the existing Lehigh risk/value research (`services/invariants/riskField.ts`, `riskCalibration.ts`, CFS-056/056A/056B) — reviewed and rejected: that machinery calibrates DISCOVERY-time materiality of CANDIDATE invariants during corpus curation, a different lifecycle stage on different objects, computed by a still-maturing model not yet cross-validated against runtime grounding-selection. Inventing a coefficient here would be exactly the fabricated-calibration failure `resolution.ts`'s own `constitutional: null` comment already refuses to commit. The fields exist on the type as a NAMED NO-OP seam only.",
+    "Re-scoring the existing 16-task `LARGER_REHEARSAL_TASK_SET` under the corrected selector as the primary evaluation — rejected per explicit operator instruction: that set's tasks and results were already read under the OLD selector, so re-scoring it would not be 'unseen' with respect to this fix; a new v3 set was authored instead.",
+    "Mutating or deleting the two/three persisted internal-rehearsal execution-run artifacts to reflect the new classification — rejected: 'preserve both existing rehearsal runs unchanged' was explicit; the classification lives in this record and the module header, never in the persisted JSON rows."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-07-RELEVANCE-BEFORE-STANDING-CALIBRATION-001"
+  ],
+  "canaries": [
+    "tests/task-scoped-selection.test.ts",
+    "tests/exp-p1-rehearsal-runner.test.ts",
+    "tests/exp-p1-rehearsal-route.test.ts",
+    "tests/exp-p1-execution-status-ui.test.tsx"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "invariant-incomplete-or-misscoped",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/task-scoped-selection.test.ts",
+      "tests/exp-p1-rehearsal-runner.test.ts",
+      "tests/exp-p1-rehearsal-route.test.ts",
+      "tests/exp-p1-execution-status-ui.test.tsx"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "Operator instruction, 2026-09-07, verbatim: \"Audit Arm B selection fidelity before any further EXP-P1 rehearsal or interpretation. The current rehearsal suggests Arm B may be selecting primarily by standing... Establish mechanically what the current Arm B selector does... If the current implementation violates that principle, classify the existing 16-task rehearsal as a treatment-fidelity diagnostic, not evidence against the runtime hypothesis.\"",
+      "Follow-on operator instruction, 2026-09-07, verbatim: \"Proceed to implement the minimum treatment-faithful Arm B selector identified by the audit... Preserve both existing rehearsal runs unchanged and classify them permanently as treatment-fidelity-diagnostic... Then run a new unseen internal rehearsal task set after the corrected selector is frozen/versioned. Do not reuse the 16-task set as the primary evaluation set for the corrected B treatment.\"",
+      "Mid-turn operator addendum, 2026-09-07, verbatim: \"Architect the corrected task-scoped selector so that consequence/value signals are a first-class future calibration stage, but do not use them as active selection criteria in the current EXP-P1 treatment unless an existing ratified model and sufficient data support them... Do not invent coefficients, thresholds, or synthetic scores and do not make nascent Lehigh signals decisive in the present rehearsal.\""
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md",
+    "services/invariants/grounding.ts",
+    "services/invariants/resolution.ts",
+    "services/invariants/perception.ts",
+    "services/invariants/graph.ts"
+  ],
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

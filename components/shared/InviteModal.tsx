@@ -6,10 +6,12 @@
  * Replaces the inline InviteBar in MyCanvasTab (which was lifted-state
  * + raw input) with a self-contained, reusable modal that:
  *
- *   • Accepts T1 identifiers (handles, FIO handles, did:iq, persona
- *     UUIDs, EVM addresses) — server-side resolution to persona_id
- *     happens in the endpoint so persona_id never travels in browser
- *     JSON.
+ *   • Accepts T1 identifiers (handles, FIO handles, did:iq, Persona
+ *     Public References, EVM addresses) — server-side resolution to
+ *     persona_id happens in the endpoint so persona_id never travels
+ *     in browser JSON (PERSONA-PUBLIC-REF-001: never ask for the raw
+ *     persona UUID here — that's exactly the identifier this modal
+ *     exists to keep off the wire).
  *   • Lets the inviter pick a role (viewer / commenter).
  *   • Styled to match aigentMe + remix modal chrome (slate-900/95,
  *     border-white/10, amber accent on primary actions).
@@ -79,7 +81,7 @@ export function InviteModal({
   const submit = useCallback(async () => {
     const trimmed = handle.trim();
     if (!trimmed) {
-      setError("Enter a handle, FIO address, did:iq:<id>, persona UUID, or 0x address.");
+      setError("Enter a handle, FIO address, did:iq:<id>, persona public reference, or 0x address.");
       return;
     }
     setSubmitting(true);
@@ -151,7 +153,7 @@ export function InviteModal({
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !submitting) { e.preventDefault(); void submit(); }
               }}
-              placeholder="@handle · name@fio-domain · did:iq:… · 0x… · persona UUID"
+              placeholder="@handle · name@fio-domain · did:iq:… · 0x… · public reference"
               disabled={submitting}
               className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:border-violet-400/40 focus:outline-none disabled:opacity-60"
             />

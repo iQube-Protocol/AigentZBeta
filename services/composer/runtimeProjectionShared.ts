@@ -24,9 +24,16 @@ type RuntimeProjectionTarget = {
   is_primary: boolean;
 };
 
+export type RuntimeProjectionStatus =
+  | "published"
+  | "pending_review"
+  | "unpublished"
+  | "archived"
+  | "draft";
+
 export type RuntimeCapsuleProjection = {
   projection_id: string;
-  status: "published" | "draft";
+  status: RuntimeProjectionStatus;
   experience_id: string;
   tenant_id: string;
   primary_codex_id: string;
@@ -144,6 +151,9 @@ export function buildExperienceRuntimeProjection(input: {
   variant: ComposerDeliveryVariant;
   publishUrl?: string;
   launchUrl?: string;
+  /** Override the resolved status. When omitted the projection lands as
+      `pending_review` (or stays `published` on re-deploy of approved content). */
+  status?: RuntimeProjectionStatus;
 }): RuntimeCapsuleProjection {
   const metadata = asRecord(input.experience.metadata) ?? {};
   const artifact = resolveExperienceDeploymentArtifact({
@@ -158,13 +168,23 @@ export function buildExperienceRuntimeProjection(input: {
   });
   const now = new Date().toISOString();
 
+  // Runtime launches route through the metaMe admin panel rather than minting
+  // unrestricted to the runtime. A fresh deploy lands as `pending_review`; the
+  // metaMe admin promotes it to `published` (see /api/runtime/admin/content).
+  // Re-deploying content the admin already published keeps it `published` so a
+  // routine asset refresh doesn't yank live content back into the queue —
+  // anything else (unpublished / archived / never-reviewed) re-enters review.
+  const priorStatus = asRecord(metadata.runtime_publication)?.status;
+  const resolvedStatus: RuntimeProjectionStatus =
+    input.status ?? (priorStatus === "published" ? "published" : "pending_review");
+
   return {
     projection_id:
       firstNonEmptyString([
         asRecord(metadata.runtime_publication)?.projection_id,
         metadata.runtime_projection_id,
       ]) || `rtproj_${input.experience.id}`,
-    status: "published",
+    status: resolvedStatus,
     experience_id: input.experience.id,
     tenant_id: input.experience.tenant_id,
     primary_codex_id: codexId,

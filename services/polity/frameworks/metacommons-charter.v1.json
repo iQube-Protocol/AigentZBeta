@@ -1,0 +1,41 @@
+{
+  "id": "metacommons-charter",
+  "title": "The metaCommons Charter",
+  "version": "1.0.0",
+  "status": "ratified",
+  "ratifiedAt": "2026-06-17",
+  "boundConstitutionVersion": "1.0.0",
+  "institutionOrder": 2,
+  "purpose": "Transform sovereign signals into collective intelligence while preserving privacy, sovereignty, and citizen rights.",
+  "theCommons": {
+    "isNot": ["database", "marketplace", "social_network"],
+    "is": "field",
+    "definition": "A continuously evolving field generated from the interaction of sovereign assets and sovereign activity across the Polity."
+  },
+  "commonsSignalSources": [
+    "metaqube_metadata",
+    "dvn_receipts",
+    "intent_declarations",
+    "capability_declarations",
+    "standing_signals",
+    "experience_outcomes",
+    "opportunity_signals"
+  ],
+  "proofOfWorkPotential": {
+    "aggregatesAcrossPolity": true,
+    "surfaces": [
+      "unmet_demand",
+      "latent_capability",
+      "emerging_opportunity",
+      "coordination_opportunities",
+      "venture_opportunities"
+    ]
+  },
+  "commonsLearning": {
+    "learnsThrough": "proof_of_time_saved",
+    "purposeIsNotToJudgeCitizens": true,
+    "purpose": "improve the Polity's ability to align truthful information with valuable outcomes"
+  },
+  "constitutionalPrinciple": "The metaCommons exists to discover capability latent within the Polity and make that capability legible without compromising sovereignty.",
+  "engineStatus": "constitutional_only — the operational metaCommons engine (PoWP aggregation, the Commons field, PoTS learning) is a later workstream."
+}

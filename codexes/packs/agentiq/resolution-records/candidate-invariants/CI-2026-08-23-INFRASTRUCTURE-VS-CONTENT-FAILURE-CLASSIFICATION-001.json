@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-23-INFRASTRUCTURE-VS-CONTENT-FAILURE-CLASSIFICATION-001",
+  "statement": "A service/provider dispatch layer that already distinguishes 'delivered' from 'did not complete' MUST further distinguish, within 'did not complete', an INFRASTRUCTURE-level failure (every routed/fallback inference provider unreachable) from a CONTENT/GOVERNANCE-level failure (grounding failure, empty response, a real refusal) — using the one exact, narrow signal the underlying sovereign-inference layer already emits for the infrastructure case, never a broad heuristic guess. The distinction must be carried as a structured, machine-checkable field (an error code), not only as prose in a message string, all the way to the operator-facing surface and to the HTTP status code of any route that exposes it (infrastructure -> 5xx, content/governance -> 4xx). Conflating the two lets a transient provider outage misrepresent itself as a regression in the service/agent that merely depends on inference — costing operator trust and mis-directed debugging effort.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "A layering gap: the dispatch layer's own success/failure taxonomy (DELIVERED vs UNRESOLVED, established by Repair D) was correct as far as it went, but treated every 'did not complete' failure as one undifferentiated case — losing the one signal (the sovereign-inference layer's single distinguishable 'all providers failed' throw) that would have let it tell an infrastructure outage apart from a genuine content/governance failure.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/inference-provider-unavailable.test.ts",
+      "assertion": "isProviderUnavailableError() matches ONLY the exact callStage() 'all providers failed' throw shape, never a single-provider failure or an unrelated error; describeProviderLadderAvailability() never returns a credential value; the Architect route maps the classified failure to HTTP 503, and every other failure to HTTP 400.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/financial-services-runtime.test.ts",
+      "assertion": "An INFERENCE_PROVIDER_UNAVAILABLE Architect/Advisor dispatch failure resolves the outcome status UNRESOLVED with errorCode set, never REFUSED and never a silent DELIVERED; a non-infrastructure failure resolves UNRESOLVED without the errorCode.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/financialServices/serviceRequestOrchestrator.ts::dispatchInformationalProvider",
+      "defect": "Every technical provider-dispatch failure (infrastructure outage or genuine content/grounding failure) produced the same generic 'gate allowed but provider invocation did not complete' reason, with no structured way for a caller to tell them apart; the Architect route additionally mapped every such failure to HTTP 400, misrepresenting an infrastructure condition as a client error.",
+      "resolutionId": "RES-2026-08-23-FSVC-INFERENCE-UNAVAILABLE-OUTPUT-PRESERVATION-001",
+      "evidence": [
+        "services/constitutional/modelRouter.ts",
+        "services/constitutional/moneyPennyArchitect.ts",
+        "services/financialServices/serviceRequestOrchestrator.ts",
+        "app/api/moneypenny/architect/route.ts",
+        "tests/inference-provider-unavailable.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-23-FSVC-INFERENCE-UNAVAILABLE-OUTPUT-PRESERVATION-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "Companion concern, same resolution, not itself promoted to a separate candidate here: a dispatch layer's 'immutable evidence reference' (a hash/commitment/artifact id) and 'operator-visible display output' (the real prose/proposal) are two distinct obligations that must both be satisfied on a successful dispatch — satisfying one must never come at the cost of the other. Watch for this shape recurring in any future provider-dispatch layer that computes a receipt-safe reference from a real result.",
+    "Generic shape to watch for elsewhere: any layer built on top of `services/constitutional/modelRouter.ts::callSovereign`/`callStage` that catches its own errors — the SAME `isProviderUnavailableError` classifier applies verbatim; a caller must never re-derive its own heuristic for 'is this a provider outage'."
+  ]
+}

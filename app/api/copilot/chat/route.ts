@@ -5,14 +5,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { callSovereign } from '@/services/constitutional/modelRouter';
 
 export const runtime = 'nodejs';
-
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 // System prompt for Codex Copilot
 const CODEX_COPILOT_SYSTEM_PROMPT = `You are the Codex Copilot, an expert guide to the metaKnyts universe and Codex content.
@@ -71,43 +66,30 @@ export async function POST(request: NextRequest) {
       codexKnowledge: context.codexKnowledge || '',
     } : {};
 
-    // Prepare messages for OpenAI
-    const messages = [
-      {
-        role: 'system' as const,
-        content: CODEX_COPILOT_SYSTEM_PROMPT,
-      },
-      {
-        role: 'system' as const,
-        content: `Current Context:
+    // The two system layers (copilot role + live context), merged into one
+    // system prompt for the sovereign inference entry point.
+    const systemPrompt = `${CODEX_COPILOT_SYSTEM_PROMPT}
+
+Current Context:
 - Mode: ${contextInfo.mode}
 - Wallet Balance: ${contextInfo.walletBalance} Q¢
 - NFT Collection: ${contextInfo.nftCount} items
 - User: ${contextInfo.agentName} (${contextInfo.metaAvatar})
 - Available Knowledge: ${contextInfo.codexKnowledge ? 'Codex content database available' : 'No specific knowledge loaded'}
 
-Use this context to provide personalized assistance.`,
-      },
-      {
-        role: 'user' as const,
-        content: message,
-      },
-    ];
+Use this context to provide personalized assistance.`;
 
-    // Call OpenAI API
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
-      messages,
-      max_tokens: 1000,
-      temperature: 0.7,
-      presence_penalty: 0.1,
-      frequency_penalty: 0.1,
-    });
-
-    const response = completion.choices[0]?.message?.content;
+    // Invariant-aware, SOVEREIGN inference (CFS-015 Phase 2). This copilot used a
+    // single, deprecated gpt-4-turbo-preview call with NO fallback. callSovereign
+    // routes the 'reasoning' purpose through the ModelQube policy (invariant-
+    // cited) and the sovereign fallback ladder — so it survives a provider
+    // outage instead of 500ing — at the conversational temperature (0.7)
+    // preserved from the original call.
+    const sovereign = await callSovereign('reasoning', systemPrompt, message, 1000, 0.7);
+    const response = sovereign.text;
 
     if (!response) {
-      throw new Error('No response from OpenAI');
+      throw new Error('No response from the sovereign inference router');
     }
 
     return NextResponse.json({

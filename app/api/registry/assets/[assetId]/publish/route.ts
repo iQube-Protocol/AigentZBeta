@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { publishAsset } from "@/services/registry/publisherService";
 import { getAsset } from "@/services/registry/persistence";
 
-type Params = { params: { assetId: string } };
+type Params = { params: Promise<{ assetId: string }> };
 
 /** POST /api/registry/assets/[assetId]/publish */
-export async function POST(req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     const body = await req.json() as {
       publishedBy?: string;

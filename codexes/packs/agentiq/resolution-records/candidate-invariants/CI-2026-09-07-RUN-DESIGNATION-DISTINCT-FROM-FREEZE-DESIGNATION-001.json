@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "Extends CI-2026-08-03-GOVERNED-ACTS-DISTINCT-001 ('declaring a boundary, constituting, assessing, and freezing are four distinct governed acts') one act further: EXECUTING a frozen substrate is a FIFTH distinct governed act, and a RUN's own execution designation (internal-rehearsal vs. confirmatory) must never be represented by, or collapsed into, the FROZEN ARTIFACT's own freeze-time execution designation (confirmatory vs. internal-pilot) — the two answer materially different governed questions at different altitudes: 'is this generation authorized for pilot use' (the crystal's own freeze act) vs. 'is THIS RUN a confirmatory result' (the run's own act).",
+    "The mechanism this invariant requires: (1) a run-level designation type, separate from the artifact-level one, defaulting to the strictly non-confirmatory value so no caller can accidentally construct a confirmatory-eligible row; (2) a single, mandatory boolean field (confirmatoryEligible) on every execution-run row, refused at the ONE write choke-point (never left to caller discipline) whenever it disagrees with the run's own designation; (3) every reader that decides 'has the confirmatory execution occurred' MUST filter on that field, never on artifact `kind` alone — a generic `kind === 'execution-run'` filter is the exact defect this invariant exists to prevent recurring.",
+    "Generalizes beyond EXP-P1: any future experiment with the same frozen-substrate / rehearsal-vs-confirmatory shape (declare a governed act's PURPOSE, orthogonal to whether the substrate underneath it exists or is fit for a stronger purpose) should reuse this pattern rather than re-deriving a bespoke designation scheme per experiment.",
+    "Close in spirit to CI-2026-08-03-GOVERNED-ACTS-DISTINCT-001 (declaring/constituting/assessing/freezing are four distinct governed acts) — this candidate is left un-parented (parentCandidateId: null) rather than asserted as a fifth act in that same family, since that structural relationship is itself an operator classification this agent may not self-assign."
+  ],
+  "canaries": [
+    {
+      "path": "tests/exp-p1-execution-run-persistence.test.ts",
+      "assertion": "recordExecutionRun refuses outright to persist an execution-run artifact with runExecutionDesignation: 'internal-rehearsal' AND confirmatoryEligible: true in the same call — the one invariant this whole feature exists to protect, enforced at the single write choke-point rather than left to caller discipline.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/exp-p1-readiness-dashboard-generation-and-confirmatory.test.ts",
+      "assertion": "readinessDashboard.ts's Execution section stays RED when only an internal-rehearsal execution-run exists (regardless of how many), and only turns GREEN once a confirmatoryEligible run exists — proving the confirmatory-result reader filters on confirmatoryEligible, never on kind === 'execution-run' alone.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/exp-p1-rehearsal-runner.test.ts",
+      "assertion": "runExpP1Rehearsal unconditionally persists runExecutionDesignation: 'internal-rehearsal' + confirmatoryEligible: false regardless of caller input, and never calls recordExperimentRunLifecycle/advances EXPERIMENT_LIFECYCLE — the run-level designation never touches the experiment's own macro-transition, which is reserved for a real confirmatory execution.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "candidateId": "CI-2026-09-07-RUN-DESIGNATION-DISTINCT-FROM-FREEZE-DESIGNATION-001",
+  "statement": "Executing a frozen substrate is a distinct governed act from freezing it, declaring its boundary, constituting it, or assessing it (extends CI-2026-08-03-GOVERNED-ACTS-DISTINCT-001). A RUN's own execution designation (e.g. 'internal-rehearsal' vs. 'confirmatory') must be represented by its OWN type, never reused from or collapsed into the FROZEN ARTIFACT's own freeze-time execution designation (e.g. 'confirmatory' vs. 'internal-pilot') — the two answer materially different governed questions. Every execution-run record must carry an explicit, mandatory field (e.g. confirmatoryEligible) that every confirmatory-result reader filters on; that field must be refused at the single write path whenever it disagrees with the run's own designation, never left to caller discipline; and a non-confirmatory run must never be able to advance, or be read as advancing, any higher-altitude confirmatory macro-lifecycle (e.g. an experiment's own designed -> protocol-ratified -> running -> ... transitions).",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-09-07-EXP-P1-TWO-MODE-EXECUTION-MODEL-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/artifacts.ts::recordExecutionRun, services/research/expP1Rehearsal.ts::runExpP1Rehearsal, services/research/readinessDashboard.ts's Execution section",
+      "defect": "No run-level execution designation existed anywhere in the codebase prior to this work; the readiness dashboard's Execution section computed 'has an execution occurred' via a generic kind === 'execution-run' filter with no way to exclude a non-confirmatory run once one could exist — the exact defect this invariant exists to prevent recurring, caught in the SAME change that introduced the first execution-run artifact of any kind.",
+      "resolutionId": "RES-2026-09-07-EXP-P1-TWO-MODE-EXECUTION-MODEL-001",
+      "evidence": [
+        "tests/exp-p1-execution-run-persistence.test.ts",
+        "tests/exp-p1-readiness-dashboard-generation-and-confirmatory.test.ts"
+      ]
+    }
+  ],
+  "family": "constitutional",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
+}

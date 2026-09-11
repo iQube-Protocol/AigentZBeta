@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-17-DELEGATION-AUTHORITY-GATE-AT-EXECUTION-SEAM-001",
+  "statement": "Before any consequential connector executes on behalf of aigentMe, the system checks the currently assigned Agent's delegation authority independently of, and in addition to, any action-specific approval-token gate: the Agent's single active delegation grant must match her own agent_root_did, cover the canonical delegated action, cover the execution surface, and have execution budget remaining. Default aigentMe (no Agent assigned) never inherits a delegate's grant. This check must be generic across any assigned Agent — it must never special-case a specific Agent's identity or name.",
+  "classification": "Engineering/constitutional invariant — the executable expression of the operator's constitutional model: aigentMe is the role/surface, the selected Agent is the speaker/actor, and the delegation grant is the authority. This candidate protects the third leg specifically: that assignment and speech never silently confer authority to act.",
+  "family": "constitutional",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": ["constitutional-computing"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/homecoming-closeout-wpc2-delegation-authority-gate.test.ts",
+      "assertion": "checkDelegationAuthority() is a no-op when no Agent is assigned (Default Agent Me never inherits a grant); denies execution when the active grant's agent_root_did does not match the assigned Agent, when the canonical delegated action is not covered, when the surface is not covered, or when budget is exhausted; allows execution when all four hold.",
+      "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/homecoming-closeout-wpc5-aletheon-e2e.test.ts",
+      "assertion": "Exercises the REAL /api/connectors/execute route (not the gate module in isolation) end-to-end with Aletheon as the acceptance case; the route, the gate, and the vocabulary contain no branch naming her specifically, so the same assertions hold for any other assigned Agent.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "Homecoming Closeout — app/api/connectors/execute/route.ts (the single connector execution gateway)",
+      "defect": "Prior to this closeout, an assigned/hydrated/speaking delegated Agent (per WPA-3) had no executable authority check at the point a connector actually ran — the delegation_grants table's abstract action vocabulary had no bridge to the real connector-id vocabulary, and nothing at the execution gateway consulted the assigned Agent's grant at all. An Agent could be the conversational speaker for aigentMe with zero bounded authority to act, which the operator's own constitutional model (role/surface vs. speaker vs. authority) requires never to be true.",
+      "resolutionId": "RES-2026-08-17-HOMECOMING-CLOSEOUT-ALETHEON-DELEGATED-EXECUTION-001",
+      "evidence": [
+        "services/delegation/delegationAuthorityGate.ts",
+        "services/delegation/delegatedActionVocabulary.ts",
+        "app/api/connectors/execute/route.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-17-HOMECOMING-CLOSEOUT-ALETHEON-DELEGATED-EXECUTION-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "STATED CAUSALLY. The rule names the four conditions that must all hold (agent-did match, action coverage, surface coverage, budget remaining) plus the non-inheritance case, so a future reader can check conformance directly rather than infer intent.",
+    "SCOPE IS 'local' PENDING A SECOND CAPABILITY. This pattern — an authority gate sitting independently alongside an existing approval-token gate, keyed on a bounded delegation grant rather than the action alone — plausibly generalises to any future surface where a delegated actor executes on a principal's behalf (not only Command Center connectors). Left at 'local' until a second capability actually reuses it, per the registry's own discipline that cross-capability scope is earned by evidence, not asserted.",
+    "GENERICITY IS LOAD-BEARING, NOT INCIDENTAL. Aletheon is the acceptance case throughout WP-C2/C3/C5, but the gate resolves identity via ctx.currentAigentMe / bound.agentDid — never a hardcoded Aletheon check. Any future assigned Agent (a new specialist, a future delegate) is authorized or denied by the identical code path with no special-casing required.",
+    "VERIFIED-FAILING-BEFORE-FIX IS HONESTLY FALSE. The gate and its tests were built together as part of this closeout rather than reproducing a defect against pre-existing broken code first — there was no pre-existing gate to fail against, since the seam itself did not exist before this work. This is recorded honestly rather than claimed.",
+    "STATUS HELD AT 'candidate', NOT 'validated', ON PURPOSE. WP-C2's gate-unit tests and WP-C5's real-route end-to-end tests are strong same-incident test coverage, but they are one recorded occurrence, not reuse across a second incident or capability — the registry's own milestone-close check correctly refused 'validated' on a single occurrence ('one fix that worked once' is not reuse). This will earn 'validated' honestly the first time a second capability or a second assigned-Agent scenario actually exercises this gate and that occurrence gets recorded here.",
+    "DOES NOT REPLACE THE APPROVAL-TOKEN GATE. This candidate governs a DIFFERENT, EARLIER question (does this Agent have any bounded authority to act at all) from the pre-existing approval-token gate (is this specific action approved). The two are independent and both must pass; this candidate must never be read as superseding or subsuming the approval-token mechanism."
+  ]
+}

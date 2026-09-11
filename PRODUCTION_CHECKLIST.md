@@ -52,7 +52,7 @@ This will show you:
 ```
 SUPABASE_URL = https://bsjhfvctmduxhohtllly.supabase.co
 SUPABASE_SERVICE_ROLE_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-AGENT_KEY_ENCRYPTION_SECRET = e35c7d79651daadd8723ff952c90fe55c567143065e1159d5e683ff3c9703fda
+AGENT_KEY_ENCRYPTION_SECRET = <REDACTED-2026-07-30-treat-as-compromised-rotate-before-use>
 ```
 
 **How to check:**

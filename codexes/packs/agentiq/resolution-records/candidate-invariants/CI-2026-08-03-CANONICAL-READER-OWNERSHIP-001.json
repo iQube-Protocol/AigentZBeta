@@ -1,0 +1,69 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "This is the estate-wide shape behind OS-2/OS-4 and behind eight of the eleven Companion menu invariants: two things owning or describing one thing, and the stale one winning.",
+    "Overlaps `inv.engineering.036` (\"one authoritative location per concern\"), which is already canonical. Recorded here as the READ-PATH specialisation of it; if the operator judges it fully covered by 036, this candidate should be retired rather than ratified — a duplicate invariant is the defect 036 names."
+  ],
+  "canaries": [
+    {
+      "path": "tests/horizen-agent-page-surface-wiring.test.ts",
+      "assertion": "'one screen, one answer about whether registration happened' — the ladder tokenId falls back through card → receipt → this session's own confirmation, and a confirmed tokenId is never cleared by a later poll that fails to see it.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/horizen-agent-registration-binding.test.ts",
+      "assertion": "Projection-wins, receipt-fallback and chain-decode paths each assert their own `fallbackSource`, so which reader answered is always recoverable.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "candidateId": "CI-2026-08-03-CANONICAL-READER-OWNERSHIP-001",
+  "statement": "One canonical reader owns the lookup of a fact; a consumer that re-implements the query becomes a second observer that will eventually disagree.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-08-03-HORIZEN-OBSERVER-RECONCILIATION-001",
+    "RES-2026-08-15-PHASE4-SELF-REVIEW-OBSERVATIONS-001"
+  ],
+  "occurrences": [
+    {
+      "site": "app/api/journey/moneypenny-horizen/state/route.ts",
+      "defect": "The route hand-built its own persona-keyed receipt query instead of consuming the canonical receipt reader, so it disagreed with the Evidence-receipts drawer about the same receipts on the same screen.",
+      "resolutionId": "RES-2026-08-03-HORIZEN-OBSERVER-RECONCILIATION-001",
+      "evidence": [
+        "feeee0194"
+      ]
+    },
+    {
+      "site": "services/horizen/agentRegistrationBinding.ts",
+      "defect": "Two independent Supabase writes with nothing making them one transaction, and readers depending on both landing. The remedy was ONE resilient reader with a named `fallbackSource`, so a stuck write stays diagnosable rather than silently worked around forever.",
+      "resolutionId": "RES-2026-08-03-HORIZEN-OBSERVER-RECONCILIATION-001",
+      "evidence": [
+        "fd12d4547",
+        "tests/horizen-agent-registration-binding.test.ts"
+      ]
+    },
+    {
+      "site": "services/devCommandCenter/implementationContext.ts — composeImplementationContext()",
+      "defect": "sections (rendered text), carried (refs) and the omission Set were each computed from their OWN filter/map expression over the same underlying membership decision, rather than one canonical computation projected three ways. A mutation that changed which members were rendered left `carried` reporting the pre-mutation membership, so a canary asserting only on `carried` passed against code whose rendered output had genuinely changed. Fixed by deriving all three from one `membership` map.",
+      "resolutionId": "RES-2026-08-15-PHASE4-SELF-REVIEW-OBSERVATIONS-001",
+      "evidence": [
+        "dd9ae6650",
+        "tests/gap-analysis-causal-split.test.ts"
+      ]
+    }
+  ],
+  "family": "engineering",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
+}

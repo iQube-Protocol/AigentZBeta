@@ -7,21 +7,271 @@ const EMBED_CSP = `frame-ancestors ${embedPolicy.frameAncestors.join(" ")};`;
 const nextConfig = {
   // Disable double-invocation and extra checks in dev to speed up refresh
   reactStrictMode: !isDev,
-  swcMinify: true,
+  // swcMinify removed in Next 15 (SWC minification is the default).
   // Keep standalone only for Amplify build environments to avoid local tracing edge-cases.
   output: isAmplifyBuild ? "standalone" : undefined,
   // Prevent playwright and other native/large packages from being bundled in server routes.
   // This reduces per-page memory pressure and avoids "Critical dependency" warnings.
   serverExternalPackages: ["playwright", "playwright-core", "pdf-parse", "@napi-rs/canvas", "ffmpeg-static"],
+  // Next 15's standalone output is larger than 14's and pushed the Amplify SSR
+  // deploy package past its 220 MiB limit. The bulk was DEAD-WEIGHT native
+  // binaries: Next traces BOTH glibc (gnu / linux-x64) AND musl (linuxmusl)
+  // prebuilt binaries for @napi-rs/canvas and sharp, but the Amplify/Lambda
+  // runtime is Amazon Linux (glibc) and never loads the musl copies (~47 MB).
+  // Dropping them is safe — the glibc variants remain and the loaders resolve
+  // those at runtime. If canvas/sharp ever fail at runtime with a "module not
+  // found" for a platform binary, the runtime moved off glibc — revisit here.
+  outputFileTracingExcludes: {
+    // The agentiq/updates changelog is 2.8 MB across 250+ CFS/PRD session
+    // docs and grows every deploy. It is traced into THREE Lambdas — both
+    // copilot chat routes (via the codexes/packs/agentiq/**/*.md include) AND
+    // /api/admin/registry/docs. Shipping the full change-log into the two
+    // size-capped copilot Lambdas is what re-tipped the output past the
+    // 230686720-byte cap (2026-07-20) — same class as the build_/COMMITS
+    // exclusion below. Drop it from the copilot chat routes ONLY: the copilot
+    // still grounds on the agentiq ITEMS (product knowledge); it just no
+    // longer searches the session change-log. The Updates tab keeps working —
+    // /api/admin/registry/docs still traces updates/**/*.md (not excluded here).
+    "/api/codex/chat": ["codexes/packs/agentiq/updates/**"],
+    "/api/codex/chat/aigentiq": ["codexes/packs/agentiq/updates/**"],
+    // 2026-09-07: verified app/api/admin/registry/docs/route.ts's own GET
+    // handler branches on entry.path.startsWith('codexes/packs/') and reads
+    // those entries via corpusReadFile/ensureCorpusHydrated (the remote
+    // pack-corpus store), never the bundled filesystem copy — the
+    // DOC_ALLOWLIST's ~18 codexes/packs/agentiq/updates/*.md entries are the
+    // only things this exclude drops, and the route already ignores its
+    // bundled copies of them. This is a pure reclaim, not a behavior change:
+    // the two docs/*.md legibility files (outside codexes/packs/, read via
+    // plain readFile) are unaffected and stay bundled via the existing
+    // outputFileTracingIncludes entry below. The 6.9 MB (493-file, growing
+    // every session) updates/ corpus this directory now holds is exactly the
+    // repeat-offender class already named above ("grows every deploy") —
+    // this was the one remaining route still paying for it.
+    "/api/admin/registry/docs": ["codexes/packs/agentiq/updates/**"],
+    "*": [
+      // musl native binaries — Lambda is glibc, never loads these (~48 MB)
+      "node_modules/@napi-rs/canvas-linux-x64-musl/**",
+      "node_modules/@img/sharp-libvips-linuxmusl-x64/**",
+      "node_modules/@img/sharp-linuxmusl-x64/**",
+      // The GNU (glibc) canvas native binary — 33,253,808 bytes, the single
+      // largest package traced into the standalone artifact (2026-09-07
+      // build-size forensic investigation), used by exactly two routes
+      // (app/api/content/pdf-page/[cid], app/api/content/pdf-page-by-master/
+      // [masterId]) to rasterize one PDF page to PNG. Both routes now fetch
+      // this binary into /tmp on first use instead of bundling it — see
+      // services/content/napiCanvasBinary.ts for the verified mechanism
+      // (@napi-rs/canvas's own generated loader supports
+      // NAPI_RS_NATIVE_LIBRARY_PATH as a first-class override, checked before
+      // any node_modules path) and its own comment for why this differs from
+      // the ffmpeg-static precedent (spawned binary vs. in-process native
+      // addon). Never referenced from any OTHER route's own trace as of this
+      // investigation, so a global exclude — not a per-route one — is
+      // correct: nothing else needs it bundled. If a THIRD route ever adds a
+      // static (non-dynamic) `import('@napi-rs/canvas')`, this exclude must
+      // move to be scoped to just the two PDF routes, or that new route will
+      // 500 at the native-addon require.
+      "node_modules/@napi-rs/canvas-linux-x64-gnu/**",
+      // Next's own SWC native compiler — standalone traces BOTH the glibc and
+      // musl prebuilt binaries; Amazon Linux (glibc) loads the gnu copy and
+      // never the musl one (~40 MB). Dropping it is the same safe move as the
+      // canvas/sharp musl excludes above and reclaims the headroom that tipped
+      // the 2026-07-19 build past the 230686720-byte output cap. If SWC ever
+      // fails to load at runtime, the runtime moved off glibc — revisit here.
+      "node_modules/@next/swc-linux-x64-musl/**",
+      "node_modules/@swc/core-linux-x64-musl/**",
+      // playwright-core (~6 MB) — the agentic-browser exec
+      // (services/aa-api/src/browser/exec/playwright.ts) loads it via a GUARDED
+      // dynamic require.resolve/require in try/catch that degrades to "browser
+      // control unavailable" when absent. Browser automation cannot run in an
+      // Amplify SSR Lambda anyway (no browser binary), so this 6 MB is dead weight
+      // — the single biggest traced package (2026-07-21 compute-composition log)
+      // and ~30x the size overage. Also hard-removed in amplify.yml postBuild
+      // (the reliable lever). classifierService's "playwright" is a keyword
+      // string, not an import — unaffected.
+      "node_modules/playwright-core/**",
+      // Build/ingest-time pack DATA that the SSR runtime never reads AND that is
+      // not browsable via any pack collections.json — so tracing it into the
+      // standalone bundle is pure dead weight against the 230686720-byte output
+      // cap. Next's node_modules trace is already minimal (the amplify.yml
+      // native-binary/source-map sweep confirmed there's little left there), so
+      // the only remaining discretionary bytes are the traced codexes/packs
+      // corpus; the pack-file route globs ALL of ./codexes/packs/**/*.{md,json}
+      // (see outputFileTracingIncludes below) and pulls these data artifacts in
+      // with it. Verified 2026-07-21: NO services/app readFileSync of any of
+      // these, and grep of every collections.json shows no UI browse path.
+      //   - canonical-invariants.seed.json (304 KB): the invariant INGEST source.
+      //     Runtime reads invariants from the DB; ontologyResolver reads
+      //     platform-ontology.md (with a built-in mirror fallback), never this.
+      //   - retrieval-index.md (149 KB): a memory-compilation DUMP artifact; the
+      //     runtime memory reads the DB, and a missing pack file is skipped at
+      //     read time.
+      //   - operation-metawill + experiment result JSONs: committed RECORD
+      //     artifacts; the Results/Report tabs read the DB (/api/experiments/*),
+      //     not these files.
+      // Excludes are applied AFTER includes and win (confirmed by the 2026-07-20
+      // /api/codex/chat updates exclude), so these override the pack-file glob.
+      "codexes/packs/irl/foundation/canonical-invariants.seed.json",
+      "codexes/packs/aigency/items/memory/retrieval-index.md",
+      "codexes/packs/agentiq/items/venture-iqube/operation-metawill-v0.2.json",
+      "codexes/packs/irl/foundation/experiments/**/*results*.json",
+      // The Constitutional Internet book's SOURCE-AND-EVIDENCE MATRIX (125 KB
+      // and growing with the manuscript). Same class as the record artifacts
+      // above: verified 2026-08-02 against polity-core/collections.json — the
+      // eleven browsable book entries are all .md; this JSON is listed in NONE
+      // of them, and no services/app readFileSync touches it. It is traced
+      // only because the pack-file route globs ./codexes/packs/**/*.json.
+      //
+      // Note the asymmetry that makes this the ONLY safe book exclusion: the
+      // glob is JSON-ONLY, so the manuscript .md files are not traced at all
+      // and cost the artifact nothing. Excluding any of them would break the
+      // Codex reader for no benefit.
+      "codexes/packs/polity-core/items/commentary/constitutional-internet/02-source-and-evidence-matrix.json",
+      // Build-time-only deps Next conservatively traces but the runtime never
+      // executes: the TypeScript compiler (no runtime import in this app) and
+      // browserslist's caniuse-lite data. ~11 MB more headroom under the limit.
+      "node_modules/typescript/**",
+      "node_modules/caniuse-lite/**",
+      // shiki (+ its oniguruma/regex engine) — a CLIENT-ONLY rendering
+      // dependency. It arrives transitively via
+      // @copilotkit/react-ui -> @copilotkitnext/react -> streamdown (the
+      // chat markdown/code-block renderer), never imported directly by any
+      // app file (verified 2026-07-24: zero direct `shiki`/`@shikijs`
+      // imports anywhere under app/components/services). The two server
+      // routes that DO use CopilotKit (app/api/copilotkit/[[...path]]/route.ts,
+      // app/api/copilotkit/system/route.ts) import ONLY from
+      // @copilotkit/runtime — never react-ui, @copilotkitnext, or streamdown
+      // — so nothing server-executed calls into shiki. @shikijs alone traced
+      // at ~11 MB (2026-07-24 compute-composition log), ~14x the byte
+      // overage that tipped the last 12 builds past the 230686720-byte cap;
+      // the rest of this list is its supporting oniguruma/regex engine,
+      // none of which is a general-purpose utility used elsewhere in this
+      // app (confirmed against package-lock.json: none of these packages
+      // have any other dependent in this repo's tree). If a future
+      // server-rendered surface genuinely needs shiki (e.g. SSR syntax
+      // highlighting), the runtime will fail with "module not found" for
+      // shiki/@shikijs — that is the signal to revisit this exclude, not to
+      // silently re-add it.
+      "node_modules/shiki/**",
+      "node_modules/@shikijs/**",
+      "node_modules/oniguruma-to-es/**",
+      "node_modules/oniguruma-parser/**",
+      "node_modules/regex/**",
+      "node_modules/regex-recursion/**",
+      "node_modules/regex-utilities/**",
+      // NOTE: the broader hast/mdast utility cluster (hast-util-to-html,
+      // ccount, zwitch, comma/space-separated-tokens, stringify-entities,
+      // character-entities-html4, html-void-elements) is deliberately NOT
+      // excluded here even though it rides in via the same streamdown chain
+      // — package-lock.json shows react-markdown (a separately-resolvable
+      // package) among its other requesters, and this sandbox has no
+      // installed node_modules to verify react-markdown's own usage is
+      // ALSO client-only before excluding shared dependencies. The six
+      // entries above (shiki/@shikijs + its oniguruma/regex engine) have
+      // exactly one requester each (streamdown, verified against
+      // package-lock.json) and already reclaim ~11+ MB — comfortably enough
+      // headroom on their own; leave the ambiguous cluster for a follow-up
+      // pass with an actual build to verify against.
+      // Auto-generated deploy-trigger commit briefs (~8 MB, 1900+ files and
+      // growing every deploy). They are bundled by the codexes-pack tracing
+      // include below, but the copilot skips them by default
+      // (exclude_deploy_triggers in app/(shell)/copilot/actions/agentiq-codex.ts),
+      // and a missing file is simply skipped at read time (readCodexFile → null).
+      // Shipping build-log metadata in the size-capped SSR Lambda is what tipped
+      // the output past the 230686720-byte hard cap (2026-07-17). Excluded here,
+      // same philosophy as the typescript/caniuse entries above.
+      "codexes/packs/aigency/items/build_/COMMITS/**",
+      // build_/PR — auto-generated per-PR log archives (~156 KB, grows every PR),
+      // same build-log class as COMMITS above. Only referenced as an EXAMPLE path
+      // in a copilot tool-description string, never a required runtime read (a
+      // missing pack file is skipped at read time). Excluded to reclaim headroom
+      // under the 230686720-byte cap as session docs + UI grow (2026-07-21).
+      "codexes/packs/aigency/items/build_/PR/**",
+      // The auto-generated build changelog — same build-log class as COMMITS
+      // above (grows every deploy; 374KB on 2026-07-20 when the output tipped
+      // the cap by ~194KB). Same safety: a missing pack file is skipped at
+      // read time; no surface depends on shipping it inside the Lambda.
+      "codexes/packs/aigency/items/build_/changelog.md",
+    ],
+  },
+  // Promoted from experimental in Next 15 — these entries carry files the SSR
+  // runtime reads at runtime into the standalone Lambda bundle.
+  //
+  // PACK CORPUS SPLIT (Phase B, 2026-07-21): the pack MARKDOWN bodies
+  // (codexes/packs/**\/*.md, ~5 MB and growing every deploy) are NO LONGER traced
+  // — they moved to the remote pack-corpus store (Supabase blob + AutoDrive
+  // provenance; services/knowledge/packCorpusStore.ts, scripts/export-pack-corpus.mjs)
+  // and every .md reader now goes through that seam. Only the pack JSON
+  // (collections.json / index.json / meta.json — the registry's metadata, ~100 KB)
+  // stays bundled, because packRegistry.ts reads it via fs and lists pack
+  // DIRECTORIES. This is what finally decouples the corpus from the 230686720-byte
+  // SSR cap. Two tiny sync-context .md readers keep targeted includes below
+  // (exp001 + the constitutional glossary) — they read at module/sync time and
+  // can't cleanly await hydration, so their handful of files stay bundled.
+  outputFileTracingIncludes: {
+    // Pack JSON only — registry metadata + browsable JSON. The .md bodies are
+    // served by the corpus store (pack-file route reads via corpusReadPackFile).
+    // With output:'standalone' a file included on ANY route lands in the single
+    // shared bundle, so this one entry covers packRegistry + every JSON reader.
+    "/api/codex/packs/[packId]/file": ["./codexes/packs/**/*.json"],
+    // The Companion extension source IS the distribution artifact
+    // (services/companion/extensionArtifact.ts reads it at request time so no
+    // committed zip can drift from it). ~95 KB of plain JS/JSON/HTML — a
+    // rounding error against the output cap. Traced on the download route; the
+    // Threshold MCP route builds the same brief and, with output:'standalone',
+    // reads it from the one shared bundle.
+    "/api/companion/extension": ["./extension/companion-observer/*"],
+    // EXP-001 evaluation step API reads these Living KnowledgeQube .md artifacts
+    // synchronously (services/experiments/exp001.ts, EXP_DIR under irl/foundation
+    // — NOT ccrl, the previous path was stale and only worked via the old
+    // catch-all glob). Kept bundled (5 small files) rather than made async.
+    "/api/experiments/exp001": [
+      "./codexes/packs/irl/foundation/experiments/exp-001-living-knowledgeqube/*.md",
+    ],
+    // NOTE: an attempt to trace ffmpeg-static's binary (~70-80MB) into the
+    // stitch/status routes here (2026-07-05) pushed the Amplify build output
+    // past its 220 MiB hard cap (230686720 bytes) and broke ALL deploys —
+    // reverted same day. The bundle-size-safe fix now lives in
+    // app/api/skills/video/_thumbnail.ts:getFfmpegPath — the binary is
+    // fetched into /tmp on first use (ffmpeg-static's own pinned release,
+    // gzipped) and cached per container. Do not re-add a trace entry for
+    // ffmpeg-static here.
+    // registry docs tab: the two docs/*.md legibility files stay bundled (they
+    // are NOT under codexes/packs). The route's ~18 pack updates .md are now read
+    // via the corpus store (route branches on codexes/packs/ prefix).
+    "/api/admin/registry/docs": [
+      "./docs/vela/accelerator/constitutional-financial-services/*.{md,json}",
+      "./docs/iqube-agent-legibility-profile.md",
+      "./docs/iqube-score-derivation.md",
+    ],
+    // Copilot chat: the aigency + agentiq pack search now reads via the corpus
+    // store, so no pack globs here. Two non-pack docs/*.md stay bundled: the
+    // ontology canon (platform-ontology.md) and the constitutional glossary,
+    // both read synchronously by services/constitutional/ontologyResolver.ts.
+    // (The glossary lives under codexes/packs/irl but is a sync-context read, so
+    // it is pinned here rather than moved to the corpus store.)
+    "/api/codex/chat": [
+      "./docs/platform-ontology.md",
+      "./codexes/packs/irl/foundation/constitutional-glossary.md",
+    ],
+    // Bitcent ops card: readFileSync(join(process.cwd(), ...)) at request
+    // time is not statically traceable, so without this entry the standalone
+    // Lambda bundle drops both JSON files, the route 500s (ENOENT), and the
+    // ops card renders entirely blank — the same untraced-file failure mode
+    // documented for pdfjs-dist's worker file in CLAUDE.md.
+    "/api/ops/bitcent/testnet": [
+      "./deployments/bitcent-testnet.json",
+      "./scripts/bitcent-issuance-record.json",
+    ],
+  },
   experimental: {
     // Limit worker parallelism on Amplify to avoid ENOMEM when forking page-data workers.
     // The main build process consumes ~3 GB; each forked worker needs additional RAM.
     cpus: isAmplifyBuild ? 1 : undefined,
-    // Ensure codex pack files (markdown + JSON) are included in the standalone bundle
-    // so that /api/codex/packs/[packId]/file can read them at runtime on Lambda.
-    outputFileTracingIncludes: {
-      "/api/codex/packs/[packId]/file": ["./codexes/packs/**/*.md", "./codexes/packs/**/*.json"],
-    },
+    // Next 15's build is heavier than 14's and OOM'd Amplify at the old 3 GB
+    // heap cap. This flag trades a little build speed for a materially lower
+    // peak webpack memory footprint — the primary lever for the OOM fix
+    // (paired with a raised --max-old-space-size in amplify.yml).
+    webpackMemoryOptimizations: true,
   },
   transpilePackages: [
     "@qriptoagentiq/core-client",
@@ -79,6 +329,20 @@ const nextConfig = {
       }
     }
     return config;
+  },
+  // /bridge/constitutional-internet was the CI Bridge's original route path;
+  // renamed to the shorter /bridge/ci (2026-08-10) to match /bridge/knyts's
+  // naming pattern. Kept as a redirect (not permanent — this is an early-
+  // stage route, not yet linked externally) so any link already shared to
+  // the longer path still resolves rather than 404ing.
+  async redirects() {
+    return [
+      {
+        source: "/bridge/constitutional-internet",
+        destination: "/bridge/ci",
+        permanent: false,
+      },
+    ];
   },
   // Important: do NOT rewrite /api/* so local Next.js API routes are used.
   // If you need to proxy to a separate backend, use a distinct prefix like /core/*.

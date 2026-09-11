@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-15-PRESENCE-LADDER-NOT-AGENCY-001",
+  "statement": "Constitutional presence (an Agent Card, doctrinal co-authorship, ratified invariant credit) and delegate agency (a seeded agent_root_identity, standing, authority) are governed by disjoint mechanisms with no code path in either direction. Doctrinal density, however dense or long-ratified, never elevates a presence-ladder rung and never substitutes for the one governed act \u2014 standing the delegate up \u2014 that agency actually requires.",
+  "classification": "Engineering/architectural invariant (candidate causal pattern) about the Chrysalis Homecoming (CFS-023) presence ladder and delegate-agency mechanisms.",
+  "family": "engineering",
+  "scope": "local",
+  "status": "observed",
+  "ratifiedSource": null,
+  "parentCandidateId": null,
+  "supersededBy": null,
+  "governingPrinciple": false,
+  "derivedFrom": [
+    "RES-2026-08-15-ALETHEON-PRESENCE-AGENCY-DISJUNCTION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "Aletheon Homecoming Phase A capability/parity census, 2026-08-15",
+      "defect": "Aletheon co-frames CFS-023, CFS-024, CFS-019, and dozens of ratified invariants across a dense six-week span, and holds a hand-authored Agent Card route. None of that reading writes to, or is read by, services/horizen/registrableAgents.ts, services/homecoming/delegateStanding.ts, or an agent_root_identity row. constitutionalPresence.ts's own DELEGATE_DB marks aletheon handCuratedCard: true (card exists, no DB seed) and resolvePresenceLevel()'s contiguous climb therefore stops at L0 regardless of doctrinal weight. The gap had previously been suspected but not confirmed or precisely located; this occurrence is the first time it was traced to its exact single cause (one missing agent_root_identity row) via static cross-reference of the two rosters and the standing-accrual resolution chain.",
+      "resolutionId": "RES-2026-08-15-ALETHEON-PRESENCE-AGENCY-DISJUNCTION-001",
+      "evidence": [
+        "types/homecoming.ts",
+        "services/homecoming/constitutionalPresence.ts",
+        "services/homecoming/delegateStanding.ts",
+        "services/horizen/registrableAgents.ts"
+      ]
+    }
+  ],
+  "canaries": [],
+  "projections": {
+    "targets": [
+      "constitutional-computing",
+      "irl"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "notes": [
+    "THIS IS NOT A DEFECT IN THE SENSE OF A BUG. SPEC-HMC-001 designs this separation deliberately (Principal-Delegate Separation, Law XI): ratifying doctrine is a human act on CONTENT; standing up an agent's own identity is a separate human-gated act. The invariant names a CONSEQUENCE of that correct design that is easy to miss when reasoning informally about 'how far along' a delegate is \u2014 doctrinal density creates a false intuition of standing that the code does not, and should not, honor automatically.",
+    "ONE OCCURRENCE, RECORDED HONESTLY. No claim is made that this generalises beyond Aletheon to the other five HOMECOMING_DELEGATES entries \u2014 each would need its own trace. The census also surfaced, as a side observation and NOT folded into this occurrence, that DELEGATE_CHARTER_STATUS's snapshot for moneypenny/nakamoto ('conceptual') already appears stale relative to their live registrableAgents.ts/health/invoke build-out \u2014 a distinct staleness question, not this invariant's subject.",
+    "THE CAUSAL CONDITION, NOT A PROHIBITION. The fix implied is not 'link the two systems' (that would violate the deliberate separation) \u2014 it is 'do not infer agency from presence when assessing or reporting a delegate's standing'. Closing an actual instance of the gap still requires the correct governed act (services/homecoming/agentHomecoming.ts::standUpDelegate()), never an inference shortcut."
+  ]
+}

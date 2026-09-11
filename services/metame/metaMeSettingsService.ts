@@ -24,7 +24,10 @@ export type { MetaMeSettings, BudgetPosture, LeadAgent };
 
 export const ALPHA_DEFAULTS: MetaMeSettings = {
   guardianMode:       true,
-  leadAgent:          "aigent-kn0w1",
+  // Default lead agent is the user's aigentMe — wired to their metaMe
+  // cartridge state. Cartridge-specific specialists (Kn0w1, Marketa,
+  // etc.) remain selectable via the runtime agent picker.
+  leadAgent:          "aigent-me",
   budgetPosture:      "low",
   receiptVisibility:  true,
   curatedSkillsOnly:  true,

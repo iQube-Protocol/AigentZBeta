@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-03-PIPELINE-CONTINUITY-001",
+  "statement": "Every stage consumes the declared output population of the previous stage. A stage may narrow that population only through explicit, receipted exclusions. It may never silently substitute a different population.",
+  "family": "constitutional",
+  "scope": "local",
+  "status": "candidate",
+  "classification": null,
+  "ratifiedSource": null,
+  "parentCandidateId": null,
+  "governingPrinciple": false,
+  "supersededBy": null,
+  "derivedFrom": [
+    "RES-2026-08-03-TRACK2-PIPELINE-CONTINUITY-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/track2Programme.ts — Stage 5 'classify-provenance'",
+      "defect": "Stage 5 counted listInvariants({ domain: acquisitionDomain }) — the standing domain registry, all-time, every sub-domain — while Stages 3 and 4 worked the run's own candidate cohort. The surface reported '17 promoted' and '68 promoted invariant(s) carry no recorded evidence provenance' simultaneously. The operator: 'Those are different populations… Both cannot be true.'",
+      "resolutionId": "RES-2026-08-03-TRACK2-PIPELINE-CONTINUITY-001",
+      "evidence": [
+        "5819ad93f",
+        "tests/pipeline-continuity.test.ts"
+      ]
+    },
+    {
+      "site": "services/research/track2Programme.ts — Stage 6 'validate'",
+      "defect": "Validation happens BEFORE crystal assignment, but the stage measured the ASSIGNED crystal (readiness.invariantCount). Over an empty crystal domain it reported 'not-started — nothing assigned to the crystal domain yet' while the cohort it was responsible for sat unvalidated. Same substitution, one stage later.",
+      "resolutionId": "RES-2026-08-03-TRACK2-PIPELINE-CONTINUITY-001",
+      "evidence": [
+        "5819ad93f",
+        "tests/pipeline-continuity.test.ts"
+      ]
+    },
+    {
+      "site": "services/research/track2Programme.ts — Stage 7 'add-relationships' (remedy channel)",
+      "defect": "The population changed through the REMEDY channel as well as the count channel: CHECKS_BY_STAGE hung readiness checks computed over the assigned crystal onto three current-crystal stages, so Stage 5 rendered \"Domain 'financial-risk-value-systems' holds no invariants, so this check has nothing to assess\" beside a count of 68, on a stage holding 17. A stage can be given a foreign population by any channel that carries prose, not only by the one that carries numbers.",
+      "resolutionId": "RES-2026-08-03-TRACK2-PIPELINE-CONTINUITY-001",
+      "evidence": [
+        "5819ad93f",
+        "tests/pipeline-continuity.test.ts"
+      ]
+    }
+  ],
+  "canaries": [
+    {
+      "path": "tests/pipeline-continuity.test.ts",
+      "assertion": "Every stage declares a typed population and the substrate behind it; adjacent stages are continuous (checkPopulationContinuity returns []); the population changes at exactly two declared transforms and nowhere else; Stage 4's declared output N equals Stage 5's received count plus explicitly reasoned exclusions; Stage 5 reporting nothing to do while Stage 4 reports > 0 is impossible across [1,2,5,17,68,500]; and the observed 17-vs-68 screen is reproduced and refused rather than rendered.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "projections": {
+    "targets": [
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "notes": [
+    "OPERATOR-NAMED, 2026-08-03, verbatim: 'Pipeline continuity invariant: Every stage consumes the declared output population of the previous stage. A stage may narrow that population only through explicit, receipted exclusions. It may never silently substitute a different population.'",
+    "The operator went on: 'That feels like more than a software-development invariant. It's starting to look like a constitutional computing invariant. It guarantees that every constitutional decision remains traceable through the computation, because each stage is operating on the same declared constitutional subject rather than quietly changing what it is reasoning about.' Recorded as `family: constitutional` on that reading. NAMING IT IS NOT RATIFYING IT: status stays `candidate` and `ratifiedSource` stays null, because raising a candidate above `validated` requires a named operator act and this agent may not perform one.",
+    "SCOPE IS DELIBERATELY `local`, against the operator's own instinct about its reach. All three occurrences are stages of one capability, found in one pass — that is one defect discovered once, not a shape that recurred across capabilities. `cross-capability` is a claim that must be earned by recurrence; asserting it here on the strength of a plausible generalisation would be the hypothesis-as-canon error. The second capability that meets this shape is what upgrades the scope.",
+    "RELATION TO THE CONSTITUTIONAL EXECUTION PRINCIPLES. This is not a sixth sibling of the six execution principles — it is upstream of them. Each of those governs how an ACT behaves (isolate the exception, terminate in an act, absorb the constraint, minimise load, recommend before interrogating, prepare execution); this one governs whether successive acts are about the SAME SUBJECT. An exception correctly isolated in a population that was silently swapped is a correct decision about the wrong thing. Nearest existing kin: CI-2026-08-03-NO-SILENT-POPULATION-SHRINK-001 (an artifact may not pass by shrinking the population it was assessed over) and CI-2026-08-03-FREEZE-POPULATION-DISCLOSURE-001 (a frozen artifact must disclose what was excluded). Those two protect a population at REST — inside one governed artifact. This one protects it IN MOTION, between stages, which is the gap both left open: neither would have detected 17 handed on and 68 received, because neither compares two stages.",
+    "THE ENFORCEMENT SHAPE IS INHERITED, NOT INVENTED. `received + excluded === declaredOut` is the same accounting identity as batchedExtraction's `processed + excluded === admitted population` (CI-2026-08-03-BOUNDED-PROCESSOR-PARTIAL-COMPLETION-001), one level up: there it holds WITHIN a stage, here BETWEEN two. That the same identity closes both is itself evidence the rule is more general than its instance — evidence, not a licence to promote it.",
+    "WHY A TYPE AND NOT A CONVENTION. Every population in the defect was read by correct code; nothing errored, nothing was measured wrongly, and each individual number was true of the set it was computed over. The failure was that no stage said WHICH set, so no comparison was possible and nothing could notice the contradiction. An undeclared population cannot be checked at all — which is why the remedy is a required field on the stage type rather than a review habit."
+  ]
+}

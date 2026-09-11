@@ -17,7 +17,11 @@ import { getPDFExtractionService, type PDFExtractionResult, type TextChunk } fro
 // Types
 // ============================================================================
 
-export type ContentDomain = 'metaKnyts' | 'qriptopian';
+// 'homecoming' is the operator's Constitutional Knowledge Repository (CFS-023
+// Knowledge Homecoming) — imported memory/exports/PRDs, kept in its own domain
+// so it never mixes with metaKnyts/qriptopian content. The domain column is
+// VARCHAR(50) with no CHECK, so this is a pure type widening (no migration).
+export type ContentDomain = 'metaKnyts' | 'qriptopian' | 'homecoming';
 export type DocumentSourceType = 'pdf' | 'episode' | 'character' | 'lore' | 'article';
 export type ExtractionStatus = 'pending' | 'processing' | 'completed' | 'failed';
 export type EntityType = 'character' | 'location' | 'organization' | 'concept' | 'item';
@@ -336,6 +340,130 @@ class KnowledgeBaseService {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       await this.updateDocumentStatus(document.id, 'failed', errorMessage);
       return { success: false, documentId: document.id, error: errorMessage };
+    }
+  }
+
+  /**
+   * Get a document by its source_id (idempotency for non-CID sources like
+   * markdown commentary documents keyed by a stable paper id).
+   */
+  async getDocumentBySourceId(sourceId: string): Promise<KBDocument | null> {
+    const { data } = await this.supabase
+      .from('codex_kb_documents')
+      .select('*')
+      .eq('source_id', sourceId)
+      .maybeSingle();
+    return (data as KBDocument | null) ?? null;
+  }
+
+  /**
+   * Delete a document and its chunks (used to re-ingest a markdown document
+   * idempotently by source_id).
+   */
+  async deleteDocument(documentId: string): Promise<void> {
+    await this.supabase.from('codex_kb_chunks').delete().eq('document_id', documentId);
+    await this.supabase.from('codex_kb_documents').delete().eq('id', documentId);
+  }
+
+  /**
+   * Ingest already-extracted plain text (e.g. a markdown commentary document)
+   * into the knowledge base: register the document, chunk the text, and store
+   * the chunks. Embeddings are generated separately by
+   * EmbeddingService.processUnembeddedChunks(). Re-ingests idempotently when a
+   * document with the same source_id already exists.
+   */
+  async ingestTextDocument(
+    text: string,
+    registration: Omit<DocumentRegistration, 'sourceType'> & { sourceType?: DocumentSourceType },
+  ): Promise<{ success: boolean; documentId?: string; chunkCount?: number; error?: string }> {
+    if (!text.trim()) return { success: false, error: 'empty text' };
+
+    // Idempotency — drop any prior document for this source_id first.
+    if (registration.sourceId) {
+      const existing = await this.getDocumentBySourceId(registration.sourceId);
+      if (existing) await this.deleteDocument(existing.id);
+    }
+
+    const document = await this.registerDocument({
+      ...registration,
+      sourceType: registration.sourceType ?? 'article',
+    });
+    if (!document) return { success: false, error: 'Failed to register document' };
+
+    await this.updateDocumentStatus(document.id, 'processing');
+    try {
+      const chunks = this.pdfService.chunkPlainText(text);
+      const stored = await this.storeChunks(document.id, chunks);
+      if (!stored) {
+        await this.updateDocumentStatus(document.id, 'failed', 'Failed to store chunks');
+        return { success: false, documentId: document.id, error: 'Failed to store chunks' };
+      }
+      const wordCount = text.split(/\s+/).filter(Boolean).length;
+      await this.updateDocumentStatus(document.id, 'completed', undefined, {
+        wordCount,
+        chunkCount: chunks.length,
+      });
+      return { success: true, documentId: document.id, chunkCount: chunks.length };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      await this.updateDocumentStatus(document.id, 'failed', msg);
+      return { success: false, documentId: document.id, error: msg };
+    }
+  }
+
+  /**
+   * Chunk an EXISTING, already-registered document IN PLACE (2026-09-03
+   * scoped-indexing repair) — never delete-and-reinsert. `ingestTextDocument`
+   * above is idempotent by deleting and recreating the row when a
+   * `source_id` collision is found, which mints a NEW document id — correct
+   * for re-ingesting a document whose text may have changed, but NOT safe to
+   * call on an already-bound, hash-verified manuscript row (it would lose
+   * that row's existing id and any external references to it, violating
+   * "preserve existing document IDs, provenance, and verified text").
+   *
+   * This method instead: (1) loads the document by id, (2) refuses if it
+   * already has chunks (chunk_count > 0) — never re-chunks a row that has
+   * already been processed; call this only for a document confirmed to be
+   * at chunk_count 0, (3) chunks the SUPPLIED text with the same splitter
+   * `ingestTextDocument` uses, (4) stores the chunks, (5) updates status/
+   * counts on the SAME row. The document's id, source_id, source_cid,
+   * created_at, and every other column are untouched.
+   *
+   * The caller is responsible for sourcing `text` correctly for this exact
+   * document (e.g. re-reading the same manuscript/PDF the original binding
+   * used) — this function has no opinion on where text comes from, only on
+   * chunking it safely once supplied.
+   */
+  async chunkExistingDocument(
+    documentId: string,
+    text: string,
+  ): Promise<{ success: boolean; chunkCount?: number; error?: string }> {
+    if (!text.trim()) return { success: false, error: 'empty text' };
+
+    const document = await this.getDocument(documentId);
+    if (!document) return { success: false, error: `document ${documentId} not found` };
+    if (document.chunk_count > 0) {
+      return { success: false, error: `document ${documentId} already has ${document.chunk_count} chunks — refusing to re-chunk in place (this method never overwrites an existing chunk set)` };
+    }
+
+    await this.updateDocumentStatus(documentId, 'processing');
+    try {
+      const chunks = this.pdfService.chunkPlainText(text);
+      const stored = await this.storeChunks(documentId, chunks);
+      if (!stored) {
+        await this.updateDocumentStatus(documentId, 'failed', 'Failed to store chunks');
+        return { success: false, error: 'Failed to store chunks' };
+      }
+      const wordCount = text.split(/\s+/).filter(Boolean).length;
+      await this.updateDocumentStatus(documentId, 'completed', undefined, {
+        wordCount,
+        chunkCount: chunks.length,
+      });
+      return { success: true, chunkCount: chunks.length };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      await this.updateDocumentStatus(documentId, 'failed', msg);
+      return { success: false, error: msg };
     }
   }
 

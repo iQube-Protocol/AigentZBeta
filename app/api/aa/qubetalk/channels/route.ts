@@ -6,37 +6,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { qubetalkPersistence } from '@/services/qubetalk/qubetalkPersistence';
 import { receiptService } from '@/services/receipts/receiptService';
+import { authenticateExternalAgent } from '@/app/api/aa/qubetalk/_lib/authenticateExternalAgent';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-// AA-API authentication for external agents
-function authenticateExternalAgent(request: NextRequest): { success: boolean; agentId?: string; error?: string } {
-  const authHeader = request.headers.get('authorization');
-  const apiKey = request.headers.get('x-api-key');
-  const agentId = request.headers.get('x-agent-id');
-  
-  if (!apiKey && !authHeader) {
-    return { success: false, error: 'Missing API key or authorization header' };
-  }
-  
-  if (!agentId) {
-    return { success: false, error: 'Missing agent ID header' };
-  }
-  
-  const validApiKeys = [
-    process.env.AA_API_KEY,
-    process.env.EXTERNAL_AGENT_API_KEY,
-    'demo-external-key',
-  ];
-  
-  const key = apiKey || authHeader?.replace('Bearer ', '');
-  if (!validApiKeys.includes(key || '')) {
-    return { success: false, error: 'Invalid API key' };
-  }
-  
-  return { success: true, agentId };
-}
 
 // Create new channel for external agent communication
 export async function POST(request: NextRequest) {

@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-28-PRINCIPAL-AGENT-CHANNEL-ARE-DISTINCT-IDENTITIES-001",
+  "statement": "Every constitutional-act receipt must carry three distinct evidentiary identities, never conflated into one: the PRINCIPAL whose authority the act represents, the DELEGATED EXECUTING AGENT that transmitted it (which may differ from the principal even when acting entirely within bounded, authorized delegation), and the INTERACTION/ORIGIN CHANNEL (native UI, MCP, operator-assisted, and future channels) through which it arrived. Recording only channel, or only principal, is insufficient once a delegated agent can act across more than one channel on a principal's behalf.",
+  "family": "constitutional",
+  "governingPrinciple": false,
+  "parentCandidateId": "CI-2026-08-28-CONSTITUTIONAL-STATE-IS-INTERFACE-SOVEREIGN-001",
+  "projections": {
+    "targets": ["constitutional-computing", "irl"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "A direct extension of this codebase's existing T0/T1/T2 identifier-tier discipline (Identity & Access Spine) into the receipts/evidence layer specifically: channel and agent are T1-safe (a session alias, a channel enum), never a raw T0 identifier, but they must still be captured DISTINCTLY from the principal reference, not merged into it or omitted because the channel alone was assumed sufficient.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/journey-spine-channel-convergence.test.ts",
+      "assertion": "A receipt produced by an MCP-originated constitutional act carries personaId (principal) and agentsInvoked[0] (delegated agent) as two distinct, non-equal values even when both trace to the same authorized session, and origin_channel as a third, separate field; a native-ui write leaves agentsInvoked:[] rather than inferring an agent identity that was never supplied.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/reciprocalExchange.ts (depositArtifact, declareFreeze, signInstrument, confirmOperatorAssistedArtifact)",
+      "defect": "createActivityReceipt calls across all four functions recorded origin_channel (channel identity) but never which delegated agent, within that channel, actually performed the call -- so a receipt could distinguish 'this came from MCP' but not 'this came from Copilot acting for Ian' versus any other agent authorized on the same channel.",
+      "resolutionId": "RES-2026-08-28-RAX-OPERATOR-ASSISTED-CHANNEL-CONVERGENCE-001",
+      "evidence": [
+        "services/research/reciprocalExchange.ts",
+        "services/threshold/mcpConstitutionalActs.ts",
+        "tests/journey-spine-channel-convergence.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": ["RES-2026-08-28-RAX-OPERATOR-ASSISTED-CHANNEL-CONVERGENCE-001"],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "The operator directed this be treated as ratified doctrine effective 2026-08-28. Recorded at 'candidate' per this repo's consistent convention -- see the governing principle's own note for the ratifiedSource update path.",
+    "verifiedFailingBeforeFix:true here (unlike its siblings) because this one WAS a real, confirmed gap in already-shipped code (agentRef was genuinely absent from all four receipt call sites before this resolution), not a property found already holding."
+  ]
+}

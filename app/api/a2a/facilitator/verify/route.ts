@@ -34,14 +34,24 @@ export async function POST(req: Request) {
         switch (cid) {
           case 11155111: // Ethereum Sepolia
             return process.env.NEXT_PUBLIC_RPC_SEPOLIA;
+          case 1: // Ethereum mainnet
+            return process.env.NEXT_PUBLIC_RPC_ETHEREUM;
           case 421614: // Arbitrum Sepolia
             return process.env.NEXT_PUBLIC_RPC_ARB_SEPOLIA;
+          case 42161: // Arbitrum mainnet
+            return process.env.NEXT_PUBLIC_RPC_ARBITRUM;
           case 84532: // Base Sepolia
             return process.env.NEXT_PUBLIC_RPC_BASE_SEPOLIA;
+          case 8453: // Base mainnet
+            return process.env.NEXT_PUBLIC_RPC_BASE;
           case 11155420: // Optimism Sepolia
             return process.env.NEXT_PUBLIC_RPC_OPTIMISM_SEPOLIA;
+          case 10: // Optimism mainnet
+            return process.env.NEXT_PUBLIC_RPC_OPTIMISM;
           case 80002: // Polygon Amoy
             return process.env.NEXT_PUBLIC_RPC_POLYGON_AMOY;
+          case 137: // Polygon mainnet
+            return process.env.NEXT_PUBLIC_RPC_POLYGON;
           default:
             return undefined;
         }

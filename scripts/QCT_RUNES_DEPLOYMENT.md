@@ -1,8 +1,71 @@
-# QCT Runes Token Deployment Guide
+# BitCent Runes Token Deployment Guide
 
 ## Overview
 
-This guide explains how to deploy **QriptoCENT (QCT)** as a Bitcoin Runes token on Bitcoin Testnet.
+This guide explains how to deploy **BitCent (B¢)** — the Bitcoin-specific implementation of the
+QriptoCENT class — as a Bitcoin Runes token on Bitcoin Testnet.
+
+---
+
+## Naming canon — read before etching (R-1, ratified 2026-07-28)
+
+The Rune name is **immutable once etched**. Getting it wrong cannot be corrected; the token can only
+be abandoned and re-etched under a different name, losing the intended one.
+
+| | |
+|---|---|
+| **Class** | QriptoCENT |
+| **Class symbol** | Q¢ |
+| **Bitcoin-specific version** | BitCent |
+| **Preferred display symbol** | B¢ |
+| **Preferred prime representations** | BitCent and B¢ |
+| **ASCII fallback** | Bc — only where `¢` cannot be represented reliably |
+| **Explanatory long form** | Bitcoin Q¢ |
+
+```text
+QriptoCENT / Q¢
+        ↓ special version
+BitCent / B¢
+```
+
+**Etch this immutable machine-compatible name, subject to final deployment validation:**
+
+```text
+BITCENT
+```
+
+- **Do not** etch `QRIPTOCENT` — that names the **class**, not this Bitcoin-specific version.
+- **Do not** use `Q¢` as BitCent's primary display symbol. `Q¢` stays with the class; `B¢`
+  identifies the special version.
+
+Canonical presentation examples:
+
+```text
+BitCent
+B¢
+10 B¢
+BitCent (a Bitcoin QriptoCENT)
+```
+
+**Supply model (ratified 2026-07-29).** QriptoCENT is a **class with no aggregate cap**. Each
+canonical denomination has its own issuance network and its own 1,000,000,000 maximum:
+
+| Denomination | Network | Max | Issued |
+|---|---|---:|---:|
+| Base Q¢ | Base 8453 | 1,000,000,000 | 400,000,000 |
+| BitCent / B¢ | Bitcoin | 1,000,000,000 | 100,000,000 intended |
+
+The two supplies are **independent**. B¢'s issuance is NOT a share of Base Q¢'s 400M. The
+1,000,000,000 maximum is assigned to **these two denominations specifically** — it is not a default
+or an entitlement for future denominations, which may be governed at any appropriate maximum. It is
+never a protocol-wide cap. Full record:
+`codexes/packs/agentiq/updates/2026-07-29_qriptocent-supply-constitution.md`.
+
+**Not the VL-CT-001 instrument.** BitCent is Bitcoin-native. The VL-CT-001 constitutional-trading
+experiment compares USDC against **Base Q¢** (the Base-network implementation of the same class), so
+that both sides of the comparison share one network, one x402 pathway, one custody model and one
+receipt path. Using BitCent there would confound denomination with network and settlement
+architecture. BitCent belongs to a later cross-network or Bitcoin-native experiment.
 
 ---
 
@@ -10,13 +73,13 @@ This guide explains how to deploy **QriptoCENT (QCT)** as a Bitcoin Runes token 
 
 | Property | Value |
 |----------|-------|
-| **Name** | QRIPTOCENT |
-| **Symbol** | Q¢ |
+| **Name** | BITCENT |
+| **Symbol** | B¢ |
 | **Decimals** | 8 (matches Bitcoin) |
-| **Total Supply** | 1,000,000,000 QCT (1 billion) |
-| **Premine** | 400,000,000 QCT (40%) |
+| **Total Supply** | 1,000,000,000 B¢ — B¢'s OWN cap, independent of Base Q¢'s |
+| **Premine** | **100,000,000 B¢ intended** — approved in principle. ⚠️ The **400,000,000 shown elsewhere in this file is SUPERSEDED**; do not etch it. Etching blocked pending the allocation plan and final issuance ratification. |
 | **Public Mints** | 21,000 mints |
-| **Amount per Mint** | 47,619 QCT |
+| **Amount per Mint** | 47,619 B¢ |
 | **Turbo** | Enabled (immediate minting) |
 
 ---

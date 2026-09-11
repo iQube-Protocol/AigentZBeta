@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "A harness comparing a LIVE-selecting arm (e.g. a runtime with per-call retrieval) against a FIXED-slice arm (e.g. a pre-registered export) must never let the live-selecting arm's candidate pool double as its grounding set. A pool and a selection from that pool are different objects; collapsing them into one field makes it structurally impossible to tell 'this arm genuinely selected a smaller, ranked subset' from 'this arm was handed everything'.",
+    "The mechanism this invariant requires: (1) three distinct fields — available (the candidate pool before ranking/truncation, a diagnostic upper bound ONLY), selected (what the arm's own registered procedure actually chose from that pool), and actually-grounded (what the score was computed against, which may differ from selected once a live judge/model exists and can choose to cite less than it was offered); (2) the SELECTED value must come from calling the real selection procedure UNMODIFIED — never with an override that defeats its own truncation/ranking step (e.g. passing the candidate-pool size as a 'limit' parameter, which makes a ranked-and-capped selection function behave as an unranked pass-through).",
+    "Discovered via EXP-P1's rehearsal harness: Arm B's real production selection function (`buildInvariantSlice`, default limit 12, standing-ranked) was called with `limit: members.length` (63) 'to see the real selection path' — which instead defeated the function's own `.slice(0, limit)` truncation, silently converting a genuine selection into a full population dump. The confound this produces is severe: since any task's ground-truth set is itself typically drawn from the SAME population the arm is compared against, an arm holding the whole population recalls 100% of ANY ground truth BY CONSTRUCTION, regardless of selection quality — inflating a 'runtime advantage' finding that is actually a raw-context-quantity artifact.",
+    "Generalizes beyond EXP-P1: any A/B harness where one arm calls a real production ranking/retrieval function and another arm uses a fixed baseline must apply this three-way split, and must verify (not merely comment) that the 'selected' call's parameters preserve the real function's own truncation behavior rather than accidentally disabling it."
+  ],
+  "canaries": [
+    {
+      "path": "tests/exp-p1-rehearsal-runner.test.ts",
+      "assertion": "Arm B's SELECTED call to buildInvariantSlice is made WITHOUT a limit override (i.e. never with the frozen population's own size, or any value that would defeat standing-ranked truncation); a distinct AVAILABLE call is the only one permitted to pass the population size, and its result is never used to ground a score. availableInvariantIds.length is asserted strictly greater than selectedInvariantIds.length in a case where the live table returns more candidates than the default limit.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "candidateId": "CI-2026-09-07-AVAILABLE-VS-SELECTED-VS-GROUNDED-001",
+  "statement": "In any harness comparing a live-selecting arm against a fixed-baseline arm, the live-selecting arm's CANDIDATE POOL (available), its SELECTION PROCEDURE'S OUTPUT (selected), and what actually GROUNDED its answer/score (actually-grounded) must be three distinct, separately persisted values — never collapsed into one field. The selected value must be produced by calling the arm's REAL, REGISTERED selection procedure with its own ranking/truncation behavior intact (never overridden with a parameter, such as a limit equal to the candidate-pool size, that would silently disable that truncation and convert a genuine selection into an unranked pass-through of the whole pool). Failing to keep these distinct confounds a 'selection/runtime advantage' finding with a raw context-quantity artifact, since a ground-truth set typically drawn from the same population an arm is compared against is recalled 100% by an arm holding the whole population, regardless of selection quality.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-09-07-EXP-P1-REHEARSAL-INSTRUMENT-VALIDATION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/expP1Rehearsal.ts::runExpP1Rehearsal (Arm B construction)",
+      "defect": "buildInvariantSlice was called with `limit: members.length`, defeating its own standing-ranked truncation and silently grounding Arm B on the entire 63-member frozen population on every task, vs Arm C's genuine 25-member fixed slice — confirmed live against the first persisted rehearsal run (Arm B recalled 1.0 on every scorable task; Arm C recalled 0.538/0/0/0.6).",
+      "resolutionId": "RES-2026-09-07-EXP-P1-REHEARSAL-INSTRUMENT-VALIDATION-001",
+      "evidence": [
+        "tests/exp-p1-rehearsal-runner.test.ts"
+      ]
+    }
+  ],
+  "family": "constitutional",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
+}

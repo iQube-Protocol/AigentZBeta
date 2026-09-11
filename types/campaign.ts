@@ -8,6 +8,16 @@ export interface CampaignPhase {
   targetCount?: number;
 }
 
+export interface ShareRewardConfig {
+  rewardType: string;
+  rewardAmount: number;
+  thresholds: {
+    click?: number;
+    signup?: number;
+    conversion?: number;
+  };
+}
+
 export interface CampaignDefinition {
   id: string;
   title: string;
@@ -15,6 +25,8 @@ export interface CampaignDefinition {
   tenantId: string;
   group: CampaignGroup;
   phases: CampaignPhase[];
+  /** Optional — only campaigns tracked via /api/social/track need this. */
+  shareRewardConfig?: ShareRewardConfig;
 }
 
 export interface CampaignEventInput {

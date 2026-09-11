@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-07",
+  "resolutionId": "RES-2026-09-07-DIDQUBE-PHASE-3-RPC-HARDENING-CLOSURE-REVIEW-001",
+  "capability": "polity-passport-issuance",
+  "milestone": "DiDQube Phase 3 closure review (before item 5, VC signing): a bounded security/correctness review of the item-1 atomic Passport issuance RPC, requested explicitly rather than assumed complete.",
+  "problem": "issue_agent_participant_passport_atomic (shipped in the prior Phase 3 item-1 pass) was created via a plain CREATE FUNCTION with no explicit grant management. Postgres/Supabase's default privileges left it callable by PUBLIC, anon, and authenticated -- meaning PostgREST exposed it as a public RPC endpoint to any client holding an anon or authenticated key, completely bypassing every TypeScript-side authorization check (steward gate, World-ID verification requirement, application-status validation) that services/passport/issuanceService.ts's applyReviewDecision performs before ever reaching the database. Additionally: no concurrency guard existed (two concurrent calls against the same application_id could both succeed, issuing two Passports), the function trusted caller-supplied identity/binding parameters (passport_class, persona_id, agent_root_identity_id) rather than deriving them from the claimed application row (a confused-deputy risk), and it propagated a never-populated application-row column (root_did_public_ref) forward instead of computing the subject commitment fresh -- silently defeating the item-4 class-sensitive VC subject fix for every agent Passport issued through it.",
+  "observedFailure": [
+    "Live query against the 'Aigent Z' Supabase project (bsjhfvctmduxhohtllly): pg_proc.proacl for issue_agent_participant_passport_atomic showed 'postgres=X/postgres, service_role=X/postgres, anon=X/postgres, authenticated=X/postgres' -- anon and authenticated both present.",
+    "No unique constraint or application-status claim existed to prevent polity_passport_records.application_id from acquiring two rows under concurrent calls (schema review: no UNIQUE on application_id, no row-level claim pattern in the original function body).",
+    "A live test with an unrelated agent_root_identity row planted alongside the correct one demonstrated the original signature's agent_root_identity_id parameter was a caller-controlled value with no server-side cross-check against the application's own agent_card_url.",
+    "polity_passport_applications.root_did_public_ref has no writer anywhere in this codebase for agent applications -- confirmed via a full-codebase grep before the fix -- so every agent Passport issued through the original RPC would have credentialSubject.id resolve to undefined despite the item-4 fix being structurally correct."
+  ],
+  "rootCauses": [
+    "The item-1 pass's own real-Postgres verification (documented in the execution plan) proved the RPC's FUNCTIONAL behavior (atomicity, NULL-guarded idempotent bind) but never checked its GRANTS -- a category of correctness distinct from business logic, easy to omit because CREATE FUNCTION 'just works' in a same-session smoke test regardless of who else could call it.",
+    "The original design accepted identity/binding parameters from the caller for convenience (the caller had already resolved them) without considering that a function's own contract should be self-verifying against a re-derivable source of truth whenever one exists (the claimed application row), not merely trust the one caller that currently exists.",
+    "root_did_public_ref's absence of any writer was never checked because the RPC's own tests (mocked TypeScript-level) never asserted on the WRITTEN VALUE of that column, only on control flow (bound/already_bound)."
+  ],
+  "resolution": [
+    "supabase/migrations/20260930290000_agent_participant_passport_issuance_hardening.sql: REVOKE EXECUTE from PUBLIC/anon/authenticated, GRANT to service_role only. Verified live: SET LOCAL ROLE anon and authenticated both now raise 'permission denied for function'.",
+    "The application-status UPDATE moved to be the FIRST statement and the sole concurrency gate -- a losing concurrent call gets zero rows back and RAISEs, rolling back its entire attempted issuance. Verified live with a real second call against an already-claimed application.",
+    "The function signature reduced to (p_application_id, p_passport_id, p_issued_status, p_actor_type, p_steward_persona_id, p_notes, p_evidence_type, p_receipt_action) -- every identity/binding field is re-derived from the claimed application row and its internally-resolved agent_root_identity, never accepted as a parameter. Verified live: an unrelated agent_root_identity row is provably never touched.",
+    "root_did_public_ref is now computed inside the RPC from the resolved agent_root_identity's own did_uri (sha256, first 16 hex chars via pgcrypto's digest()) -- verified live to be byte-identical to services/passport/bureauIdentityService.ts's didPublicRef for the same input.",
+    "Fixed search_path = public, extensions, pg_temp set on the function (extensions holds this project's pgcrypto).",
+    "services/passport/issuanceService.ts updated to the reduced call signature; the now-fully-superseded resolveAgentRootIdentityForCard/AgentRootIdentityResolution (a TypeScript pre-check made redundant by the RPC's own internal resolution) removed.",
+    "tests/agent-passport-atomic-issuance.test.ts updated to the new call shape. tests/agent-passport-atomic-issuance-hardening.integration.test.ts added (skipped without live service-role credentials) so the grants/concurrency/scope proofs are a standing regression check, not a one-time manual verification that could silently regress."
+  ],
+  "rejectedApproaches": [
+    "Leaving the function SECURITY INVOKER with no grant changes and relying solely on the TypeScript layer's authorization -- rejected: PostgREST's default exposure means the database layer is the actual trust boundary for any function in the public schema, and TypeScript-side checks are trivially bypassed by a direct RPC call.",
+    "Converting the function to SECURITY DEFINER -- rejected as unnecessary and a larger blast-radius change: restricting EXECUTE to service_role (which already bypasses RLS and is the only role ever calling this) achieves the same safety without the additional complexity and audit burden of a DEFINER function running with elevated, fixed privileges regardless of caller.",
+    "Having the TypeScript layer pass a pre-resolved agent_root_identity_id after its own lookup (the item-1 pass's original design) -- rejected on review: this is exactly the confused-deputy shape the review was checking for, since nothing forced the passed value to correspond to the application actually being decided."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-07-RPC-GRANTS-REVIEW-BEFORE-SHIP-001"
+  ],
+  "canaries": [
+    "tests/agent-passport-atomic-issuance-hardening.integration.test.ts",
+    "tests/agent-passport-atomic-issuance.test.ts",
+    "tests/constitutional-agreement-rootdid-authority.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/agent-passport-atomic-issuance-hardening.integration.test.ts",
+      "tests/agent-passport-atomic-issuance.test.ts",
+      "tests/constitutional-agreement-rootdid-authority.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "supabase/migrations/20260930280000_agent_participant_passport_issuance_atomic.sql",
+    "supabase/migrations/20260930290000_agent_participant_passport_issuance_hardening.sql",
+    "services/passport/issuanceService.ts",
+    "codexes/packs/agentiq/updates/2026-09-07_didqube-canonical-resolver-execution-plan.md"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "unresolvedRisks": [
+    "No systematic sweep of OTHER already-shipped Postgres functions in this project for the same default-grants exposure was performed in this review -- scoped strictly to the one function under review, per the bounded-review instruction ('do not reopen the wider identity architecture'). A follow-up sweep of all public-schema functions' proacl is recommended as a separate, explicitly-scoped task.",
+    "The concurrency and confused-deputy fixes were verified live via ad hoc DO-block transactions during this review (always rolled back); the added .integration.test.ts file reproduces the same proofs but has not itself been run in this session (no local service-role credentials available in this environment) -- it will run the first time someone with live credentials executes it, and should be watched for a clean pass then."
+  ]
+}

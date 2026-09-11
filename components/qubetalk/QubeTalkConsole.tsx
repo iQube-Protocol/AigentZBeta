@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import qubetalkFixtures from "@/docs/qubetalk/QUBETALK_FIXTURES.json";
 import { getActivePersona } from "@/services/wallet/personaService";
+import { personaFetch } from "@/utils/personaSpine";
 
 type AgentRef = {
   id: string;
@@ -224,7 +225,9 @@ export default function QubeTalkConsole({ mode }: { mode: ConsoleMode }) {
   const [error, setError] = useState<string | null>(null);
   const [statusInfo, setStatusInfo] = useState<{ state: string; message: string } | null>(null);
 
-  const eventSourceRef = useRef<EventSource | null>(null);
+  // Not an EventSource — see `startStream` for why the stream is read over
+  // fetch. The abort controller is what closes it.
+  const streamAbortRef = useRef<AbortController | null>(null);
 
   const selectedChannel = useMemo(
     () => channels.find((channel) => channel.channel_id === selectedChannelId) || null,
@@ -261,7 +264,14 @@ export default function QubeTalkConsole({ mode }: { mode: ConsoleMode }) {
     setLoadingChannels(true);
     setError(null);
     try {
-      const res = await fetch(`/api/qubetalk/channels?tenant_id=${tenantId}`);
+      // `?tenant_id=` is KEPT here deliberately, unlike every other client:
+      // this console has an operator-facing tenant selector, so naming a tenant
+      // IS the deliberate cross-tenant request the gate exists to adjudicate.
+      // The gate honours it for an admin and 403s everyone else — which is the
+      // correct answer for a console that offers the selector at all.
+      const res = await personaFetch(`/api/qubetalk/channels?tenant_id=${tenantId}`, {
+        cache: "no-store",
+      });
       if (!res.ok) throw new Error("Failed to load channels");
       const data = await res.json();
       const items: Channel[] = data.channels || [];
@@ -283,10 +293,11 @@ export default function QubeTalkConsole({ mode }: { mode: ConsoleMode }) {
     if (!tenantId) return;
     setLoadingDelegations(true);
     try {
-      const res = await fetch(
+      const res = await personaFetch(
         `/api/qubetalk/delegations?tenant_id=${tenantId}${
           selectedChannelId ? `&channel_id=${selectedChannelId}` : ""
-        }`
+        }`,
+        { cache: "no-store" }
       );
       if (!res.ok) throw new Error("Failed to load delegations");
       const data = await res.json();
@@ -303,8 +314,9 @@ export default function QubeTalkConsole({ mode }: { mode: ConsoleMode }) {
     if (!tenantId || !selectedChannelId) return;
     setLoadingMessages(true);
     try {
-      const res = await fetch(
-        `/api/qubetalk/channels/${selectedChannelId}/messages?tenant_id=${tenantId}`
+      const res = await personaFetch(
+        `/api/qubetalk/channels/${selectedChannelId}/messages?tenant_id=${tenantId}`,
+        { cache: "no-store" }
       );
       if (!res.ok) throw new Error("Failed to load messages");
       const data = await res.json();
@@ -340,49 +352,114 @@ export default function QubeTalkConsole({ mode }: { mode: ConsoleMode }) {
     await loadReceipts();
   }, [loadChannels, loadDelegations, loadMessages, loadReceipts]);
 
+  /**
+   * The stream is read with `personaFetch` + a manual SSE parser, NOT with
+   * `EventSource`.
+   *
+   * WHY. `/api/qubetalk/channels/[id]/stream` became a spine endpoint on
+   * 2026-07-28, and the spine authenticates on `Authorization: Bearer` only —
+   * it ignores cookies (`getCallerIdentityContext`). `EventSource` cannot set
+   * request headers at all, so it can NEVER satisfy that gate. That left three
+   * options, and only one of them is acceptable:
+   *
+   *   (a) put the access token in the query string so EventSource can carry it
+   *       — REJECTED: a bearer credential in a URL lands in access logs, proxy
+   *       logs and Referer headers. That is a new leak wearing the old one's
+   *       clothes, which is exactly the failure this incident is about.
+   *   (b) exempt the stream route from the gate — REJECTED: an unauthenticated
+   *       stream re-opens the anonymous read through a different door, and this
+   *       route emits FULL CHANNEL HISTORY on connect (`sendRecentMessages`),
+   *       so it is the single richest thing to leave open.
+   *   (c) read the stream over fetch, which does carry the header. Chosen.
+   *
+   * The trade is that reconnect-on-drop is ours to own rather than the
+   * browser's; the console surfaces `streamStatus: "error"` and the operator
+   * refreshes, which is the behaviour EventSource's onerror gave here anyway
+   * (it closed the source without retrying).
+   */
   const startStream = useCallback(() => {
     if (!tenantId || !selectedChannelId) return;
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-    }
+    streamAbortRef.current?.abort();
+    const controller = new AbortController();
+    streamAbortRef.current = controller;
     setStreamStatus("connecting");
-    const source = new EventSource(
-      `/api/qubetalk/channels/${selectedChannelId}/stream?tenant_id=${tenantId}`
-    );
-    source.addEventListener("connect", () => setStreamStatus("open"));
-    source.addEventListener("history", (event) => {
-      try {
-        const payload = JSON.parse((event as MessageEvent).data);
-        if (Array.isArray(payload.messages)) {
-          const sorted = payload.messages.slice().sort((a: Message, b: Message) => {
-            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-          });
-          setMessages(sorted);
+
+    const handleEvent = (name: string, data: string) => {
+      if (name === "connect") {
+        setStreamStatus("open");
+        return;
+      }
+      if (name === "history") {
+        try {
+          const payload = JSON.parse(data);
+          if (Array.isArray(payload.messages)) {
+            const sorted = payload.messages.slice().sort((a: Message, b: Message) => {
+              return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+            });
+            setMessages(sorted);
+          }
+        } catch {
+          // Ignore malformed history packets.
         }
-      } catch {
-        // Ignore malformed history packets.
+        return;
       }
-    });
-    source.addEventListener("message", (event) => {
-      try {
-        const payload = JSON.parse((event as MessageEvent).data);
-        const msg: Message | undefined = payload.message;
-        if (!msg?.message_id) return;
-        setMessages((prev) => {
-          if (prev.some((item) => item.message_id === msg.message_id)) return prev;
-          const next = [...prev, msg];
-          next.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-          return next;
-        });
-      } catch {
-        // Ignore malformed message packets.
+      if (name === "message") {
+        try {
+          const payload = JSON.parse(data);
+          const msg: Message | undefined = payload.message;
+          if (!msg?.message_id) return;
+          setMessages((prev) => {
+            if (prev.some((item) => item.message_id === msg.message_id)) return prev;
+            const next = [...prev, msg];
+            next.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+            return next;
+          });
+        } catch {
+          // Ignore malformed message packets.
+        }
       }
-    });
-    source.onerror = () => {
-      setStreamStatus("error");
-      source.close();
+      // "heartbeat" and anything else: ignored.
     };
-    eventSourceRef.current = source;
+
+    void (async () => {
+      try {
+        const res = await personaFetch(
+          `/api/qubetalk/channels/${selectedChannelId}/stream?tenant_id=${tenantId}`,
+          { headers: { Accept: "text/event-stream" }, cache: "no-store", signal: controller.signal }
+        );
+        if (!res.ok || !res.body) {
+          setStreamStatus("error");
+          return;
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        // SSE frames are separated by a blank line; each frame is a set of
+        // `field: value` lines. We only need `event:` and `data:`.
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          let split = buffer.indexOf("\n\n");
+          while (split !== -1) {
+            const frame = buffer.slice(0, split);
+            buffer = buffer.slice(split + 2);
+            let eventName = "message";
+            const dataLines: string[] = [];
+            for (const line of frame.split("\n")) {
+              if (line.startsWith("event:")) eventName = line.slice(6).trim();
+              else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
+            }
+            if (dataLines.length) handleEvent(eventName, dataLines.join("\n"));
+            split = buffer.indexOf("\n\n");
+          }
+        }
+        setStreamStatus("idle");
+      } catch (err) {
+        if ((err as { name?: string })?.name === "AbortError") return;
+        setStreamStatus("error");
+      }
+    })();
   }, [tenantId, selectedChannelId]);
 
   useEffect(() => {
@@ -400,7 +477,7 @@ export default function QubeTalkConsole({ mode }: { mode: ConsoleMode }) {
       startStream();
     }
     return () => {
-      eventSourceRef.current?.close();
+      streamAbortRef.current?.abort();
     };
   }, [selectedChannelId, selectedChannel, loadMessages, loadDelegations, loadReceipts, startStream]);
 
@@ -529,7 +606,7 @@ export default function QubeTalkConsole({ mode }: { mode: ConsoleMode }) {
       .filter(Boolean);
     if (!participants.length) return;
     try {
-      const res = await fetch("/api/qubetalk/channels", {
+      const res = await personaFetch("/api/qubetalk/channels", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tenant_id: tenantId, participants }),
@@ -545,7 +622,7 @@ export default function QubeTalkConsole({ mode }: { mode: ConsoleMode }) {
   const handleSendMessage = async () => {
     if (!tenantId || !selectedChannelId || !messageContent.trim()) return;
     try {
-      const res = await fetch("/api/qubetalk/messages", {
+      const res = await personaFetch("/api/qubetalk/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -567,7 +644,7 @@ export default function QubeTalkConsole({ mode }: { mode: ConsoleMode }) {
   const handleCreateDelegation = async () => {
     if (!tenantId || !selectedChannelId) return;
     try {
-      const res = await fetch("/api/qubetalk/delegations", {
+      const res = await personaFetch("/api/qubetalk/delegations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

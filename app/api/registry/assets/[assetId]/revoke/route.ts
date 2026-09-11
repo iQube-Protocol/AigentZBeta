@@ -16,7 +16,7 @@ import { createClient } from "@supabase/supabase-js";
 import { revokePublication } from "@/services/registry/publisherService";
 import { getAsset } from "@/services/registry/persistence";
 
-type Params = { params: { assetId: string } };
+type Params = { params: Promise<{ assetId: string }> };
 
 function getDb() {
   return createClient(
@@ -26,7 +26,8 @@ function getDb() {
   );
 }
 
-export async function PATCH(req: NextRequest, { params }: Params) {
+export async function PATCH(req: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     const { assetId } = params;
     const body = await req.json();

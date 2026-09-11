@@ -31,12 +31,292 @@ import {
   askSpecialist,
   type SpecialistId,
   type SpecialistContext,
+  type SpecialistResponse,
 } from '@/services/agents/specialistRouter';
+import { isFactorCapabilityId, type FactorCapabilityId, type FactorScope } from '@/services/factor/factorCapabilityManifest';
+import { resolveConstitutionalField } from '@/services/invariants/resolution';
+import type { InvariantNamespace } from '@/types/invariants';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+
+/**
+ * Build the validated-invariant grounding slice for a specialist consultation
+ * (CFS-006 §2). Context-domain-scoped first (the active cartridges), falling
+ * back to the platform's highest-standing validated knowledge so the slice is
+ * never empty on a seeded substrate. Enrichment-only: any failure yields an
+ * empty slice and the consultation proceeds ungrounded (never breaks the ask).
+ *
+ * This path only GROUNDS — it does not record usage/Reach. A specialist
+ * consult is advisory, not an execution; CFS-008 §2 scopes reuse-count to
+ * executions, which the consequence runner (executeApproved) records.
+ */
+async function buildSpecialistInvariantSlice(
+  intentText: string,
+  domains: string[],
+  namespaces?: InvariantNamespace[],
+): Promise<{ packetSlice: SpecialistContext['invariantSlice']; invariantIds: string[] }> {
+  try {
+    // IRE → IPE (operator ruling 2026-07-27). A specialist consultation is a
+    // GOVERNED reasoning surface: the packet cites invariants by seed id to an
+    // LLM that answers the operator. So it RESOLVES the field the question
+    // requires rather than issuing a raw substrate query — `intentText` is the
+    // operator's actual prompt, `domains`/`namespaces` are the overlay.
+    // `namespaces` (PRD-MPY-001 Phase 3) scopes a specialist to its own
+    // invariant library (e.g. MoneyPenny -> 'finance') instead of the
+    // platform-wide slice every other specialist still gets by omitting it.
+    // Registered as `ask-agent` in GROUNDING_SURFACES.
+    const overlay = domains.length ? { domains, namespaces, limit: 8 } : namespaces ? { namespaces, limit: 8 } : null;
+    const scoped = overlay
+      ? (await resolveConstitutionalField(intentText, overlay)).snapshot?.slice ?? null
+      : null;
+    // A scoped miss falls back to the unscoped field, never to nothing.
+    const slice =
+      scoped && scoped.items.length > 0
+        ? scoped
+        : (await resolveConstitutionalField(intentText, { limit: 8 })).snapshot?.slice ?? null;
+    if (!slice) return { packetSlice: undefined, invariantIds: [] };
+    return {
+      // Packet slice cites by seedId (UUIDs are stripped by the router's
+      // redaction net); the raw ids stay server-side for the receipt's
+      // CFS-008 invariantsUsed instrumentation.
+      packetSlice: slice.items.map((i) => ({
+        seedId: i.seedId,
+        statement: i.statement,
+        namespace: i.namespace,
+      })),
+      invariantIds: slice.citedIds,
+    };
+  } catch (err) {
+    console.error('[ask-agent] invariant slice build failed (non-fatal)', err);
+    return { packetSlice: undefined, invariantIds: [] };
+  }
+}
+
+// ─── Contact context injection ───────────────────────────────────────────────
+// When the user's prompt mentions a person, company, or contacts-related
+// keyword, query persona_contacts and prepend a data block to the rationale
+// so the LLM answers with real data instead of claiming it has no access.
+
+const CONTACT_INTENT_RE = /\b(contact|contacts|email|phone|reach|who\s+is|find.*person|people|colleague|team|organisation|organization|company|firm|crm)\b/i;
+// Matches "how many", "hw many", "how mny", "count", "total", "number of"
+const CONTACT_COUNT_RE = /\b(h\w*\s+m\w+|count|total|number\s+of)\b.*\b(contact|contacts|people|crm)\b|\b(contact|contacts|crm)\b.*\b(h\w*\s+m\w+|count|total)\b/i;
+// Words that survive the strip but are not useful contact search terms
+const FILLER_WORDS = new Set(['many', 'some', 'all', 'much', 'more', 'give', 'have', 'show', 'list', 'tell', 'much', 'few', 'any']);
+
+async function maybeInjectContactContext(
+  personaId: string,
+  prompt: string,
+): Promise<string | null> {
+  if (!CONTACT_INTENT_RE.test(prompt)) return null;
+
+  try {
+    const supabase = getSupabaseServer();
+
+    // Count query — "how many contacts", "total contacts", etc.
+    if (CONTACT_COUNT_RE.test(prompt)) {
+      const { count } = await supabase
+        .from('persona_contacts')
+        .select('*', { count: 'exact', head: true })
+        .eq('persona_id', personaId);
+      return `The user has ${count ?? 0} contacts in their address book (persona_contacts table). Answer their count question directly using this number.`;
+    }
+
+    // Extract likely search terms: strip common question words AND contact-domain
+    // meta-words (contact, contacts, people, email, phone) that won't appear in
+    // any contact record field, which would create impossible AND conditions in FTS.
+    const STRIP_WORDS = /\b(contact|contacts|people|person|email|phone|reach|find|show|list|who|what|where|are|is|my|the|a|an|of|from|in|at|for|to|with|crm)\b/gi;
+    const q = prompt
+      .replace(STRIP_WORDS, ' ')
+      .replace(/[^\w\s]/g, ' ')
+      .trim()
+      .split(/\s+/)
+      .filter(w => w.length > 2 && !FILLER_WORDS.has(w.toLowerCase()))
+      .slice(0, 6)
+      .join(' ');
+
+    // No meaningful search term — return total count as context
+    if (!q) {
+      const { count } = await supabase
+        .from('persona_contacts')
+        .select('*', { count: 'exact', head: true })
+        .eq('persona_id', personaId);
+      return `The user has ${count ?? 0} contacts in their address book. Answer their question using this count.`;
+    }
+
+    const { data } = await supabase
+      .from('persona_contacts')
+      .select('display_name, organization, job_title, email, email_2, phone, phone_2, source')
+      .eq('persona_id', personaId)
+      .textSearch('fts', q.split(/\s+/).map(w => w + ':*').join(' & '), { config: 'english', type: 'plain' })
+      .limit(20);
+
+    if (!data || data.length === 0) return null;
+
+    const rows = data.map((c: any) => {
+      const parts = [c.display_name];
+      if (c.organization) parts.push(`(${c.organization}${c.job_title ? `, ${c.job_title}` : ''})`);
+      if (c.email) parts.push(c.email);
+      if (c.phone) parts.push(c.phone);
+      return parts.filter(Boolean).join(' — ');
+    });
+
+    return [
+      `Address book results for "${q}" (${rows.length} contact${rows.length !== 1 ? 's' : ''}):`,
+      ...rows.map(r => `  • ${r}`),
+      '',
+      'Use these contacts to answer the user\'s question directly.',
+    ].join('\n');
+  } catch {
+    return null;
+  }
+}
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import { runPreflightGather } from '@/services/capabilities/preflight';
+import { invokeCapability } from '@/services/registry/invocationGateway';
+import { personaPublicRef } from '@/services/identity/personaReferences';
 
 export const dynamic = 'force-dynamic';
 
-const VALID_SPECIALISTS: SpecialistId[] = ['marketa', 'quill', 'kn0w1', 'aigent-z', 'aigent-c', 'aigent-nakamoto', 'moneypenny', 'metaye'];
+/**
+ * The direct-specialist pattern (design doc §0/§7,
+ * codexes/packs/agentiq/updates/2026-08-06_governed-capability-invocation-design.md):
+ * requestingAgentId === the resolved provider, orchestratorAgentId absent.
+ * Every direct consultation with Aigent Nakamoto is governed through the SAME
+ * gateway a MoneyPenny-orchestrated call would use — never a second,
+ * ungoverned path to her runtime. Scoped to her pilot capability
+ * (bitcoin_decentralisation_expertise) rather than per-message topic
+ * detection: this integration proves the mechanism end-to-end for the one
+ * capability Phase 4 scoped, not a full per-topic router for her other
+ * capabilities (disclosed simplification, not a fabrication).
+ *
+ * `shadow` mode — advisory consultation, never money-moving — so Pulse/P&L
+ * are not required (design doc §4 Gate 2's example, verbatim).
+ */
+async function gateDirectNakamotoConsultation(
+  personaId: string,
+  intentText: string,
+): Promise<{ ok: true } | { ok: false; status: number; body: Record<string, unknown> }> {
+  const decision = await invokeCapability(
+    {
+      mode: 'capability',
+      invocationId: `capinv_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      principalRef: personaPublicRef(personaId),
+      originatingSurface: 'aigentme',
+      requestingAgentId: 'aigent-nakamoto',
+      capabilityId: 'bitcoin_decentralisation_expertise',
+      runtimeMembershipRef: 'financial-services',
+      executionMode: 'shadow',
+      intent: intentText,
+      input: {},
+      policyBindingRefs: [],
+      delegationDepth: 0,
+      invocationPath: [],
+      maxInvocationDepth: 2,
+    },
+    personaId,
+  );
+
+  if (decision.decision === 'refuse') {
+    return {
+      ok: false,
+      status: 403,
+      body: { error: 'capability-invocation-refused', code: decision.code, detail: decision.reason },
+    };
+  }
+  // 'allow-with-approval' / 'shadow-only' — neither is reachable from a
+  // `shadow` mode request in this phase (Gate 2 only escalates authoritative
+  // mode), but handled explicitly rather than falling through silently.
+  if (decision.decision !== 'allow') {
+    return {
+      ok: false,
+      status: 202,
+      body: { error: 'capability-invocation-not-allowed', decision: decision.decision },
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * MoneyPenny's own decision logic for when to bring in a helper (design doc
+ * scope note: "MoneyPenny proposes the team and invocation. The gateway
+ * governs it." / "She is required for the Financial Services orchestration
+ * path or when multiple helper agents must be composed. She is not required
+ * for an explicit direct consultation with Nakamoto" — that direct path is
+ * `gateDirectNakamotoConsultation` above, a SEPARATE pattern).
+ *
+ * Detection is a topic heuristic, not a claim of general intent
+ * understanding: it recognises the one capability this phase scoped
+ * (`bitcoin_decentralisation_expertise`), matching the domain Nakamoto's own
+ * agent card declares (consensus, UTXO/script semantics, layer 2, Lightning,
+ * sidechains, self-custody, cypherpunk history). A miss just means MoneyPenny
+ * answers alone, exactly as she does today — this never narrows what she can
+ * already do, only adds a helper call when the topic is plainly in Nakamoto's
+ * declared lane.
+ */
+const BITCOIN_DECENTRALISATION_RE =
+  /\b(bitcoin|btc|utxo|lightning\s*network|sidechain|layer\s*-?\s*2|\bl2\b|satoshi|consensus\s+(mechanism|algorithm|rule)|self-?custody|cypherpunk|decentrali[sz]ation|proof[\s-]of[\s-]work)\b/i;
+
+/**
+ * Best-effort — an enrichment on top of MoneyPenny's own answer, never a
+ * requirement for it to succeed. Returns null (never throws) when the topic
+ * doesn't match, the gateway refuses, or Nakamoto's own consultation fails —
+ * MoneyPenny's response proceeds unchanged in every one of those cases.
+ */
+async function maybeConsultNakamotoViaMoneyPenny(
+  personaId: string,
+  intentText: string,
+  specialistContext: SpecialistContext,
+): Promise<SpecialistResponse | null> {
+  if (!BITCOIN_DECENTRALISATION_RE.test(intentText)) return null;
+
+  try {
+    const decision = await invokeCapability(
+      {
+        mode: 'capability',
+        invocationId: `capinv_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        principalRef: personaPublicRef(personaId),
+        originatingSurface: 'wallet-copilot',
+        requestingAgentId: 'aigent-moneypenny',
+        orchestratorAgentId: 'aigent-moneypenny',
+        capabilityId: 'bitcoin_decentralisation_expertise',
+        runtimeMembershipRef: 'financial-services',
+        executionMode: 'shadow',
+        intent: intentText,
+        input: {},
+        policyBindingRefs: [],
+        delegationDepth: 1,
+        invocationPath: [],
+        maxInvocationDepth: 2,
+      },
+      personaId,
+    );
+    if (decision.decision !== 'allow') return null;
+
+    return await askSpecialist({ specialistId: 'aigent-nakamoto', context: specialistContext });
+  } catch (err) {
+    console.error('[ask-agent] MoneyPenny -> Nakamoto helper consultation failed (non-fatal)', err);
+    return null;
+  }
+}
+
+/**
+ * Fold Nakamoto's contribution into MoneyPenny's own response — MoneyPenny
+ * stays the response's identity (specialistId/specialistLabel/title); her
+ * summary gains an attributed addendum and her recommendations gain
+ * Nakamoto's, each tagged so the operator can see who said what. Never
+ * mutates `moneyPenny` in place.
+ */
+function attributeNakamotoContribution(moneyPenny: SpecialistResponse, nakamoto: SpecialistResponse): SpecialistResponse {
+  return {
+    ...moneyPenny,
+    summary: `${moneyPenny.summary}\n\nPer Aigent Nakamoto (Bitcoin/decentralisation specialist, consulted for this question): ${nakamoto.summary}`,
+    recommendations: [
+      ...moneyPenny.recommendations,
+      ...nakamoto.recommendations.map((r) => `[Aigent Nakamoto] ${r}`),
+    ],
+  };
+}
+
+const VALID_SPECIALISTS: SpecialistId[] = ['marketa', 'quill', 'kn0w1', 'aigent-z', 'aigent-c', 'aigent-nakamoto', 'moneypenny', 'metaye', 'researcher', 'aletheon', 'factor', 'aegis'];
 
 /**
  * Aliases that map short / alternate names back onto the canonical
@@ -52,6 +332,13 @@ const SPECIALIST_ALIASES: Record<string, SpecialistId> = {
   metaye: 'metaye',
   'metayé': 'metaye',
   'aigent-metaye': 'metaye',
+  'research-copilot': 'researcher',
+  'aigent-researcher': 'researcher',
+  research: 'researcher',
+  // Ratified historical spelling ambiguity (RES-2026-08-15-ALETHEON-SPELLING-AMBIGUITY-001) —
+  // accept either spelling so a caller using the older form still resolves.
+  alethean: 'aletheon',
+  'aigent-aletheon': 'aletheon',
 };
 
 function resolveSpecialistId(value: unknown): SpecialistId | null {
@@ -61,11 +348,52 @@ function resolveSpecialistId(value: unknown): SpecialistId | null {
   return SPECIALIST_ALIASES[lowered] ?? null;
 }
 
+
 interface PostBody {
   specialistId?: string;
   intentId?: string;
   prompt?: string;
   cartridge?: string;
+  /**
+   * Explicit Factor capability selection (capability-runtime contract
+   * closure, 2026-09-05) — set when the operator clicked a capability
+   * card/chip rather than typing free text. Validated server-side against
+   * isFactorCapabilityId; an unrecognised string is REJECTED with 400
+   * before askSpecialist is ever called — never accepted as an arbitrary
+   * string and never silently ignored. Meaningless for any specialist
+   * other than 'factor', but validated regardless of specialistId so a
+   * caller can never smuggle an unvalidated value through.
+   */
+  factorCapabilityId?: string;
+  /**
+   * Bounded workflow scope (an open candidate case, or an agent/service
+   * reference) — GROUNDING ONLY, never itself a classification signal. See
+   * SpecialistContext.factorScope's own contract in specialistRouter.ts.
+   */
+  factorScope?: { caseId?: unknown; agentRef?: unknown; serviceRef?: unknown };
+  /**
+   * Optional hand-off context — set when the operator pivots from one
+   * specialist's response to ask another. The route prefixes the
+   * intent rationale with a short hand-off note and tags the receipt
+   * with `specialist-handoff` in `contextShared` so the thread can
+   * surface the pivot.
+   */
+  handoff?: {
+    fromSpecialistId?: string;
+    priorTitle?: string;
+    priorReceiptId?: string;
+  };
+}
+
+/** Keeps only known string-valued keys — never forwards an arbitrary shape
+ *  into SpecialistContext.factorScope. */
+function sanitizeFactorScope(raw: PostBody['factorScope']): FactorScope | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const out: FactorScope = {};
+  if (typeof raw.caseId === 'string' && raw.caseId.trim()) out.caseId = raw.caseId.trim();
+  if (typeof raw.agentRef === 'string' && raw.agentRef.trim()) out.agentRef = raw.agentRef.trim();
+  if (typeof raw.serviceRef === 'string' && raw.serviceRef.trim()) out.serviceRef = raw.serviceRef.trim();
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -101,6 +429,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Explicit Factor capability selection — validated BEFORE askSpecialist is
+  // ever reached (capability-runtime contract closure, 2026-09-05). An
+  // unrecognised string is rejected outright, never silently dropped or
+  // passed through as free text — a UI bug that sends a stale/renamed
+  // capability id must surface as a 400, not a silently-reclassified answer.
+  let validatedFactorCapabilityId: FactorCapabilityId | undefined;
+  if (body.factorCapabilityId !== undefined) {
+    if (typeof body.factorCapabilityId !== 'string' || !isFactorCapabilityId(body.factorCapabilityId)) {
+      return NextResponse.json(
+        {
+          error: 'invalid-factor-capability-id',
+          detail: `factorCapabilityId, when provided, must be a valid FactorCapabilityId; received ${JSON.stringify(body.factorCapabilityId)}.`,
+        },
+        { status: 400, headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
+    validatedFactorCapabilityId = body.factorCapabilityId;
+  }
+  const sanitizedFactorScope = sanitizeFactorScope(body.factorScope);
+
   try {
     // Build the bounded context packet. The router never sees raw BlakQube
     // values — only the meta slice of the persona's ExperienceQube.
@@ -118,6 +466,59 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     }
 
+    // Capability Gateway — Pattern A pre-flight gather. Enrichment only:
+    // any deny / adapter failure / throw returns null and the request
+    // proceeds with the original rationale.
+    const preflight = await runPreflightGather({
+      persona: context,
+      surfaceId: resolvedSpecialistId,
+      query: intentName,
+      cartridge: activeCartridge,
+      intentId: body.intentId ?? null,
+    });
+    // Hand-off prefix — when the operator pivots from one specialist
+    // to another, the new consultation lands with a short note so the
+    // receiving specialist's prompt frames itself against the prior
+    // take rather than from scratch.
+    const handoffFromRaw = body.handoff?.fromSpecialistId;
+    const handoffFrom = typeof handoffFromRaw === 'string' && (VALID_SPECIALISTS as string[]).includes(handoffFromRaw)
+      ? (handoffFromRaw as SpecialistId)
+      : null;
+    const handoffPriorTitle = typeof body.handoff?.priorTitle === 'string'
+      ? body.handoff.priorTitle.trim().slice(0, 200)
+      : null;
+    const handoffNote = handoffFrom
+      ? `Hand-off from ${handoffFrom}${handoffPriorTitle ? ` (prior take: "${handoffPriorTitle}")` : ''}.`
+      : null;
+
+    // Inject contact context when the prompt is contact-related
+    const lookupQuery = body.prompt?.trim() || intentName;
+    const contactContext = await maybeInjectContactContext(context.personaId, lookupQuery).catch(() => null);
+
+    const rationaleParts: string[] = [];
+    if (contactContext) rationaleParts.push(contactContext);
+    if (preflight) rationaleParts.push(`Pre-flight gather (workOrder=${preflight.workOrderId}): ${preflight.summary}`);
+    if (handoffNote) rationaleParts.push(handoffNote);
+    if (intentRationale) rationaleParts.push(intentRationale);
+    const enrichedRationale = rationaleParts.length > 0 ? rationaleParts.join('\n\n') : intentRationale;
+
+    // Invariant grounding slice (CFS-006 §2) — validated constitutional memory
+    // applicable to this consultation, scoped to the active cartridges.
+    const groundingDomains = [
+      activeCartridge,
+      ...(qube?.meta.activeCartridges ?? []),
+    ].filter((d, i, a): d is string => Boolean(d) && a.indexOf(d) === i);
+    // PRD-MPY-001 Phase 3 — MoneyPenny's Advisor mode grounds in the `finance`
+    // namespace (the FS Invariant Library) rather than the platform-wide
+    // slice every other specialist gets by omitting `namespaces`.
+    const specialistNamespaces: InvariantNamespace[] | undefined =
+      resolvedSpecialistId === 'moneypenny' ? ['finance'] : undefined;
+    // The intent the IRE qualifies: the operator's own words first, the intent
+    // name as the fallback (the same `lookupQuery` the contact-context probe
+    // uses — one statement of what this consultation is about, not two).
+    const { packetSlice: invariantSlice, invariantIds: groundingInvariantIds } =
+      await buildSpecialistInvariantSlice(lookupQuery, groundingDomains, specialistNamespaces);
+
     const specialistContext: SpecialistContext = {
       activeCartridge,
       experienceName: qube?.meta.experienceName ?? null,
@@ -126,31 +527,82 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       currentStage: qube?.meta.currentStage ?? 'setup',
       activeCartridges: qube?.meta.activeCartridges ?? ['metame'],
       intentName,
-      intentRationale,
+      intentRationale: enrichedRationale,
       ...(body.prompt ? { userPrompt: body.prompt } : {}),
+      ...(invariantSlice && invariantSlice.length > 0 ? { invariantSlice } : {}),
+      ...(validatedFactorCapabilityId ? { factorCapabilityId: validatedFactorCapabilityId } : {}),
+      ...(sanitizedFactorScope ? { factorScope: sanitizedFactorScope } : {}),
     };
 
-    const response = await askSpecialist({
+    if (resolvedSpecialistId === 'aigent-nakamoto') {
+      const gate = await gateDirectNakamotoConsultation(context.personaId, lookupQuery);
+      if (!gate.ok) {
+        return NextResponse.json(gate.body, { status: gate.status, headers: { 'Cache-Control': 'no-store' } });
+      }
+    }
+
+    let response = await askSpecialist({
       specialistId: resolvedSpecialistId,
       context: specialistContext,
     });
 
+    // MoneyPenny's own decision to bring in a helper (design doc scope note
+    // — she proposes, the gateway governs). Enrichment only: her own
+    // response above is already complete and correct on its own; this only
+    // ADDS Nakamoto's attributed contribution when the topic is in her lane.
+    let nakamotoContributed = false;
+    if (resolvedSpecialistId === 'moneypenny') {
+      const nakamotoContribution = await maybeConsultNakamotoViaMoneyPenny(context.personaId, lookupQuery, specialistContext);
+      if (nakamotoContribution) {
+        response = attributeNakamotoContribution(response, nakamotoContribution);
+        nakamotoContributed = true;
+      }
+    }
+
     // Emit a 'specialist_consulted' receipt. Best-effort; non-fatal.
+    // Persists the full SpecialistResponse body so the operator can
+    // re-read what the specialist said from any expand surface — the
+    // myWorkspace intent panel, the myLedger card, or a future Pill.
     await createActivityReceipt({
       personaId: context.personaId,
       intentId: body.intentId ?? null,
       activeCartridge,
       actionType: 'specialist_consulted',
       summary: `Consulted ${response.specialistLabel}: ${response.title}`,
-      agentsInvoked: ['aigent-me', resolvedSpecialistId],
+      agentsInvoked: nakamotoContributed ? ['aigent-me', resolvedSpecialistId, 'aigent-nakamoto'] : ['aigent-me', resolvedSpecialistId],
       toolsUsed: [response.source === 'llm' ? 'openai' : 'template'],
       iqubesUsed: ['PersonaQube', 'ExperienceQube', 'IntentQube'],
-      contextShared: ['intent-summary', 'experience-meta-slice'],
+      // CFS-008 §2 — the invariants this consultation was grounded in.
+      // Receipt-side instrumentation only: a consult is advisory, so this
+      // does NOT bump usage/Reach (that's reserved for executions).
+      invariantsUsed: groundingInvariantIds,
+      contextShared: handoffFrom
+        ? ['intent-summary', 'experience-meta-slice', 'specialist-handoff']
+        : ['intent-summary', 'experience-meta-slice'],
+      specialistResponse: {
+        title: response.title,
+        summary: response.summary,
+        recommendations: response.recommendations,
+        suggestedArtifacts: response.suggestedArtifacts,
+        confidence: response.confidence,
+        source: response.source,
+      },
     }).catch(() => undefined);
 
-    return NextResponse.json(response, {
-      headers: { 'Cache-Control': 'no-store' },
-    });
+    // Surface the hand-off on the response so the layout can show a
+    // "← Marketa" pill on the rendered card without needing to fetch
+    // the receipt.
+    const handoffMeta = handoffFrom
+      ? { handoffFrom: { specialistId: handoffFrom, priorTitle: handoffPriorTitle ?? '' } }
+      : {};
+    return NextResponse.json(
+      {
+        ...response,
+        ...(preflight ? { preflightContext: preflight } : {}),
+        ...handoffMeta,
+      },
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[assistant/ask-agent] failed: ${msg}`);

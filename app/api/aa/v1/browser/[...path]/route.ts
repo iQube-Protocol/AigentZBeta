@@ -16,9 +16,9 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 type RouteContext = {
-  params: {
+  params: Promise<{
     path?: string[];
-  };
+  }>;
 };
 
 type BrowserSessionServiceApi = {
@@ -403,7 +403,8 @@ async function handleSessionGet(
 
 async function handleRequest(request: NextRequest, context: RouteContext): Promise<Response> {
   const auth = resolveAuthScope(request);
-  const path = context.params.path ?? [];
+  const params = await context.params;
+  const path = params.path ?? [];
 
   try {
     if (request.method === "OPTIONS") {

@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAsset } from "@/services/registry/persistence";
 
-type Params = { params: { assetId: string } };
+type Params = { params: Promise<{ assetId: string }> };
 
 /** GET /api/registry/assets/[assetId] */
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(_req: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     const asset = await getAsset(params.assetId);
     if (!asset) {

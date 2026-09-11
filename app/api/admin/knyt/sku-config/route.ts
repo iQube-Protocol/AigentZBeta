@@ -7,11 +7,17 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { requireCartridgeAdmin } from '@/services/access/requireCartridgeAdmin';
 
 const VALID_MODES = ['immediate', 'deferred', 'canonical', 'remote'] as const;
 type MintingMode = (typeof VALID_MODES)[number];
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // 2026-05-26: gate added. SKU minting mode is operational config
+  // — must be KNYT cartridge admin (or global) to read.
+  const gate = await requireCartridgeAdmin(req, 'knyt-codex');
+  if (gate instanceof NextResponse) return gate;
+
   const supabase = getSupabaseServer();
   if (!supabase) return NextResponse.json({ ok: false, error: 'Supabase unavailable' }, { status: 500 });
 
@@ -25,6 +31,9 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
+  const gate = await requireCartridgeAdmin(req, 'knyt-codex');
+  if (gate instanceof NextResponse) return gate;
+
   const supabase = getSupabaseServer();
   if (!supabase) return NextResponse.json({ ok: false, error: 'Supabase unavailable' }, { status: 500 });
 

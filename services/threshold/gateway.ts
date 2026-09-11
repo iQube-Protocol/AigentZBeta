@@ -1,0 +1,1547 @@
+/**
+ * gateway.ts — the metaMe Threshold Gateway catalogue + read-only dispatch
+ * (PRD-THR-001 §8). This is the MCP surface the Threshold Companion (the user's
+ * agent) speaks to. Increment 1 exposes ONLY the unauthenticated, read-only
+ * slice: `list_services`, `inspect_threshold_link`, the discovery resources, and
+ * the conversational prompts. The authenticated crossing tools (the
+ * Constitutional Handshake, Agent Card, delegation, service entry) are declared
+ * in the PRD and land in later increments; they are NOT listed here yet so every
+ * advertised tool is functional.
+ *
+ * Kept dependency-light on purpose (no MCP SDK) — the JSON-RPC transport is a
+ * thin hand-rolled handler in app/api/threshold/mcp/route.ts, which keeps the
+ * SSR bundle lean (the platform sits near the Amplify output-size cap).
+ */
+
+import { createHash } from 'crypto';
+import { serviceRegistrySnapshot, listServices, getService, knownCapabilities } from './serviceRegistry';
+import { journeyRegistrySnapshot } from './journeyRegistry';
+import { buildThresholdLink, type ThresholdLinkManifest } from './thresholdLink';
+import { hasScope, type ScopedSession } from './gatewaySession';
+import { crossingReceipt, welcomePayload, WELCOME_MESSAGE } from './welcome';
+import type { IrlAdapter } from './irlAdapter';
+import type { PublicCartridgeId, PublicKnowledgeAdapter } from './publicKnowledge';
+import type { CompanionInstallBrief } from '../companion/extensionArtifact';
+import type {
+  AccessibleIQubeQuery,
+  getAccessibleIQube,
+  listAccessibleIQubes,
+  readAccessibleIQubeText,
+} from './personaIQubeProjection';
+import { supportedBridgeIds, type NavigatorState } from './constitutionalNavigator';
+import {
+  fingerprintExchangeArtifact,
+  type DepositArtifactMcpArgs,
+  type DeclareArtifactFreezeMcpArgs,
+  type SignExchangeInstrumentMcpArgs,
+  type EstablishDelegationMcpArgs,
+  type ConfirmOperatorAssistedArtifactMcpArgs,
+  type getExchangeStateForMcp,
+  type depositExchangeArtifactViaMcp,
+  type declareArtifactFreezeViaMcp,
+  type signExchangeInstrumentViaMcp,
+  type establishDelegationViaMcp,
+  type confirmOperatorAssistedArtifactViaMcp,
+  type resolveExchangeWriteAuthority,
+} from './mcpConstitutionalActs';
+import { decodeBase64Strict } from './uploadContentAsset';
+import { AGENT_MANIFEST_URI, agentDiscoveryManifest } from './agentManifest';
+
+// ── Context injected by the route (keeps this module I/O-light + testable) ──
+
+export interface InvitationInfo {
+  invitationId: string; // T2-safe id/label — never a raw persona/T0 id
+  initiatingService: string;
+  institution?: string;
+  requestedRole: string;
+  requestedCapabilities: string[];
+  status: string;
+  onboarded: boolean;
+  expiresAt?: string | null;
+}
+
+export interface GatewayContext {
+  origin: string;
+  gatewayUrl: string;
+  /** Resolve a public capability-URL invitation code to its (T2-safe) metadata. */
+  resolveInvitation?: (code: string) => Promise<InvitationInfo | null>;
+  /**
+   * The scoped session resolved from a presented `Authorization: Bearer` (the
+   * Constitutional Handshake bearer), or null/undefined when the Companion is
+   * unauthenticated. Additive: Increment 1's read-only tools ignore it; the
+   * authenticated crossing tools (later increments) gate on it. Its presence
+   * NEVER widens the read-only surface.
+   */
+  session?: ScopedSession | null;
+  /** The IRL read adapter (public open corpus), injected by the route. Present
+   *  only where the gateway can reach the app's public routes. */
+  irl?: IrlAdapter;
+  /**
+   * The public knowledge & discovery adapter (2026-09-03) — Qriptopian, IRL
+   * OS, AgentiQ OS, and Polity Core's canonically public content, unified
+   * behind one small read-only interface. Unauthenticated by design (see
+   * PUBLIC_KNOWLEDGE_TOOLS below) — it grants NO execution authority,
+   * exposes no private research, and never touches the domain-unscoped
+   * embedding pipeline (services/content/embeddingService.ts). See
+   * services/threshold/publicKnowledge.ts's own header for the full
+   * access-control rationale.
+   */
+  publicKnowledge?: PublicKnowledgeAdapter;
+  /** Begin an incremental service crossing (session upgrade) — returns the human
+   *  authorize URL. Injected by the route (creates the upgrade handshake). */
+  beginServiceUpgrade?: (service: string, missingCapabilities: string[]) => Promise<{ authorizeUrl: string } | null>;
+  /** Owner-safe persona discovery and preparation of a fresh, human-authorized
+   * persona crossing. It can never mutate the current session directly. */
+  personaRecross?: {
+    getState: () => Promise<unknown>;
+    listAvailable: () => Promise<unknown[] | null>;
+    requestSwitch: (input: { personaPublicRef: string; codeChallenge: string; state: string }) => Promise<
+      { ok: true; authorizeUrl: string; expiresAt: string } | { ok: false; error: string }
+    >;
+  };
+  /** Build the Companion install brief (SPEC-MMC-003 §3.2) — the artifact
+   *  reference, its integrity values, and the human steps. Injected by the
+   *  route because it reads the checked-in extension source from disk; the
+   *  gateway module itself stays I/O-light and unit-testable. */
+  companionInstall?: () => CompanionInstallBrief;
+  /**
+   * The composed constitutional-navigator state (2026-08-26) — Passport,
+   * sponsorship/delegation, CAS + Reciprocal Exchange grants, and the
+   * caller's journey stage, unioned per services/threshold/
+   * constitutionalNavigator.ts. Injected by the route (needs the
+   * service-role Supabase client and the resolved session) so this module
+   * stays I/O-light. `opts.bridge` selects which journey to compose against
+   * — see `supportedBridgeIds()` for what's wired.
+   */
+  resolveNavigatorState?: (opts?: { bridge?: string }) => Promise<NavigatorState | null>;
+  /** Persona-scoped global iQube projection. Each call revalidates the live
+   *  crossing agreement and delegates the resource decision to the Registry
+   *  access spine; this context contains no independent authorization logic. */
+  iqubeProjection?: {
+    list: (query?: AccessibleIQubeQuery) => ReturnType<typeof listAccessibleIQubes>;
+    get: (iqubeId: string) => ReturnType<typeof getAccessibleIQube>;
+    readText: (
+      iqubeId: string,
+      opts?: { offset?: number; limit?: number },
+    ) => ReturnType<typeof readAccessibleIQubeText>;
+  };
+  /**
+   * MCP-completable constitutional rituals for the OCSGA / Boundary
+   * Research Journey Spine (Surface Independence, 2026-08-26) — injected by
+   * the route (needs the service-role Supabase client + the resolved
+   * session), each bound to services/threshold/mcpConstitutionalActs.ts's
+   * corresponding function. Every one of these calls the SAME canonical
+   * service (services/research/reciprocalExchange.ts,
+   * services/delegation/delegationGrantStore.ts) the native UI calls —
+   * this context only carries the T0<->T2-resolved binding, never a
+   * parallel implementation. Absent when no session is resolved.
+   */
+  mcpActs?: {
+    getExchangeState: () => ReturnType<typeof getExchangeStateForMcp>;
+    depositArtifact: (args: DepositArtifactMcpArgs) => ReturnType<typeof depositExchangeArtifactViaMcp>;
+    declareFreeze: (args: DeclareArtifactFreezeMcpArgs) => ReturnType<typeof declareArtifactFreezeViaMcp>;
+    signInstrument: (args: SignExchangeInstrumentMcpArgs) => ReturnType<typeof signExchangeInstrumentViaMcp>;
+    establishDelegation: (args: EstablishDelegationMcpArgs) => ReturnType<typeof establishDelegationViaMcp>;
+    /** Journey Spine channel convergence (2026-08-28) — adopts a
+     *  custodially-registered (operator-assisted) artifact as the bound
+     *  principal's own attested evidence. Confirmation-only: never performed
+     *  by an operator, never inferred from conversation. */
+    confirmOperatorAssistedArtifact: (
+      args: ConfirmOperatorAssistedArtifactMcpArgs,
+    ) => ReturnType<typeof confirmOperatorAssistedArtifactViaMcp>;
+    /**
+     * Canonical exchange-write authority probe (2026-08-30, "MCP channel
+     * equivalence" repair) — read-only, no side effects. Lets the dispatch
+     * gate below authorize deposit/confirm/freeze/sign from REAL exchange
+     * participation (Passport + a genuinely bound party on an existing
+     * Reciprocal Artifact Exchange) when the session's OAuth-crossing scope
+     * alone (`research.exchange.write`) was never separately granted — the
+     * SAME resolver every write function already runs internally, so there
+     * is exactly one place this authority is decided.
+     */
+    resolveExchangeAuthority: () => ReturnType<typeof resolveExchangeWriteAuthority>;
+  };
+}
+
+// ── Catalogue ───────────────────────────────────────────────────────────────
+
+export const SERVER_INFO = { name: 'metaMe Threshold Gateway', version: '0.1.0' } as const;
+export const PROTOCOL_VERSION = '2025-06-18';
+
+export function listTools() {
+  return [
+    {
+      name: 'list_journeys',
+      description:
+        'List the five constitutional journeys a principal chooses AFTER their Polity Passport is issued — Citizen, Entrepreneur, Researcher, Creative, Technical. Each is a goal (not a service menu): it activates an Threshold Guide, has a progressive Sovereignty Ladder converging on the Founder Office, and progressively unlocks services. Present these first; services are destinations within a journey.',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    },
+    {
+      name: 'list_services',
+      description:
+        'The platform-facing service registry beneath the journeys: the metaMe services reachable after crossing the Threshold, each with the capability scope a crossing must request. Prefer list_journeys for the first conversation; use this to inspect the concrete services a journey unlocks. polity-passport is the constitutional root (the front door itself).',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    },
+    {
+      name: 'inspect_threshold_link',
+      description:
+        'Inspect a Threshold Link (crossing invitation) by its code. Returns the requested role, requested capabilities, initiating service, and a signed manifest — so you can explain the crossing to your principal BEFORE any authentication. Reveals only the invitation\'s own metadata; no persona identifiers.',
+      inputSchema: {
+        type: 'object',
+        properties: { code: { type: 'string', description: 'The Threshold Link / invitation code (e.g. pinv-… or x409-…).' } },
+        required: ['code'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'explain_primitive',
+      description:
+        'Define a metaMe / Polity constitutional primitive (e.g. "standing", "delegation", "citizenship", "personhood", "authority", "reputation", "Polity Passport") AUTHORITATIVELY and CONSTITUTIONAL-FIRST. Returns Layer 1 — the verbatim ratified defining invariants (the constitutional meaning, canonical statements leading) — then Layer 2, the operational resolver model, clearly labelled as a ranking projection and NOT the definition. Also returns `distinctions` (e.g. Standing is personhood-bound and is NOT reputation). Lead your answer with Layer 1; use Layer 2 only if the principal asks how the term is calculated. Public + read-only; no crossing required.',
+      inputSchema: {
+        type: 'object',
+        properties: { term: { type: 'string', description: 'The constitutional primitive / term to define.' } },
+        required: ['term'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'read_experiment_results',
+      description:
+        'Read the PUBLISHED, hash-committed IRL experiment result records (T2-safe, no persona data) so you can independently verify them: recompute sha256 over the verbatim results JSON and compare to the anchored content hash. Optional `experiment` id filter (e.g. "EXP-P1", "IRV-001"). Public + read-only; no crossing required — this is the reviewer-exercisable verification surface.',
+      inputSchema: {
+        type: 'object',
+        properties: { experiment: { type: 'string', description: 'Optional experiment id filter, e.g. EXP-P1.' } },
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'list_invariants',
+      description: 'Browse the canonical public IRL invariant registry. Supports namespace, status, and domain filters plus bounded pagination over the published snapshot. Public + read-only; registry visibility does not imply access to restricted experimental evidence.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          namespace: { type: 'string', description: 'Optional canonical invariant namespace.' },
+          status: { type: 'string', description: 'Optional comma-separated invariant status filter.' },
+          domain: { type: 'string', description: 'Optional invariant-context domain.' },
+          offset: { type: 'number', minimum: 0 },
+          limit: { type: 'number', minimum: 1, maximum: 100 },
+        },
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'get_invariant',
+      description: 'Read one canonical public invariant by database id or stable seed id (for example inv.constitutional.018), including its status, version, provenance, Standing and Reach. Public + read-only.',
+      inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'], additionalProperties: false },
+    },
+    {
+      name: 'search_invariants',
+      description: 'Keyword-search canonical public invariant statements, optionally filtered by namespace/status, with bounded pagination. Reports searchMode:"keyword"; it is not semantic search. Public + read-only.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          query: { type: 'string' },
+          namespace: { type: 'string' },
+          status: { type: 'string' },
+          offset: { type: 'number', minimum: 0 },
+          limit: { type: 'number', minimum: 1, maximum: 100 },
+        },
+        required: ['query'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'list_invariants_for_experiment',
+      description: 'Resolve the governing invariant ids declared by a canonical IRL experiment and return their public registry records. This reports governance linkage, not access to the experiment payload. Public + read-only.',
+      inputSchema: { type: 'object', properties: { experimentId: { type: 'string' } }, required: ['experimentId'], additionalProperties: false },
+    },
+    {
+      name: 'get_invariant_lineage',
+      description: 'Return recorded supersession and the public enables/constrains/contradicts neighbourhood for one invariant. The response states its limited lineage scope and never presents this consequence graph as complete provenance. Public + read-only.',
+      inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'], additionalProperties: false },
+    },
+    // ── Public knowledge & discovery layer (2026-09-03) — Qriptopian, IRL OS,
+    // AgentiQ OS, Polity Core. Public + read-only; no crossing required. Grants
+    // no execution authority and reveals no private/restricted content — every
+    // document surfaced here is on an explicit, audited public allowlist (see
+    // services/threshold/publicKnowledge.ts). ──
+    {
+      name: 'list_public_cartridges',
+      description:
+        'List the four cartridges whose canonically public content is discoverable through this bridge: Qriptopian (papers/essays), IRL OS (research), AgentiQ OS (developer guides), and Polity Core (constitution/charters). Start here to orient before listing or reading documents. Public + read-only; no crossing required.',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    },
+    {
+      name: 'list_public_documents',
+      description:
+        'List the public documents in one of the four public cartridges (see list_public_cartridges), each with its id, title, series, publication/ratification status, and canonical link — enough to choose a document before calling read_public_document. Public + read-only; no crossing required.',
+      inputSchema: {
+        type: 'object',
+        properties: { cartridge: { type: 'string', enum: ['qriptopian', 'irl-os', 'agentiq-os', 'polity-core'] } },
+        required: ['cartridge'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'read_public_document',
+      description:
+        'Read the ACTUAL text of a public document (not a summary or a PDF link) by cartridge + id from list_public_documents. Returns the requested page plus totalLength/hasMore for bounded pagination, and sha256OfFullText (computed over the complete resolved text regardless of the page requested) so you can verify the full text once you have read every page. For a Qriptopian Threshold essay with multiple editions (e.g. reading vs research), pass `edition` — omit it for the default edition; availableEditions lists the valid ids. Public + read-only; no crossing required.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          cartridge: { type: 'string', enum: ['qriptopian', 'irl-os', 'agentiq-os', 'polity-core'] },
+          id: { type: 'string', description: 'A document id from list_public_documents.' },
+          edition: { type: 'string', description: 'Optional edition id (Qriptopian Threshold essays only, e.g. "reading" or "research").' },
+          offset: { type: 'number', description: 'Character offset to start the page at. Defaults to 0.' },
+          limit: { type: 'number', description: 'Max characters to return in this page. Defaults to 8000, capped at 50000.' },
+        },
+        required: ['cartridge', 'id'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'search_public_knowledge',
+      description:
+        'Search public document titles and text across one or all four public cartridges. This is KEYWORD search (substring/token match), not semantic search — reported honestly as searchMode:"keyword" in the response. Results include a source-grounded excerpt around each match. Public + read-only; no crossing required.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          query: { type: 'string' },
+          cartridge: { type: 'string', enum: ['qriptopian', 'irl-os', 'agentiq-os', 'polity-core'], description: 'Optional — omit to search all four cartridges.' },
+        },
+        required: ['query'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'list_public_capabilities',
+      description:
+        'List discoverable tools/services per public cartridge, each labelled `status` (live | described-only | planned), whether it mutates state, and any authorization it requires. Distinguishes a capability that genuinely exists and is deployed from one that is only described in documentation — never advertises a stale or undeployed handler as live. Public + read-only; no crossing required.',
+      inputSchema: {
+        type: 'object',
+        properties: { cartridge: { type: 'string', enum: ['qriptopian', 'irl-os', 'agentiq-os', 'polity-core'], description: 'Optional — omit to list all four.' } },
+        additionalProperties: false,
+      },
+    },
+    // ── Authenticated crossing tools (require a scoped session from the crossing) ──
+    {
+      name: 'get_crossing_status',
+      description:
+        'After the crossing, report the current session: whether it is active, the exact capability scope the principal authorized, and which services are now reachable vs still need more scope. Requires an authenticated session (present your bearer). Reveals only the T2 principal/agent references — never persona identifiers.',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    },
+    {
+      name: 'get_persona_state',
+      description:
+        'Report the persona currently bound to this crossing, its owner-safe display/FIO projection, live agreement status, and current scope. Returns T2 references only. A persona change always requires a fresh human authorization.',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    },
+    {
+      name: 'list_available_personas',
+      description:
+        'List only personas visible under the same owner policy as the wallet persona switcher. Returns T2 Polity Public References and safe display metadata; never raw persona, auth-profile, tenant, wallet, key, or service-private identifiers.',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    },
+    {
+      name: 'request_persona_switch',
+      description:
+        'Prepare a short-lived persona re-crossing. This does not switch or mutate the current session. Pass a target T2 personaPublicRef and a fresh OAuth PKCE S256 code challenge; the returned browser URL requires explicit human approval and yields a fresh target-bound authorization code/bearer.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          personaPublicRef: { type: 'string', description: 'T2 Polity Public Reference from list_available_personas.' },
+          codeChallenge: { type: 'string', description: 'Fresh PKCE S256 code challenge (base64url).' },
+          codeChallengeMethod: { type: 'string', enum: ['S256'] },
+          state: {
+            type: 'string',
+            minLength: 1,
+            description: 'Required client-generated OAuth state echoed unchanged to the registered redirect URI.',
+          },
+        },
+        required: ['personaPublicRef', 'codeChallenge', 'codeChallengeMethod', 'state'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'get_navigator_state',
+      description:
+        'The constitutional navigator: answers "what should my principal do next" for a specific bridge/programme, composed from their REAL current state — Passport (usable/not-usable), agent sponsorship + bounded delegation, research-lab and Reciprocal Artifact Exchange grants, and their exact position in that journey (current stage, what evidence is still missing, and why the next stage matters, in the journey\'s own words). This is a NAVIGATOR over the existing journey — it never advances or mutates anything; it only reads and explains. Only ONE bridge is wired in this increment: "ocsga" (the Boundary Research / Reciprocal Artifact Exchange crossing). Omit `bridge` to use the session\'s own initiating service. Requires an authenticated session.',
+      inputSchema: {
+        type: 'object',
+        properties: { bridge: { type: 'string', description: 'Which bridge/journey to resolve against (currently: "ocsga"). Defaults to the session\'s initiating service.' } },
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'list_accessible_iqubes',
+      description:
+        'List iQubes this crossing persona may read, globally across primitive types and cartridge placements. Requires iqube.read. Access is decided per iQube by the canonical Persona Spine and Registry policy; the connected agent cannot select or union personas.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          primitiveType: { type: 'string', enum: ['DataQube', 'ContentQube', 'ToolQube', 'ModelQube', 'AigentQube', 'ClusterQube'] },
+          cartridge: { type: 'string', description: 'Optional placement filter; never treated as the access boundary.' },
+          query: { type: 'string', description: 'Optional case-insensitive metadata filter.' },
+          offset: { type: 'number' },
+          limit: { type: 'number', description: 'Defaults to 25; maximum 100.' },
+          scanOffset: { type: 'number', description: 'Registry scan cursor. Continue with nextScanOffset when scanComplete is false.' },
+        },
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'get_accessible_iqube',
+      description:
+        'Resolve the authorized, agent-safe manifest for one iQube. Requires iqube.read and a live persona+agent crossing agreement. Missing and unauthorized iQubes deliberately return the same response.',
+      inputSchema: {
+        type: 'object',
+        properties: { iqubeId: { type: 'string' } },
+        required: ['iqubeId'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'read_accessible_iqube_text',
+      description:
+        'Read a bounded agent-readable text rendition for an iQube after the same persona-scoped access decision used by native surfaces. Never returns storage URLs, encryption material, or raw identity identifiers. Requires iqube.read.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          iqubeId: { type: 'string' },
+          offset: { type: 'number' },
+          limit: { type: 'number', description: 'Defaults to 8000 characters; maximum 50000.' },
+        },
+        required: ['iqubeId'],
+        additionalProperties: false,
+      },
+    },
+    // ── OCSGA / Boundary Research MCP-completable rituals (Surface Independence, 2026-08-26) ──
+    // Every tool below writes to the EXACT SAME canonical service a native
+    // IRL OS surface writes to — never a parallel evidence store. Each
+    // requires the `research.exchange.write` (or `delegation.grant`)
+    // capability from an incremental `irl` crossing, and each REQUIRES
+    // `declarationConfirmed: true` — you must show your principal the exact
+    // declaration text and obtain their explicit assent before calling.
+    // Native IRL OS surfaces remain fully valid alternatives; these tools
+    // only remove the requirement to navigate there when this MCP session
+    // can lawfully complete the same stage.
+    {
+      name: 'get_exchange_state',
+      description:
+        "Read your principal's current Reciprocal Artifact Exchange state (OCSGA Boundary Research): whether they have deposited an artifact (and, if it was registered on their behalf by an operator, whether it is still pending their own confirmation — pendingPrincipalAttestation), whether it is freeze-declared, whether it is signed, and the same for the counterparty (subject to disclosure policy). ALSO returns the canonical freezeDeclarationText and exchangeInstrumentClauses — the exact text to present your principal BEFORE calling declare_artifact_freeze or sign_exchange_instrument (never paraphrase or assume this text). Read-only. Requires an authenticated session with research.read.",
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    },
+    {
+      name: 'deposit_exchange_artifact',
+      description:
+        "Deposit (or replace) your principal's research artifact into their active Reciprocal Artifact Exchange — the SAME act the native Exchange workspace's deposit form performs. Requires explicit declaration/consent BEFORE calling (declarationConfirmed: true) and the research.exchange.write capability. Compute contentHash first with fingerprint_exchange_artifact.",
+      inputSchema: {
+        type: 'object',
+        properties: {
+          declarationConfirmed: { type: 'boolean', description: 'Must be true. Set only after showing your principal what is about to be deposited and obtaining explicit assent.' },
+          title: { type: 'string' },
+          artifactClass: { type: 'string' },
+          description: { type: 'string' },
+          sourceType: { type: 'string', enum: ['upload', 'repository-commit', 'immutable-reference', 'manifest'] },
+          sourceReference: { type: 'string', description: 'Repo-relative path, storage path, CID, or manifest URI — never a mutable branch URL for a repository-commit artifact.' },
+          contentHash: { type: 'string', description: 'sha256 hex — get this from fingerprint_exchange_artifact.' },
+          repositoryCommit: { type: 'string', description: 'Required when sourceType is repository-commit — the pinned commit SHA.' },
+          storageReference: { type: 'string' },
+          mimeType: { type: 'string' },
+          ownershipDeclaration: { type: 'string', description: "Your principal's statement of ownership/authorship over this artifact." },
+          rightsForExchange: { type: 'string', description: 'What rights your principal grants the counterparty for this exchange.' },
+        },
+        required: ['declarationConfirmed', 'title', 'artifactClass', 'sourceType', 'sourceReference', 'contentHash', 'ownershipDeclaration', 'rightsForExchange'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'confirm_operator_assisted_artifact',
+      description:
+        "Adopt, as your principal's OWN attested evidence, a research artifact that an authorized operator custodially registered on their behalf (used when your principal could not themselves reach a deposit surface). This is your principal's own constitutional act — it never runs on any operator's or agent's say-so alone. The artifact's content/fingerprint is untouched; only the pending-confirmation flag clears. Until confirmed (by this tool or the native Exchange workspace), the artifact CANNOT be frozen or signed by any caller, including the registering operator. Requires explicit declaration/consent (declarationConfirmed: true) and the research.exchange.write capability. A no-op (still ok:true) if nothing is pending.",
+      inputSchema: {
+        type: 'object',
+        properties: {
+          declarationConfirmed: { type: 'boolean', description: 'Must be true. Set only after showing your principal exactly which artifact was registered on their behalf (title, fingerprint, who registered it and on what authority) and obtaining their explicit assent to adopt it as their own.' },
+        },
+        required: ['declarationConfirmed'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'fingerprint_exchange_artifact',
+      description:
+        'Compute the canonical sha256 fingerprint for artifact content, deterministically — the SAME algorithm the platform uses everywhere else. Pure/stateless: no write, no principal resolution required. Pass exactly one of content (utf8 text) or contentBase64 (binary). Use the result as contentHash for deposit_exchange_artifact.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          content: { type: 'string', description: 'UTF-8 text content to fingerprint.' },
+          contentBase64: { type: 'string', description: 'Base64-encoded binary content to fingerprint.' },
+        },
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'declare_artifact_freeze',
+      description:
+        "Declare your principal's deposited artifact frozen — the SAME act as the native Exchange workspace's Freeze Declaration button, writing the SAME attestation record (there is exactly one canonical freeze act in this platform; this both declares AND attests it — see get_navigator_state's note on this journey). Requires explicit declaration/consent (declarationConfirmed: true) and the research.exchange.write capability. Requires an artifact already deposited.",
+      inputSchema: {
+        type: 'object',
+        properties: {
+          declarationConfirmed: { type: 'boolean', description: 'Must be true. Set only after presenting the exact freeze-declaration text to your principal and obtaining explicit assent.' },
+        },
+        required: ['declarationConfirmed'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'sign_exchange_instrument',
+      description:
+        "Sign the reciprocal Exchange Instrument on your principal's behalf — the constitutional act that commits them to the crossing. Writes an authenticated-principal MCP attestation to the SAME exchange_attestations table a native browser signature would write to (labelled origin_channel='mcp', never represented as a wallet signature) — it satisfies this stage on equal terms with native signing. Requires explicit declaration/consent (declarationConfirmed: true), the research.exchange.write capability, and that the freeze was already declared. Requires an authenticated session.",
+      inputSchema: {
+        type: 'object',
+        properties: {
+          declarationConfirmed: { type: 'boolean', description: 'Must be true. Set only after presenting the exact Exchange Instrument clauses to your principal and obtaining explicit assent to each.' },
+        },
+        required: ['declarationConfirmed'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'establish_delegation',
+      description:
+        "Establish bounded delegation from your principal to an agent, directly through this MCP session — no browser visit required. Grants the SAFE FLOOR only (L1_EXPERIMENTAL trust band, knowledge_retrieval-class actions, capped TTL); for a broader grant your principal must use the native Delegate surface. Writes to the SAME delegation_grants ledger the native ceremony writes to. Requires explicit declaration/consent (declarationConfirmed: true) and the delegation.grant capability.",
+      inputSchema: {
+        type: 'object',
+        properties: {
+          declarationConfirmed: { type: 'boolean', description: 'Must be true. Set only after explaining exactly what bounded authority is being delegated and obtaining explicit assent.' },
+          agentRootDid: { type: 'string', description: "The delegate agent's root DID." },
+          purpose: { type: 'string', description: 'Why this delegation is being granted (e.g. "assist with Boundary Research artifact review").' },
+        },
+        required: ['declarationConfirmed', 'agentRootDid', 'purpose'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'request_service_capabilities',
+      description:
+        'Check whether the crossing already holds the scope to enter a named service; if not, learn exactly which additional capabilities an incremental crossing must request. This PREPARES a request — your principal authorizes any new scope in the browser. Requires an authenticated session.',
+      inputSchema: {
+        type: 'object',
+        properties: { service: { type: 'string', description: 'A service id from list_services (e.g. irl, devon).' } },
+        required: ['service'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'propose_delegation',
+      description:
+        'Draft an incremental delegation proposal for a set of capabilities so you can explain to your principal exactly what would be requested and its bounds. This only PREPARES a proposal — you cannot grant it; your principal authorizes via a crossing in the browser. Requires an authenticated session.',
+      inputSchema: {
+        type: 'object',
+        properties: { capabilities: { type: 'array', items: { type: 'string' }, description: 'The capabilities to propose.' } },
+        required: ['capabilities'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'get_companion_install',
+      description:
+        'Get everything your principal needs to install the metaMe Companion — the browser-side surface of the crossing they just made — while it is still pre-release and NOT in the Chrome Web Store. Returns a download URL for the extension bundle, its sha256 integrity values, the pinned extension ID to check after loading, the exact chrome://extensions steps, and the pairing step. IMPORTANT: you CANNOT install it; no MCP tool, page, or script can add an extension to a browser. Hand your principal the artifact and the steps, tell them plainly that the install is theirs to perform, and confirm afterwards. Requires an authenticated session.',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    },
+    // ── IRL service adapter — read surface (requires research.read) ──
+    {
+      name: 'list_shared_documents',
+      description:
+        "List the Invariant Research Lab's shared research artifacts (its public open corpus index), so you can help your principal navigate them. Requires the research.read capability, granted by entering the Researcher journey / the IRL service.",
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    },
+    {
+      name: 'read_shared_document',
+      description:
+        "Read a specific shared IRL research document by its repo-relative path (e.g. foundation/PARTICIPATION_overview.md). Returns the raw markdown from IRL's public, persona-free corpus. Requires the research.read capability.",
+      inputSchema: {
+        type: 'object',
+        properties: { path: { type: 'string', description: 'Repo-relative path within the IRL pack (e.g. foundation/…​.md).' } },
+        required: ['path'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'submit_review',
+      description:
+        'Submit an experiment result / review to the Invariant Research Lab under your principal\'s AUTHORIZED IRL delegation. Requires the research.submit capability AND an IRL submission agreement from the incremental IRL crossing (request_service_capabilities("irl") first). Each submission re-passes the x409 gate + the delegated TTL/action budget; a receipt is issued.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          experiment: { type: 'string', description: 'One of: EXP-P1, EXP-P2, EXP-P3, EXP-011, EXP-012, IRV-001, IPV-001. (EXP-011 / EXP-012 were chartered as EXP-P2 / EXP-P3 and renumbered 2026-07-27 when the P-slots were reserved for the four foundational experiments; EXP-P4 is reserved and has no results.)' },
+          provider: { type: 'string', description: 'The model provider used.' },
+          model: { type: 'string', description: 'The model id used.' },
+          results: { description: 'The result payload (verbatim; content-hashed on submit).' },
+          aggregates: { type: 'object', description: 'Optional aggregate metrics.' },
+        },
+        required: ['experiment', 'provider', 'model', 'results'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'upload_content_asset',
+      description:
+        'Upload a content asset (cover, thumbnail, document, media) to Autonomys storage. Supports two input methods: fileBase64 (for JSON-RPC clients) or file (for connector actions with native binary). Exactly one must be provided. Supported roles: cover, thumbnail, hero, social, pdf, video, audio, attachment. Requires the content.asset.upload capability (granted at crossing time if the persona holds admin privilege). Assets may be bundled: multiple assets with the same role coexist (unbounded); setPrimary:true establishes a primary cover for the content.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          fileBase64: { type: 'string', description: 'File content as base64-encoded string (for JSON-RPC clients).' },
+          file: { type: 'string', description: 'File content as raw binary (for connector/action layer; implementation-specific encoding).' },
+          fileName: { type: 'string', description: 'Original filename (e.g., "cover.jpg"). Used to determine MIME type.' },
+          domain: { type: 'string', description: 'Domain/series name (e.g., "metaKnyts", "qriptopian").' },
+          role: { type: 'string', enum: ['cover', 'thumbnail', 'hero', 'social', 'pdf', 'video', 'audio', 'attachment'], description: 'Asset role/category.' },
+          contentId: { type: 'string', description: 'Optional content ID to associate with this asset.' },
+          bind: { type: 'boolean', description: 'Whether to bind the asset to the specified contentId (default: true).' },
+          bundleId: { type: 'string', description: 'Optional bundle identifier for grouping multiple assets. Assets with the same bundleId coexist (unbounded).' },
+          bundleLabel: { type: 'string', description: 'Optional human-readable label for the bundle.' },
+          bundleType: { type: 'string', description: 'Optional bundle classification (e.g. "covers", "chapters", "background").' },
+          bundleOrder: { type: 'number', description: 'Optional sequence position within the bundle (for ordered collections).' },
+          assetUse: { type: 'string', description: 'Optional classification of how this asset is used (e.g. "primary", "fallback", "alternate").' },
+          setPrimary: { type: 'boolean', description: 'If true, establish this asset as the primary cover/cover_image for its content.' },
+        },
+        required: ['fileName', 'domain', 'role'],
+        additionalProperties: false,
+      },
+    },
+  ];
+}
+
+export function listResources() {
+  return [
+    { uri: AGENT_MANIFEST_URI, name: 'metaMe Agent README / canonical discovery manifest', mimeType: 'application/json' },
+    { uri: 'metame://welcome', name: 'Constitutional Welcome & Citizenship Orientation', mimeType: 'application/json' },
+    { uri: 'metame://institution/charter', name: 'metaMe Threshold — charter', mimeType: 'text/markdown' },
+    { uri: 'metame://onboarding/current', name: 'The crossing — current steps', mimeType: 'text/markdown' },
+    { uri: 'metame://journeys', name: 'Journey registry (user-facing)', mimeType: 'application/json' },
+    { uri: 'metame://services', name: 'Service registry (platform-facing)', mimeType: 'application/json' },
+    { uri: 'metame://public-knowledge', name: 'Public knowledge layer — orientation', mimeType: 'text/markdown' },
+  ];
+}
+
+export function listPrompts() {
+  return [
+    {
+      name: 'cross_the_threshold',
+      description: 'Guide the principal, conversationally, across the metaMe Threshold: inspect the crossing, explain every requested permission, and proceed only on explicit human approval.',
+      arguments: [{ name: 'code', description: 'The Threshold Link / invitation code, if the principal has one.', required: false }],
+    },
+    {
+      name: 'get_polity_passport',
+      description: 'Explain what a Polity Passport establishes (personhood-bound continuity without public identity exposure) and guide the principal to obtain one.',
+      arguments: [],
+    },
+    {
+      name: 'explain_delegation_request',
+      description: 'Explain, in plain language, exactly what bounded authority a crossing is asking the principal to delegate to their agent — what it may and may not do — before they authorize.',
+      arguments: [{ name: 'capabilities', description: 'The requested capability scope.', required: false }],
+    },
+    {
+      name: 'constitutional_welcome',
+      description: 'Deliver the Constitutional Welcome the moment a crossing succeeds: congratulate the principal, tell them they are now a citizen of the Polity, offer the two orientation explanations (Constitutional Internet, citizenship + its limits), present the crossing receipt (service authority: none yet), and lead into the five journeys. Read metame://welcome for the canonical copy.',
+      arguments: [],
+    },
+    {
+      name: 'choose_your_journey',
+      description: 'After the Polity Passport is issued, help the principal choose one of the five constitutional journeys (Citizen, Entrepreneur, Researcher, Creative, Technical). Present each as a goal with its Sovereignty Ladder, and let the principal pick a purpose — the services follow from the journey.',
+      arguments: [],
+    },
+    {
+      name: 'explore_public_knowledge',
+      description: 'Help the principal explore the public knowledge layer (Qriptopian, IRL OS, AgentiQ OS, Polity Core) BEFORE any crossing — read metame://public-knowledge first, then use list_public_cartridges/list_public_documents/read_public_document/search_public_knowledge. Always state each document\'s own status (ratified/explanatory/proposed/etc.) rather than presenting commentary as binding law.',
+      arguments: [{ name: 'query', description: 'What the principal wants to learn about, if known.', required: false }],
+    },
+  ];
+}
+
+// ── Read-only dispatch ────────────────────────────────────────────────────────
+
+/** Tools that require the Constitutional Handshake (a valid scoped bearer). Until
+ *  the Companion has crossed via the OAuth flow, the MCP route answers a call to
+ *  one of these with an HTTP 401 + WWW-Authenticate challenge (the spec trigger
+ *  for the client to run the crossing); if the transport still reaches dispatch,
+ *  callTool returns an honest "handshake required". */
+export const HANDSHAKE_TOOLS = new Set([
+  'begin_handshake',
+  'authenticate_principal',
+  'get_crossing_status',
+  'get_persona_state',
+  'list_available_personas',
+  'request_persona_switch',
+  'get_navigator_state',
+  'list_accessible_iqubes',
+  'get_accessible_iqube',
+  'read_accessible_iqube_text',
+  'get_exchange_state',
+  'deposit_exchange_artifact',
+  'confirm_operator_assisted_artifact',
+  'fingerprint_exchange_artifact',
+  'declare_artifact_freeze',
+  'sign_exchange_instrument',
+  'establish_delegation',
+  'get_passport_status',
+  'create_or_link_agent_card',
+  'request_agent_passport',
+  'activate_agent_passport',
+  'propose_delegation',
+  'request_service_capabilities',
+  'get_companion_install',
+  'enter_service',
+  'accept_lab_invitation',
+  'list_shared_documents',
+  'read_shared_document',
+  'submit_review',
+  'send_qubetalk_message',
+  'upload_content_asset',
+]);
+
+/** Authenticated tools IMPLEMENTED in this increment. They are a subset of
+ *  HANDSHAKE_TOOLS (so the route still 401-challenges a bearer-less call); with a
+ *  valid session, callTool executes them instead of the "handshake required"
+ *  fallback. The remaining HANDSHAKE_TOOLS land in later increments. */
+const AUTHENTICATED_TOOLS = new Set([
+  'get_crossing_status',
+  'get_persona_state',
+  'list_available_personas',
+  'request_persona_switch',
+  'get_navigator_state',
+  'list_accessible_iqubes',
+  'get_accessible_iqube',
+  'read_accessible_iqube_text',
+  'get_exchange_state',
+  'deposit_exchange_artifact',
+  'confirm_operator_assisted_artifact',
+  'fingerprint_exchange_artifact',
+  'declare_artifact_freeze',
+  'sign_exchange_instrument',
+  'establish_delegation',
+  'request_service_capabilities',
+  'propose_delegation',
+  'get_companion_install',
+  'list_shared_documents',
+  'read_shared_document',
+  'submit_review',
+  'upload_content_asset',
+]);
+
+function text(value: unknown) {
+  return {
+    content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) }],
+  };
+}
+
+function handshakeRequired() {
+  return {
+    ...text(
+      'This action requires the Constitutional Handshake — a scoped session your principal grants by crossing the Threshold. ' +
+        'Discover the crossing at /.well-known/oauth-protected-resource and run the OAuth authorization-code flow: your principal ' +
+        'signs in and authorizes a bounded delegation in the browser, then you present the resulting bearer here. Only the human authorizes.',
+    ),
+    isError: true,
+  };
+}
+
+export async function callTool(name: string, args: Record<string, unknown>, ctx: GatewayContext) {
+  if (name === 'list_journeys') {
+    return text(journeyRegistrySnapshot());
+  }
+
+  if (name === 'list_services') {
+    return text(serviceRegistrySnapshot());
+  }
+
+  if (name === 'explain_primitive') {
+    const term = typeof args.term === 'string' ? args.term.trim() : '';
+    if (!term) return { ...text('A term to define is required (e.g. "standing", "delegation", "Polity Passport").'), isError: true };
+    if (!ctx.irl) return { ...text('The constitutional canon is unavailable on this gateway.'), isError: true };
+    return text(await ctx.irl.definePrimitive(term));
+  }
+
+  if (name === 'read_experiment_results') {
+    if (!ctx.irl) return { ...text('The IRL results surface is unavailable on this gateway.'), isError: true };
+    const experiment = typeof args.experiment === 'string' ? args.experiment.trim() : undefined;
+    return text(await ctx.irl.readResults(experiment));
+  }
+
+  if (name === 'list_invariants') {
+    if (!ctx.irl) return { ...text('The IRL invariant registry is unavailable on this gateway.'), isError: true };
+    return text(await ctx.irl.listInvariants({
+      namespace: typeof args.namespace === 'string' ? args.namespace : undefined,
+      status: typeof args.status === 'string' ? args.status : undefined,
+      domain: typeof args.domain === 'string' ? args.domain : undefined,
+      offset: typeof args.offset === 'number' ? args.offset : undefined,
+      limit: typeof args.limit === 'number' ? args.limit : undefined,
+    }));
+  }
+
+  if (name === 'get_invariant') {
+    if (!ctx.irl) return { ...text('The IRL invariant registry is unavailable on this gateway.'), isError: true };
+    const id = typeof args.id === 'string' ? args.id.trim() : '';
+    if (!id) return { ...text('An invariant id is required.'), isError: true };
+    return text(await ctx.irl.getInvariant(id));
+  }
+
+  if (name === 'search_invariants') {
+    if (!ctx.irl) return { ...text('The IRL invariant registry is unavailable on this gateway.'), isError: true };
+    const query = typeof args.query === 'string' ? args.query.trim() : '';
+    if (!query) return { ...text('A search query is required.'), isError: true };
+    return text(await ctx.irl.searchInvariants(query, {
+      namespace: typeof args.namespace === 'string' ? args.namespace : undefined,
+      status: typeof args.status === 'string' ? args.status : undefined,
+      offset: typeof args.offset === 'number' ? args.offset : undefined,
+      limit: typeof args.limit === 'number' ? args.limit : undefined,
+    }));
+  }
+
+  if (name === 'list_invariants_for_experiment') {
+    if (!ctx.irl) return { ...text('The IRL invariant registry is unavailable on this gateway.'), isError: true };
+    const experimentId = typeof args.experimentId === 'string' ? args.experimentId.trim() : '';
+    if (!experimentId) return { ...text('An experiment id is required.'), isError: true };
+    return text(await ctx.irl.listInvariantsForExperiment(experimentId));
+  }
+
+  if (name === 'get_invariant_lineage') {
+    if (!ctx.irl) return { ...text('The IRL invariant registry is unavailable on this gateway.'), isError: true };
+    const id = typeof args.id === 'string' ? args.id.trim() : '';
+    if (!id) return { ...text('An invariant id is required.'), isError: true };
+    return text(await ctx.irl.getInvariantLineage(id));
+  }
+
+  if (name === 'inspect_threshold_link') {
+    const code = typeof args.code === 'string' ? args.code.trim() : '';
+    if (!code) return { ...text('A Threshold Link code is required.'), isError: true };
+    if (!ctx.resolveInvitation) return { ...text('Invitation resolution is unavailable on this gateway.'), isError: true };
+    const info = await ctx.resolveInvitation(code);
+    if (!info) return { ...text('That Threshold Link was not found or has expired.'), isError: true };
+    const manifest: ThresholdLinkManifest = buildThresholdLink({
+      invitationId: info.invitationId,
+      initiatingService: info.initiatingService,
+      institution: info.institution,
+      requestedRole: info.requestedRole,
+      requestedCapabilities: info.requestedCapabilities,
+      gatewayUrl: ctx.gatewayUrl,
+      expiresAt: info.expiresAt ?? null,
+    });
+    return text({
+      crossing: {
+        institution: info.institution ?? null,
+        initiatingService: info.initiatingService,
+        requestedRole: info.requestedRole,
+        requestedCapabilities: info.requestedCapabilities,
+        status: info.status,
+        alreadyCrossed: info.onboarded,
+      },
+      constitutionalBoundary:
+        'You (the agent) may inspect, prepare, and explain. Establishing personhood, claiming the invitation, and authorizing delegation are HUMAN constitutional acts performed by the signed-in principal.',
+      nextStep: info.onboarded
+        ? 'This principal has already crossed. Use list_services to see what they can enter.'
+        : 'Explain each requested capability to your principal, then (in a subsequent gateway increment) begin the Constitutional Handshake to establish their Polity Passport.',
+      manifest,
+    });
+  }
+
+  // ── Public knowledge & discovery layer (2026-09-03) — unauthenticated, ──
+  // read-only. Never added to AUTHENTICATED_TOOLS/HANDSHAKE_TOOLS: every
+  // document surfaced here is on an explicit public allowlist in
+  // services/threshold/publicKnowledge.ts, not gated by a crossing.
+  if (name === 'list_public_cartridges') {
+    if (!ctx.publicKnowledge) return { ...text('The public knowledge layer is unavailable on this gateway.'), isError: true };
+    return text({ cartridges: ctx.publicKnowledge.listCartridges() });
+  }
+
+  if (name === 'list_public_documents') {
+    if (!ctx.publicKnowledge) return { ...text('The public knowledge layer is unavailable on this gateway.'), isError: true };
+    const cartridge = typeof args.cartridge === 'string' ? (args.cartridge as PublicCartridgeId) : null;
+    if (!cartridge) return { ...text('A cartridge is required (one of: qriptopian, irl-os, agentiq-os, polity-core).'), isError: true };
+    const result = await ctx.publicKnowledge.listDocuments(cartridge);
+    if (!result.ok) return { ...text(result.error ?? `Could not list documents for ${cartridge}.`), isError: true };
+    return text(result);
+  }
+
+  if (name === 'read_public_document') {
+    if (!ctx.publicKnowledge) return { ...text('The public knowledge layer is unavailable on this gateway.'), isError: true };
+    const cartridge = typeof args.cartridge === 'string' ? (args.cartridge as PublicCartridgeId) : null;
+    const id = typeof args.id === 'string' ? args.id.trim() : '';
+    if (!cartridge || !id) return { ...text('A cartridge and a document id (from list_public_documents) are required.'), isError: true };
+    const edition = typeof args.edition === 'string' ? args.edition : undefined;
+    const offset = typeof args.offset === 'number' ? args.offset : undefined;
+    const limit = typeof args.limit === 'number' ? args.limit : undefined;
+    const result = await ctx.publicKnowledge.readDocument(cartridge, id, { edition, offset, limit });
+    if (!result.ok) return { ...text(result.error ?? `Could not read ${cartridge}/${id}.`), isError: true };
+    return text(result.page);
+  }
+
+  if (name === 'search_public_knowledge') {
+    if (!ctx.publicKnowledge) return { ...text('The public knowledge layer is unavailable on this gateway.'), isError: true };
+    const query = typeof args.query === 'string' ? args.query.trim() : '';
+    if (!query) return { ...text('A search query is required.'), isError: true };
+    const cartridge = typeof args.cartridge === 'string' ? (args.cartridge as PublicCartridgeId) : undefined;
+    const result = await ctx.publicKnowledge.search(query, cartridge);
+    if (!result.ok) return { ...text(result.error ?? 'Search failed.'), isError: true };
+    return text(result);
+  }
+
+  if (name === 'list_public_capabilities') {
+    if (!ctx.publicKnowledge) return { ...text('The public knowledge layer is unavailable on this gateway.'), isError: true };
+    const cartridge = typeof args.cartridge === 'string' ? (args.cartridge as PublicCartridgeId) : undefined;
+    return text({ capabilities: ctx.publicKnowledge.listCapabilities(cartridge) });
+  }
+
+  // ── Authenticated dispatch (Increment 3) — session-gated, read/prepare only ──
+  // These consume the scoped session minted by the crossing. They report status,
+  // resolve service eligibility, and PREPARE incremental delegations — they never
+  // mutate the principal's state (that requires a human-authorized crossing) and
+  // never touch a T0 identifier (the session carries only T2 refs).
+  if (AUTHENTICATED_TOOLS.has(name)) {
+    if (!ctx.session) return handshakeRequired();
+    const s = ctx.session;
+
+    if (name === 'get_crossing_status') {
+      // Eligibility ≠ authority — the two states a service can be in, reported
+      // distinctly so a Companion never mistakes "you can enter this" for "your
+      // agent may operate here". A service is `authorized` only when the session
+      // actually holds its operating capabilities (i.e. an incremental crossing
+      // has happened); otherwise it is `eligible` — discoverable, entry offered,
+      // but no operational authority yet.
+      const svcState = listServices().map((svc) => {
+        const capabilitiesHeld = svc.requiredCapabilities.filter((c) => hasScope(s, c));
+        const capabilitiesMissing = svc.requiredCapabilities.filter((c) => !hasScope(s, c));
+        return {
+          id: svc.id,
+          title: svc.title,
+          role: svc.role,
+          status: svc.status,
+          capabilitiesHeld,
+          capabilitiesMissing,
+          authorized: capabilitiesMissing.length === 0,
+          agreementRecorded: Boolean(s.serviceAgreements?.[svc.id]),
+        };
+      });
+      const authorized = svcState.filter((x) => x.authorized);
+      const eligible = svcState.filter((x) => !x.authorized).map((x) => ({ ...x, authorizationRequired: true }));
+      return text({
+        crossed: true,
+        principal: s.principalPublicRef, // T2 Polity Public Reference — never a persona id
+        agent: s.agentAlias, // T2 alias
+        initiatingService: s.initiatingService,
+        // Constitutional framing: the granted authority + the crossing receipt.
+        // A base crossing carries only constitutional-root navigation authority,
+        // so `receipt.serviceAuthority` reads "none yet" until a journey is chosen.
+        currentAuthority: s.scope,
+        crossingReceipt: crossingReceipt(s),
+        services: {
+          authorized, // operational authority held on this session — can be operated now
+          eligible, // discoverable; an incremental crossing is required before operating
+        },
+        // Back-compat mirrors (older callers): the id lists of the two states.
+        reachableServices: authorized.map((x) => x.id),
+        pendingServices: eligible.map((x) => ({ id: x.id, missingCapabilities: x.capabilitiesMissing })),
+        note:
+          'Eligible ≠ authorized. A service under `eligible` is discoverable and you may request entry, but your agent holds NO operational authority within it until an incremental crossing completes — call request_service_capabilities("<id>") and your principal authorizes in the browser. Only services under `authorized` can be operated now. (Journey eligibility is discovery; operational authority is a separate, human-authorized grant.)',
+        expiresAt: s.expiresAt,
+      });
+    }
+
+    if (name === 'get_persona_state') {
+      if (!ctx.personaRecross) return { ...text('Persona state is unavailable on this gateway.'), isError: true };
+      return text(await ctx.personaRecross.getState());
+    }
+
+    if (name === 'list_available_personas') {
+      if (!ctx.personaRecross) return { ...text('Persona discovery is unavailable on this gateway.'), isError: true };
+      const personas = await ctx.personaRecross.listAvailable();
+      if (!personas) return { ...text('The current persona binding could not be resolved.'), isError: true };
+      return text({ personas, switchRequiresReauthorization: true });
+    }
+
+    if (name === 'request_persona_switch') {
+      if (!ctx.personaRecross) return { ...text('Persona switching is unavailable on this gateway.'), isError: true };
+      if (args.codeChallengeMethod !== 'S256') {
+        return { ...text('codeChallengeMethod must be S256.'), isError: true };
+      }
+      const personaPublicRef = typeof args.personaPublicRef === 'string' ? args.personaPublicRef : '';
+      const codeChallenge = typeof args.codeChallenge === 'string' ? args.codeChallenge : '';
+      const state = typeof args.state === 'string' ? args.state : '';
+      if (!state.trim()) return { ...text('state is required for persona re-crossing.'), isError: true };
+      const result = await ctx.personaRecross.requestSwitch({ personaPublicRef, codeChallenge, state });
+      return result.ok ? text(result) : { ...text(result.error), isError: true };
+    }
+
+    if (name === 'get_navigator_state') {
+      if (!ctx.resolveNavigatorState) return { ...text('The constitutional navigator is unavailable on this gateway.'), isError: true };
+      const bridge = typeof args.bridge === 'string' && args.bridge.trim() ? args.bridge.trim() : undefined;
+      const state = await ctx.resolveNavigatorState({ bridge });
+      if (!state) return { ...text('The navigator could not resolve state right now (the platform database is unavailable). Nothing below is derivable — try again shortly.'), isError: true };
+      if (!state.resolvable) {
+        return { ...text(`Could not resolve your principal's constitutional state: ${state.reason}`), isError: true };
+      }
+      return text({
+        ...state,
+        supportedBridges: supportedBridgeIds(),
+        note:
+          'This is a NAVIGATOR over the journey, not the journey itself — it never advances or authorizes anything. `nextAct` (when present) names the single next stage and who performs it (PRINCIPAL/DELEGATE/EITHER); a constitutional act (Passport, delegation, freeze, signature) is always the principal\'s own — you may explain and prepare it, never perform it.',
+      });
+    }
+
+    if (
+      name === 'list_accessible_iqubes' ||
+      name === 'get_accessible_iqube' ||
+      name === 'read_accessible_iqube_text'
+    ) {
+      if (!hasScope(s, 'iqube.read')) {
+        return {
+          ...text(
+            'This action needs the iqube.read projection capability. It grants no content by itself; your principal must authorize it in a fresh Threshold crossing, and every iQube is still evaluated independently.',
+          ),
+          isError: true,
+        };
+      }
+      if (!ctx.iqubeProjection) {
+        return { ...text('The persona-scoped iQube projection is unavailable on this gateway.'), isError: true };
+      }
+      if (name === 'list_accessible_iqubes') {
+        const result = await ctx.iqubeProjection.list({
+          primitiveType: typeof args.primitiveType === 'string' ? args.primitiveType : undefined,
+          cartridge: typeof args.cartridge === 'string' ? args.cartridge : undefined,
+          query: typeof args.query === 'string' ? args.query : undefined,
+          offset: typeof args.offset === 'number' ? args.offset : undefined,
+          limit: typeof args.limit === 'number' ? args.limit : undefined,
+          scanOffset: typeof args.scanOffset === 'number' ? args.scanOffset : undefined,
+        });
+        return result.ok ? text(result) : { ...text(result.error), isError: true };
+      }
+      const iqubeId = typeof args.iqubeId === 'string' ? args.iqubeId.trim() : '';
+      if (!iqubeId) return { ...text('iqubeId is required.'), isError: true };
+      const result = name === 'get_accessible_iqube'
+        ? await ctx.iqubeProjection.get(iqubeId)
+        : await ctx.iqubeProjection.readText(iqubeId, {
+            offset: typeof args.offset === 'number' ? args.offset : undefined,
+            limit: typeof args.limit === 'number' ? args.limit : undefined,
+          });
+      return result.ok ? text(result) : { ...text(result.error), isError: true };
+    }
+
+    // ── OCSGA / Boundary Research MCP-completable rituals (Surface Independence, 2026-08-26) ──
+    if (name === 'get_exchange_state') {
+      if (!ctx.mcpActs) return { ...text('The exchange surface is unavailable on this gateway.'), isError: true };
+      const result = await ctx.mcpActs.getExchangeState();
+      if (!result.ok) return { ...text(result.error), isError: true };
+      return text(result);
+    }
+
+    if (name === 'fingerprint_exchange_artifact') {
+      const result = fingerprintExchangeArtifact({
+        content: typeof args.content === 'string' ? args.content : undefined,
+        contentBase64: typeof args.contentBase64 === 'string' ? args.contentBase64 : undefined,
+      });
+      if (!result.ok) return { ...text(result.error), isError: true };
+      return text(result);
+    }
+
+    if (
+      name === 'deposit_exchange_artifact' ||
+      name === 'confirm_operator_assisted_artifact' ||
+      name === 'declare_artifact_freeze' ||
+      name === 'sign_exchange_instrument' ||
+      name === 'establish_delegation'
+    ) {
+      const establishingDelegation = name === 'establish_delegation';
+      let authorized = hasScope(s, 'research.exchange.write') || (establishingDelegation && hasScope(s, 'delegation.grant'));
+      let exchangeAuthorityError: string | null = null;
+      // Canonical-authority fallback (2026-08-30, "MCP channel equivalence"
+      // repair) — does NOT apply to establish_delegation, which grants NEW
+      // authority to a third-party agent and keeps its existing
+      // delegation.grant-only gate untouched. For the four exchange-act
+      // tools, a session-scope OAuth grant (the generic "enter the irl
+      // service" incremental crossing, PRD-THR-001 §9.3) is not the ONLY way
+      // to establish write authority for THIS exchange: a principal who is
+      // already a genuinely bound exchange party — the exact same check
+      // every write function below already performs internally via
+      // resolveExchangeWriteAuthority — needs no redundant second human
+      // ceremony to act on their own exchange. This still fails CLOSED: an
+      // unrelated principal, or one with no bound exchange, gets refused
+      // with the SAME specific reason the write itself would give.
+      if (!authorized && !establishingDelegation && ctx.mcpActs) {
+        const authority = await ctx.mcpActs.resolveExchangeAuthority();
+        if (authority.ok) {
+          authorized = true;
+        } else {
+          exchangeAuthorityError = authority.error;
+        }
+      }
+      if (!authorized) {
+        return {
+          ...text(
+            establishingDelegation
+              ? 'This action needs the delegation.grant capability, which a base crossing does not grant. Enter the Researcher journey and authorize the IRL delegation first (request_service_capabilities("irl")). Only the human authorizes.'
+              : `This action needs either established Reciprocal Artifact Exchange participation or the research.exchange.write capability from an incremental IRL crossing. ${exchangeAuthorityError ?? 'Enter the Researcher journey and authorize the IRL delegation first (request_service_capabilities("irl")).'}`,
+          ),
+          isError: true,
+        };
+      }
+      if (!ctx.mcpActs) return { ...text('The exchange/delegation write surface is unavailable on this gateway.'), isError: true };
+
+      if (name === 'deposit_exchange_artifact') {
+        const result = await ctx.mcpActs.depositArtifact({
+          declarationConfirmed: args.declarationConfirmed === true,
+          title: String(args.title ?? ''),
+          artifactClass: String(args.artifactClass ?? ''),
+          description: typeof args.description === 'string' ? args.description : undefined,
+          sourceType: args.sourceType as DepositArtifactMcpArgs['sourceType'],
+          sourceReference: String(args.sourceReference ?? ''),
+          contentHash: String(args.contentHash ?? ''),
+          repositoryCommit: typeof args.repositoryCommit === 'string' ? args.repositoryCommit : undefined,
+          storageReference: typeof args.storageReference === 'string' ? args.storageReference : undefined,
+          mimeType: typeof args.mimeType === 'string' ? args.mimeType : undefined,
+          ownershipDeclaration: String(args.ownershipDeclaration ?? ''),
+          rightsForExchange: String(args.rightsForExchange ?? ''),
+        });
+        if (!result.ok) return { ...text(result.error), isError: true };
+        return text(result);
+      }
+
+      if (name === 'confirm_operator_assisted_artifact') {
+        const result = await ctx.mcpActs.confirmOperatorAssistedArtifact({ declarationConfirmed: args.declarationConfirmed === true });
+        if (!result.ok) return { ...text(result.error), isError: true };
+        return text(result);
+      }
+
+      if (name === 'declare_artifact_freeze') {
+        const result = await ctx.mcpActs.declareFreeze({ declarationConfirmed: args.declarationConfirmed === true });
+        if (!result.ok) return { ...text(result.error), isError: true };
+        return text(result);
+      }
+
+      if (name === 'sign_exchange_instrument') {
+        const result = await ctx.mcpActs.signInstrument({ declarationConfirmed: args.declarationConfirmed === true });
+        if (!result.ok) return { ...text(result.error), isError: true };
+        return text(result);
+      }
+
+      // establish_delegation
+      const result = await ctx.mcpActs.establishDelegation({
+        declarationConfirmed: args.declarationConfirmed === true,
+        agentRootDid: String(args.agentRootDid ?? ''),
+        purpose: String(args.purpose ?? ''),
+      });
+      if (!result.ok) return { ...text(result.error), isError: true };
+      return text(result);
+    }
+
+    if (name === 'request_service_capabilities') {
+      const id = typeof args.service === 'string' ? args.service.trim() : '';
+      const svc = getService(id);
+      if (!svc) return { ...text(`Unknown service: ${id || '(none)'}. Use list_services.`), isError: true };
+      const missing = svc.requiredCapabilities.filter((c) => !hasScope(s, c));
+      if (missing.length === 0) {
+        return text({ service: svc.id, title: svc.title, reachable: true, note: `Your crossing already holds the scope for ${svc.title}.` });
+      }
+      // Mint the incremental service crossing link — the human authorizes THIS
+      // service's delegation in the browser, which upgrades the SAME session.
+      const upgrade = ctx.beginServiceUpgrade ? await ctx.beginServiceUpgrade(svc.id, missing) : null;
+      return text({
+        service: svc.id,
+        title: svc.title,
+        reachable: false,
+        missingCapabilities: missing,
+        authorizeUrl: upgrade?.authorizeUrl ?? null,
+        howTo: upgrade?.authorizeUrl
+          ? `Give your principal this link to authorize entering ${svc.title}: ${upgrade.authorizeUrl}. They sign in and approve the delegation in the browser — you cannot grant it yourself. Once approved, your existing session gains these capabilities.`
+          : 'An incremental crossing is required, but the authorize link could not be minted on this gateway. Only the human authorizes.',
+      });
+    }
+
+    if (name === 'propose_delegation') {
+      const caps = Array.isArray(args.capabilities) ? args.capabilities.filter((x): x is string => typeof x === 'string') : [];
+      const known = knownCapabilities();
+      const recognized = caps.filter((c) => known.has(c));
+      const unrecognized = caps.filter((c) => !known.has(c));
+      const alreadyHeld = recognized.filter((c) => hasScope(s, c));
+      const wouldRequest = recognized.filter((c) => !hasScope(s, c));
+      return text({
+        proposal: {
+          requestedCapabilities: recognized,
+          alreadyHeld,
+          wouldRequest,
+          unrecognized,
+          boundary:
+            'Read/participate only — a delegation proposed here can never move funds, publish, disclose identity, or delegate onward.',
+        },
+        humanStep:
+          'This is a draft to explain to your principal. To grant the new capabilities, run the crossing (OAuth authorize) requesting `wouldRequest`; ' +
+          'your principal authorizes in the browser. You cannot authorize on their behalf.',
+      });
+    }
+
+    // ── Companion install (SPEC-MMC-003 §3.2) — artifact + steps, never an install ──
+    // Session-gated but capability-free on purpose: the Companion is the same
+    // principal's own browser surface, and PRD-MMC-001 §4.1 is explicit that the
+    // install "grants nothing beyond identity-only" — it holds no session until
+    // the human pairs it with their own. So there is no authority to delegate
+    // here and nothing for a capability to bound. The gate that matters is that
+    // this is discoverable only AFTER a human-authorized crossing.
+    if (name === 'get_companion_install') {
+      if (!ctx.companionInstall) return { ...text('The Companion artifact is unavailable on this gateway.'), isError: true };
+      const brief = ctx.companionInstall();
+      return text({
+        ...brief,
+        constitutionalBoundary:
+          'Installing and pairing are HUMAN acts. You may hand over the artifact, the integrity values, and the steps, and you may ' +
+          'confirm the result — you cannot add the extension to a browser, and you must not imply that you can. Pairing uses your ' +
+          'principal\'s own signed-in session, read in their own tab; it never passes through you.',
+        storeListingNote:
+          'The Companion is not yet registered with the Chrome Web Store, so there is no "Add to Chrome" button and no auto-update. ' +
+          'The developer-mode load below is the supported path until a listing exists; do not invent a store URL.',
+      });
+    }
+
+    // ── IRL service adapter — read surface, gated on the research.read capability ──
+    if (name === 'list_shared_documents' || name === 'read_shared_document') {
+      if (!hasScope(s, 'research.read')) {
+        return {
+          ...text(
+            'This action needs the `research.read` capability, which a base crossing does not grant. ' +
+              'Enter the Researcher journey and authorize the IRL delegation first (request_service_capabilities("irl")). Only the human authorizes.',
+          ),
+          isError: true,
+        };
+      }
+      if (!ctx.irl) return { ...text('The IRL adapter is unavailable on this gateway.'), isError: true };
+      if (name === 'list_shared_documents') return text(await ctx.irl.listDocuments());
+      const path = typeof args.path === 'string' ? args.path : '';
+      return text(await ctx.irl.readDocument(path));
+    }
+
+    // ── IRL write surface — submit a result under the AUTHORIZED IRL delegation ──
+    if (name === 'submit_review') {
+      if (!hasScope(s, 'research.submit')) {
+        return {
+          ...text('This action needs the `research.submit` capability. Enter the Researcher journey and authorize the IRL delegation first (request_service_capabilities("irl")). Only the human authorizes.'),
+          isError: true,
+        };
+      }
+      const agreementId = s.serviceAgreements?.irl;
+      if (!agreementId) {
+        return {
+          ...text('You hold research.submit but have no IRL submission agreement on this session. Have your principal authorize the incremental IRL crossing (request_service_capabilities("irl")) — that binds the irl:experiment-result:submit delegation this tool submits under.'),
+          isError: true,
+        };
+      }
+      if (!ctx.irl) return { ...text('The IRL adapter is unavailable on this gateway.'), isError: true };
+      const result = await ctx.irl.submitResult({
+        agreementId,
+        experiment: String(args.experiment ?? ''),
+        provider: String(args.provider ?? ''),
+        model: String(args.model ?? ''),
+        results: args.results,
+        aggregates: args.aggregates && typeof args.aggregates === 'object' ? (args.aggregates as Record<string, unknown>) : {},
+      });
+      return text(result);
+    }
+
+    // ── Content asset upload — authenticated, requires content.asset.upload capability ──
+    if (name === 'upload_content_asset') {
+      // Authorize via scope: the crossing grants content.asset.upload only if the
+      // persona carries admin privilege at crossing time. (Revocation: if
+      // admin rights are revoked, new crossings will not grant the capability.)
+      if (!hasScope(s, 'content.asset.upload')) {
+        return {
+          ...text('This action requires content.asset.upload capability. You do not hold this authorization.'),
+          isError: true,
+        };
+      }
+
+      const fileBase64 = typeof args.fileBase64 === 'string' ? args.fileBase64 : null;
+      const file = typeof args.file === 'string' ? args.file : null;
+      const fileName = typeof args.fileName === 'string' ? args.fileName : null;
+      const domain = typeof args.domain === 'string' ? args.domain : null;
+      const role = typeof args.role === 'string' ? args.role : null;
+      const contentId = typeof args.contentId === 'string' ? args.contentId : undefined;
+      const bind = args.bind === false ? false : true;
+
+      // Bundle metadata parameters (optional)
+      const bundleId = typeof args.bundleId === 'string' ? args.bundleId : undefined;
+      const bundleLabel = typeof args.bundleLabel === 'string' ? args.bundleLabel : undefined;
+      const bundleType = typeof args.bundleType === 'string' ? args.bundleType : undefined;
+      const bundleOrder = typeof args.bundleOrder === 'number' ? args.bundleOrder : undefined;
+      const assetUse = typeof args.assetUse === 'string' ? args.assetUse : undefined;
+      const setPrimary = args.setPrimary === true;
+
+      if (!fileName || !domain || !role) {
+        return {
+          ...text('Missing required parameters: fileName, domain, role'),
+          isError: true,
+        };
+      }
+
+      // Validate exactly one of file or fileBase64 is supplied
+      if (!file && !fileBase64) {
+        return {
+          ...text('Must supply either file or fileBase64, not neither'),
+          isError: true,
+        };
+      }
+      if (file && fileBase64) {
+        return {
+          ...text('Cannot supply both file and fileBase64 — provide only one'),
+          isError: true,
+        };
+      }
+
+      // Infer MIME type from fileName
+      const mimeTypeMap: Record<string, string> = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.webp': 'image/webp',
+        '.gif': 'image/gif',
+        '.pdf': 'application/pdf',
+        '.md': 'text/markdown',
+        '.txt': 'text/plain',
+        '.json': 'application/json',
+        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.mp4': 'video/mp4',
+        '.webm': 'video/webm',
+        '.mp3': 'audio/mpeg',
+        '.wav': 'audio/wav',
+      };
+      const ext = '.' + fileName.split('.').pop()?.toLowerCase();
+      let mimeType = mimeTypeMap[ext] || 'application/octet-stream';
+
+      // Decode file (from base64 or already-decoded buffer)
+      let fileBytes: ArrayBuffer;
+      try {
+        if (fileBase64 || file) {
+          const decoded = decodeBase64Strict(fileBase64 || file || '');
+          fileBytes = decoded.buffer.slice(
+            decoded.byteOffset,
+            decoded.byteOffset + decoded.byteLength,
+          ) as ArrayBuffer;
+        } else {
+          return {
+            ...text('Invalid file parameter.'),
+            isError: true,
+          };
+        }
+      } catch {
+        return {
+          ...text('Invalid encoding for file parameter.'),
+          isError: true,
+        };
+      }
+
+      // Forward to the canonical /api/content/assets/upload endpoint
+      // Do not duplicate upload/storage logic — the canonical endpoint owns that.
+      try {
+        const uploadFormData = new FormData();
+        uploadFormData.append('file', new Blob([fileBytes], { type: mimeType }), fileName);
+        uploadFormData.append('fileName', fileName);
+        uploadFormData.append('domain', domain);
+        uploadFormData.append('role', role);
+        uploadFormData.append('bind', bind ? 'true' : 'false');
+
+        if (contentId) {
+          uploadFormData.append('contentId', contentId);
+        }
+
+        // Bundle metadata — forward to canonical endpoint for unbounded asset model
+        if (bundleId) {
+          uploadFormData.append('bundleId', bundleId);
+        }
+        if (bundleLabel) {
+          uploadFormData.append('bundleLabel', bundleLabel);
+        }
+        if (bundleType) {
+          uploadFormData.append('bundleType', bundleType);
+        }
+        if (bundleOrder !== undefined) {
+          uploadFormData.append('bundleOrder', String(bundleOrder));
+        }
+        if (assetUse) {
+          uploadFormData.append('assetUse', assetUse);
+        }
+        if (setPrimary) {
+          uploadFormData.append('setPrimary', 'true');
+        }
+
+        // Route to the canonical content assets endpoint
+        const uploadUrl = `${ctx.origin}/api/content/assets/upload`;
+        const uploadResp = await fetch(uploadUrl, {
+          method: 'POST',
+          body: uploadFormData,
+        });
+
+        if (!uploadResp.ok) {
+          const errText = await uploadResp.text();
+          return {
+            ...text(`Upload failed: ${uploadResp.status} ${uploadResp.statusText}. ${errText}`),
+            isError: true,
+          };
+        }
+
+        const uploadResult = await uploadResp.json();
+        // Return the canonical endpoint response directly — no synthesis
+        return text(uploadResult);
+      } catch (err) {
+        return {
+          ...text(`Upload error: ${err instanceof Error ? err.message : String(err)}`),
+          isError: true,
+        };
+      }
+    }
+  }
+
+  if (HANDSHAKE_TOOLS.has(name)) {
+    return handshakeRequired();
+  }
+
+  return { ...text(`Unknown tool: ${name}`), isError: true };
+}
+
+export async function readResource(uri: string, ctx: GatewayContext) {
+  if (uri === AGENT_MANIFEST_URI) {
+    return { contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(agentDiscoveryManifest(), null, 2) }] };
+  }
+  if (uri === 'metame://welcome') {
+    return { contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(welcomePayload(ctx.session), null, 2) }] };
+  }
+  if (uri === 'metame://journeys') {
+    return { contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(journeyRegistrySnapshot(), null, 2) }] };
+  }
+  if (uri === 'metame://services') {
+    return { contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(serviceRegistrySnapshot(), null, 2) }] };
+  }
+  if (uri === 'metame://institution/charter') {
+    return {
+      contents: [
+        {
+          uri,
+          mimeType: 'text/markdown',
+          text:
+            '# metaMe Threshold\n\nThe constitutional front door. Cross the Threshold with the agent you already use: ' +
+            'establish a Polity Passport (personhood-bound continuity without public identity exposure), bind your agent under ' +
+            'bounded, revocable delegation, and reach metaMe services through the agent you know. Your agent stays; your sovereignty begins.\n\n' +
+            'Only the human authorizes — the agent inspects, prepares, and explains (Principal–Delegate Separation).',
+        },
+      ],
+    };
+  }
+  if (uri === 'metame://public-knowledge') {
+    return {
+      contents: [
+        {
+          uri,
+          mimeType: 'text/markdown',
+          text:
+            '# Public knowledge layer — orientation\n\n' +
+            'Four cartridges carry canonically public content, reachable through list_public_cartridges, ' +
+            'list_public_documents, read_public_document, search_public_knowledge, and list_public_capabilities. ' +
+            'This layer is read-only and unauthenticated — it grants no execution authority, no delegation, ' +
+            'and no access to private or restricted research.\n\n' +
+            '## What the Polity is (verbatim, from the ratified Constitution)\n\n' +
+            '> **Authority may be delegated. Sovereignty may not be delegated.**\n>\n' +
+            '> The constitutional chain of legitimacy is:\n>\n' +
+            '> Polity → Citizen → Delegation → Agent\n>\n' +
+            '> An agent may exercise delegated authority but may never create new authority.\n>\n' +
+            '> Sovereignty remains exclusively with human citizens. Autonomous agents are delegated ' +
+            'instruments of citizens and organizations. They are not constitutional persons and possess ' +
+            'no independent sovereignty, citizenship, standing, or governance authority.\n\n' +
+            '(Source: Polity Core → Constitution, read_public_document(cartridge:"polity-core", id:"constitution") for the full ratified text.)\n\n' +
+            '## The four cartridges\n\n' +
+            '- **Qriptopian** — published papers (Polity Papers, COYN Thesis, Experience Sovereignty, Embodiment) and the Thresholds essay series.\n' +
+            '- **IRL OS** — the Invariant Research Lab\'s public research overview and open corpus.\n' +
+            '- **AgentiQ OS** — the public developer-facing surface: agent/runtime guides, SDK, protocols, and ratified Constitutional Capability Briefs.\n' +
+            '- **Polity Core** — the ratified Constitution and charters, plus constitutional commentary (explicitly NOT ratified law — read each document\'s own `status`).\n\n' +
+            '## How to navigate\n\n' +
+            '1. Call list_public_cartridges to confirm the four ids.\n' +
+            '2. Call list_public_documents(cartridge) to see what is readable, each tagged with its own `status` ' +
+            '(ratified | explanatory | experimental | proposed | historical | published).\n' +
+            '3. Call read_public_document(cartridge, id) for the actual text, paginated with offset/limit and a ' +
+            'sha256OfFullText for verification.\n' +
+            '4. Use search_public_knowledge for a keyword search across one or all cartridges (explicitly keyword, not semantic).\n' +
+            '5. Use list_public_capabilities to see which tools/services are genuinely live vs described-only before assuming a capability is invokable.\n',
+        },
+      ],
+    };
+  }
+  if (uri === 'metame://onboarding/current') {
+    return {
+      contents: [
+        {
+          uri,
+          mimeType: 'text/markdown',
+          text:
+            '# The crossing\n\n1. **Inspect** the Threshold Link and explain what metaMe is and what will be requested.\n' +
+            '2. **Establish personhood** — the principal obtains a Polity Passport.\n' +
+            '3. **Bind the agent** — create/link an Agent Card.\n' +
+            '4. **Delegate** — the principal authorizes a bounded scope.\n' +
+            '5. **Activate** a revocable Agent Passport.\n' +
+            '6. **Choose a journey** — Citizen, Entrepreneur, Researcher, Creative, or Technical. Each activates an Threshold Guide and a progressive Sovereignty Ladder converging on the Founder Office; services are destinations reached within the chosen journey (see `metame://journeys`).\n\n' +
+            '_This gateway increment supports step 1, journey discovery, and service discovery; the authenticated steps land next._',
+        },
+      ],
+    };
+  }
+  return { contents: [], isError: true };
+}
+
+export function getPrompt(name: string, args: Record<string, unknown>) {
+  const code = typeof args.code === 'string' ? args.code : undefined;
+  const caps = typeof args.capabilities === 'string' ? args.capabilities : undefined;
+  const messages = (body: string) => ({ messages: [{ role: 'user', content: { type: 'text', text: body } }] });
+
+  if (name === 'cross_the_threshold') {
+    return messages(
+      'You are helping your principal cross the metaMe Threshold — the constitutional front door to metaMe.\n\n' +
+        (code ? `There is a Threshold Link code: ${code}. Call inspect_threshold_link with it first.\n\n` : 'If the principal has a Threshold Link code, call inspect_threshold_link with it first.\n\n') +
+        'Then, in plain language: (1) explain what metaMe and the Polity Passport establish; (2) explain EACH requested capability and, crucially, what it does NOT permit; (3) make clear that establishing personhood and authorizing delegation are the principal\'s own acts — you only prepare and explain; (4) proceed only after explicit approval. Use list_services to show what becomes reachable after the crossing.',
+    );
+  }
+  if (name === 'get_polity_passport') {
+    return messages(
+      'Explain to your principal that a Polity Passport establishes personhood-bound continuity WITHOUT requiring public identity exposure — it is the door into metaMe, and the first rung of the Sovereignty Ladder. Then guide them to obtain one. Only the human completes the passport; you assist and explain.',
+    );
+  }
+  if (name === 'explain_delegation_request') {
+    return messages(
+      'Explain, plainly, the bounded authority this crossing asks your principal to delegate to you' +
+        (caps ? ` (requested: ${caps})` : '') +
+        '. State clearly what you MAY do and what you MAY NOT do (e.g. no publishing, no committing funds, no delegating another agent, no disclosing identity credentials). Ask for explicit approval before anything is authorized. Only the human authorizes.',
+    );
+  }
+  if (name === 'constitutional_welcome') {
+    return messages(
+      'Your principal has just crossed the Threshold. Deliver the Constitutional Welcome — read the `metame://welcome` resource for the canonical copy and present it faithfully:\n\n' +
+        '1. Congratulate them and state they are now a CITIZEN of the Polity (use the canonical welcome message verbatim).\n' +
+        '2. Offer the two orientation explanations — "What is the Constitutional Internet?" and "What does citizenship in the Polity mean?" — in plain language.\n' +
+        '3. Make the LIMIT explicit: citizenship establishes personhood continuity; it does NOT grant your agent broad powers. Every additional capability is authorized separately and stays bounded.\n' +
+        '4. Show the crossing receipt (Threshold crossed · Passport active · Citizenship active · Agent connection active · Service authority: none yet · Next step: choose a journey).\n' +
+        '5. Lead into the five journeys: "Where would you like to begin? Citizen · Entrepreneur · Researcher · Creative · Technical."\n\n' +
+        'The orientation can be revisited at any time. Never imply the crossing granted service authority — it did not.\n\n' +
+        WELCOME_MESSAGE,
+    );
+  }
+  if (name === 'choose_your_journey') {
+    return messages(
+      'Your principal\'s Polity Passport is active. Now help them choose a purpose, not a service. Call list_journeys, then present the five constitutional journeys — Citizen, Entrepreneur, Researcher, Creative, Technical — each as a goal with its progressive Sovereignty Ladder (every journey climbs toward the Founder Office). Ask which they want to pursue first. Services are destinations they reach WITHIN the journey they choose — introduce them contextually as the journey progresses, never as an upfront menu.',
+    );
+  }
+  if (name === 'explore_public_knowledge') {
+    const query = typeof args.query === 'string' ? args.query : undefined;
+    return messages(
+      'Read the metame://public-knowledge resource first — it orients you on what the Polity is (quoting the ratified Constitution) and the four public cartridges (Qriptopian, IRL OS, AgentiQ OS, Polity Core).\n\n' +
+        (query
+          ? `The principal wants to learn about: "${query}". Start with search_public_knowledge("${query}") to find candidate documents, or list_public_documents for a specific cartridge if you already know where to look.\n\n`
+          : 'Ask the principal what they want to learn about, or call list_public_cartridges to present the four options.\n\n') +
+        'When you read a document with read_public_document, ALWAYS state its `status` (ratified / explanatory / experimental / proposed / historical / published) plainly — constitutional commentary is explicitly NOT ratified law, and a WIP/proposed document (e.g. VentureQube) must never be presented as settled doctrine. This entire layer is read-only: it never grants execution authority, delegation, or access to private research — do not imply otherwise.',
+    );
+  }
+
+  return messages(`Unknown prompt: ${name}`);
+}

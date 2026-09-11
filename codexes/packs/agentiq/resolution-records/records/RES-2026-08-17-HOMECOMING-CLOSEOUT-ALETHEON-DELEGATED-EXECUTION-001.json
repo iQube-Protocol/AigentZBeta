@@ -1,0 +1,80 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-08-17-HOMECOMING-CLOSEOUT-ALETHEON-DELEGATED-EXECUTION-001",
+  "capability": "Homecoming Closeout — Aletheon Delegated Execution + Contact Substrate",
+  "milestone": "Operator-declared closeout: \"Aletheon is no longer merely admitted, bound, selectable, or conversational. She is now connected to the operating office through bounded executable authority.\"",
+  "problem": "Prior Homecoming work (WPA-3 and earlier) made a delegated Agent assignable to the aigentMe role, hydrated with her own registered persona, and the conversational speaker for that role. None of that gave her assignment any EXECUTABLE consequence: the delegation_grants table's abstract action vocabulary (allowed_actions) had no connection to the real connector-id vocabulary Command Center connectors actually run under, so nothing at the point of connector execution checked whether the currently assigned Agent held any bounded authority to act at all. An assigned, speaking Agent and an authorized, acting Agent were two different claims, and only the first was true.",
+  "observedFailure": [
+    "delegation_grants.allowed_actions used an abstract governance vocabulary (knowledge_retrieval, draft_document, registry_submission_proposal, registry_publish, full_delegation — TRUST_BAND_ACTIONS) that had no mapping onto the real GoogleConnectorId/Marketa connector-id vocabulary each connector actually executes under.",
+    "app/api/connectors/execute/route.ts (the single execution gateway) had a pre-existing, separate requiresApproval + HMAC approvalToken gate, but nothing checked delegation authority itself — an assigned Agent's grant (or absence of one) was never consulted before a connector ran.",
+    "Activity receipts for connector executions carried no attribution distinguishing \"the principal acted\" from \"an assigned Agent acted under bounded delegation on the principal's behalf\" — the exact distinction the operator's constitutional model (aigentMe = role/surface; selected Agent = speaker; delegation grant = authority) requires to be visible in the audit trail."
+  ],
+  "rootCauses": [
+    "The delegation-grant vocabulary (governance-facing, coarse-grained) and the connector vocabulary (execution-facing, fine-grained) were built by different workstreams at different times with no bridging layer — a real missing seam, not a design choice.",
+    "The connector execution gateway's approval-token gate answers 'is this specific action approved' but was never designed to answer a prior, independent question: 'does the currently assigned Agent hold ANY authority to act at all, under ANY grant, on THIS surface, right now' — that check had no home.",
+    "The activity-receipt schema's generic actionInput/contextShared JSON fields already supported arbitrary structured attribution, but no caller populated them with delegated-execution attribution because no caller yet had a reason to distinguish principal-action from delegated-agent-action."
+  ],
+  "resolution": [
+    "WP-C1: built services/delegation/delegatedActionVocabulary.ts — a canonical DelegatedActionId vocabulary bridging TRUST_BAND_ACTIONS (governance) onto real GoogleConnectorId/Marketa connector ids (execution), via delegatedActionForConnector() and a FOUNDER_COMMAND_CENTER_ACTIONS preset. Normalization only; no new connectors were built.",
+    "WP-C2: built services/delegation/delegationAuthorityGate.ts's checkDelegationAuthority(), wired into app/api/connectors/execute/route.ts immediately before connector execution. No-op when ctx.currentAigentMe is null (Default Agent Me never inherits a delegate's grant — the key non-inheritance invariant). When an Agent is assigned, her single active grant (persistDelegationGrant's supersede-then-insert already guarantees at most one active grant per persona) must match her own agent_root_did, cover the canonical delegated action (via WP-C1's bridge), cover the execution surface, and have budget remaining, via readActiveGrant() — entirely independent of, and never bypassing, the pre-existing approval-token gate.",
+    "WP-C3: attributed delegated executions on the EXISTING activity-receipt structure (createActivityReceipt's actionInput/contextShared) rather than a schema migration, per explicit operator decision. Attribution shape: {principalPersonaId, actingAgentRootId, actingAgentDid, actingAgentDisplayName, actingRole:'aigentMe', delegationGrantId, delegatedAction, executionSurface, executionMode, connectorId, outcome} — generic across any assigned Agent, never Aletheon-specific.",
+    "WP-C4: grant creation/refresh/revoke UX plus a Founder Command Center preset button in BoundedDelegationTab.tsx; the operator's 8-hour maximum grant duration was left unchanged, as instructed.",
+    "WP-C5: behavioral end-to-end tests against the REAL /api/connectors/execute route (not the gate module in isolation) — Aletheon is the acceptance case the tests use, but no branch in the gate, the vocabulary, or the route names her; any other assigned Agent would exercise the identical code path.",
+    "WP-C6 (reduced to integration, per operator scope decision): extracted a canonical resolveRecipientFromPrompt() resolver over the ALREADY-EXISTING persona_contacts substrate (CSV/vCard/Google Contacts import), replacing an inline lookup that silently took the first full-text-search match; ambiguity (2+ candidates) is now surfaced explicitly rather than guessed. Fixed a real bug where draftEmail.ts's no-LLM-key template fallback dropped a resolved recipient's email even though the LLM path already respected it.",
+    "Gmail correspondent extraction (WP-C6's one genuinely new contact capability) was explicitly deferred by operator ruling: persona_contacts.source has a closed CHECK constraint with no value honestly representing correspondence-derived provenance, and overloading 'manual' to hide that provenance was rejected as a knowingly misleading data model. The exact 5-step follow-on is recorded in codexes/packs/agentiq/updates/2026-08-17_homecoming-closeout-wpc6-gmail-correspondence-deferred.md rather than silently dropped.",
+    "Constitutional Internet anonymous book-interest fix: the route previously returned {ok:true, persisted:false} for anonymous submitters, silently discarding the email. Fixed via a NEW, deliberately minimal services/crm/genericContactResolver.ts — extracted from resolveCampaignContact()'s generic precedence (authenticated linkage > normalized email match > new prospect) with its KNYT-specific investor lookup (nakamoto_knyt_personas) and tag-append logic (KNYTS_BRIDGE_REQUIRED_INVESTOR_TAGS) deliberately left out, since those are real KNYTS product semantics the operator's brief explicitly forbade importing into an unrelated campaign. Interest is recorded as a constitutional_internet_book_interest crm_engagement_event with zero weight/pokwDelta (a notification signal, not a scored or paid action); authenticated submitters keep the pre-existing identity-persona-scoped campaign event unchanged.",
+    "Recorded the candidate invariant CI-2026-08-17-DELEGATION-AUTHORITY-GATE-AT-EXECUTION-SEAM-001 at status 'candidate' — two independent test suites (WP-C2's gate-unit tests and WP-C5's real-route end-to-end tests) demonstrate the rule holds, but both are one recorded occurrence, not reuse across a second incident or capability, so 'validated' is not yet earned per the registry's own milestone-close check."
+  ],
+  "rejectedApproaches": [
+    "Building new connectors as part of WP-C1. Rejected: the brief was explicit that WP-C1 is normalization of the existing action vocabulary onto the existing connector vocabulary, not new connector capability.",
+    "Adding new activity_receipts columns for WP-C3 attribution. Rejected by explicit operator decision: reuse the existing structured actionInput/contextShared JSON fields; dedicated indexed columns are a future optimization, not required for this closeout.",
+    "Silently reusing persona_contacts.source='manual' to store Gmail-correspondence provenance, hiding the real source in free-text notes. Rejected by explicit operator ruling: that would create a knowingly misleading data model and make future filtering/repair harder — the gap was recorded explicitly and named as a separate, deliberate follow-on instead.",
+    "Reusing resolveCampaignContact() directly for the Constitutional Internet anonymous book-interest fix. Rejected after direct code reading confirmed it hardcodes KNYT_TENANT_ID, looks up the KNYT investor table by email, and unconditionally appends KNYTS_BRIDGE_REQUIRED_INVESTOR_TAGS on any match — real product-specific semantics that must not leak into an unrelated campaign, per the operator's explicit instruction to extract only the minimum generic layer if the existing resolver was not generic enough.",
+    "Reusing the KNYTS-specific evidence table (knytsBridgeCampaignEvidence.ts / knytsBridgeCampaignProjector.ts) for Constitutional Internet interest tracking. Rejected: would emit KNYTS campaign evidence/reward from an unrelated interest signal, explicitly forbidden by the operator's brief."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-17-DELEGATION-AUTHORITY-GATE-AT-EXECUTION-SEAM-001"
+  ],
+  "canaries": [
+    "tests/homecoming-closeout-wpc2-delegation-authority-gate.test.ts",
+    "tests/homecoming-closeout-wpc5-aletheon-e2e.test.ts"
+  ],
+  "scope": "local",
+  "status": "validated",
+  "trigger": "milestone-complete",
+  "evidence": {
+    "commits": [
+      "c217b90b3",
+      "517dc9ad0",
+      "24bfc5e19",
+      "4512546c6"
+    ],
+    "tests": [
+      "tests/homecoming-phase-ii-wpa3-response-identity.test.ts",
+      "tests/homecoming-phase-ii-wpa3-floating-copilot-tts.test.ts",
+      "tests/homecoming-closeout-wpc2-delegation-authority-gate.test.ts",
+      "tests/homecoming-closeout-wpc4-grant-ux.test.ts",
+      "tests/homecoming-closeout-wpc5-aletheon-e2e.test.ts",
+      "tests/homecoming-closeout-wpc6-contact-resolution.test.ts",
+      "tests/homecoming-closeout-ci-anonymous-book-interest.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-08-17_homecoming-closeout-final-summary.md",
+      "codexes/packs/agentiq/updates/2026-08-17_homecoming-closeout-wpc6-gmail-correspondence-deferred.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-17_homecoming-closeout-final-summary.md",
+    "codexes/packs/agentiq/updates/2026-08-17_homecoming-closeout-wpc6-gmail-correspondence-deferred.md"
+  ],
+  "date": "2026-08-17",
+  "projections": {
+    "targets": [
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

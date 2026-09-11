@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-15-PROVENANCE-IS-NOT-STANDING-001",
+  "statement": "A record's source names where a claim came from; a record's lifecycle names what standing it has earned. A presentation that groups by source alone, where the grouping implies standing, silently promotes anything from an authoritative source regardless of its actual status.",
+  "classification": "Structural invariant (candidate causal pattern). Governs any surface that renders material by category where the category reads as an authority claim.",
+  "family": "engineering",
+  "scope": "local",
+  "status": "observed",
+  "ratifiedSource": null,
+  "parentCandidateId": null,
+  "supersededBy": null,
+  "governingPrinciple": false,
+  "derivedFrom": [
+    "RES-2026-08-15-PHASE4-SELF-REVIEW-OBSERVATIONS-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/devCommandCenter/implementationContext.ts — composeImplementationContext()",
+      "defect": "The prompt's 'constitutional constraints (non-negotiable)' section originally selected members by provenance alone: `i.provenance === 'constitutional-substrate'`. But provenance is a SOURCE claim (which pass retrieved this) and the section's heading is a STANDING claim (this bounds what may be built). A constitutional-substrate invariant sitting at status 'proposed' — a hypothesis about constitutional matters, not yet ratified — would have been rendered under 'non-negotiable' purely because of where it came from. Fixed by requiring mayBeCitedAsEstablished(lifecycle) in addition to the provenance check; a proposed constitutional member now falls through to the candidate-and-risk-signals section, where its own marker already states what it is.",
+      "resolutionId": "RES-2026-08-15-PHASE4-SELF-REVIEW-OBSERVATIONS-001",
+      "evidence": [
+        "dd9ae6650",
+        "tests/gap-analysis-causal-split.test.ts"
+      ]
+    }
+  ],
+  "canaries": [
+    {
+      "path": "tests/gap-analysis-causal-split.test.ts",
+      "assertion": "'a PROPOSED constitutional member is a signal, not a constraint' — a constitutional-substrate invariant at status 'proposed' is asserted to land in candidate-and-risk-signals, never in constitutional-constraints, at any budget.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "notes": [
+    "WHY THIS IS EASY TO WRITE WRONGLY. The word 'constitutional' itself sounds like an authority claim, so a filter that keys on 'is this from the constitutional substrate' feels like it is already keying on standing. It is not — the substrate holds proposed hypotheses about constitutional matters as well as canonical ones (see types/invariants.ts InvariantStatus), and only status distinguishes them.",
+    "STATED CAUSALLY: the condition is that a presentation's grouping matches the AXIS its heading claims to represent. 'Group by source, but the heading claims standing' is the specific instance found; the general condition — presenting by one axis under a heading that names a different axis — is the hypothesis, untested beyond this one occurrence.",
+    "ONE OCCURRENCE, RECORDED HONESTLY. Whether this recurs in other surfaces that group by source (e.g. a receipts drawer grouping by receipt TYPE under a heading implying VERIFIED) is unexamined. No sweep has been run; none is claimed.",
+    "RELATIONSHIP TO THE ENVELOPE CONTRACT (types/invariantEnvelope.ts). The envelope already keeps provenance and lifecycle as two required, independent fields for exactly this reason — this occurrence is a case where a CONSUMER of that contract still managed to conflate the two axes at the point of composition, showing that a correct contract does not by itself prevent a composer from ignoring half of it."
+  ]
+}

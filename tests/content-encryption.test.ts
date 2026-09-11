@@ -19,12 +19,14 @@ import {
   isEncryptionConfigured,
 } from '@/services/content/encryption';
 
-const TEST_MASTER_KEY_BASE64 = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789ab12'; // 32 bytes hex
+// 64 hex chars = 32 bytes. getMasterKey tries base64 first (48 bytes here,
+// off-length) then falls back to hex, which yields the required 32 bytes.
+const TEST_MASTER_KEY_HEX = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 let originalEnv: string | undefined;
 
 beforeAll(() => {
   originalEnv = process.env.CONTENT_ENCRYPTION_MASTER_KEY;
-  process.env.CONTENT_ENCRYPTION_MASTER_KEY = TEST_MASTER_KEY_BASE64;
+  process.env.CONTENT_ENCRYPTION_MASTER_KEY = TEST_MASTER_KEY_HEX;
 });
 
 afterAll(() => {

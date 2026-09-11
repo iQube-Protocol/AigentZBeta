@@ -17,11 +17,28 @@ import { liquidTemplateRegistry } from "@/app/triad/components/codex/liquidTempl
 import { resolveLiquidTemplateId } from "@/services/composer/composerRegistryMapping";
 import type { SmartContentQube } from "@/types/smartContent";
 import { useDesignQubeTheme } from "@/components/metame/useDesignQubeTheme";
+import { personaFetch } from "@/utils/personaSpine";
 import { useCodexList } from "@/app/hooks/useCodexConfig";
 import type { CodexListItem } from "@/types/codex";
 import type { DesignQube, DesignQubeThemeMode } from "@/types/designQube";
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
+// DCIR observation seam (CFS-020 §6, observe-mode-first) — the Studio
+// Composer is the THIRD instrumented surface (after the Dev Command Center
+// and the aigentMe welcome). Observe-mode ONLY: events are appended as
+// side-effect lines on existing handlers, and the next copilot turn reads
+// the compacted tail via the CodexCopilotLayer `groundContext` prop. No
+// affordance-gating, no auto-act on this surface.
+import {
+  studioExperienceComposedEvent,
+  studioExperiencePublishedEvent,
+  studioPreviewRenderedEvent,
+  studioSessionStartedEvent,
+  studioSkillOutputEvent,
+} from "@/services/dcir/eventStream";
+import { useDcirSeam } from "@/services/dcir/useDcirSeam";
 import { AgenticDesignParityPanel } from "@/components/composer/AgenticDesignParityPanel";
+import VideoArticleCreatorFlow from "@/components/composer/VideoArticleCreatorFlow";
+import ConstitutionalVideoCreatorFlow from "@/components/composer/ConstitutionalVideoCreatorFlow";
 import SurfacePlanningPanel from "@/components/composer/SurfacePlanningPanel";
 import DVNReceiptsPanel from "@/components/composer/DVNReceiptsPanel";
 import { CartridgePublishPanel } from "@/components/composer/CartridgePublishPanel";
@@ -1682,8 +1699,8 @@ const QRIPTO_TEMPLATE_SEEDS: ExperienceTemplate[] = [
   },
   {
     id: "sora-video-generation",
-    name: "Sora Video Generation",
-    description: "Generate AI video using OpenAI Sora skill — curated or community. Full supply chain with trust badges, PoSR, and DVN receipts.",
+    name: "AI Video Generation",
+    description: "Generate standalone AI video — no article. OpenAI Sora, Venice, or community provider. Full supply chain with trust badges, PoSR, and DVN receipts.",
     category: "task",
     complexity: "intermediate",
     estimated_time: 15,
@@ -1740,6 +1757,98 @@ const QRIPTO_TEMPLATE_SEEDS: ExperienceTemplate[] = [
         id: "wallet_rewards",
         title: "Rewards (Optional)",
         description: "Configure optional rewards for video creation.",
+        type: "configuration",
+        required: false,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "reward_amount", name: "Reward amount (Q¢)", type: "text", required: false },
+          ],
+        },
+      },
+    ],
+  },
+  {
+    id: "video-article-bundle",
+    name: "AI Video + Article Bundle",
+    description: "Generate an AI video with a companion article draft in one flow. OpenAI Sora, Venice, or community provider for the video; structured editorial copy for the article.",
+    category: "task",
+    complexity: "intermediate",
+    estimated_time: 30,
+    required_components: ["skill_invocation", "video_player", "article_reader"],
+    optional_components: ["rewards"],
+    tags: ["video", "article", "bundle", "ai-generation", "sora", "venice"],
+    steps: [
+      {
+        id: "intent_timebox",
+        title: "Video Intent",
+        description: "Name this video experience and set parameters.",
+        type: "configuration",
+        required: true,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "experience_name", name: "Experience name", type: "text", required: true },
+            { id: "goal", name: "Goal", type: "textarea", required: false },
+          ],
+        },
+      },
+      {
+        id: "skill_selection",
+        title: "Skill Selection",
+        description: "Choose between curated OpenAI Sora, Venice, or community OpenClaw-backed video generation.",
+        type: "selection",
+        required: true,
+        component_type: "ToolQube",
+        ui_config: {
+          layout: "form",
+          fields: [{ id: "skill_id", name: "Video Skill", type: "select", required: true, default_value: "sora_video_gen_curated", options: [{ value: "sora_video_gen_curated", label: "Sora Video Gen (Curated) — Badge A, Trusted", description: "First-party OpenAI curated skill. Stable CI, org-backed, high trust." }, { value: "venice_video_gen", label: "Venice Video Gen — Badge A, Trusted", description: "Alternative trusted provider path for video generation." }, { value: "sora_video_gen_community", label: "Sora Video Gen (Community) — Badge C, Basic", description: "Community-maintained OpenClaw skill. Variable review posture." }] }, { id: "trust_override", name: "Accept lower trust badge?", type: "checkbox", required: false, help_text: "Check to allow community skill even if below hydration threshold." }],
+        },
+      },
+      {
+        id: "video_prompt",
+        title: "Video Prompt",
+        description: "Describe the video you want to generate.",
+        type: "configuration",
+        required: true,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "prompt", name: "Video Prompt", type: "textarea", required: true },
+            {
+              id: "duration", name: "Duration (seconds)", type: "select", required: false,
+              default_value: "12",
+              options: [
+                { value: "4", label: "4 seconds" },
+                { value: "8", label: "8 seconds" },
+                { value: "12", label: "12 seconds" },
+                { value: "24", label: "24 seconds (2 clips, stitched)" },
+                { value: "48", label: "48 seconds (4 clips, stitched)" },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        id: "article_draft",
+        title: "Article Draft",
+        description: "Configure the companion article title, prompt, and structure.",
+        type: "configuration",
+        required: true,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "title", name: "Article title", type: "text", required: true },
+            { id: "prompt", name: "Article prompt", type: "textarea", required: true, help_text: "What should the article cover? Include tone, audience, and key points." },
+            { id: "outputs", name: "Include sections", type: "multiselect", required: false, options: [{ value: "takeaways", label: "Key takeaways" }, { value: "next_action", label: "Next action" }, { value: "summary", label: "Summary" }] },
+            { id: "takeaways_count", name: "Number of takeaways", type: "slider", required: false, validation: { min: 1, max: 5, step: 1 } },
+          ],
+        },
+      },
+      {
+        id: "wallet_rewards",
+        title: "Rewards (Optional)",
+        description: "Configure optional rewards for this experience.",
         type: "configuration",
         required: false,
         ui_config: {
@@ -1867,6 +1976,10 @@ export const ComposerStudio = () => {
   }>>([]);
   const [matrixDataLoading, setMatrixDataLoading] = useState(false);
   const [matrixDataFetched, setMatrixDataFetched] = useState(false);
+  // The active persona's OWN derived matrix cell, from the experience-guide
+  // source of truth (/api/experience/matrix-calibration). Aligns the Studio
+  // matrix with aigentMe + Venture Lab on one position.
+  const [studioCalibration, setStudioCalibration] = useState<{ engagement: string; sovereignty: string } | null>(null);
   const [pendingProductionConfig, setPendingProductionConfig] = useState<{
     templateKey: string;
     seedData: Record<string, unknown>;
@@ -1922,7 +2035,30 @@ export const ComposerStudio = () => {
   // investors: 500 investor names for the individual lens carousel
   useEffect(() => {
     if (copilotContextId !== "knyt-codex") {
-      setMatrixCellCounts({}); setMatrixTotalUsers(0); setMatrixIndividuals([]); setMatrixDataFetched(false); return;
+      // Non-KNYT cartridges (metaMe, etc.) use the GENERALIZED customer-matrix
+      // feed (journey_states) instead of the KNYT-only nakamoto feed. It emits
+      // cells in the same `Engagement:Sovereignty` key vocabulary the grid reads,
+      // so it is drop-in. Admin-gated → personaFetch (Bearer); non-admins simply
+      // see no live counts (same as before). KNYT branch below is untouched.
+      setMatrixIndividuals([]);
+      const tenantId = copilotContextId === "metame-codex" ? "metame" : null;
+      const matrixUrl = tenantId
+        ? `/api/venture/customer-matrix?tenantId=${encodeURIComponent(tenantId)}`
+        : "/api/venture/customer-matrix";
+      setMatrixDataLoading(true);
+      personaFetch(matrixUrl, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data?.ok && data.cells) {
+            setMatrixCellCounts(data.cells as Record<string, number>);
+            setMatrixTotalUsers((data.total as number) ?? 0);
+          } else {
+            setMatrixCellCounts({}); setMatrixTotalUsers(0);
+          }
+        })
+        .catch(() => { setMatrixCellCounts({}); setMatrixTotalUsers(0); })
+        .finally(() => { setMatrixDataLoading(false); setMatrixDataFetched(false); });
+      return;
     }
     if (matrixDataFetched) return;
     setMatrixDataLoading(true);
@@ -1976,6 +2112,25 @@ export const ComposerStudio = () => {
       .catch(() => {})
       .finally(() => setMatrixDataLoading(false));
   }, [copilotContextId, matrixDataFetched]);
+
+  // Derive the active persona's own matrix cell from the experience-guide SoT,
+  // so the Studio matrix highlights where THIS persona sits (aligned with
+  // aigentMe + Venture Lab). Persona-scoped → personaFetch (Bearer).
+  useEffect(() => {
+    let cancelled = false;
+    personaFetch("/api/experience/matrix-calibration", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.ok && data.experience) {
+          setStudioCalibration({
+            engagement: String(data.experience.engagement),
+            sovereignty: String(data.experience.sovereignty),
+          });
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [copilotContextId]);
 
   // Reset cohort selection when switching cartridges (stale name would mismatch new x_stages)
   useEffect(() => {
@@ -2485,6 +2640,22 @@ export const ComposerStudio = () => {
     }
   };
 
+  // ── DCIR D1 observation seam (CFS-020 §6, observe-mode-first) ──────────────
+  // In-session ring buffer of typed observations of what already happened on
+  // this surface. `observe()` only appends; it never blocks a render, never
+  // mutates a handler's outcome, and never gates an affordance. The compacted
+  // tail feeds the copilot's next turn via `copilotGroundContext` below.
+  // DCIR D4: the observation seam adopted via the universal substrate hook
+  // (useDcirSeam) — replaces the hand-wired [dcirEvents]+observe+three-field
+  // block. `events` is the same in-session ring buffer; `observe` appends
+  // exactly as before; `groundObservation` carries the three server-contract
+  // fields spread into copilotGroundContext below.
+  const { observe, groundObservation } = useDcirSeam({
+    surface: "studio-composer",
+    workflowStage: session?.status ?? null,
+    activeCapsule: experiencePanelTab,
+  });
+
   const requestArticleDraftArtifact = useCallback(
     async (params: {
       experienceName?: string | null;
@@ -2521,12 +2692,17 @@ export const ComposerStudio = () => {
         });
         if (!response.ok) return fallback;
         const data = await response.json();
+        if (data?.articleDraft) {
+          // DCIR observation (side-effect only): skill kind label, never the
+          // prompt or the drafted body.
+          observe(studioSkillOutputEvent("article-draft"));
+        }
         return (data?.articleDraft as ArticleDraftArtifact | null) || fallback;
       } catch {
         return fallback;
       }
     },
-    [],
+    [observe],
   );
   const requestImageBundleArtifacts = useCallback(
     async (params: {
@@ -2597,6 +2773,14 @@ export const ComposerStudio = () => {
         : [];
 
       if (assets.length > 0) {
+        // DCIR observation (side-effect only): asset count + provider id,
+        // never the prompts or asset URLs.
+        observe(
+          studioSkillOutputEvent(
+            `image-bundle (${assets.length} asset${assets.length === 1 ? "" : "s"})`,
+            providerId,
+          ),
+        );
         await persistGeneratedAssetsForExperience({
           experienceId: params.experienceId,
           assets,
@@ -2608,7 +2792,7 @@ export const ComposerStudio = () => {
 
       return assets;
     },
-    [activePersonaId, userId],
+    [activePersonaId, userId, observe],
   );
 
   const requestVideoBundleArtifacts = useCallback(
@@ -2620,6 +2804,7 @@ export const ComposerStudio = () => {
       aspectRatio?: string | null;
       style?: string | null;
       trustOverride?: boolean;
+      veniceModel?: string | null;
     }) => {
       const prompt = params.prompt.trim();
       if (!prompt) return null;
@@ -2634,11 +2819,12 @@ export const ComposerStudio = () => {
         body: JSON.stringify({
           skill_id: skillId,
           prompt,
-          duration: params.duration ?? 10,
+          duration: params.duration ?? 12,
           aspect_ratio: params.aspectRatio || "16:9",
           style: params.style || "cinematic",
           experience_id: params.experienceId,
           trust_override: params.trustOverride ?? false,
+          venice_model: params.veniceModel || undefined,
         }),
       }).finally(() => clearTimeout(invokeTimeout));
       const data = (await response.json().catch(() => null)) as {
@@ -2653,6 +2839,9 @@ export const ComposerStudio = () => {
       if (!data?.ok || !data.generation_id) return null;
 
       const provider = data.provider || "venice";
+      // DCIR observation (side-effect only): skill kind + provider id, never
+      // the prompt or the generated video URL.
+      observe(studioSkillOutputEvent("video", provider));
       const generationId = data.generation_id;
       const videoUrl =
         data.video_url ||
@@ -2682,7 +2871,7 @@ export const ComposerStudio = () => {
 
       return asset;
     },
-    [activePersonaId, userId],
+    [activePersonaId, userId, observe],
   );
 
   const requestedExperienceId =
@@ -4095,6 +4284,28 @@ export const ComposerStudio = () => {
     },
   });
 
+  // Constitutional Video — callable by name from the composer copilot. Surfaces
+  // the blank-canvas experience (the operator supplies content; the skill
+  // supplies the grammar). Discovery-level: filters the template picker to the
+  // constitutional-video template + guided creator flow.
+  useCopilotAction({
+    name: "composer_create_constitutional_video",
+    description:
+      "Open the Constitutional Video experience — a 24/36/48-second invariant-grounded video (a blank canvas bound by the constitutional grammar). Optionally as an integrated-artefacts bundle (video + companion article from one substrate). The operator supplies what the video is about; the skill supplies the rules and grounding.",
+    parameters: [
+      { name: "subject", type: "string", description: "What the video is about (the operator's content direction)", required: false },
+      { name: "durationSeconds", type: "number", description: "24, 36, or 48", required: false },
+      { name: "bundle", type: "boolean", description: "Generate the integrated-artefacts bundle (video + companion article)", required: false },
+    ],
+    handler: async ({ subject }) => {
+      setTemplateIntent("task");
+      setTemplateQuery("constitutional video invariant threshold");
+      return subject
+        ? `Opening the Constitutional Video experience for "${subject}". Use the guided creator flow to set the invariant grounding, duration, and threshold CTA, then generate.`
+        : "Opening the Constitutional Video experience. Describe what the video is about, choose the invariant grounding + duration + threshold CTA, then generate.";
+    },
+  });
+
   const composerAgent = agentConfigs["aigent-z"];
   const handleCopilotPrompt = (prompt: string) => {
     const lower = prompt.toLowerCase();
@@ -4343,7 +4554,18 @@ export const ComposerStudio = () => {
           },
           video_prompt: {
             prompt: suggestedPrompt,
-            duration: /12/.test(lower) ? 12 : /4/.test(lower) ? 4 : 8,
+            // Both Sora and Venice (incl. Wan) support 4/8/12s in a single call;
+            // 24s is produced by stitching two 12s clips. Default to the 12s
+            // single-clip max; an explicit 24/4/8 in the prompt wins.
+            duration: /\b24s?\b/.test(lower)
+              ? 24
+              : /\b12s?\b/.test(lower)
+                ? 12
+                : /\b4s?\b/.test(lower)
+                  ? 4
+                  : /\b8s?\b/.test(lower)
+                    ? 8
+                    : 12,
             aspect_ratio: /portrait|vertical|9:16/.test(lower) ? "9:16" : "16:9",
             style:
               inferVisualStyleFromPrompt(effectivePrompt) === "editorial"
@@ -4670,6 +4892,8 @@ export const ComposerStudio = () => {
       setStepData({});
       setExperience(null);
       setExperiencePanelTab("customizer");
+      // DCIR observation (side-effect only): template slug, a category label.
+      observe(studioSessionStartedEvent(selectedTemplate.id));
     } catch (err: any) {
       setSessionError(err.message || "Failed to start session");
     } finally {
@@ -4750,6 +4974,8 @@ export const ComposerStudio = () => {
           setEditingExperienceId(options.editingExperienceId);
         }
         setExperiencePanelTab("customizer");
+        // DCIR observation (side-effect only): template slug, a category label.
+        observe(studioSessionStartedEvent(templateId));
 
         setTimeout(() => {
           templateCustomizerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -4767,7 +4993,7 @@ export const ComposerStudio = () => {
         setIsSaving(false);
       }
     },
-    [tenantId, userId]
+    [tenantId, userId, observe]
   );
 
   const updateSession = async (nextStep: number) => {
@@ -4900,7 +5126,31 @@ export const ComposerStudio = () => {
       });
       if (!res.ok) throw new Error("Failed to complete session");
       const data = await res.json();
-      const returnedExperience = data.experience_qube || null;
+      let returnedExperience = data.experience_qube || null;
+      // The "AI Video + Article Bundle" template is a first-class starting
+      // choice in the New Experience picker, but it isn't a bundle preset
+      // itself — it's just a video template with an added article_draft step.
+      // Apply the SAME canonical video_article_bundle patch the Template
+      // tab's manual "Apply bundle preset" flow uses (handleApplyBundlePreset
+      // below), so this experience is indistinguishable downstream (video
+      // auto-gen, article auto-gen, Workflows tab, packet route) from one
+      // created via create-video-then-apply-bundle-after.
+      if (
+        returnedExperience &&
+        session.template_id === "video-article-bundle" &&
+        !getAppliedExperienceBundle(returnedExperience)
+      ) {
+        const manifest = buildExperienceBlockManifest(returnedExperience);
+        const preset = listExperienceBundlePresets(manifest).find((p) => p.id === "video_article_bundle");
+        if (preset) {
+          const bundlePatch = buildExperienceBundlePresetPatch(returnedExperience, manifest, preset);
+          returnedExperience = {
+            ...returnedExperience,
+            configuration: { ...(returnedExperience.configuration || {}), ...bundlePatch.configuration },
+            metadata: { ...(returnedExperience.metadata || {}), ...bundlePatch.metadata },
+          };
+        }
+      }
       if (data.pipeline_run_id) {
         setLastPipelineRunId(data.pipeline_run_id);
         setPipelineRunData(null);
@@ -4921,33 +5171,44 @@ export const ComposerStudio = () => {
           : typeof copilotOutputStep.takeaways_count === "number"
             ? copilotOutputStep.takeaways_count
             : undefined;
-      const articleTitle =
-        firstNonEmptyString([articleDraftStep.title, returnedExperience?.metadata?.article_title, returnedExperience?.name]) ||
-        null;
-      const articlePrompt =
-        firstNonEmptyString([
-          articleDraftStep.prompt,
-          returnedExperience?.metadata?.article_prompt,
-          asRecord(mergedData.intent_timebox)?.goal,
-          returnedExperience?.description,
-        ]) || null;
-      const existingBundleState = asRecord(returnedExperience?.metadata?.composition_bundle_state) || {};
-      const existingMakeBundle = asRecord(returnedExperience?.configuration?.make_bundle) || {};
       const editingExpForBundleCheck = editingExperienceId
         ? experiences.find((e) => e.id === editingExperienceId) ?? null
         : null;
       const preAppliedBundleBlockKinds =
         getAppliedExperienceBundle(editingExpForBundleCheck ?? returnedExperience)?.blockKinds ?? null;
+      const bundleWantsArticle = Boolean(preAppliedBundleBlockKinds?.includes("article_draft"));
+      // Whether THIS template's own article_draft step carried real submitted
+      // data (true for the standalone "ai-article-draft" template and for
+      // bundle experiences). Without this gate, articleTitle/articlePrompt
+      // below would fall back to fields every template always has
+      // (experience_name, description, intent_timebox.goal) and silently
+      // attach an LLM-drafted article to plain video/image sessions — that
+      // was the "video skill also generates an article" bug.
+      const hasArticleDraftStepData = Boolean(
+        articleDraftStep.title || articleDraftStep.prompt || articleOutputs.length > 0 || typeof articleTakeawaysCount === "number",
+      );
+      const shouldGenerateArticle = hasArticleDraftStepData || bundleWantsArticle;
+      const articleTitle = shouldGenerateArticle
+        ? firstNonEmptyString([articleDraftStep.title, returnedExperience?.metadata?.article_title, returnedExperience?.name]) ||
+          null
+        : null;
+      const articlePrompt = shouldGenerateArticle
+        ? firstNonEmptyString([
+            articleDraftStep.prompt,
+            returnedExperience?.metadata?.article_prompt,
+            asRecord(mergedData.intent_timebox)?.goal,
+            returnedExperience?.description,
+          ]) || null
+        : null;
+      const existingBundleState = asRecord(returnedExperience?.metadata?.composition_bundle_state) || {};
+      const existingMakeBundle = asRecord(returnedExperience?.configuration?.make_bundle) || {};
       const mergedBlockStatuses = {
         ...(asRecord(existingMakeBundle.block_statuses) || {}),
         ...(asRecord(existingBundleState.block_statuses) || {}),
-        ...(articleTitle || articlePrompt || articleOutputs.length > 0 || typeof articleTakeawaysCount === "number"
-          ? { article_draft: "ready_for_review" }
-          : {}),
+        ...(shouldGenerateArticle ? { article_draft: "ready_for_review" } : {}),
       };
-      const articleGenerated =
-        articleTitle || articlePrompt || articleOutputs.length > 0 || typeof articleTakeawaysCount === "number"
-          ? await requestArticleDraftArtifact({
+      const articleGenerated = shouldGenerateArticle
+        ? await requestArticleDraftArtifact({
               experienceName: returnedExperience?.name,
               title: articleTitle,
               prompt: articlePrompt,
@@ -5145,29 +5406,45 @@ export const ComposerStudio = () => {
         const rawSkillId = skillSelectionRecord?.skill_id;
         const skillId = typeof rawSkillId === "string" && rawSkillId.trim() ? rawSkillId.trim() : "venice_video_gen";
         const trustOverride = skillSelectionRecord?.trust_override === true;
+        const veniceModel =
+          typeof skillSelectionRecord?.venice_model === "string" && skillSelectionRecord.venice_model.trim()
+            ? (skillSelectionRecord.venice_model as string).trim()
+            : null;
         const videoPrompt = typeof videoPromptRecord?.prompt === "string" ? (videoPromptRecord.prompt as string).trim() : "";
-        const duration = typeof videoPromptRecord?.duration === "number" ? (videoPromptRecord.duration as number) : 10;
+        // The manual form stores duration as a string ("24"); the old
+        // typeof==="number" guard silently fell back to 10 (which Sora snaps to
+        // 8) — that was the "8-second video" bug. Coerce instead.
+        const parsedDuration = Number(videoPromptRecord?.duration);
+        const duration = Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : 12;
         const aspectRatio = typeof videoPromptRecord?.aspect_ratio === "string" ? (videoPromptRecord.aspect_ratio as string) : "16:9";
         const style = typeof videoPromptRecord?.style === "string" ? (videoPromptRecord.style as string) : "cinematic";
-        await requestVideoBundleArtifacts({
-          experienceId: imageBundleTargetId,
-          skillId,
-          prompt: videoPrompt,
-          duration,
-          aspectRatio,
-          style,
-          trustOverride,
-        }).catch(() => null);
-        const refreshedCompletedExperience =
-          (await refreshExperienceFromServer(imageBundleTargetId).catch(() => null)) || null;
-        if (refreshedCompletedExperience) {
-          completedExperience = {
-            ...refreshedCompletedExperience,
-            configuration: {
-              ...refreshedCompletedExperience.configuration,
-              ...(articleDraftToPreserve ? { article_draft: articleDraftToPreserve } : {}),
-            },
-          };
+        // Videos longer than a single 12s generation are produced by
+        // SkillVideoPlayer on demand (generate N clips → /api/skills/video/stitch).
+        // Skip server-side pre-generation for those, otherwise we'd pre-render a
+        // single truncated clip that becomes the packet's video_url and masks
+        // the stitch path entirely.
+        if (duration <= 12) {
+          await requestVideoBundleArtifacts({
+            experienceId: imageBundleTargetId,
+            skillId,
+            prompt: videoPrompt,
+            duration,
+            aspectRatio,
+            style,
+            trustOverride,
+            veniceModel,
+          }).catch(() => null);
+          const refreshedCompletedExperience =
+            (await refreshExperienceFromServer(imageBundleTargetId).catch(() => null)) || null;
+          if (refreshedCompletedExperience) {
+            completedExperience = {
+              ...refreshedCompletedExperience,
+              configuration: {
+                ...refreshedCompletedExperience.configuration,
+                ...(articleDraftToPreserve ? { article_draft: articleDraftToPreserve } : {}),
+              },
+            };
+          }
         }
       }
       setExperience(completedExperience);
@@ -5185,6 +5462,9 @@ export const ComposerStudio = () => {
         setSelectedExperienceId(completedExperience.id);
         setPreviewAction(`Review ${completedExperience.name}`);
         setExperiencePanelTab("exqubes");
+        // DCIR observation (side-effect only): template slug — never the
+        // experience name or any of its content.
+        observe(studioExperienceComposedEvent(session.template_id || "experience"));
       }
 
       if (editingExperienceId && completedExperience) {
@@ -5284,6 +5564,8 @@ export const ComposerStudio = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Publish failed');
       setPublishedReceiptId(data.dvn_receipt_id ?? data.job_id ?? 'published');
+      // DCIR observation (side-effect only): the handoff moment, no ids.
+      observe(studioExperiencePublishedEvent());
     } catch (err: any) {
       console.error('[publishToRegistry]', err);
     } finally {
@@ -6445,6 +6727,23 @@ export const ComposerStudio = () => {
       (asRecord(articleDraft.generated) as Record<string, any> | null) ||
       (asRecord(metadataEditable.article_draft)?.generated as Record<string, any> | null) ||
       null;
+    // Same gate as handleComplete: only treat this as an article-bearing
+    // experience if the article_draft step itself carried real data, or a
+    // video/image+article bundle preset is actually applied. Otherwise
+    // articleTitle/articlePrompt below would fall back to fields every
+    // experience always has (name/description/goal), making the "Article
+    // Draft" editing panel appear for plain video/image experiences too.
+    const hasArticleDraftStepData = Boolean(
+      articleDraft.title ||
+        articleDraft.prompt ||
+        articleOutputs.length > 0 ||
+        typeof articleDraft.takeaways_count === "number" ||
+        typeof copilotOutput.takeaways_count === "number",
+    );
+    const bundleWantsArticle = Boolean(
+      getAppliedExperienceBundle(activeExperienceForEditing)?.blockKinds.includes("article_draft"),
+    );
+    const shouldShowArticle = hasArticleDraftStepData || bundleWantsArticle;
 
     return {
       experienceName:
@@ -6463,15 +6762,17 @@ export const ComposerStudio = () => {
           : "") || "",
       videoPrompt:
         (typeof videoPrompt.prompt === "string" && videoPrompt.prompt.trim() ? videoPrompt.prompt : "") || "",
-      articleTitle:
-        firstNonEmptyString([articleDraft.title, activeMetadata.article_title, activeExperienceForEditing?.name]) || "",
-      articlePrompt:
-        firstNonEmptyString([
-          articleDraft.prompt,
-          activeMetadata.article_prompt,
-          intentTimebox.goal,
-          activeExperienceForEditing?.description,
-        ]) || "",
+      articleTitle: shouldShowArticle
+        ? firstNonEmptyString([articleDraft.title, activeMetadata.article_title, activeExperienceForEditing?.name]) || ""
+        : "",
+      articlePrompt: shouldShowArticle
+        ? firstNonEmptyString([
+            articleDraft.prompt,
+            activeMetadata.article_prompt,
+            intentTimebox.goal,
+            activeExperienceForEditing?.description,
+          ]) || ""
+        : "",
       articleOutputs,
       articleTakeawaysCount:
         typeof takeawaysCount === "number" && Number.isFinite(takeawaysCount) ? takeawaysCount : 3,
@@ -7396,6 +7697,26 @@ export const ComposerStudio = () => {
     return () => window.removeEventListener("message", handleGenerateImagesMessage);
   }, [previewExperience, requestImageBundleArtifacts, refreshExperienceFromServer]);
 
+  // DCIR observation seam — ground context for the studio copilot (CFS-020
+  // §6, observe-mode-first). The compacted event tail + constitutional state
+  // snapshot + session-mined behavioural patterns travel to /api/codex/chat
+  // via the CodexCopilotLayer `groundContext` prop. Everything here is a
+  // category label or count: template slugs, skill kinds, tab ids, provider
+  // ids. NEVER a personaId/authProfileId/rootDid, experience name, prompt
+  // body, or asset URL. `persona` on the snapshot stays null by construction
+  // (buildStateSnapshot never populates it on this seam).
+  const copilotGroundContext = useMemo<Record<string, unknown>>(
+    () => ({
+      surface: "studio-composer",
+      // DCIR D4: the three observation fields (recentEvents / stateSnapshot /
+      // observedPatterns — the server contract) come from the substrate hook's
+      // groundObservation, memoized on [events, surface, workflowStage,
+      // activeCapsule] exactly as the hand-wired version was.
+      ...groundObservation,
+    }),
+    [groundObservation],
+  );
+
   const buildComposerChatRequestContext = useCallback(
     (prompt: string) => {
       const lower = prompt.toLowerCase();
@@ -7797,6 +8118,8 @@ export const ComposerStudio = () => {
                   setRuntimePreviewLoaded(true);
                   setRuntimePreviewErrored(false);
                   postRuntimePreviewDeviceContext(previewDevice);
+                  // DCIR observation (side-effect only): device class label.
+                  observe(studioPreviewRenderedEvent(previewDevice));
                 }}
                 onError={() => {
                   setRuntimePreviewLoaded(false);
@@ -8002,6 +8325,7 @@ export const ComposerStudio = () => {
                     onUserPrompt={handleComposerUserPrompt}
                     onMessagesChange={(msgs) => { copilotConversationRef.current = msgs; }}
                     getChatRequestContext={buildComposerChatRequestContext}
+                    groundContext={copilotGroundContext}
                     agent={{
                       id: composerAgent.id,
                       name: composerAgent.name,
@@ -10548,7 +10872,7 @@ export const ComposerStudio = () => {
                                                 <button
                                                   type="button"
                                                   onClick={() => hasPrescription && openPopup(key)}
-                                                  className={`w-full rounded border px-0.5 py-1 text-center text-[12px] leading-tight font-medium ${cellClass} ${hasPrescription ? "cursor-pointer hover:ring-1 hover:ring-white/20" : "cursor-default"} ${isIndividualPos ? "ring-2 ring-violet-400/60" : ""} ${isPeakCohortCell ? "ring-2 ring-cyan-400/70 !bg-cyan-950/25 !border-cyan-500/30" : ""}`}
+                                                  className={`w-full rounded border px-0.5 py-1 text-center text-[12px] leading-tight font-medium ${cellClass} ${hasPrescription ? "cursor-pointer hover:ring-1 hover:ring-white/20" : "cursor-default"} ${isIndividualPos ? "ring-2 ring-violet-400/60" : ""} ${isPeakCohortCell ? "ring-2 ring-cyan-400/70 !bg-cyan-950/25 !border-cyan-500/30" : ""} ${studioCalibration && key === `${studioCalibration.engagement}:${studioCalibration.sovereignty}` ? "ring-2 ring-amber-400/70" : ""}`}
                                                   title={`${y} × ${x}${cellCount ? ` · ${cellCount} user${cellCount > 1 ? "s" : ""}` : ""}${prescription ? `\n${prescription}` : ""}`}
                                                 >
                                                   {prescription ? prescription.split(": ").pop() : "·"}
@@ -11886,6 +12210,10 @@ export const ComposerStudio = () => {
                         )}
                       </div>
 
+                      {/* ── Guided Creator Flow (marketer/creator UX surface) ─ */}
+                      <VideoArticleCreatorFlow />
+                      <ConstitutionalVideoCreatorFlow />
+
                       {/* ── Studio Skills ─────────────────────────────────── */}
                       {(() => {
                         const allSkills = [
@@ -11942,6 +12270,15 @@ export const ComposerStudio = () => {
                             trustBand: "L3",
                             assetClass: "SkillQube",
                             tags: ["article", "editorial", "copy"],
+                          },
+                          {
+                            id: "skill:video_article_24s",
+                            name: "24-Second Video + Article",
+                            description: "Native composite skill: a 24-second video (2 × 12s) and a matching companion article from one shared brief, with a content-alignment check. Use the Guided Creator Flow below to run it.",
+                            badge: "B",
+                            trustBand: "L3",
+                            assetClass: "SkillQube",
+                            tags: ["video", "article", "24-second", "composite"],
                           },
                         ];
                         const visibleSkills = skillFilterMode === "active" && activeExperienceSkillIds.size > 0

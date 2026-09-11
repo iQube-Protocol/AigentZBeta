@@ -10,10 +10,20 @@ import {
   renderMermaidSvg,
   validateMermaidSource,
 } from "./mermaidSafe";
+import { extractRichBlocksFromText, type ExtractedSmartTriadBlock } from "@/services/smarttriad/richBlocks";
+import { SmartTriadRichBlockListRenderer } from "@/components/smarttriad/richblocks/SmartTriadRichBlockRenderer";
+import type { SmartTriadRichBlockEnvelope } from "@/types/smarttriad/richBlocks";
 
 interface CopilotInferenceBodyRendererProps {
   content: string;
   onPromptSuggestion?: (prompt: string, meta?: PromptSuggestionMeta) => void;
+  /** First-class structured content (Workstream 2, 2026-09-04) — rich blocks
+   *  transported alongside `content` rather than only embedded as fenced
+   *  JSON inside it. Rendered ahead of any legacy fenced-JSON blocks still
+   *  found inside `content` (deterministic order); omit for byte-identical
+   *  behavior to before this capability existed. */
+  blocks?: SmartTriadRichBlockEnvelope[];
+  onRichBlockContinuePrompt?: (prompt: string) => void;
 }
 
 interface MermaidBlockProps {
@@ -368,9 +378,28 @@ function MermaidBlock({ code }: MermaidBlockProps) {
   );
 }
 
-export function CopilotInferenceBodyRenderer({ content, onPromptSuggestion }: CopilotInferenceBodyRendererProps) {
-  const exploreFurtherPrompts = extractExploreFurtherPrompts(content);
-  const renderedContent = stripExploreFurtherSection(content);
+export function CopilotInferenceBodyRenderer({
+  content,
+  onPromptSuggestion,
+  blocks,
+  onRichBlockContinuePrompt,
+}: CopilotInferenceBodyRendererProps) {
+  // SmartTriad Rich Blocks (2026-09-04) — the SAME shared parser/renderer
+  // components/smarttriad/copilot/SmartTriadInferenceRenderer.tsx uses.
+  // Structured-block rendering does not depend on any Markdown-enhancement
+  // flag: whatever gates whether THIS component mounts at all is the host's
+  // concern (CodexCopilotLayer's own enableInferenceRendering flag governs
+  // ordinary Markdown/Mermaid presentation only) — a valid block extracted
+  // here always renders.
+  const richBlockExtraction = extractRichBlocksFromText(content);
+  const renderedBlocks: ExtractedSmartTriadBlock[] = [
+    ...(blocks ?? []).map((envelope) => ({ envelope, invalid: false, rawMatch: "" })),
+    ...richBlockExtraction.blocks,
+  ];
+  const contentAfterBlocks = richBlockExtraction.contentWithoutBlocks;
+
+  const exploreFurtherPrompts = extractExploreFurtherPrompts(contentAfterBlocks);
+  const renderedContent = stripExploreFurtherSection(contentAfterBlocks);
 
   const mdComponents = {
     p: ({ children }: { children?: React.ReactNode }) =>
@@ -402,6 +431,7 @@ export function CopilotInferenceBodyRenderer({ content, onPromptSuggestion }: Co
 
   return (
     <div className={styles.rendererRoot}>
+      <SmartTriadRichBlockListRenderer blocks={renderedBlocks} onContinuePrompt={onRichBlockContinuePrompt} />
       {splitMarkdownTables(renderedContent).map((seg, idx) =>
         seg.type === "table" ? (
           <InlineGfmTable key={idx} content={seg.content} />

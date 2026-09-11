@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-28-NO-CEREMONIAL-DUPLICATION-ACROSS-CHANNELS-001",
+  "statement": "A constitutional act performed and canonically recorded through one authorized channel must never be re-requested by another channel as if it had not happened. A principal who delegates through Copilot must not be asked to delegate again on the bridge; one who freezes on the bridge must not see Copilot request a fresh freeze confirmation. Every interface reads readiness from the canonical state, never from its own channel-local memory of what it has personally witnessed.",
+  "family": "constitutional",
+  "governingPrinciple": false,
+  "parentCandidateId": "CI-2026-08-28-CONSTITUTIONAL-STATE-IS-INTERFACE-SOVEREIGN-001",
+  "projections": {
+    "targets": ["constitutional-computing", "irl"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "The same MS-11 discipline this codebase already enforces for caches ('a cache may not answer authoritatively before it is hydrated') generalised across interfaces: a channel that has not yet observed an act must render as NOT-YET-CHECKED, never as a false negative that solicits a duplicate ceremony. Directly related to this session's own prior finding for OCSGA Presence/Delegation (split-state defects where a card and a stepper used different predicates for the same fact) -- ceremonial duplication is the user-facing symptom of exactly that class of defect.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/journey-spine-channel-convergence.test.ts",
+      "assertion": "After an MCP-path delegation/freeze/sign write, the Journey Spine resolver's very next call reflects it as satisfied with no re-check or second confirmation step reachable in the resolver's own logic -- proving there is no channel-local 'have I personally seen this' state that could solicit a repeat ceremony.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/journey/ianJourneyState.ts, services/threshold/constitutionalNavigator.ts",
+      "defect": "Not a discovered defect in this episode -- both readers already resolve from the same canonical exchange/delegation tables via the same functions, so no duplicate-ceremony path was found to exist. Recorded as a candidate anyway because the operator named it as an explicit, testable acceptance criterion for future interfaces (IRL OS and beyond), where the same discipline must be designed in from the start rather than discovered as a defect after the fact.",
+      "resolutionId": "RES-2026-08-28-RAX-OPERATOR-ASSISTED-CHANNEL-CONVERGENCE-001",
+      "evidence": [
+        "services/journey/ianJourneyState.ts",
+        "services/threshold/constitutionalNavigator.ts",
+        "tests/journey-spine-channel-convergence.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": ["RES-2026-08-28-RAX-OPERATOR-ASSISTED-CHANNEL-CONVERGENCE-001"],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "The operator directed this be treated as ratified doctrine effective 2026-08-28. Recorded at 'candidate' per this repo's consistent convention -- see the governing principle's own note for the ratifiedSource update path.",
+    "verifiedFailingBeforeFix is honestly false here for the same reason it is in CI-2026-08-26-UNASSESSABLE-IS-NOT-REPRODUCED-001's own note: the canary was written alongside the property it guards, having found it already true, not against an observed duplication defect."
+  ]
+}

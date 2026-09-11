@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-07",
+  "resolutionId": "RES-2026-09-07-DIDQUBE-PHASE-3-PASSPORT-ID-PRIVACY-CLASSIFICATION-001",
+  "capability": "polity-passport-wallet-privacy",
+  "milestone": "DiDQube Phase 3 item 6: the T0/T1 constitutional decision brief (2026-09-07_t0-t1-wallet-authority-decision-brief.md) named `polity_passport_records.passport_id`'s exposure via /api/polity-passport/wallet as the one unreconciled tension the prior architecture audit flagged.",
+  "problem": "The operator's ruling on `passport_id` was refined twice in this same tranche before landing: (1) an initial ruling to remove it from the browser entirely behind an opaque short-lived capability reference; (2) a correction classifying it as 'public non-secret metadata' safe to retain verbatim, gated only by verifying every consuming route checks ownership server-side; (3) a further correction rejecting the 'public'/'like a private key' framings in favour of a third classification -- holder-visible, privacy-sensitive credential metadata (a private account/membership number: the holder needs it, disclosure does not grant control, but the platform must minimize its circulation and never let it become a routine public correlation handle). Auditing the codebase against classification (3) (not yet checked under (1) or (2), since neither asked for a public/telemetry/DVN sweep) found the field WAS already leaking exactly the way (3) forbids: a fully unauthenticated public registry endpoint serialized every issued Passport's raw passport_id to any viewer, its consuming public UI tab rendered it directly, and three separate DVN-anchorable activity-receipt call sites embedded the raw id in the receipt `summary` string -- which rides verbatim into the on-chain DVN payload (services/dvn/activityReceiptDvnPipeline.ts's payload construction includes `summary: record.summary` unconditionally for any ANCHORABLE_ACTION_TYPES receipt).",
+  "observedFailure": [
+    "app/api/polity-passport/registry/route.ts (GET, no auth check at all, explicitly documented as 'the public listing of issued passports') selected and returned `passportId: row.passport_id` for every row in the entire registry, not scoped to any caller.",
+    "app/triad/components/codex/tabs/PassportRegistryTab.tsx rendered that value directly (`<p>{p.passportId}</p>`) in its public listing UI, and additionally used it as the client-side correlation key between the public listing and the caller's own holdings (`ownMap.get(p.passportId)`) -- meaning even a viewer with no matching own passport still received every other holder's raw id in the same response.",
+    "services/passport/issuanceService.ts's writeReceipt call for `passport_issued`/`passport_status_changed` (ANCHORABLE_ACTION_TYPES) built `summary: Passport issued: ${passportId} (...)` -- reaching the DVN chain payload verbatim on every real Passport issuance, the platform's single highest-volume passport-issuance path.",
+    "app/api/polity-passport/verify-worldid/route.ts's sibling-demotion receipt (also `passport_status_changed`, anchorable) built a summary embedding TWO raw passport_id values (the demoted sibling's and the newly-verified one).",
+    "services/passport/legacyPassportLinkageRepair.ts's reconciliation receipt (`legacy_passport_linkage_reconciled`, anchorable) embedded the raw passport_id in its summary despite an inline comment at the time asserting 'Public passport_id + booleans only' -- written under the now-superseded classification (2)."
+  ],
+  "rootCauses": [
+    "The first two rulings in this tranche were scoped to the single browser-facing route named in the original architecture audit (/api/polity-passport/wallet) and never asked 'where ELSE does this value already travel' -- the value's presence in a public listing endpoint and in DVN-anchored receipt summaries predates this tranche entirely and was never audited until the third, more precise classification made 'public profiles / DVN payloads / analytics' an explicit non-goal to check against.",
+    "The receipt-summary sites were written under an inline comment ('Public passport_id... T0 discipline') that conflated 'not a T0 server-internal id' with 'safe to broadcast on-chain' -- the classification gap the operator's third correction exists specifically to close (holder-visible is not the same property as publicly-correlatable).",
+    "No canary anywhere in the DVN pipeline or the public registry route asserted the ABSENCE of passport_id, so each site could regress or be copied forward silently -- the same 'a lesson does not become doctrine' gap the Resolution -> Invariant Loop exists to close."
+  ],
+  "resolution": [
+    "app/api/polity-passport/registry/route.ts: passport_id removed from the SELECT and from the response projection entirely. persona_public_ref (already selected, already the codebase's canonical T1/T2-safe commitment ref) remains as the public correlation surface.",
+    "app/api/polity-passport/wallet/route.ts: personaPublicRef added to the owner-scoped response (previously selected from the DB but never returned) so the client can correlate a public registry row to the caller's own holding via (personaPublicRef, passportClass) without ever needing the public projection to carry the raw id. Doc comment updated to record the ratified three-part classification and point at the corresponding receipt-summary fixes.",
+    "app/triad/components/codex/tabs/PassportRegistryTab.tsx: PublicPassport interface no longer carries passportId; OwnPassport gained personaPublicRef. The public-row-to-own-holding correlation (ownMap), the React list key, the displayed label, and the World-ID upgrade button's onProof/busy/signal props were all switched from the (now-removed) public p.passportId to the owner-scoped own.passportId -- which is only ever defined when the row already matched one of the caller's own holdings, so the claim/World-ID flows are unchanged in behavior for the owner and never expose the id to any other viewer.",
+    "services/passport/issuanceService.ts's writeReceipt summary for passport_issued/passport_status_changed no longer embeds passportId -- 'Passport issued (${passportClass}, ${issuedStatus})' / 'Passport issued automatically (...)' carry the same auditable meaning without the correlatable id.",
+    "app/api/polity-passport/verify-worldid/route.ts's demotion receipt summary rewritten to 'Citizen Passport demoted (superseded_non_canonical) by a World ID uniqueness hardening event' -- drops both embedded ids.",
+    "services/passport/legacyPassportLinkageRepair.ts's reconciliation receipt summary drops the raw id (kept in `actionInput.passport_record_id`, which is NOT part of the DVN payload's field list and remains holder-visible-only since the receipt's personaId is the passport's own owning caller); the stale 'public passport_id' comment corrected to name the actual DVN-payload risk.",
+    "LockerTab.tsx and SmartWalletDrawer.tsx (already updated earlier in this tranche, before this classification refinement, to add an explicit reveal/copy control for the full id inside the authenticated wallet) required NO further change under the refined classification -- 'keep it visible and copyable in the authenticated wallet' was already exactly what both surfaces do; only the PUBLIC/DVN-facing sites needed correction."
+  ],
+  "rejectedApproaches": [
+    "The first ruling's opaque short-lived capability-reference mechanism (services/passport/passportWalletRef.ts, built then deleted this same tranche) -- superseded before implementation completed; rejected once the operator clarified the wallet display itself should keep the real id, not a token standing in for it.",
+    "Treating passport_id as generally public metadata safe to display or transmit anywhere merely because it is not a T0 server-internal database key -- rejected by the operator's own correction: 'holder-visible' and 'safe for routine public correlation' are different properties, and this codebase's DVN/public-registry surfaces had conflated them.",
+    "A full pairwise-pseudonymous-identifier / zero-knowledge presentation system (prove 'holds a valid Passport of class X' without revealing which specific Passport) -- explicitly named by the operator as the larger, correct long-term shape but deliberately backlogged rather than implemented now; this resolution's scope is the concrete already-existing leaks, not a redesign of the credential-presentation model."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-07-PASSPORT-ID-PRIVACY-SENSITIVE-NOT-PUBLIC-001"
+  ],
+  "canaries": [
+    "tests/passport-claim-ownership-boundary.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "multi-cycle-repair",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/passport-claim-ownership-boundary.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-07_t0-t1-wallet-authority-decision-brief.md",
+    "app/api/polity-passport/registry/route.ts",
+    "app/api/polity-passport/wallet/route.ts",
+    "app/triad/components/codex/tabs/PassportRegistryTab.tsx",
+    "services/passport/issuanceService.ts",
+    "app/api/polity-passport/verify-worldid/route.ts",
+    "services/passport/legacyPassportLinkageRepair.ts"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "unresolvedRisks": [
+    "The larger pairwise-external-service-reference / zero-knowledge 'holds a valid Passport of class X' presentation system remains backlogged per the operator's own instruction -- passport_id still travels to the caller's own browser and (necessarily, to let the holder act on it) into claim/World-ID-verify request bodies. The invariant this resolution registers narrows exposure to already-identified public/DVN/receipt-summary surfaces; it is not a proof that no other surface exists.",
+    "No systematic grep-based canary yet enforces 'no DVN-anchorable receipt's summary may contain a passport_id-shaped token' across the whole codebase -- this resolution fixed the three call sites found by manual audit of ANCHORABLE_ACTION_TYPES' passport-related entries; a future new anchorable receipt type could reintroduce the same defect without an executable gate catching it. Recommended as a follow-up canary, not built here to keep this tranche bounded."
+  ]
+}

@@ -18,10 +18,31 @@ import {
   Coins,
   Loader2,
   RefreshCw,
+  Rocket,
   Save,
   Sparkles,
+  Trash2,
   X as XIcon,
 } from "lucide-react";
+
+// Runtime menu placement — mirrors MetaMePulseAdminTab / MetaMeRuntimeClient.
+// A cartridge admin tags forwarded Pulse content with the runtime menu it
+// should surface under; the metaMe admin still owns final promotion.
+type RuntimeMenu = "be" | "make" | "play" | "earn" | "share";
+const RUNTIME_MENU_LABELS: Record<RuntimeMenu, string> = {
+  be: "Be",
+  make: "Make",
+  play: "Play",
+  earn: "Earn",
+  share: "Share",
+};
+const RUNTIME_MENU_SUBMENUS: Record<RuntimeMenu, string[]> = {
+  be: ["persona", "identity", "settings", "memory", "connections"],
+  make: ["create", "build", "remix"],
+  play: ["watch", "listen", "knyt"],
+  earn: ["goal", "task", "wallet", "reward", "offer"],
+  share: ["message", "invite", "refer"],
+};
 
 interface ContentItem {
   id: string;
@@ -31,7 +52,7 @@ interface ContentItem {
   articleBody: string | null;
   imageUrl: string | null;
   qcCost: number;
-  creator: { firstName: string | null; handle: string | null };
+  creator: { firstName: string | null; handle: string | null; fioHandle: string | null };
   createdAt: string;
 }
 
@@ -47,9 +68,16 @@ interface Settings {
 interface Props {
   isAdmin?: boolean;
   personaId?: string;
+  /**
+   * Cartridge filter — drives /api/community-content/list?cartridge=
+   * so KNYT admin sees only KNYT rows and Qripto admin sees only
+   * Qripto rows. Defaults to undefined (no filter) for back-compat
+   * with the existing KNYT mount.
+   */
+  cartridge?: "knyt" | "qripto";
 }
 
-export function KnytCommunityContentAdminTab({ isAdmin, personaId }: Props) {
+export function KnytCommunityContentAdminTab({ isAdmin, personaId, cartridge }: Props) {
   if (!isAdmin) {
     return (
       <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 m-4 text-xs text-red-300">
@@ -58,10 +86,10 @@ export function KnytCommunityContentAdminTab({ isAdmin, personaId }: Props) {
       </div>
     );
   }
-  return <AdminContent personaId={personaId} />;
+  return <AdminContent personaId={personaId} cartridge={cartridge} />;
 }
 
-function AdminContent({ personaId }: { personaId?: string }) {
+function AdminContent({ personaId, cartridge }: { personaId?: string; cartridge?: "knyt" | "qripto" }) {
   const [queue, setQueue] = useState<ContentItem[]>([]);
   const [loadingQueue, setLoadingQueue] = useState(true);
   const [actionPending, setActionPending] = useState<string | null>(null);
@@ -71,10 +99,18 @@ function AdminContent({ personaId }: { personaId?: string }) {
   const [draft, setDraft] = useState<Settings | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
 
+  // Per-row "send to metaMe runtime" picker state, keyed by row id.
+  const [runtimeDraft, setRuntimeDraft] = useState<
+    Record<string, { open: boolean; menu: RuntimeMenu | ""; submenu: string; submitted: boolean }>
+  >({});
+  const [submittingRuntime, setSubmittingRuntime] = useState<string | null>(null);
+
   const loadQueue = useCallback(async () => {
     setLoadingQueue(true);
     try {
-      const res = await fetch("/api/community-content/list?status=shared&limit=100", { cache: "no-store" });
+      const params = new URLSearchParams({ status: "shared", limit: "100" });
+      if (cartridge) params.set("cartridge", cartridge);
+      const res = await fetch(`/api/community-content/list?${params.toString()}`, { cache: "no-store" });
       const json = await res.json();
       if (!res.ok || !json.ok) {
         setError(json.error || `Failed to load queue (${res.status})`);
@@ -86,7 +122,7 @@ function AdminContent({ personaId }: { personaId?: string }) {
     } finally {
       setLoadingQueue(false);
     }
-  }, []);
+  }, [cartridge]);
 
   const loadSettings = useCallback(async () => {
     try {
@@ -145,6 +181,81 @@ function AdminContent({ personaId }: { personaId?: string }) {
       setQueue((prev) => prev.filter((q) => q.id !== id));
     } finally {
       setActionPending(null);
+    }
+  };
+
+  // Hard delete — admin-only. Confirms before firing so a misclick
+  // doesn't nuke a row. Removes the row + its publication-state mirror
+  // (route picks the right table based on row.cartridge). Use Reject
+  // for soft-rejection (status='rejected'); Delete is for spam / abuse
+  // where the row should disappear entirely.
+  const deleteRow = async (id: string, title: string) => {
+    if (!personaId) return;
+    if (typeof window !== "undefined") {
+      const ok = window.confirm(
+        `Delete "${title}" permanently? This removes the row and its publication-state mirror. Use Reject if you only want to hide it.`,
+      );
+      if (!ok) return;
+    }
+    setActionPending(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/community-content/${id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminPersonaId: personaId }),
+      });
+      const json = await res.json().catch(() => ({ ok: false, error: "invalid response" }));
+      if (!res.ok || !json.ok) {
+        setError(json.error || `Delete failed (${res.status})`);
+        return;
+      }
+      setQueue((prev) => prev.filter((q) => q.id !== id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Delete failed");
+    } finally {
+      setActionPending(null);
+    }
+  };
+
+  const setRuntimeRow = (id: string, patch: Partial<{ open: boolean; menu: RuntimeMenu | ""; submenu: string; submitted: boolean }>) =>
+    setRuntimeDraft((prev) => ({
+      ...prev,
+      [id]: { open: false, menu: "", submenu: "", submitted: false, ...prev[id], ...patch },
+    }));
+
+  // Forward an approved Pulse row into the metaMe Runtime pipeline. Mints a
+  // linked metame-runtime submission (status='shared') in the metaMe admin
+  // queue; the original Pulse row is untouched.
+  const submitToRuntime = async (id: string) => {
+    if (!personaId) return;
+    const d = runtimeDraft[id];
+    if (!d?.menu) {
+      setError("Pick a runtime menu first.");
+      return;
+    }
+    setSubmittingRuntime(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/community-content/${id}/submit-to-runtime`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adminPersonaId: personaId,
+          runtimeMenu: d.menu,
+          runtimeSubmenu: d.submenu || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        setError(json.error || `Submit failed (${res.status})`);
+        return;
+      }
+      setRuntimeRow(id, { open: false, submitted: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Submit failed");
+    } finally {
+      setSubmittingRuntime(null);
     }
   };
 
@@ -216,6 +327,13 @@ function AdminContent({ personaId }: { personaId?: string }) {
                 pending={actionPending === item.id}
                 onPromote={() => void promote(item.id)}
                 onReject={() => void reject(item.id)}
+                onDelete={() => void deleteRow(item.id, item.title)}
+                runtime={runtimeDraft[item.id]}
+                runtimeSubmitting={submittingRuntime === item.id}
+                onToggleRuntime={() => setRuntimeRow(item.id, { open: !runtimeDraft[item.id]?.open })}
+                onRuntimeMenu={(m) => setRuntimeRow(item.id, { menu: m, submenu: "" })}
+                onRuntimeSubmenu={(s) => setRuntimeRow(item.id, { submenu: s })}
+                onSubmitRuntime={() => void submitToRuntime(item.id)}
               />
             ))}
           </div>
@@ -299,49 +417,118 @@ function AdminContent({ personaId }: { personaId?: string }) {
 }
 
 function QueueRow({
-  item, pending, onPromote, onReject,
+  item, pending, onPromote, onReject, onDelete,
+  runtime, runtimeSubmitting, onToggleRuntime, onRuntimeMenu, onRuntimeSubmenu, onSubmitRuntime,
 }: {
   item: ContentItem;
   pending: boolean;
   onPromote: () => void;
   onReject: () => void;
+  onDelete: () => void;
+  runtime?: { open: boolean; menu: RuntimeMenu | ""; submenu: string; submitted: boolean };
+  runtimeSubmitting: boolean;
+  onToggleRuntime: () => void;
+  onRuntimeMenu: (m: RuntimeMenu | "") => void;
+  onRuntimeSubmenu: (s: string) => void;
+  onSubmitRuntime: () => void;
 }) {
+  const menu = runtime?.menu ?? "";
+  const submenuOptions = menu ? RUNTIME_MENU_SUBMENUS[menu] : [];
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 flex items-start gap-3">
-      {item.imageUrl ? (
-        <img src={item.imageUrl} alt={item.title} className="h-16 w-16 rounded-lg object-cover shrink-0" />
-      ) : (
-        <div className="h-16 w-16 rounded-lg bg-slate-950 flex items-center justify-center shrink-0">
-          <Sparkles className="h-4 w-4 text-slate-600" />
+    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+      <div className="flex items-start gap-3">
+        {item.imageUrl ? (
+          <img src={item.imageUrl} alt={item.title} className="h-16 w-16 rounded-lg object-cover shrink-0" />
+        ) : (
+          <div className="h-16 w-16 rounded-lg bg-slate-950 flex items-center justify-center shrink-0">
+            <Sparkles className="h-4 w-4 text-slate-600" />
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-white truncate">{item.title}</p>
+          <p className="text-[11px] text-slate-500 truncate">
+            {item.skill} · {item.creator.fioHandle ?? item.creator.handle ?? item.creator.firstName ?? "Creator"} · {item.qcCost} Q¢
+          </p>
+          <p className="text-[11px] text-slate-400 line-clamp-2 mt-1">{item.prompt}</p>
+        </div>
+        <div className="flex flex-col gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={onPromote}
+            disabled={pending}
+            className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-200 hover:bg-emerald-500/25 disabled:opacity-30"
+          >
+            {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+            Promote
+          </button>
+          <button
+            type="button"
+            onClick={onToggleRuntime}
+            disabled={pending || runtime?.submitted}
+            className="inline-flex items-center gap-1 rounded-lg border border-sky-500/40 bg-sky-500/10 px-2.5 py-1 text-[11px] text-sky-200 hover:bg-sky-500/20 disabled:opacity-30"
+            title="Forward to the metaMe Runtime admin queue (tagged by menu)"
+          >
+            <Rocket className="h-3 w-3" />
+            {runtime?.submitted ? "Sent" : "→ Runtime"}
+          </button>
+          <button
+            type="button"
+            onClick={onReject}
+            disabled={pending}
+            className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-200 hover:bg-amber-500/20 disabled:opacity-30"
+            title="Soft reject — sets status='rejected', row is preserved for audit"
+          >
+            {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <XIcon className="h-3 w-3" />}
+            Reject
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={pending}
+            className="inline-flex items-center gap-1 rounded-lg border border-red-500/40 bg-red-500/15 px-2.5 py-1 text-[11px] text-red-300 hover:bg-red-500/25 disabled:opacity-30"
+            title="Hard delete — removes the row and its publication-state mirror"
+          >
+            {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+            Delete
+          </button>
+        </div>
+      </div>
+
+      {runtime?.open && !runtime.submitted && (
+        <div className="mt-2 flex items-center gap-2 border-t border-white/5 pt-2">
+          <span className="text-[10px] uppercase tracking-wider text-sky-300/70">metaMe runtime →</span>
+          <select
+            value={menu}
+            onChange={(e) => onRuntimeMenu(e.target.value as RuntimeMenu | "")}
+            className="rounded-lg border border-white/10 bg-slate-950/60 px-2 py-1 text-[11px] text-slate-200 focus:border-sky-400/40 focus:outline-none"
+          >
+            <option value="">Menu…</option>
+            {(Object.keys(RUNTIME_MENU_LABELS) as RuntimeMenu[]).map((m) => (
+              <option key={m} value={m}>{RUNTIME_MENU_LABELS[m]}</option>
+            ))}
+          </select>
+          <select
+            value={runtime.submenu}
+            onChange={(e) => onRuntimeSubmenu(e.target.value)}
+            disabled={!menu}
+            className="rounded-lg border border-white/10 bg-slate-950/60 px-2 py-1 text-[11px] text-slate-200 focus:border-sky-400/40 focus:outline-none disabled:opacity-30"
+          >
+            <option value="">Submenu (optional)…</option>
+            {submenuOptions.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={onSubmitRuntime}
+            disabled={runtimeSubmitting || !menu}
+            className="ml-auto inline-flex items-center gap-1 rounded-lg border border-sky-500/40 bg-sky-500/15 px-2.5 py-1 text-[11px] font-semibold text-sky-200 hover:bg-sky-500/25 disabled:opacity-30"
+          >
+            {runtimeSubmitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Rocket className="h-3 w-3" />}
+            Send
+          </button>
         </div>
       )}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-white truncate">{item.title}</p>
-        <p className="text-[11px] text-slate-500 truncate">
-          {item.skill} · {item.creator.firstName ?? item.creator.handle ?? "Creator"} · {item.qcCost} Q¢
-        </p>
-        <p className="text-[11px] text-slate-400 line-clamp-2 mt-1">{item.prompt}</p>
-      </div>
-      <div className="flex flex-col gap-1.5 shrink-0">
-        <button
-          type="button"
-          onClick={onPromote}
-          disabled={pending}
-          className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-200 hover:bg-emerald-500/25 disabled:opacity-30"
-        >
-          {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-          Promote
-        </button>
-        <button
-          type="button"
-          onClick={onReject}
-          disabled={pending}
-          className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[11px] text-red-300 hover:bg-red-500/20 disabled:opacity-30"
-        >
-          {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <XIcon className="h-3 w-3" />}
-          Reject
-        </button>
-      </div>
     </div>
   );
 }

@@ -13,7 +13,7 @@ import {
 import { useEthPrice } from '@/app/hooks/useEthPrice';
 import { useKnytThumbnails } from './useKnytThumbnails';
 import { useKnytCart } from './useKnytCart';
-import { useOwnedEntitlements } from '@/app/hooks/useOwnedEntitlements';
+import { useRegistryOwnedItems } from '@/app/hooks/useRegistryOwnedItems';
 import { KnytCartDrawer } from './KnytCartDrawer';
 import { ContentPurchaseModal } from '../../content/ContentPurchaseModal';
 import type { ContentType } from '../../content/ContentPurchaseModal';
@@ -291,7 +291,7 @@ export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
   const [cartOpen, setCartOpen] = useState(false);
   const { characters, getCharacterThumb } = useKnytThumbnails();
   const cart = useKnytCart();
-  const { ownedAssetIds, isCharacterOwnedByEp } = useOwnedEntitlements(personaId);
+  const { ownedAssetIds, isCharacterOwnedByEp } = useRegistryOwnedItems(personaId);
 
   // Direct purchases write character-card-N-{still,motion,bundle} into
   // user_entitlements.asset_id. Bundle holders (Top KNYT Shelf etc.) get

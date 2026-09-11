@@ -4,15 +4,15 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 // CRITICAL: Must use SERVICE_ROLE_KEY to bypass RLS for persona operations
-// Try multiple possible environment variable names
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY 
-  || process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY 
+// SECURITY (2026-07-30): never fall back to a NEXT_PUBLIC_-prefixed name for a
+// service-role credential -- Next.js inlines NEXT_PUBLIC_* values into the
+// client bundle at build time, so a fallback here is a live exposure path.
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 // Log environment variable status for debugging
 console.log('[Persona API] Environment check:', {
   hasServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-  hasPublicServiceRoleKey: !!process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY,
   hasAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   usingKey: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SERVICE_ROLE' : 'ANON'
 });

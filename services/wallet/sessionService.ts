@@ -302,7 +302,7 @@ export function getSessionInfo(): {
   expiresAt: Date | null;
 } {
   const session = getSession();
-  
+
   if (!session) {
     return {
       isUnlocked: false,
@@ -311,12 +311,110 @@ export function getSessionInfo(): {
       expiresAt: null,
     };
   }
-  
+
   return {
     isUnlocked: session.isUnlocked,
     personaId: session.personaId,
     timeRemaining: getSessionTimeRemaining(),
     expiresAt: new Date(session.expiresAt),
+  };
+}
+
+// =============================================================================
+// WALLET ACCESS STATE — five independent facts (operator ruling, 2026-08-02)
+// =============================================================================
+
+/**
+ * "A successful passkey or username/password login must not automatically
+ * imply walletUnlocked = true." This was already true structurally before
+ * this section existed — `walletUnlocked` has only ever been set by
+ * `unlockWallet()` below (called ONLY from the wallet-password path;
+ * `PassportConnectPanel`'s passkey ceremony and any Supabase email/password
+ * sign-in never call it) — but the five facts were never modeled as ONE
+ * explicit, testable shape a caller could read in one place. This section
+ * adds that shape without changing any existing behavior:
+ *
+ *   sessionAuthenticated       — an application session exists (Supabase or
+ *                                 the Passport-native session grant). Caller-
+ *                                 supplied: this module has no session of its
+ *                                 own to check, so it never guesses.
+ *   walletAvailable            — a local wallet profile EXISTS on this device
+ *                                 (caller-supplied — see
+ *                                 `services/wallet/localWalletStore.ts`,
+ *                                 which this module deliberately does not
+ *                                 import, to avoid a session/storage layer
+ *                                 depending on the device-index layer).
+ *   walletUnlocked             — `isWalletUnlocked()` for this persona: the
+ *                                 decrypted key is cached and the bounded
+ *                                 session has not expired.
+ *   walletSessionExpiresAt     — when that bounded session expires, or null
+ *                                 if the wallet is not currently unlocked.
+ *   lastStrongAuthenticationAt — the last time a cryptographic
+ *                                 holder-control proof ran (a wallet
+ *                                 signature OR a passkey assertion) — NOT
+ *                                 the last ordinary sign-in. Recorded via
+ *                                 `recordStrongAuthentication()`, called by
+ *                                 both the wallet-password ceremony
+ *                                 (`PassportConnectPanel`'s wallet-signature
+ *                                 proof) and the passkey ceremony, so a
+ *                                 future step-up decision can ask "how long
+ *                                 ago did this device last actually prove
+ *                                 control" independently of ordinary
+ *                                 convenience access.
+ */
+
+const LAST_STRONG_AUTH_KEY = 'wallet_last_strong_authentication_at';
+
+/** Record that a cryptographic holder-control proof just ran (wallet signature or passkey). */
+export function recordStrongAuthentication(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(LAST_STRONG_AUTH_KEY, String(Date.now()));
+  } catch {
+    // Best-effort — a missing timestamp only degrades a future step-up UX
+    // decision, never security itself (the proof already happened).
+  }
+}
+
+/** Epoch ms of the last recorded strong authentication on this device, or null if none this session. */
+export function getLastStrongAuthenticationAt(): number | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(LAST_STRONG_AUTH_KEY);
+    return raw ? Number(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export interface WalletAccessState {
+  sessionAuthenticated: boolean;
+  walletAvailable: boolean;
+  walletUnlocked: boolean;
+  walletSessionExpiresAt: number | null;
+  lastStrongAuthenticationAt: number | null;
+}
+
+/**
+ * Assemble the five facts. `sessionAuthenticated` and `walletAvailable` are
+ * caller-supplied (this module has no session store and deliberately does
+ * not import `localWalletStore.ts` — see this section's own header) —
+ * `walletUnlocked`/`walletSessionExpiresAt`/`lastStrongAuthenticationAt` are
+ * this module's own authority.
+ */
+export function getWalletAccessState(input: {
+  personaId: string | null;
+  sessionAuthenticated: boolean;
+  walletAvailable: boolean;
+}): WalletAccessState {
+  const session = input.personaId ? getSession() : null;
+  const walletUnlocked = input.personaId ? isWalletUnlocked(input.personaId) : false;
+  return {
+    sessionAuthenticated: input.sessionAuthenticated,
+    walletAvailable: input.walletAvailable,
+    walletUnlocked,
+    walletSessionExpiresAt: walletUnlocked && session ? session.expiresAt : null,
+    lastStrongAuthenticationAt: getLastStrongAuthenticationAt(),
   };
 }
 

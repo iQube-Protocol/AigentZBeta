@@ -242,6 +242,15 @@ class PDFExtractionService {
   /**
    * Create chunks for RAG/LLM consumption
    */
+  /**
+   * Public chunker for already-extracted plain text (e.g. markdown documents
+   * that didn't come from a PDF). Reuses the same chunking options as PDF
+   * extraction so KB chunks are uniform across sources.
+   */
+  chunkPlainText(text: string): TextChunk[] {
+    return this.chunkText(text).map((chunk, index) => ({ ...chunk, index }));
+  }
+
   private createChunks(pages: PDFPage[]): TextChunk[] {
     const chunks: TextChunk[] = [];
     let chunkIndex = 0;

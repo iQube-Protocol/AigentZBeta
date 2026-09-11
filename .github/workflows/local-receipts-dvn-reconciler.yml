@@ -1,0 +1,61 @@
+name: local-receipts-dvn-reconciler
+
+# ── DURABLE local -> DVN SUBMISSION, ONE HOP BEFORE THE FINALIZER ──────────
+#
+# reconcileLocalReceiptsToDvn() drains activity_receipts rows stranded at
+# receipt_status='local' with no dvn_receipt_id — the case where
+# createActivityReceipt()'s un-awaited background DVN submission did not
+# outlive the request/lambda invocation. Same defect class as
+# activity-receipts-finalizer.yml (which does the same thing one hop later,
+# dvn_pending -> dvn_recorded): observability must not be the thing
+# providing liveness.
+#
+# This workflow adds NO new worker and NO second DVN submission
+# implementation — it only gives the existing enqueueReceiptLeg primitive
+# independent liveness for receipts the hot path failed to submit.
+#
+# Required secret (already provisioned for the sibling DVN workflows — same
+# token, same env var, no new secret to add):
+#   CRON_TRIGGER_TOKEN
+#
+# Manual trigger: Actions -> local-receipts-dvn-reconciler -> Run workflow.
+
+on:
+  schedule:
+    # Every 5 minutes — same cadence as activity-receipts-finalizer.yml, the
+    # next stage this feeds.
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  # Never overlap runs against the same local backlog.
+  group: local-receipts-dvn-reconciler
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reconcile stranded local receipts (local -> dvn_pending)
+        env:
+          CRON_TRIGGER_TOKEN: ${{ secrets.CRON_TRIGGER_TOKEN }}
+        run: |
+          if [ -z "$CRON_TRIGGER_TOKEN" ]; then
+            echo "::error::CRON_TRIGGER_TOKEN secret not set in repo settings"
+            exit 1
+          fi
+          response=$(curl -sS --max-time 90 -X POST \
+            -H "x-cron-token: $CRON_TRIGGER_TOKEN" \
+            "https://dev-beta.aigentz.me/api/ops/dvn/reconcile-local-receipts")
+          echo "Reconciler response: $response"
+          # A run that legitimately finds nothing stranded is a SUCCESS —
+          # only ok=false is a workflow failure.
+          ok=$(echo "$response" | python3 -c "import sys,json; print(json.load(sys.stdin).get('ok', False))" 2>/dev/null || echo "parse_error")
+          if [ "$ok" = "parse_error" ]; then
+            echo "::error::Reconciler returned an unparseable response (see body above)"
+            exit 1
+          fi
+          if [ "$ok" != "True" ] && [ "$ok" != "true" ]; then
+            echo "::error::Reconciler reported failure"
+            exit 1
+          fi

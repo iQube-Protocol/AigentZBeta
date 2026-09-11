@@ -13,10 +13,8 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 );
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { cid: string } }
-) {
+export async function GET(req: NextRequest, props: { params: Promise<{ cid: string }> }) {
+  const params = await props.params;
   try {
     const cid = params.cid;
     

@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-06-SAME-COMMIT-EFFECT-ORDERING-001",
+  "statement": "When two React effects in the same component both react to the same state change (one resets/invalidates a cache, another re-fires a request from that cache's current flags), and both effects' dependency arrays change in the SAME render commit, their DECLARATION ORDER decides which runs first — React runs same-commit passive effects top-to-bottom in declaration order. A reset-then-refetch pair must declare the reset effect FIRST; declaring the refetch effect first lets it capture a generation/version number that the reset effect's own bump (running immediately after, in the same commit) then invalidates, discarding the very request it was supposed to protect.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": ["devon"],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  },
+  "classification": null,
+  "ratifiedSource": null,
+  "scope": "cross-capability",
+  "status": "candidate",
+  "notes": [
+    "Discovered while building tests/journey-evidence-layout-browser-regression.test.tsx and tests/stage-receipts-drawer-stale-response.test.tsx for components/journey/StageReceiptsDrawer.tsx — NOT reported by the operator; found only because a real behavioral test exercised the actual timing. A 'fetch when the drawer becomes open, from ANY cause' effect was declared BEFORE the existing 'scope changed, reset caches and bump the generation counter' effect. On a scope change, both effects' dependencies change in the same commit; the fetch effect ran first (because it was declared first), captured a generation number, and the scope effect's own unconditional generation bump then ran immediately after — invalidating that very request the instant it started, before it could ever resolve.",
+    "The fix reordered the two effects (reset declared first) rather than adding a second generation counter or synchronizing them some other way — the ordering guarantee React already provides was sufficient once the effects were arranged to rely on it correctly.",
+    "Generalizes to any pair of effects sharing a mutable ref/counter where one PRODUCES a value the other CONSUMES within the same render pass — the producer must be declared before the consumer, and that dependency should be stated in a comment at both effects, since nothing in the type system enforces it."
+  ],
+  "derivedFrom": ["RES-2026-09-06-JOURNEY-EVIDENCE-SURFACE-CONSOLIDATION-001"],
+  "occurrences": [
+    {
+      "site": "components/journey/StageReceiptsDrawer.tsx — scope-change effect vs. fetch-on-open effect",
+      "defect": "The fetch-on-open effect, declared before the scope-change effect, captured a generation number for a newly-selected agent's request that the scope-change effect's own generation bump (running next, same commit) then immediately invalidated — the new agent's own request was silently discarded as 'stale', discovered only via a real deferred-promise test.",
+      "resolutionId": "RES-2026-09-06-JOURNEY-EVIDENCE-SURFACE-CONSOLIDATION-001",
+      "evidence": ["tests/stage-receipts-drawer-stale-response.test.tsx", "tests/register-stage-receipt-agent-isolation.test.ts"]
+    }
+  ],
+  "canaries": [
+    {
+      "path": "tests/stage-receipts-drawer-stale-response.test.tsx",
+      "assertion": "using deferred, manually-resolvable fetch promises, proves a scope switch's own new request resolves and renders correctly even when it starts in the same commit as the scope-change reset.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/register-stage-receipt-agent-isolation.test.ts",
+      "assertion": "source-scan confirming the fetch-on-open effect is declared textually AFTER the scope-key effect in StageReceiptsDrawer.tsx.",
+      "verifiedFailingBeforeFix": false
+    }
+  ]
+}

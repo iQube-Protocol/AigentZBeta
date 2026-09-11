@@ -97,7 +97,14 @@ function getAvailableActions(
   if (!isLocked) {
     if (modalities?.watch?.video_url || modalities?.watch?.available) actions.push('watch');
     if (modalities?.read?.text || modalities?.read?.available) actions.push('read');
-    if (modalities?.listen?.audio_url) actions.push('listen');
+    // Listen is available whenever a pre-generated audio asset exists
+    // (preferred, when present) OR canonical readable text exists to
+    // synthesize on the fly via the shared SmartContent Listen controller
+    // (services/smartcontent/smartContentAudioController.tsx) — this
+    // increment's text-to-speech path. Without the read.text fallback here,
+    // every Qriptopian essay/paper/article (none of which have a
+    // pre-generated audio asset) would never surface a Listen action at all.
+    if (modalities?.listen?.audio_url || modalities?.read?.text) actions.push('listen');
     if (modalities?.link?.url) actions.push('link');
   }
 

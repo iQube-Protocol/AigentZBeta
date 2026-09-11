@@ -12,6 +12,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { personaFetch } from "@/utils/personaSpine";
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 import {
   Bot,
@@ -65,6 +66,8 @@ interface Partner {
   next_action: string | null;
   assigned_agent: string;
   notes: string | null;
+  /** Derived from notes "[scope:X]" prefix — not a DB column. */
+  ventureScope?: string;
 }
 
 interface PartnerSummary {
@@ -117,6 +120,7 @@ const AGENT_COLOURS: Record<string, string> = {
   "openai-codex":   "bg-blue-900/40 text-blue-300 border-blue-800/50",
   "aigent-z":       "bg-amber-900/40 text-amber-300 border-amber-800/50",
   "aigent-marketa": "bg-emerald-900/40 text-emerald-300 border-emerald-800/50",
+  "aigent-me":      "bg-cyan-900/40 text-cyan-300 border-cyan-800/50",
 };
 
 const BD_STAGE_STYLES: Record<string, string> = {
@@ -163,6 +167,40 @@ const COHORT_STYLES: Record<string, string> = {
   reactivation: "border-sky-700/40 text-sky-400",
   ks_backers:   "border-violet-700/40 text-violet-400",
 };
+
+// ─── Venture scope helpers for partner cards ──────────────────────────────────
+// Venture scope is encoded as a "[scope:X]" prefix in the partner's notes field.
+// X is one of: "all" | "portfolio" | any venture name slug.
+
+const SCOPE_PREFIX_RE = /^\[scope:([^\]]+)\]\s*/;
+
+function parseScope(notes: string | null): string {
+  if (!notes) return "all";
+  const m = notes.match(SCOPE_PREFIX_RE);
+  return m ? m[1] : "all";
+}
+
+function stripScope(notes: string | null): string {
+  return (notes ?? "").replace(SCOPE_PREFIX_RE, "");
+}
+
+function encodeScope(scope: string, notes: string | null): string {
+  const clean = stripScope(notes);
+  return scope === "all" ? clean : `[scope:${scope}] ${clean}`;
+}
+
+const SCOPE_STYLE: Record<string, string> = {
+  all:       "border-slate-600/40 text-slate-400",
+  portfolio: "border-cyan-600/40 text-cyan-400",
+};
+
+function scopeLabel(scope: string): string {
+  if (scope === "all") return "All ventures";
+  if (scope === "portfolio") return "Portfolio";
+  return scope;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function normalizeTierKey(raw: string): string {
   const c = raw.toUpperCase().replace(/[^A-Z]/g, "");
@@ -271,17 +309,18 @@ function InlineField({
   );
 }
 
-function PartnerCard({ partner, onRefresh }: { partner: Partner; onRefresh: () => void }) {
+function PartnerCard({ partner, ventureNames, onRefresh }: { partner: Partner; ventureNames: string[]; onRefresh: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const [stageOpen, setStageOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const stageStyle = BD_STAGE_STYLES[partner.bd_stage] ?? BD_STAGE_STYLES.uncontacted;
   const stageLabel = BD_STAGE_LABEL[partner.bd_stage] ?? partner.bd_stage;
+  const scope = partner.ventureScope ?? "all";
 
   const patchPartner = useCallback(async (fields: Record<string, unknown>) => {
     setSaving(true);
     try {
-      await fetch("/api/avl/partners", {
+      await personaFetch("/api/mvl/partners", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: partner.id, ...fields }),
@@ -314,6 +353,11 @@ function PartnerCard({ partner, onRefresh }: { partner: Partner; onRefresh: () =
               W{partner.wave}
             </Badge>
             <TierStars tier={partner.strategic_value_tier} />
+            {scope !== "all" && (
+              <Badge variant="outline" className={`text-[9px] py-0 px-1.5 ${SCOPE_STYLE[scope] ?? "border-violet-700/40 text-violet-400"}`}>
+                {scopeLabel(scope)}
+              </Badge>
+            )}
           </div>
           {partner.audience_overlap_notes && (
             <p className="text-[10px] text-slate-500 mt-0.5 leading-snug line-clamp-1">{partner.audience_overlap_notes}</p>
@@ -356,6 +400,30 @@ function PartnerCard({ partner, onRefresh }: { partner: Partner; onRefresh: () =
             <span className="text-slate-600 w-20 shrink-0">Agent</span>
             <span className="text-slate-400">{partner.assigned_agent}</span>
           </div>
+          {/* Venture scope selector */}
+          <div className="flex gap-2 items-start pt-1 border-t border-white/[0.04] mt-1">
+            <span className="text-slate-600 w-20 shrink-0 pt-0.5">Venture</span>
+            <div className="flex items-center gap-1 flex-wrap">
+              {["all", "portfolio", ...ventureNames].map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  disabled={saving}
+                  onClick={() => {
+                    const newNotes = encodeScope(opt, partner.notes);
+                    void patchPartner({ notes: newNotes });
+                  }}
+                  className={`text-[9px] rounded-full border px-2 py-0.5 transition-colors ${
+                    scope === opt
+                      ? (SCOPE_STYLE[opt] ?? "border-violet-600/60 text-violet-300 bg-violet-500/10")
+                      : "border-white/10 text-slate-600 hover:text-slate-300"
+                  }`}
+                >
+                  {scopeLabel(opt)}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -375,7 +443,7 @@ function AddPartnerForm({ onSaved }: { onSaved: () => void }) {
     if (!name.trim()) { setErr("Name required"); return; }
     setSaving(true); setErr("");
     try {
-      const res = await fetch("/api/avl/partners", {
+      const res = await personaFetch("/api/mvl/partners", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim(), org: org.trim() || name.trim(), wave, contact_name: contact.trim() || null, contact_email: email.trim() || null }),
@@ -425,21 +493,26 @@ function AddPartnerForm({ onSaved }: { onSaved: () => void }) {
   );
 }
 
-function PartnersPanel() {
-  const [partners,   setPartners]   = useState<Partner[]>([]);
-  const [summary,    setSummary]    = useState<PartnerSummary | null>(null);
-  const [loading,    setLoading]    = useState(true);
-  const [waveFilter, setWaveFilter] = useState<"" | "1" | "2">("");
-  const [addingNew,  setAddingNew]  = useState(false);
+/** A summary figure a panel reports up to the sub-menu row. */
+interface NavStat { label: string; value: string | number; accent: string }
+
+function PartnersPanel({ personaId, ventureNames, onStats }: { personaId?: string; ventureNames: string[]; onStats?: (s: NavStat[]) => void }) {
+  const [partners,     setPartners]     = useState<Partner[]>([]);
+  const [summary,      setSummary]      = useState<PartnerSummary | null>(null);
+  const [loading,      setLoading]      = useState(true);
+  const [waveFilter,   setWaveFilter]   = useState<"" | "1" | "2">("");
+  const [scopeFilter,  setScopeFilter]  = useState<string>("all");
+  const [addingNew,    setAddingNew]    = useState(false);
 
   const load = useCallback(async (wave: "" | "1" | "2") => {
     setLoading(true);
     try {
-      const url = wave ? `/api/avl/partners?wave=${wave}` : "/api/avl/partners";
+      const url = wave ? `/api/mvl/partners?wave=${wave}` : "/api/mvl/partners";
       const res = await fetch(url);
       const json = await res.json() as { ok: boolean; data?: { partners: Partner[]; summary: PartnerSummary } };
       if (json.ok && json.data) {
-        setPartners(json.data.partners);
+        const enriched = json.data.partners.map((p) => ({ ...p, ventureScope: parseScope(p.notes) }));
+        setPartners(enriched);
         setSummary(json.data.summary);
       }
     } finally {
@@ -449,26 +522,30 @@ function PartnersPanel() {
 
   useEffect(() => { void load(waveFilter); }, [load, waveFilter]);
 
-  return (
-    <div className="space-y-3">
-      {/* Summary tiles */}
-      {summary && (
-        <div className="grid grid-cols-3 gap-2">
-          {[
+  // Report the summary up to the sub-menu row (operator: stats right-justified
+  // on the sub-menu row). The derivation stays HERE, where the data is — the
+  // parent renders the numbers, it does not recompute them.
+  useEffect(() => {
+    if (!onStats) return;
+    onStats(
+      summary
+        ? [
             { label: "Total",       value: summary.total,       accent: "text-slate-200" },
             { label: "Tier 1",      value: summary.tier1,       accent: "text-amber-300" },
             { label: "Uncontacted", value: summary.uncontacted, accent: "text-sky-300" },
-          ].map(({ label, value, accent }) => (
-            <div key={label} className="rounded-lg border border-white/[0.07] bg-white/[0.03] p-2.5 text-center">
-              <div className={`text-base font-bold leading-none ${accent}`}>{value}</div>
-              <div className="text-[10px] text-slate-600 mt-0.5">{label}</div>
-            </div>
-          ))}
-        </div>
-      )}
+          ]
+        : [],
+    );
+  }, [summary, onStats]);
 
-      {/* Wave filter */}
-      <div className="flex items-center gap-1.5">
+  const visiblePartners = scopeFilter === "all"
+    ? partners
+    : partners.filter((p) => (p.ventureScope ?? "all") === scopeFilter);
+
+  return (
+    <div className="space-y-3">
+      {/* Wave filter + venture scope filter */}
+      <div className="flex items-center gap-1.5 flex-wrap">
         {([["", "All"], ["1", "Wave 1"], ["2", "Wave 2"]] as const).map(([val, label]) => (
           <button
             key={val}
@@ -481,6 +558,21 @@ function PartnersPanel() {
             }`}
           >
             {label}
+          </button>
+        ))}
+        <div className="w-px h-3 bg-white/10 mx-0.5" />
+        {(["all", "portfolio", ...ventureNames] as string[]).map((opt) => (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => setScopeFilter(opt)}
+            className={`text-[10px] rounded-full px-2.5 py-0.5 border transition-colors ${
+              scopeFilter === opt
+                ? (opt === "all" ? "border-slate-600/60 bg-slate-700/30 text-slate-300" : "border-violet-600/60 bg-violet-500/10 text-violet-300")
+                : "border-white/10 text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            {scopeLabel(opt)}
           </button>
         ))}
         <Button
@@ -508,11 +600,13 @@ function PartnersPanel() {
           <Loader2 className="h-4 w-4 animate-spin" />
           <span className="text-xs">Loading partners…</span>
         </div>
-      ) : partners.length === 0 ? (
-        <div className="text-center py-8 text-slate-600 text-sm">No partners found.</div>
+      ) : visiblePartners.length === 0 ? (
+        <div className="text-center py-8 text-slate-600 text-sm">
+          {scopeFilter !== "all" ? `No partners assigned to "${scopeLabel(scopeFilter)}" yet. Assign venture scope on each partner card.` : "No partners found."}
+        </div>
       ) : (
         <div className="space-y-2">
-          {partners.map((p) => <PartnerCard key={p.id} partner={p} onRefresh={() => void load(waveFilter)} />)}
+          {visiblePartners.map((p) => <PartnerCard key={p.id} partner={p} ventureNames={ventureNames} onRefresh={() => void load(waveFilter)} />)}
         </div>
       )}
     </div>
@@ -626,14 +720,15 @@ function CustomerCard({ customer }: { customer: Customer }) {
   );
 }
 
-function CustomersPanel() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [total,     setTotal]     = useState(0);
-  const [loading,   setLoading]   = useState(true);
-  const [search,    setSearch]    = useState("");
-  const [cohort,    setCohort]    = useState("");
-  const [sort,      setSort]      = useState("tier");
-  const [page,      setPage]      = useState(0);
+function CustomersPanel({ ventureNames, onStats }: { ventureNames: string[]; onStats?: (s: NavStat[]) => void }) {
+  const [customers,      setCustomers]      = useState<Customer[]>([]);
+  const [total,          setTotal]          = useState(0);
+  const [loading,        setLoading]        = useState(true);
+  const [search,         setSearch]         = useState("");
+  const [cohort,         setCohort]         = useState("");
+  const [sort,           setSort]           = useState("tier");
+  const [page,           setPage]           = useState(0);
+  const [ventureFilter,  setVentureFilter]  = useState<string>("all");
   const PAGE_SIZE = 50;
 
   const load = useCallback(async (opts: { search: string; cohort: string; sort: string; offset: number }) => {
@@ -642,7 +737,7 @@ function CustomersPanel() {
       const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(opts.offset), sort: opts.sort });
       if (opts.search) params.set("search", opts.search);
       if (opts.cohort) params.set("cohort", opts.cohort);
-      const res = await fetch(`/api/crm/investors?${params}`);
+      const res = await personaFetch(`/api/crm/investors?${params}`);
       const json = await res.json() as { data: Customer[]; total: number };
       setCustomers(json.data ?? []);
       setTotal(json.total ?? 0);
@@ -655,28 +750,19 @@ function CustomersPanel() {
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
+  // Report the summary up to the sub-menu row — same contract as PartnersPanel.
+  const activatedCount = customers.filter((c) => c.isActivated).length;
+  const tieredCount = customers.filter((c) => c.omTier).length;
+  useEffect(() => {
+    onStats?.([
+      { label: "Total",     value: total,                                            accent: "text-slate-200" },
+      { label: "Activated", value: activatedCount > 0 ? `${activatedCount}+` : "—",  accent: "text-emerald-300" },
+      { label: "Tiered",    value: tieredCount > 0 ? `${tieredCount}` : "—",         accent: "text-amber-300" },
+    ]);
+  }, [total, activatedCount, tieredCount, onStats]);
+
   return (
     <div className="space-y-3">
-      {/* Summary row */}
-      <div className="grid grid-cols-3 gap-2">
-        <div className="rounded-lg border border-white/[0.07] bg-white/[0.03] p-2.5 text-center">
-          <div className="text-base font-bold leading-none text-slate-200">{total}</div>
-          <div className="text-[10px] text-slate-600 mt-0.5">Total</div>
-        </div>
-        <div className="rounded-lg border border-white/[0.07] bg-white/[0.03] p-2.5 text-center">
-          <div className="text-base font-bold leading-none text-emerald-300">
-            {customers.filter((c) => c.isActivated).length > 0 ? `${customers.filter((c) => c.isActivated).length}+` : "—"}
-          </div>
-          <div className="text-[10px] text-slate-600 mt-0.5">Activated</div>
-        </div>
-        <div className="rounded-lg border border-white/[0.07] bg-white/[0.03] p-2.5 text-center">
-          <div className="text-base font-bold leading-none text-amber-300">
-            {customers.filter((c) => c.omTier).length > 0 ? `${customers.filter((c) => c.omTier).length}` : "—"}
-          </div>
-          <div className="text-[10px] text-slate-600 mt-0.5">Tiered</div>
-        </div>
-      </div>
-
       {/* Search bar */}
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-600" />
@@ -722,6 +808,35 @@ function CustomersPanel() {
           <option value="activated">By Status</option>
         </select>
       </div>
+
+      {/* Venture filter */}
+      {ventureNames.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Filter className="h-3 w-3 text-slate-600" />
+          <span className="text-[10px] text-slate-600">Venture:</span>
+          {(["all", ...ventureNames] as string[]).map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => setVentureFilter(opt)}
+              className={`text-[10px] rounded-full px-2.5 py-0.5 border transition-colors ${
+                ventureFilter === opt
+                  ? "border-amber-600/60 bg-amber-500/10 text-amber-300"
+                  : "border-white/10 text-slate-500 hover:text-slate-300"
+              }`}
+            >
+              {opt === "all" ? "All" : opt}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Venture filter info banner */}
+      {ventureFilter !== "all" && (
+        <div className="px-3 py-2 rounded-lg bg-amber-900/10 border border-amber-500/20 text-[10px] text-amber-300/70">
+          Customer → venture assignment is coming in the next release. Showing all contacts — filter by "{ventureFilter}" will narrow results once linkage is added.
+        </div>
+      )}
 
       {/* Customer list */}
       {loading ? (
@@ -863,8 +978,8 @@ function ComposerPanel() {
     void (async () => {
       setLoadingInit(true);
       const [packsRes, partnersRes] = await Promise.all([
-        fetch("/api/avl/comms-packs").catch(() => null),
-        fetch("/api/avl/partners").catch(() => null),
+        fetch("/api/mvl/comms-packs").catch(() => null),
+        personaFetch("/api/mvl/partners").catch(() => null),
       ]);
       if (packsRes?.ok) {
         const j = await packsRes.json() as { ok: boolean; data?: CommsPack[] };
@@ -897,7 +1012,7 @@ function ComposerPanel() {
     setPreview([]);
     setResult(null);
     try {
-      const res = await fetch("/api/avl/send", {
+      const res = await fetch("/api/mvl/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -919,7 +1034,7 @@ function ComposerPanel() {
     setSending(true);
     setResult(null);
     try {
-      const res = await fetch("/api/avl/send", {
+      const res = await fetch("/api/mvl/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1117,15 +1232,38 @@ interface RelationshipBuilderTabProps {
 export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProps) {
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [copilotMessages, setCopilotMessages] = useState<CopilotMessage[]>([]);
+  const [ventureNames, setVentureNames] = useState<string[]>([]);
 
   const [activeNav, setActiveNav]  = useState<"partners" | "customers" | "compose" | "qubetalk">("partners");
+  // The active panel's summary tiles, reported up so they can render
+  // right-justified on the sub-menu row. Cleared on every nav change so a
+  // panel's numbers can never survive as a stale label over another panel
+  // (MS-10 — a stale observation must never render as current).
+  const [navStats, setNavStats] = useState<NavStat[]>([]);
+  useEffect(() => { setNavStats([]); }, [activeNav]);
   const [feed,      setFeed]       = useState<FeedMessage[]>([]);
   const [loading,   setLoading]    = useState(true);
   const [sources,   setSources]    = useState<{ bridge: number; live: number }>({ bridge: 0, live: 0 });
   const [thread,    setThread]     = useState("");
-  const [composing, setComposing]  = useState(false);
-  const [draft,     setDraft]      = useState("");
-  const [sending,   setSending]    = useState(false);
+  const [composing,  setComposing]  = useState(false);
+  const [draft,      setDraft]      = useState("");
+  const [sending,    setSending]    = useState(false);
+  const [recipient,  setRecipient]  = useState("aigent-z");
+
+  useEffect(() => {
+    if (!personaId) return;
+    personaFetch("/api/venture/qubes", { personaIdHint: personaId, cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = await res.json();
+        const all = Array.isArray(data?.ventures) ? [...data.ventures] : [];
+        const sorted = all.sort((a: { createdAt?: string }, b: { createdAt?: string }) =>
+          (a.createdAt ?? '').localeCompare(b.createdAt ?? ''),
+        );
+        setVentureNames(sorted.map((v: { name?: string }) => v.name ?? "Unnamed").filter(Boolean));
+      })
+      .catch(() => {/* best-effort */});
+  }, [personaId]);
 
   const load = useCallback(async (selectedThread: string) => {
     setLoading(true);
@@ -1150,8 +1288,14 @@ export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProp
     if (!draft.trim() || !personaId) return;
     setSending(true);
     try {
-      await fetch("/api/marketa/qubetalk", {
+      // personaFetch, not raw fetch: /api/marketa/qubetalk now authenticates
+      // through the spine (it used to trust this `x-persona-id` header as
+      // proof of identity). Every other call in this file already uses
+      // personaFetch — this one was the odd transport out, which is exactly
+      // the mixed-transport shape that resolves two different personas.
+      await personaFetch("/api/marketa/qubetalk", {
         method: "POST",
+        personaIdHint: personaId,
         headers: {
           "Content-Type": "application/json",
           "x-persona-id": personaId,
@@ -1160,7 +1304,7 @@ export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProp
           channel_id: "venture-lab",
           tenant_id: "nakamoto",
           message: draft,
-          recipient_agent: "aigent-z",
+          recipient_agent: recipient,
         }),
       });
       setDraft("");
@@ -1178,57 +1322,64 @@ export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProp
   return (
     <div className="p-4 space-y-4">
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-            <Users className="h-4 w-4 text-amber-400" />
-            Relationship Builder α
-          </h3>
-          <p className="text-[11px] text-slate-500 mt-0.5">7,000+ persona CRM · 18 partner pipeline</p>
+      {/* THIRD SUB-HEADER REMOVED + SUB MENU LIFTED TO THE TOP (operator,
+          2026-07-28: "Remove third sub header moving partners/customers/compose
+          etc sub menus to top of page. Stats can be right justified on same row
+          as sub sub menu"). The in-body "Relationship Builder α" title restated
+          what the group chip and tab chip already say; the sub menu is now the
+          first thing on the page, and each panel's summary tiles ride
+          right-justified on that same row instead of consuming a band of their
+          own beneath it. The tiles are still each panel's OWN derivation — they
+          are reported up, not recomputed here (one source, one number). */}
+      <div className="flex items-center gap-3 border-b border-white/[0.06] pb-0">
+        <div className="flex gap-1">
+          {([
+            { key: "partners",  label: "Partners",  icon: Building2 },
+            { key: "customers", label: "Customers", icon: Users },
+            { key: "compose",   label: "Compose",   icon: PenLine },
+            { key: "qubetalk",  label: "QubeTalk",  icon: MessageSquare },
+          ] as const).map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setActiveNav(key)}
+              className={`flex items-center gap-1.5 text-[11px] px-3 py-1.5 border-b-2 -mb-px transition-colors ${
+                activeNav === key
+                  ? "border-amber-500 text-amber-300"
+                  : "border-transparent text-slate-500 hover:text-slate-300"
+              }`}
+            >
+              <Icon className="h-3 w-3" />
+              {label}
+            </button>
+          ))}
         </div>
-        {activeNav === "qubetalk" && personaId && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 px-2 text-[11px] border-violet-800/50 text-violet-300 hover:bg-violet-500/10"
-            onClick={() => setComposing((c) => !c)}
-          >
-            <Send className="h-3 w-3 mr-1" />
-            Message
-          </Button>
-        )}
-      </div>
-
-      {/* Nav tabs: Partners | Customers | Compose | QubeTalk */}
-      <div className="flex gap-1 border-b border-white/[0.06] pb-0">
-        {([
-          { key: "partners",  label: "Partners",  icon: Building2 },
-          { key: "customers", label: "Customers", icon: Users },
-          { key: "compose",   label: "Compose",   icon: PenLine },
-          { key: "qubetalk",  label: "QubeTalk",  icon: MessageSquare },
-        ] as const).map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setActiveNav(key)}
-            className={`flex items-center gap-1.5 text-[11px] px-3 py-1.5 border-b-2 -mb-px transition-colors ${
-              activeNav === key
-                ? "border-amber-500 text-amber-300"
-                : "border-transparent text-slate-500 hover:text-slate-300"
-            }`}
-          >
-            <Icon className="h-3 w-3" />
-            {label}
-          </button>
-        ))}
+        <div className="ml-auto flex items-center gap-3 pb-1">
+          {navStats.map(({ label, value, accent }) => (
+            <div key={label} className="flex items-baseline gap-1.5">
+              <span className={`text-sm font-bold leading-none ${accent}`}>{value}</span>
+              <span className="text-[10px] text-slate-600">{label}</span>
+            </div>
+          ))}
+          {activeNav === "qubetalk" && personaId && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-[11px] border-violet-800/50 text-violet-300 hover:bg-violet-500/10"
+              onClick={() => setComposing((c) => !c)}
+            >
+              <Send className="h-3 w-3 mr-1" />
+              Message
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Partners panel */}
-      {activeNav === "partners" && <PartnersPanel />}
+      {activeNav === "partners" && <PartnersPanel personaId={personaId} ventureNames={ventureNames} onStats={setNavStats} />}
 
       {/* Customers panel */}
-      {activeNav === "customers" && <CustomersPanel />}
+      {activeNav === "customers" && <CustomersPanel ventureNames={ventureNames} onStats={setNavStats} />}
 
       {/* Compose panel */}
       {activeNav === "compose" && <ComposerPanel />}
@@ -1261,9 +1412,31 @@ export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProp
           {/* Compose */}
           {composing && (
             <div className="rounded-xl border border-violet-800/40 bg-violet-950/10 p-3 space-y-2">
+              {/* Recipient selector */}
+              <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                <span>To:</span>
+                {[
+                  { id: "aigent-z",       label: "Aigent Z" },
+                  { id: "aigent-me",      label: "aigentMe" },
+                  { id: "aigent-marketa", label: "Marketa" },
+                ].map(({ id, label }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setRecipient(id)}
+                    className={`rounded-full border px-2 py-0.5 transition-colors ${
+                      recipient === id
+                        ? agentStyle(id)
+                        : "border-white/10 text-slate-500 hover:text-slate-300"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
               <textarea
                 className="w-full bg-transparent text-xs text-slate-200 placeholder:text-slate-600 resize-none outline-none border-b border-white/[0.06] pb-2"
-                placeholder="Message Aigent Z on the venture-lab channel…"
+                placeholder={`Message ${recipient === "aigent-me" ? "aigentMe" : recipient === "aigent-marketa" ? "Marketa" : "Aigent Z"} on the venture-lab channel…`}
                 rows={3}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
@@ -1285,6 +1458,7 @@ export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProp
               { id: "claude-code",    label: "Claude Code" },
               { id: "aigent-z",       label: "Aigent Z" },
               { id: "aigent-marketa", label: "Marketa" },
+              { id: "aigent-me",      label: "aigentMe" },
             ].map(({ id, label }) => (
               <span key={id} className={`rounded-full border px-2 py-0.5 ${agentStyle(id)}`}>{label}</span>
             ))}

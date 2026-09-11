@@ -20,7 +20,9 @@ export interface RuntimeCapsuleMetadata {
   codexTab?: string;
   runtimeCartridge?: string;
   projectionId?: string;
-  surfaceIntent?: "make" | "play";
+  // Runtime top-level menu this capsule surfaces under. "make"/"play" are the
+  // legacy values; the metaMe Pulse lane also assigns be/earn/share.
+  surfaceIntent?: "be" | "make" | "play" | "earn" | "share";
   modalityHints: string[];
   durationMinutes?: number | null;
   priceLabel?: string | null;

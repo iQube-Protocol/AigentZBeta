@@ -14,6 +14,10 @@ import { getCommunityContentSupabase } from '../../_lib/personaContext';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getCallerIdentityContext } from '@/services/wallet/personaRepo';
 import { getMergedLinkedAuthProfileIds } from '@/services/wallet/multiEmailIdentity';
+import { KNYTS_BRIDGE_CAMPAIGN_ID } from '@/services/journey/knytsBridgeCrossingJourney';
+import { resolveCampaignContact } from '@/services/crm/campaignContactResolver';
+import { recordKnytsBridgeEvidence } from '@/services/campaign/knytsBridgeCampaignEvidence';
+import { projectKnytsBridgeEvidenceOutputs } from '@/services/campaign/knytsBridgeCampaignProjector';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -51,8 +55,9 @@ async function callerOwnsCreator(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> | { id: string } },
+  props: { params: Promise<Promise<{ id: string }> | { id: string }> }
 ) {
+  const params = await props.params;
   const resolved = await Promise.resolve(params);
   const id = resolved.id;
   if (!id) return NextResponse.json({ ok: false, error: 'id required' }, { status: 400 });
@@ -85,14 +90,27 @@ export async function POST(
 
   const { data: content, error: fetchError } = await supabase
     .from('community_generated_content')
-    .select('id, creator_persona_id, status')
+    .select('id, creator_persona_id, status, cartridge, campaign_tag')
     .eq('id', id)
     .maybeSingle();
 
   if (fetchError) return NextResponse.json({ ok: false, error: fetchError.message }, { status: 500 });
   if (!content) return NextResponse.json({ ok: false, error: 'Not found' }, { status: 404 });
 
-  const row = content as { id: string; creator_persona_id: string; status: string };
+  const row = content as {
+    id: string;
+    creator_persona_id: string;
+    status: string;
+    cartridge?: string;
+    campaign_tag?: string | null;
+  };
+  // Cartridge defaults to 'knyt' for back-compat with rows created before
+  // the Pulse cartridge split migration. The column was added with
+  // DEFAULT 'knyt' so all existing rows are already KNYT-flavoured.
+  const cartridge: 'knyt' | 'qripto' | 'metame-runtime' =
+    row.cartridge === 'qripto' ? 'qripto'
+    : row.cartridge === 'metame-runtime' ? 'metame-runtime'
+    : 'knyt';
   // Auth-profile-level ownership — accept any persona the caller's
   // auth profile owns (covers multi-persona users + content created
   // under stale defaults). Strict personaId equality used to reject
@@ -106,7 +124,7 @@ export async function POST(
 
   // Already shared / promoted — idempotent
   if (row.status !== 'draft') {
-    return NextResponse.json({ ok: true, status: row.status, alreadyPublished: true });
+    return NextResponse.json({ ok: true, status: row.status, alreadyPublished: true, cartridge });
   }
 
   const { error: updateError } = await supabase
@@ -116,23 +134,64 @@ export async function POST(
 
   if (updateError) return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 });
 
-  // Insert a matching knyt_publication_states row so KnytReactionBar
-  // (the 21 Sats reaction infrastructure) accepts this content as a
-  // valid publication. We use the same UUID for both rows so the front
-  // end can pass community_content.id straight through as publicationId.
-  // Best-effort — non-fatal if the table or schema rejects.
-  await supabase.from('knyt_publication_states').upsert(
-    {
-      id,
-      subject_type: 'community_content',
-      subject_id:   id,
-      branch:       'community',
-      state:        'submitted',
-      created_at:   new Date().toISOString(),
-      updated_at:   new Date().toISOString(),
-    },
-    { onConflict: 'id' },
-  );
+  // Insert a matching {cartridge}_publication_states row so the Living
+  // Canon reaction infrastructure (KnytReactionBar today, qripto mirror
+  // when the cartridge-parameterized refactor lands) accepts this row
+  // as a valid publication. Cartridge column on community_generated_content
+  // determines which table receives the publication-state record:
+  //   - cartridge='knyt'   → knyt_publication_states
+  //   - cartridge='qripto' → qripto_publication_states
+  // Same UUID is used for both rows so the front-end can pass the
+  // community_content.id straight through as publicationId. Best-effort —
+  // non-fatal if the table or schema rejects.
+  //
+  // The 'metame-runtime' lane (metaMe Pulse) has no Living Canon surface —
+  // it feeds the runtime menus, not a publication/reaction spine — so it
+  // gets no publication-state mirror.
+  if (cartridge !== 'metame-runtime') {
+    const publicationTable = cartridge === 'qripto'
+      ? 'qripto_publication_states'
+      : 'knyt_publication_states';
+    await supabase.from(publicationTable).upsert(
+      {
+        id,
+        subject_type: 'community_content',
+        subject_id:   id,
+        branch:       'community',
+        state:        'submitted',
+        created_at:   new Date().toISOString(),
+        updated_at:   new Date().toISOString(),
+      },
+      { onConflict: 'id' },
+    );
+  }
 
-  return NextResponse.json({ ok: true, status: 'shared' });
+  // KNYTS Bridge campaign activation, Gate C — a Crossing Story publication
+  // (this content's campaign_tag matches the Bridge campaign id) records
+  // one idempotent `crossing_story_published` evidence event and projects
+  // Reputation/Standing/Reward for the author. Every other cartridge's
+  // publish flow (campaign_tag null) is unaffected.
+  if (row.campaign_tag === KNYTS_BRIDGE_CAMPAIGN_ID) {
+    try {
+      const authorContact = await resolveCampaignContact({
+        normalizedEmail: '',
+        activePersonaId: row.creator_persona_id,
+      });
+      const { isNew, evidence } = await recordKnytsBridgeEvidence({
+        actionType: 'crossing_story_published',
+        idempotencyKey: `crossing_story_published:${id}`,
+        personaId: row.creator_persona_id,
+        crmPersonaId: authorContact.crmPersonaId,
+        investorKnown: authorContact.investorKnown,
+        evidenceGrade: 'verified',
+        sourceSurface: 'knyts_bridge_community',
+        contentId: id,
+      });
+      if (isNew) await projectKnytsBridgeEvidenceOutputs(evidence);
+    } catch (err) {
+      console.error('[knyts-bridge] crossing_story_published evidence failed (non-fatal):', err);
+    }
+  }
+
+  return NextResponse.json({ ok: true, status: 'shared', cartridge });
 }

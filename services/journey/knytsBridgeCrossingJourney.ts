@@ -1,0 +1,374 @@
+/**
+ * The KNYTS Bridge — Crossing Journey (Guided Journey Runtime, PRD-GJR-001).
+ *
+ * The public-facing campaign that carries a KNYT community member across the
+ * Threshold into the Polity: browse Crossing Stories, orient to the first
+ * constitutional choice, claim a Passport, tell your own crossing by
+ * remixing one, see it become consequential, and step into the KNYT
+ * cultural economy. Operator framing: "every crossing builds the bridge."
+ * Public-facing name: the KNYTS Bridge Threshold Guide. The spine itself
+ * (this file) is the Posit Spine — the same constitutional journey grammar
+ * Horizen and the Validation Programme use, projected here in Mythos
+ * language rather than evidentiary/technical language.
+ *
+ * ── Reconstitution, 2026-08-09: seven spine nodes, three tracked stages ────
+ *
+ * v1 of this journey tracked only THREE stages (passport/remix/stand) and
+ * rendered HOMECOMING/VIEW/BUY as free page sections around a bespoke
+ * layout, on the reasoning that a JourneyDefinition stage is a unit of
+ * TRACKED, EVIDENCED PROGRESS (Journey Guidance Principle, §5.1) and those
+ * three have nothing to gate or complete. That reasoning about EVIDENCE was
+ * correct and is preserved below — HOME/VIEW/ORIENT/BUY still carry an empty
+ * `completionEvidence` and can never reach COMPLETE. What changed is the
+ * PRESENTATION: the operator's reconstitution instruction is explicit that
+ * the public spine must show all seven beats as ONE Posit Spine with one
+ * active surface underneath (never a page of stacked sections), so a
+ * gate-less stage is now a real spine node that always resolves READY/open
+ * rather than a free-floating page section outside the spine entirely.
+ *
+ * This is safe under resolveJourneyState.ts's actual resolution order
+ * (ESTABLISHED COMPLETION EVIDENCE PRECEDES PREREQUISITE GATING, and
+ * prerequisites are checked per-stage against ONLY the stages a stage
+ * explicitly lists): HOME/VIEW/ORIENT/BUY carry `prerequisites: []` and are
+ * never listed as a prerequisite of PASSPORT or anything after it, so their
+ * permanent non-completion can never BLOCK the tracked ladder — exactly the
+ * defect class the Horizen Journey correction (2026-08-09, cited in
+ * resolveJourneyState.ts) already fixed once for Orient before Passport.
+ *
+ * ORIENT remains a real spine node for direct navigation (a visitor browsing
+ * the spine top-to-bottom can stop there), but is NOT inserted as a
+ * prerequisite gate in front of Passport — the light explanation it shows is
+ * also carried in Passport's own `companion.before` text, so a visitor who
+ * jumps straight to Passport (e.g. via the Remix-without-Passport interrupt)
+ * still sees the same framing without ORIENT being on their critical path.
+ *
+ * PASSPORT's completion evidence was strengthened from mere
+ * `personaAuthenticated` (signed in) to `citizenPassportUsable` (an actual,
+ * usable Polity Citizen Passport — real constitutional presence), reusing
+ * the SAME canonical check Horizen's own admission ladder uses
+ * (services/identity/passportPrincipal.ts's `loadUsableCitizenPassportForAuthProfile` /
+ * `isPassportUsable`) rather than inventing a second, weaker definition of
+ * "crossed the Threshold" (inv.engineering.036/037).
+ *
+ * Delegation is deliberately absent from this ladder (reconstitution spec,
+ * point 9): KNYTS is personhood-first — Passport is the constitutional act,
+ * and delegating authority to aigentMe happens later, if and when a citizen
+ * actually asks for it. The shared runner supports a Delegate stage; this
+ * journey does not use it.
+ */
+
+import type { JourneyDefinition } from '@/types/journey';
+
+export const KNYTS_BRIDGE_CAMPAIGN_ID = 'knyts-bridge-crossing';
+
+export const KNYTS_BRIDGE_CROSSING_JOURNEY: JourneyDefinition = {
+  id: 'knyts-bridge-crossing',
+  version: '2.0.0',
+  label: 'The KNYTS Bridge',
+  partner: 'knyt',
+  destination: 'knyt-pulse',
+  subjectRef: 'visitor',
+  // Journey Runtime copilot invariant (item 1, 2026-08-25) — the SAME
+  // agent/accentColor `/bridge/knyts` already mounted by hand
+  // (data/codex-configs.ts's KNYT_CODEX.copilot: aigent-kn0w1 / "KNYT
+  // Copilot" / amber), now resolved canonically instead of hand-copied.
+  copilot: { cartridgeSlug: 'knyt-codex' },
+  stages: [
+    {
+      id: 'home',
+      label: 'Home',
+      description: 'Cross the Threshold. Come home.',
+      actor: 'operator',
+      subjectRef: 'visitor',
+      surfaces: [
+        {
+          mode: 'component',
+          ref: 'knyts-bridge-home',
+          note: 'Media-rich homecoming surface.',
+          props: { section: 'home', ctaStageId: 'view', showCampaignExtras: true },
+        },
+      ],
+      prerequisites: [],
+      permittedActions: [],
+      completionEvidence: [],
+      receiptTypes: [],
+      receiptsSurfacedNatively: true,
+      companion: {
+        before: 'The KNYTS Bridge is one path into the Polity — a constitutional home for people and their agents.',
+        complete: '',
+      },
+    },
+    {
+      id: 'view',
+      label: 'View',
+      description: 'See the crossings underway.',
+      actor: 'operator',
+      subjectRef: 'visitor',
+      surfaces: [{ mode: 'iframe', ref: 'knyts-bridge-view-pulse', note: 'The canonical KNYT Pulse tab.' }],
+      prerequisites: [],
+      permittedActions: ['browse-crossings', 'remix-crossing-story'],
+      completionEvidence: [],
+      receiptTypes: [],
+      receiptsSurfacedNatively: true,
+      companion: {
+        before: 'Follow the stories of those who are crossing. Every crossing builds the bridge.',
+        complete: '',
+      },
+    },
+    {
+      id: 'orient',
+      label: 'Orient',
+      description: 'Personhood comes first.',
+      actor: 'operator',
+      subjectRef: 'visitor',
+      surfaces: [
+        {
+          mode: 'component',
+          ref: 'knyts-bridge-orient',
+          note:
+            'KnytsBridgeOrientIntro — a thin amber-preset wrapper over the bridge-neutral ' +
+            'BridgeOrientSurface CI also composes. No heavy Bureau UI, no server call.',
+        },
+      ],
+      prerequisites: [],
+      permittedActions: [],
+      completionEvidence: [],
+      receiptTypes: [],
+      receiptsSurfacedNatively: true,
+      companion: {
+        before: 'Claiming your Passport is your first constitutional act.',
+        complete: '',
+      },
+    },
+    {
+      id: 'passport',
+      label: 'Passport',
+      description: 'Claim your constitutional presence.',
+      actor: 'operator',
+      subjectRef: 'visitor',
+      surfaces: [
+        {
+          mode: 'component',
+          ref: 'knyts-bridge-passport-room',
+          note:
+            'State-aware constitutional room, reconstituted onto the CI Passport framework ' +
+            '(2026-08-12, KNYTS↔CI parity pass): claim your Passport, then a signal question ' +
+            '(what would you like to do in the Polity) before telling your own crossing in Remix.',
+        },
+      ],
+      prerequisites: [],
+      permittedActions: ['claim-passport'],
+      completionEvidence: ['citizenPassportUsable'],
+      receiptTypes: [],
+      companion: {
+        before:
+          'The KNYTS Bridge is one path into the Polity — a constitutional home for people and their agents ' +
+          'in the emerging Constitutional Internet. Telling your own crossing is something you do as ' +
+          'yourself, so claiming your Passport is the one step between browsing and crossing.',
+        complete: 'Your Passport is active. You are ready to tell your own crossing.',
+      },
+      nextStageId: 'remix',
+    },
+    {
+      id: 'remix',
+      label: 'Remix',
+      description: 'Tell your crossing.',
+      actor: 'operator',
+      subjectRef: 'visitor',
+      surfaces: [
+        {
+          mode: 'component',
+          ref: 'knyts-bridge-mycanvas-remix',
+          note: 'myCanvas, deep-linked inside the metaMe/aigentMe environment — campaign-tagged, never a forked remix UI.',
+        },
+      ],
+      prerequisites: ['passport'],
+      permittedActions: ['remix-crossing-story', 'publish-to-pulse'],
+      completionEvidence: ['crossingPublished'],
+      receiptTypes: [],
+      companion: {
+        before: 'Remix any Crossing Story into your own article or story, then publish it to KNYT Pulse.',
+        complete: 'Your crossing is published to KNYT Pulse. Share it — every crossing builds the bridge.',
+      },
+      nextStageId: 'stand',
+    },
+    {
+      id: 'stand',
+      label: 'Stand',
+      description: 'Quest, contribute and earn Standing.',
+      actor: 'operator',
+      subjectRef: 'visitor',
+      surfaces: [
+        {
+          mode: 'iframe',
+          ref: 'knyts-bridge-stand',
+          note:
+            'Standing is the constitutional outcome; Quest is the KNYT mechanic through which you earn ' +
+            'it — the canonical KNYT Quests tab, never a bespoke Standing projection.',
+        },
+      ],
+      // Passport determines ELIGIBILITY to enter Stand/Quests (2026-08-12
+      // parity pass) — Remix is a separate, optional creative act, not a
+      // constitutional requirement to browse or perform Quests. Whether
+      // Stand becomes ESTABLISHED/complete is still governed entirely by
+      // completionEvidence below; this only changes who may enter.
+      prerequisites: ['passport'],
+      permittedActions: ['share-crossing'],
+      completionEvidence: ['crossingHasConsequence'],
+      receiptTypes: [],
+      companion: {
+        before: 'Share your crossing. Every action on it — a reaction, a share, a remix of your own — is a consequence you caused.',
+        complete: 'Your crossing has consequence in the Polity.',
+      },
+    },
+    {
+      id: 'choose',
+      label: 'Choose',
+      description: 'Choose where to go next.',
+      actor: 'operator',
+      subjectRef: 'visitor',
+      surfaces: [{ mode: 'component', ref: 'knyts-bridge-choose', note: 'Four destination options for continuing the journey.' }],
+      prerequisites: [],
+      permittedActions: [],
+      completionEvidence: [],
+      receiptTypes: [],
+      receiptsSurfacedNatively: true,
+      companion: {
+        before: 'Visit the KNYT Store.',
+        complete: '',
+      },
+    },
+    // ── Financial Sovereignty branch (AEE-XP-001 §4.2, Main Spine — 2026-09-01
+    //    correction). A CONDITIONAL branch off CHOOSE (canonical order:
+    //    CHOOSE → DISCOVER → LEARN → EXPLORE → PREPARE → CROSS), not a
+    //    permanently-visible segment of every visitor's stepper: every stage
+    //    below carries `activationBranch: 'financial-services'`
+    //    (types/journey.ts), so JourneyRunSurface draws none of them until
+    //    Choose's "Apply to join the Constitutional Financial Services Pilot"
+    //    card calls `activateJourneyBranch(...)` — the branch trigger
+    //    (services/journey/journeyBranchActivation.ts). Stable stage ids,
+    //    never invented at runtime; gate-less (empty prerequisites/
+    //    completionEvidence) like HOME/VIEW/ORIENT/CHOOSE — an informational +
+    //    handoff segment, not a tracked constitutional admission ladder.
+    //
+    //    EXCEPTION (AEE-XP-001 §10/XP-6, 2026-09-01): `fs-discover` is the
+    //    first live proof of the generic experience-evidence loop — its
+    //    `completionEvidence` is real, sourced from an actual observed
+    //    interaction (services/journey/experienceObservationPromotion.ts),
+    //    read into AuthoritativePlatformState by
+    //    app/api/journey/knyts-bridge/state/route.ts. LEARN/EXPLORE now
+    //    also carry real `completionEvidence` (2026-09-01 follow-up), but a
+    //    STRONGER, kind-discriminated bar than DISCOVER's plain presence
+    //    check — see `hasQualifyingExperienceInteraction` and
+    //    FinancialSovereigntyIntroStage.tsx's header comment: LEARN
+    //    requires all three FS concept cards acknowledged, EXPLORE requires
+    //    at least one real MoneyPenny capability interacted with. A page
+    //    render or a single undifferentiated click can never satisfy either.
+    {
+      id: 'fs-discover',
+      label: 'Discover',
+      description: 'Progressive Financial Sovereignty and financial agency.',
+      actor: 'operator',
+      subjectRef: 'visitor',
+      surfaces: [{ mode: 'component', ref: 'knyts-bridge-fs-discover', note: 'FinancialSovereigntyIntroStage (discover) — amber preset.' }],
+      prerequisites: [],
+      permittedActions: [],
+      completionEvidence: ['discoverExperienceObserved'],
+      receiptTypes: [],
+      receiptsSurfacedNatively: true,
+      companion: { before: 'Your agents can act with your authority — bounded, evidenced, reversible.', complete: '' },
+      activationBranch: 'financial-services',
+      nextStageId: 'fs-learn',
+    },
+    {
+      id: 'fs-learn',
+      label: 'Learn',
+      description: 'Adaptive Financial Services learning materials.',
+      actor: 'operator',
+      subjectRef: 'visitor',
+      surfaces: [{ mode: 'component', ref: 'knyts-bridge-fs-learn', note: 'FinancialSovereigntyIntroStage (learn) — amber preset.' }],
+      prerequisites: [],
+      permittedActions: [],
+      completionEvidence: ['learnExperienceQualified'],
+      receiptTypes: [],
+      receiptsSurfacedNatively: true,
+      companion: { before: 'What a Financial Services agent actually does — and what it never does without you.', complete: '' },
+      activationBranch: 'financial-services',
+      nextStageId: 'fs-explore',
+    },
+    {
+      id: 'fs-explore',
+      label: 'Explore',
+      description: 'Canonical Financial Services capabilities, projected at suitable altitude.',
+      actor: 'operator',
+      subjectRef: 'visitor',
+      surfaces: [{ mode: 'component', ref: 'knyts-bridge-fs-explore', note: 'FinancialSovereigntyIntroStage (explore) — amber preset; projects the real serviceCatalog.' }],
+      prerequisites: [],
+      permittedActions: [],
+      completionEvidence: ['exploreCapabilityInteracted'],
+      receiptTypes: [],
+      receiptsSurfacedNatively: true,
+      companion: { before: 'The Financial Services you can reach once your agent is registered.', complete: '' },
+      activationBranch: 'financial-services',
+      nextStageId: 'fs-prepare',
+    },
+    {
+      id: 'fs-prepare',
+      label: 'Prepare',
+      description: 'Review or establish a financial profile, and understand its limitations, before continuing to Operate.',
+      actor: 'operator',
+      subjectRef: 'visitor',
+      surfaces: [{ mode: 'component', ref: 'knyts-bridge-fs-prepare', note: 'FinancialSovereigntyPrepareCrossStage (prepare) — amber preset.' }],
+      prerequisites: [],
+      permittedActions: ['select-agent-candidate'],
+      // B1 (2026-09-02, operator directive): "Prepare completion must
+      // reflect a reviewed financial profile or supported manual
+      // preparation — not navigation." Sourced from the REAL
+      // FinancialProfileQube (financialSovereigntyEvidence.ts) — agent
+      // candidate selection above is retained as an optional advanced
+      // preference (bridge spec B-13 point 3), never completion evidence.
+      completionEvidence: ['financialProfileReviewed'],
+      receiptTypes: [],
+      receiptsSurfacedNatively: true,
+      companion: { before: 'Prepare your financial profile — statements reviewed, position understood.', complete: '' },
+      activationBranch: 'financial-services',
+      nextStageId: 'fs-operate',
+    },
+    {
+      id: 'fs-operate',
+      label: 'Operate',
+      description: 'An enduring workspace for financial work with MoneyPenny — never forced toward advanced operations.',
+      actor: 'operator',
+      subjectRef: 'visitor',
+      surfaces: [{ mode: 'component', ref: 'knyts-bridge-fs-operate', note: 'FinancialSovereigntyOperateStage — amber preset. Distinct stage identity from the advanced Horizen aigentme stage (also labeled "Operate") — never the same id, never reused/loosened evidence.' }],
+      prerequisites: [],
+      permittedActions: ['continue-to-cross'],
+      // Deliberately empty (bridge spec B-13's own table: "Operate |
+      // Persistent destination with task-level states and real outcomes |
+      // Global 'done' state that forces the person onward"). This stage is
+      // never meant to "complete" — inventing evidence here would violate
+      // the operator's own directive against fabricating it.
+      completionEvidence: [],
+      receiptTypes: [],
+      receiptsSurfacedNatively: true,
+      companion: { before: 'Work with MoneyPenny — plan, learn, and review a bounded live task when a route is verified.', complete: '' },
+      activationBranch: 'financial-services',
+      nextStageId: 'fs-cross',
+    },
+    {
+      id: 'fs-cross',
+      label: 'Cross',
+      description: 'Resumable handoff to the Financial Services Bridge.',
+      actor: 'operator',
+      subjectRef: 'visitor',
+      surfaces: [{ mode: 'component', ref: 'knyts-bridge-fs-cross', note: 'FinancialSovereigntyPrepareCrossStage (cross) — creates the ExperienceHandoff and navigates to /bridge/fs.' }],
+      prerequisites: [],
+      permittedActions: ['cross-to-financial-services'],
+      completionEvidence: [],
+      receiptTypes: [],
+      receiptsSurfacedNatively: true,
+      companion: { before: 'Ready for the Financial Services Bridge.', complete: '' },
+      activationBranch: 'financial-services',
+    },
+  ],
+};

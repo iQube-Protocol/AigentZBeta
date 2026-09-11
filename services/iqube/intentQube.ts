@@ -87,6 +87,7 @@ export interface IntentQubeRecord {
   approvalRequired: boolean;
   status: IntentStatus;
   rationale: string | null;
+  parentIntentId: string | null;
   createdAt: string;
 }
 
@@ -112,6 +113,12 @@ interface PackedIntentExtras {
   activeCartridge: string;
   /** Free-form human rationale (unpacked into the record's `rationale`). */
   rationaleText: string | null;
+  /**
+   * Parent IntentQube id when this intent was spawned from a specialist
+   * recommendation on another intent. Lets the workspace render child
+   * intents under their parent and walk the execution chain.
+   */
+  parentIntentId?: string | null;
 }
 
 function packRationale(extras: PackedIntentExtras): string {
@@ -152,6 +159,7 @@ function rowToRecord(row: NbePlanRow): IntentQubeRecord {
     approvalRequired: extras?.approvalRequired ?? true,
     status: extras?.status ?? 'in_progress',
     rationale: extras?.rationaleText ?? null,
+    parentIntentId: extras?.parentIntentId ?? null,
     createdAt: row.created_at,
   };
 }
@@ -176,6 +184,8 @@ export interface IntentQubeCreateInput {
   allowedTools?: ToolId[];
   approvalRequired?: boolean;
   rationale?: string;
+  /** Parent intent when this is a child spawned from a recommendation. */
+  parentIntentId?: string | null;
   /** TTL — defaults to 24h from creation. */
   expiresInMs?: number;
 }
@@ -200,6 +210,7 @@ export async function createIntentQube(
     sessionId: input.sessionId ?? null,
     activeCartridge: input.activeCartridge,
     rationaleText: input.rationale ?? null,
+    parentIntentId: input.parentIntentId ?? null,
   };
 
   const expiresAt = new Date(Date.now() + (input.expiresInMs ?? DEFAULT_TTL_MS)).toISOString();
@@ -264,6 +275,7 @@ export async function setIntentQubeStatus(
     sessionId: current.sessionId,
     activeCartridge: current.activeCartridge,
     rationaleText: current.rationale,
+    parentIntentId: current.parentIntentId,
   };
 
   const { data, error } = await admin
@@ -275,6 +287,30 @@ export async function setIntentQubeStatus(
 
   if (error || !data) return null;
   return rowToRecord(data as NbePlanRow);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Children — IntentQubes spawned from a parent recommendation.
+//
+// Matches on rationale JSON containing parentIntentId. UUIDs only contain
+// hex digits + hyphens so the LIKE pattern is injection-safe.
+// ─────────────────────────────────────────────────────────────────────────
+
+export async function getChildIntents(
+  parentIntentId: string,
+  personaId: string,
+): Promise<IntentQubeRecord[]> {
+  if (!parentIntentId || !personaId) return [];
+  const admin = getAdminClient();
+  const { data, error } = await admin
+    .from('nbe_plans')
+    .select('*')
+    .eq('persona_id', personaId)
+    .like('rationale', `%"parentIntentId":"${parentIntentId}"%`)
+    .order('created_at', { ascending: true })
+    .limit(50);
+  if (error || !data) return [];
+  return (data as NbePlanRow[]).map(rowToRecord).filter((r) => r.parentIntentId === parentIntentId);
 }
 
 // ─────────────────────────────────────────────────────────────────────────

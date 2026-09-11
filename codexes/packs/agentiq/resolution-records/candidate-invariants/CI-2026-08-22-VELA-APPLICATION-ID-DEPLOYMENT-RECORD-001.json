@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-22-VELA-APPLICATION-ID-DEPLOYMENT-RECORD-001",
+  "statement": "A Vela `applicationId` is a property of a specific deployment TRANSACTION against a specific chain instance's current state, never a durable identity for 'the WASM application.' Any code, script, doc, or operator instruction that treats a recorded `applicationId` as reusable across chain restarts MUST first verify the application still exists on the currently-running chain, and redeploy from the (durable) WASM artifact if it does not — never assume, and never silently retry against a stale id.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "Operator directive, 2026-08-22: \"local Vela application IDs are deployment-ephemeral unless the chain state persists, so application identity must be treated as a deployment record rather than a durable application identity.\"",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "scripts/vela-slice2g-redeploy.ts",
+      "assertion": "Verifies the WASM artifact's sha256 is present in the shared artifact volume, submits `submitDeployRequest` against the CURRENTLY running chain, waits for `DeployRequestCompleted` with `errorCode 0`, and prints the fresh `applicationId` — the artifact is never assumed reusable, and the applicationId is never assumed stable across a restart.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "docs/vela/VELA_EARLY_ACCESS_HANDOFF.md",
+      "assertion": "§6 documents the symptom (a live PROCESS request against a stale applicationId reads as `disposition: 'UNRESOLVED'`, which is structurally indistinguishable from a genuine confidential-evaluation failure without checking deployment existence first) so a future session diagnoses this in one step instead of re-discovering it.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "vela-001-slice-2g-live-proof",
+      "defect": "The Slice 2F session doc's recorded `applicationId 2089125378143059424` was reused directly for the Slice 2G live proof without first checking it still existed on the (restarted) local chain. The request failed with a provider-level `UNRESOLVED` disposition that read, at first glance, like a projection or crypto defect rather than a missing deployment.",
+      "resolutionId": "RES-2026-08-22-VELA-APPLICATION-ID-EPHEMERAL-001",
+      "evidence": [
+        "scripts/vela-slice2g-redeploy.ts",
+        "codexes/packs/agentiq/updates/2026-08-22_vela-001-slice-2g-execution-observation-validation.md"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-22-VELA-APPLICATION-ID-EPHEMERAL-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "Does not apply to the WASM artifact's sha256 (`b287b7e838d172d2acb196f248dc1d6a35ee70d4450ef88ca3dd11c83bd81c1c`) or the ProcessorEndpoint/TeeAuthenticator contract addresses — those ARE durable across a local restart (the artifact lives in the `vela-skit-shared-data` named volume; the contracts redeploy to deterministic Anvil-genesis addresses every stack start). Only the on-chain APPLICATION DEPLOYMENT (the `submitDeployRequest` transaction's resulting `applicationId`) is ephemeral.",
+    "This is a LOCAL/dev-stack-specific fact today (`vela-skit-chain` does not persist Anvil state across restarts) — it may not generalise verbatim to a hosted early-access or production Vela deployment, where the chain itself is expected to be durable. The invariant's PRINCIPLE (verify a recorded applicationId's existence before reuse; treat it as a deployment record, not an identity) generalises regardless of durability — a hosted deployment can still be redeployed, migrated, or reset by someone else, and the same verify-before-reuse discipline protects against that too."
+  ]
+}

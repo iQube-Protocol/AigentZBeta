@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-08-RECEIPT-SUBJECT-SCOPING-001",
+  "statement": "A receipt is admissible as evidence for a specific runtime agent's stage/checklist/completion iff the receipt's own agents_invoked names that exact runtime agent — never merely because the querying/acting persona is the same, and never merely because the action type matches. A query that filters only by actionType and the acting persona's scope, with no subject-agent filter, returns every agent's receipts of that type the persona has ever produced and must not be trusted as agent-scoped evidence.",
+  "family": "constitutional",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "classification": "Operator directive, 2026-08-08, verbatim: \"Required invariant: A registration receipt can satisfy an agent's Register stage iff the receipt subject is that exact runtime agent... A receipt for aigent-nakamoto must be inadmissible for aigent-moneypenny, even if action type, chain, partner, or registry are otherwise identical.\"",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/assistant-receipts-agent-scoping.test.ts",
+      "assertion": "GET /api/assistant/receipts threads an agentsInvoked query param to listActivityReceiptsForPersona's existing filter; a cross-agent isolation test proves a query scoped to one agent never returns a receipt naming only a different agent of the same action type.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/register-stage-receipt-agent-isolation.test.ts",
+      "assertion": "StageReceiptsDrawer/JourneyRunSurface/horizenMoneyPennyJourney.ts/PilotJourneyTab wiring: register and claim opt into subject-scoping (receiptsScopedToSubjectAgent: true); verify does not, because its receipts are not uniformly subject-tagged.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "horizen-pulse-admission",
+      "defect": "StageReceiptsDrawer's query to GET /api/assistant/receipts filtered only by actionType and the acting persona — MoneyPenny's Register stage displayed Aigent Nakamoto's HORIZEN_AGENT_REGISTERED receipt because the same operator persona had registered both agents and nothing distinguished whose registration a receipt actually named.",
+      "resolutionId": "RES-2026-08-08-REGISTER-EVIDENCE-CROSS-AGENT-001",
+      "evidence": [
+        "d9953c4",
+        "tests/assistant-receipts-agent-scoping.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-08-REGISTER-EVIDENCE-CROSS-AGENT-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This is the SAME defect shape as the earlier 2026-08-03 fix to aigentme/disposition/route.ts (tests/aigentme-disposition-agent-scoping.test.ts) and to listActivityReceiptsForPersona's own agentsInvoked option (added 2026-08-03, per its own comment, for 'a persona-only, limit-bounded read of a shared action type can silently miss one agent's receipt when another agent under the same persona has more recent ones') — but THIS occurrence surfaced on a THIRD, independent call site (StageReceiptsDrawer/api/assistant/receipts) that had never adopted either prior fix's mechanism. Recorded here as a second real occurrence within the same capability rather than claimed as cross-capability scope — 'cross-capability' remains unearned until the same shape recurs in a capability outside horizen-pulse-admission.",
+    "Deliberately NOT applied to every stage: Verify's agreement_formed/agreement_authorized receipts (services/constitutional/constitutionalAgreement.ts) carry only agentsInvoked: ['aigent-z'], never a subject agent. Under this invariant taken strictly, those receipts are NEVER admissible as agent-scoped evidence for anyone — which is why applying the filter there (rather than leaving it unset) would make them vanish from every agent's Verify drawer rather than surface the real gap. Fixing the write side (tagging CFS receipts with their subject agent alongside the orchestrator) is a separate, not-yet-authorized change, named here as the natural follow-up.",
+    "The write side of the Register/Claim ceremony (services/horizen/registerCeremony.ts, the claim/prove-control route) was independently verified clean by tracing agentSlug -> resolveRegistrableAgent -> subjectAgentRef/agentsInvoked end to end, and by a new sequential two-agent regression test (tests/register-ceremony.test.ts) — the contamination in this occurrence was READ/PROJECTION-TIME ONLY, never a write-time defect. This distinction (write-time vs read-time locus) is itself worth carrying forward: the same visible symptom ('agent A sees agent B's evidence') can originate at either layer, and diagnosing which one first is what let this fix stay narrowly scoped instead of touching the write side unnecessarily."
+  ]
+}

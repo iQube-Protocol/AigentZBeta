@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-15-SCOPE-CONTEXT-BINDING-AXIS-001",
+  "statement": "Invariant scope (where a causal proposition applies) and context binding (which authorized person's, developer's, or project's state is relevant to the present resolution) are kept as separate axes. Personal or project state is never represented as an additional rung on the causal scope ladder, and evidence gathered under one authorized context is never pooled into broader Crystal learning without that authorization boundary being explicitly cleared.",
+  "classification": "Engineering/constitutional invariant. Governs how the invariant-resolution substrate distinguishes causal generality from authorized relevance, in the same register as CI-2026-08-15-CANONICAL-TERM-RESOLUTION-001 governs terminology resolution.",
+  "family": "engineering",
+  "scope": "local",
+  "status": "candidate",
+  "ratifiedSource": null,
+  "parentCandidateId": null,
+  "supersededBy": null,
+  "governingPrinciple": false,
+  "derivedFrom": [
+    "RES-2026-08-15-SCOPE-CONTEXT-BINDING-AXIS-001"
+  ],
+  "occurrences": [
+    {
+      "site": "Homecoming III Phase 5 — services/devCommandCenter/failureLearning.ts, assessRecurrencePortability",
+      "defect": "The recurrence/portability gate for the failure-learning path took a flat `priorObservations` list with no scope-authority filtering. Nothing prevented a future caller wiring a persistent RiskObservation store from pooling observations across different users' or projects' authorized contexts, which would let coincidental similarity in two unrelated developers' failures manufacture a 'portable, cross-capability' candidate invariant from correlation rather than causation — the precise failure mode the operator named: one developer's or project's observation becoming global software knowledge merely because the same DevOn capability serves multiple users.",
+      "resolutionId": "RES-2026-08-15-SCOPE-CONTEXT-BINDING-AXIS-001",
+      "evidence": [
+        "services/devCommandCenter/failureLearning.ts",
+        "types/devLoopLearning.ts"
+      ]
+    }
+  ],
+  "canaries": [],
+  "projections": {
+    "targets": [
+      "devon",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "notes": [
+    "STATED CAUSALLY. The rule names the condition that must hold (scope and context binding stay separate axes; pooling requires authorization to be cleared) rather than a bare prohibition, so it is checkable at the point a future caller wires a persistent store.",
+    "NO CANARY YET, STATED HONESTLY. Today no production caller pools `RiskObservation`s across sessions at all (only tests exercise `assessRecurrencePortability`), so there is no live defect to reproduce a canary against. `services/devCommandCenter/failureLearning.ts`'s doc comment (commit 5c2880d20) is the interim governed-prose enforcement point; an executable canary belongs with whatever future caller wires a persistent, cross-session store and is deferred to that phase rather than claimed now, per CI-2026-08-03-CANARY-REPRODUCES-DEFECT-001.",
+    "THE CONTEXT-BINDING AXIS ITSELF IS NOT IMPLEMENTED BY THIS CANDIDATE. The operator scoped `platform / workspace / project / developer / principal-user / session-intent` as a recorded design requirement — a Crystal 2.0 / post-threshold extension — not a Phase 5 deliverable. This candidate protects the DISTINCTION (scope ≠ context-binding); it does not itself specify the future axis's implementation.",
+    "T0/T2 DISCIPLINE IS INHERITED, NOT RESTATED HERE. `DEV_LOOP_FORBIDDEN_STATE_KEYS` (types/devLoopLearning.ts) already forbids `personaId`/`rootDid`/etc. in `DevLoopState`; this candidate does not relax or duplicate that guard — any future context-binding axis must satisfy it using opaque references or T2-safe derived context, never raw identity material.",
+    "SCOPE IS 'local' PENDING A SECOND CAPABILITY. The rule plausibly generalises beyond DevOn to any multi-tenant consumer of the invariant substrate, but 'cross-capability' requires occurrences in more than one capability per the milestone-close check; left at 'local' until that evidence exists."
+  ]
+}

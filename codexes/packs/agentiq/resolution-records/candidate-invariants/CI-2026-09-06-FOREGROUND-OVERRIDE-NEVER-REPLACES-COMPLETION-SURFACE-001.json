@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-06-FOREGROUND-OVERRIDE-NEVER-REPLACES-COMPLETION-SURFACE-001",
+  "statement": "A Journey (or any guided-runtime) foreground/destination override must never replace the sole surface capable of producing the overridden stage's own completion evidence, and must never be gated on a fact that is merely a PREREQUISITE of that stage rather than the stage's OWN completion. Before adding or widening such an override, the reviewer must check whether the destination stage's completionEvidence can be produced anywhere else; if not, the override must be gated on that evidence being present, not merely on the prerequisite chain leading up to it. A regression canary for this must simulate the observer reporting the overridden stage as INCOMPLETE while its prerequisite is satisfied, and assert the override does NOT fire.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  },
+  "classification": null,
+  "ratifiedSource": null,
+  "scope": "cross-capability",
+  "status": "candidate",
+  "notes": [
+    "The failure shape: stage S has completionEvidence producible ONLY by surface X. A host composing S inside a broader flow overrides S's foreground to surface Y once some OTHER, easier-to-check fact F is true (here: F = Passport validity, a PREREQUISITE of S, checked because it was already being tracked for a different decision). Y never produces S's completionEvidence. Every visitor who reaches F=true is now permanently routed past X, and S can never complete for them — not a transient bug, a structural dead end that looks like normal, deliberate product routing.",
+    "This exact failure mode was named IN ADVANCE, in the stage's own code comment (horizenMoneyPennyJourney.ts, 2026-08-24: 'NOT swapped to the MoneyPenny Orchestration destination... considered and rejected... Replacing the surface would make the stage permanently uncompletable') — and then implemented anyway, in a SIBLING file, because nothing connected the warning to the override. A prose warning in one file does not protect a decision made in another; only a canary that actually renders both facts (prerequisite true, stage incomplete) and asserts the override does not fire can.",
+    "Distinct from a stage simply being SLOW to complete (waiting on an external confirmation, a DVN receipt, a human decision elsewhere) — this invariant is about an override that structurally REMOVES the ability to complete at all, by hiding the one surface that could ever write the evidence. A host is free to override a stage's presentation once that stage no longer needs anything from the operator; the invariant is specifically about doing so BEFORE that point.",
+    "The companion half of the same incident (an override's own DESTINATION resolving ambiguously — `tab: 'home'` alone silently misrouting when the target's own activation gate was not separately granted) is a related but SEPARATE defect class: 'a deep-linked destination must carry every signal required to actually reach it, not just the content slug' — worth watching for a second real occurrence before generalising into its own invariant; not folded into this one, which is specifically about completion-evidence displacement."
+  ],
+  "derivedFrom": [
+    "RES-2026-09-06-JOURNEY-FOREGROUND-OVERRIDE-REPLACES-COMPLETION-SURFACE-001"
+  ],
+  "occurrences": [
+    {
+      "site": "components/journey/FinancialServicesBridgeFrontDoor.tsx — foregroundSurfaceRefByStage override of the 'aigentme' stage",
+      "defect": "Overrode aigentme's foreground to 'moneypenny-orchestration-focused' gated only on citizenPassportUsable (aigentme's PREREQUISITE, via delegate->passport), never on aigentme's own completionEvidence (aigentMeActive, focusDispositionRecorded) — the ONE surface producing that evidence (aigentme-welcome) was displaced before it could ever run for a Passport-holding operator, e.g. Factor.",
+      "resolutionId": "RES-2026-09-06-JOURNEY-FOREGROUND-OVERRIDE-REPLACES-COMPLETION-SURFACE-001",
+      "evidence": [
+        "tests/factor-operate-ceremony-gate.test.tsx"
+      ]
+    }
+  ],
+  "canaries": [
+    {
+      "path": "tests/factor-operate-ceremony-gate.test.tsx",
+      "assertion": "renders the real FinancialServicesBridgeFrontDoor, drives onRuntimeStateChange with Passport valid + aigentme evidencePresent empty (and with only one of the two required receipts), and asserts the foreground override to 'moneypenny-orchestration-focused' does NOT fire in either case — it fires only once BOTH completionEvidence items are present, and never regresses once it has.",
+      "verifiedFailingBeforeFix": true
+    }
+  ]
+}

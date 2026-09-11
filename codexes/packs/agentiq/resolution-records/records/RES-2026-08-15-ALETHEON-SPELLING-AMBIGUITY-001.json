@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-08-15-ALETHEON-SPELLING-AMBIGUITY-001",
+  "capability": "Aletheon Homecoming — Phase A capability census (audit-only, no implementation)",
+  "milestone": "Terminology preflight for the Aletheon Homecoming audit",
+  "problem": "While briefing an audit agent on the Aletheon Homecoming census, the main session checked four candidate spellings (Aletheon, Aletheian, Aletheia, aletheia), found Aletheon at 176 files and the others at zero, and reported to the operator: 'Aletheon is canonical — 176 files. Alethian appears zero times in the codebase.' That statement was true as far as it went, but the search omitted 'Alethean' — a fifth spelling the searcher had no specific reason to check and therefore did not. A subsequent independent re-verification (grep -ro, all four extensions, node_modules excluded) found Alethean at 76 occurrences across 20 files, co-occurring with Aletheon inside operator-ratified constitutional documents (CFS-015, CFS-019, CFS-023, CFS-024, SPEC-HMC-001, appendix-a_canonical-invariants.md, types/constitutionalContext.ts), including both spellings inside a single file (SPEC-HMC-001:25). The main session had declared the naming question resolved on an incomplete search.",
+  "observedFailure": [
+    "The session's own message to the operator asserted 'Aletheon is canonical' as a settled fact, immediately after checking only 4 of at least 5 live spellings.",
+    "The omitted spelling was not a rare variant: 76 occurrences in 20 files, several of them constitutional documents the operator has ratified (CFS-series, SPEC-HMC-001).",
+    "Two spellings coexist inside ratified constitutional text, which the earlier DCIR terminology case did not resemble: DCIR had one ratified expansion and one incorrect PRD guess. Here the GOVERNED CORPUS ITSELF is internally inconsistent, so 'resolve from Common Ground' does not resolve to a single unambiguous answer without an operator ruling.",
+    "The operator, not the agent, caught the gap and issued the corrective ruling (2026-08-15): Aletheon canonical going forward, Alethean a historical/legacy spelling for the same agent that resolves prospectively to Aletheon, Alethian erroneous."
+  ],
+  "rootCauses": [
+    "A terminology check that stops at the first plausible confirming result is a different, weaker act than a terminology check that tries to falsify itself. The session searched for spellings it already suspected might exist (variants of the PRD's own wrong guess) rather than searching broadly for ANY spelling of the agent's name before asserting resolution.",
+    "'Resolved' was used to mean 'I found the term I was looking for', not 'I have established there is no competing usage in canon'. Those are different claims, and only the second licenses telling an operator a name is settled.",
+    "No distinction was drawn between two different situations that both look like 'wrong terminology': an AGENT reconstructing a term from context (the DCIR case, where canon itself agrees and inference contradicts it), versus a CORPUS that is internally inconsistent, where the agent's job is to surface the inconsistency for a governed ruling, not to pick a winner and report it as fact."
+  ],
+  "resolution": [
+    "Operator ruling recorded verbatim: Aletheon is canonical. Alethean is a historical/legacy spelling referring to the same agent and resolves PROSPECTIVELY to Aletheon (new work uses Aletheon; historical usage is not thereby wrong). Alethian is erroneous and is NOT registered as an alias.",
+    "Per explicit operator instruction: NO bulk-rewrite of ratified historical artifacts. The 20 files carrying 'Alethean' keep their original text and provenance intact. This record and the ontology entry establish the canonical resolution; the historical documents remain evidentially unmodified.",
+    "docs/platform-ontology.md to be updated (tracked as follow-up, not yet done in this record) to state the resolution: Aletheon canonical, Alethean historical/equivalent going-forward-resolves-to-Aletheon, Alethian erroneous-not-alias.",
+    "Recorded as its OWN candidate invariant, NOT a widening of CI-2026-08-15-CANONICAL-TERM-RESOLUTION-001 (operator ruling, explicit): the two cases differ in kind. DCIR was an agent inferring a term against a canon that already agreed on one answer. This is a corpus containing two spellings across ratified documents, discovered by a search an agent believed was complete when it was not. See CI-2026-08-15-INCOMPLETE-SEARCH-DECLARED-COMPLETE-001."
+  ],
+  "rejectedApproaches": [
+    "Treating this as additional evidence for CI-2026-08-15-CANONICAL-TERM-RESOLUTION-001. Rejected by explicit operator ruling: that invariant is about resolving a term from Common Ground before inferring it; this case is about a search being declared complete before it was, and about a governed corpus carrying two spellings that only an operator can reconcile. Widening the existing statement to cover both would blur two distinct failure shapes into one, weakening both.",
+    "Bulk-renaming 'Alethean' to 'Aletheon' across the 20 files now that a canonical spelling is ruled. Rejected by explicit operator instruction: ratified historical artifacts are not rewritten; their text and provenance stay intact, and the canonical resolution lives in governed Common Ground (the ontology), not by silently editing history.",
+    "Reporting the ambiguity as resolved by the operator's ruling and closing the record at that. Rejected: the ruling resolves the SPELLING going forward; it does not retroactively make the earlier 'zero-search' declaration correct, and the causal pattern behind that declaration (search felt complete, was not) is the more portable lesson and is recorded separately."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-15-INCOMPLETE-SEARCH-DECLARED-COMPLETE-001"
+  ],
+  "canaries": [],
+  "scope": "local",
+  "status": "observed",
+  "trigger": "governance-boundary-confused",
+  "evidence": {
+    "commits": [],
+    "tests": [],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/irl/foundation/SPEC-HMC-001_constitutional-agent-continuity.md",
+      "codexes/packs/irl/foundation/CFS-023_chrysalis-homecoming.md",
+      "codexes/packs/irl/foundation/CFS-024_constitutional-identity-hierarchy.md",
+      "types/constitutionalContext.ts"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-15_homecoming-iii-bootstrap-architecture-audit.md"
+  ],
+  "date": "2026-08-15",
+  "projections": {
+    "targets": [
+      "devon",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

@@ -12,6 +12,7 @@
  */
 
 import type { ExperienceQubeMeta } from '@/services/iqube/experienceQube';
+import { callDraftLlm } from './_lib/llmDraftHelper';
 
 export interface DraftGoogleSheetContext {
   experience?: Pick<
@@ -136,7 +137,7 @@ export async function draftGoogleSheet(input: DraftGoogleSheetInput): Promise<Dr
   if (!prompt) {
     return { ...templateDraft({ ...input, prompt: 'Untitled' }), source: 'template', generatedAt };
   }
-  const raw = await callOpenAi(SYSTEM_PROMPT, userPrompt({ ...input, prompt }));
+  const raw = await callDraftLlm(SYSTEM_PROMPT, userPrompt({ ...input, prompt }), 1000);
   if (raw) {
     try {
       const parsed = JSON.parse(raw) as Partial<DraftGoogleSheetOutput>;

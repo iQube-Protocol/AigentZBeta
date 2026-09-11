@@ -25,6 +25,7 @@ import {
   MATURITY_ORDINAL,
   SPHERE_AXES,
   SPHERE_LABEL,
+  explainOverallAlignment,
   type AlignmentState,
   type PersonalGuideData,
   type PrecedenceMode,
@@ -175,10 +176,13 @@ function ExperienceAlignmentInner({ personaId }: { personaId: string }) {
   return (
     <div className="p-4 sm:p-6 w-full text-slate-100 space-y-5">
       {/* Alignment banner */}
-      <div className={`flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-lg border ${ALIGNMENT_BG[guide.alignmentState]}`}>
+      <div className={`flex flex-wrap items-start justify-between gap-3 px-4 py-3 rounded-lg border ${ALIGNMENT_BG[guide.alignmentState]}`}>
         <div>
           <p className="text-xs text-slate-300/80 mb-0.5">Current alignment</p>
           <p className="text-base font-semibold text-slate-100">{ALIGNMENT_LABEL[guide.alignmentState]}</p>
+          <p className="text-[11px] text-slate-300/70 mt-0.5 max-w-2xl">
+            {explainOverallAlignment(guide.sphereAlignment)} Averaging means the headline reflects your whole posture — a single acute sphere is still visible in the matrix but doesn't dominate this banner.
+          </p>
           {guide.focusIntent && (
             <p className="text-xs text-slate-300/80 mt-1 max-w-2xl">Focus: {guide.focusIntent}</p>
           )}

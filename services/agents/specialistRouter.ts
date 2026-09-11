@@ -31,6 +31,21 @@
  */
 
 import { personas } from '@/app/data/personas';
+import type { PreflightContext } from '@/services/capabilities/preflight';
+import { GROUNDING_MANDATE, INVARIANT_GROUNDING_CLAUSE } from '@/services/orchestration/groundingContract';
+import {
+  FACTOR_CAPABILITIES,
+  classifyFactorCapability,
+  deriveFactorResponseEnvelope,
+  factorStatusSentence,
+  getFactorCapability,
+  isFactorCapabilityId,
+  type FactorActionDescriptor,
+  type FactorAffordance,
+  type FactorCapabilityId,
+  type FactorCapabilityStatus,
+  type FactorScope,
+} from '@/services/factor/factorCapabilityManifest';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Types — public surface.
@@ -44,7 +59,18 @@ export type SpecialistId =
   | 'aigent-c'
   | 'aigent-nakamoto'
   | 'moneypenny'
-  | 'metaye';
+  | 'metaye'
+  | 'researcher'
+  | 'aletheon'
+  // Factor + Aegis 0.1 (GJR-FAC-001, Phase 2 reconciliation) — MoneyPenny's
+  // candidate-intake pipeline (Factor) and independent assessor (Aegis).
+  // Registered here so AigentMe/MoneyPenny can consult them the same way
+  // as every other specialist; their REAL authority (case state, admission
+  // decisions) stays exactly where PRD §2 places it — services/factor/*
+  // and services/aegis/* — this router only produces an advisory framing,
+  // never a case mutation.
+  | 'factor'
+  | 'aegis';
 
 export type SpecialistRequestType =
   | 'proposal'
@@ -58,7 +84,8 @@ export type SpecialistRequestType =
   | 'decentralisation_brief'
   | 'policy_brief'
   | 'micro_economics_brief'
-  | 'sovereignty_brief';
+  | 'sovereignty_brief'
+  | 'research_brief';
 
 export interface SpecialistContext {
   /** Cartridge the specialist should treat as primary. */
@@ -76,6 +103,31 @@ export interface SpecialistContext {
    * Optional freeform prompt the user attached when asking the specialist.
    */
   userPrompt?: string;
+  /**
+   * Invariant slice (CFS-006 §2) — the context-filtered, standing-ranked
+   * validated invariants applicable to this intent. Statement-level meta only
+   * (T1-safe); assembled by the Invariant Service's buildInvariantSlice at the
+   * call site. When present, the specialist is bound to ground on and cite
+   * these (INVARIANT_GROUNDING_CLAUSE).
+   */
+  invariantSlice?: { seedId: string | null; statement: string; namespace: string }[];
+  /**
+   * Factor cognitive-runtime fix (2026-09-05) — the strongest classification
+   * signal: an explicit capability selected by a UI card/chip. Ignored by
+   * every specialist other than 'factor'. When absent, Factor's capability
+   * is classified deterministically from userPrompt/intentName (see
+   * resolveFactorCapability below) — never silently defaulted to
+   * candidate_intake.
+   */
+  factorCapabilityId?: FactorCapabilityId;
+  /**
+   * Factor cognitive-runtime fix — bounded workflow scope (an open
+   * candidate case, or an agent/service reference) that adds GROUNDING only.
+   * A present caseId must never, by itself, force candidate_intake
+   * classification — only explicit intake language or an explicit
+   * factorCapabilityId does that.
+   */
+  factorScope?: FactorScope;
 }
 
 export interface SpecialistResponse {
@@ -98,6 +150,50 @@ export interface SpecialistResponse {
   source: 'llm' | 'template';
   /** When the response was generated. */
   generatedAt: string;
+  /**
+   * Capability Gateway pre-flight result. Present only when
+   * CAPABILITY_GATEWAY_PREFLIGHT covers the specialist and the gather
+   * succeeded. The aigentMe response surface today also prepends the
+   * summary into the rationale; this field lets the UI render it as a
+   * dedicated byline going forward.
+   */
+  preflightContext?: PreflightContext;
+  /**
+   * Set by the ask-agent route when the consultation was a hand-off
+   * from another specialist. The SpecialistsLayout renders a "← from X"
+   * pill on the response card and threads the prior title into the
+   * specialist's framing so the back-and-forth reads as a conversation
+   * rather than a fresh ask.
+   */
+  handoffFrom?: { specialistId: SpecialistId; priorTitle: string };
+  /**
+   * Response affordance (Factor cognitive-runtime fix, 2026-09-05) —
+   * states plainly whether this response only explains/recommends
+   * (ADVISORY), can produce a governed plan/checklist (PREPARABLE), has a
+   * real wired handler subject to authority (ACTION_AVAILABLE), names a
+   * missing prerequisite (BLOCKED), or describes a capability with no
+   * runtime handler at all (PLANNED). Additive/optional — only Factor sets
+   * this today; absent for every other specialist. SERVER-DERIVED on both
+   * the template AND live-LLM paths (deriveFactorResponseEnvelope) — never
+   * authored by the model, so an LLM cannot claim a planned/advisory
+   * capability is live. Never render a PLANNED capability as if it were live.
+   */
+  affordance?: FactorAffordance;
+  /**
+   * The capability a Factor consultation actually resolved to (Factor
+   * cognitive-runtime fix, 2026-09-05) — lets a caller/UI show what was
+   * understood, distinct from the free-text question asked. Factor-only.
+   */
+  resolvedCapabilityId?: FactorCapabilityId;
+  /** The resolved capability's real, manifest-declared status — Factor-only. */
+  capabilityStatus?: FactorCapabilityStatus;
+  /** Concrete next actions available now for this capability/scope, TYPED —
+   *  server-derived, Factor-only. The `explain` action(s) are always
+   *  present; other actions only when affordance is ACTION_AVAILABLE or
+   *  PREPARABLE and their own scope/handler-registration are satisfied. */
+  availableActions?: FactorActionDescriptor[];
+  /** Unmet prerequisites when affordance is BLOCKED — Factor-only. */
+  blockers?: string[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -113,6 +209,14 @@ const SPECIALIST_PERSONA_KEY: Record<SpecialistId, keyof typeof personas | null>
   'aigent-nakamoto': 'aigent-nakamoto',
   moneypenny: 'aigent-moneypenny',
   metaye: 'aigent-metaye',
+  researcher: 'aigent-researcher',
+  aletheon: 'aigent-aletheon',
+  // No dedicated persona system prompt yet (persona/system-prompt authoring
+  // is UI-adjacent content, out of scope for this API-first registration
+  // pass) — systemPromptFor's generic fallback covers this until one is
+  // built.
+  factor: null,
+  aegis: null,
 };
 
 const SPECIALIST_LABELS: Record<SpecialistId, string> = {
@@ -124,7 +228,56 @@ const SPECIALIST_LABELS: Record<SpecialistId, string> = {
   'aigent-nakamoto': 'Nakamoto',
   moneypenny: 'MoneyPenny',
   metaye: 'Metayé',
+  researcher: 'Research Copilot',
+  aletheon: 'Aletheon',
+  factor: 'Aigent Factor',
+  aegis: 'Aegis',
 };
+
+/**
+ * Reverse-lookup: which SpecialistId, if any, carries this exact display
+ * label (case-insensitive). Used by aigentMe role resolution
+ * (services/agents/aigentMeRoleResolution.ts) to translate a persona's
+ * assigned agent (agent_root_identity.display_name — the only field
+ * available without a schema change) into a specialist identity, so the
+ * aigentMe Copilot can speak in the assigned agent's voice. Derives from
+ * the existing SPECIALIST_LABELS map rather than hand-duplicating it
+ * (inv.engineering.036/037).
+ */
+export function specialistIdForLabel(label: string): SpecialistId | null {
+  const needle = label.trim().toLowerCase();
+  for (const [id, l] of Object.entries(SPECIALIST_LABELS) as [SpecialistId, string][]) {
+    if (l.toLowerCase() === needle) return id;
+  }
+  return null;
+}
+
+/** The personas[] key backing a specialist's system prompt, if any. */
+export function personaKeyForSpecialist(id: SpecialistId): keyof typeof personas | null {
+  return SPECIALIST_PERSONA_KEY[id];
+}
+
+/**
+ * The ONE capability-classification step for Factor — called exactly once
+ * per consultation, upstream of whichever response path (live LLM or
+ * deterministic template) actually runs, so the two paths can never
+ * silently disagree about what the operator asked (Factor cognitive-runtime
+ * fix, 2026-09-05). Resolution order:
+ *   1. context.factorCapabilityId — an explicit UI card/chip selection.
+ *   2. Deterministic semantic classification of the free text (userPrompt,
+ *      falling back to intentName).
+ *   3. 'general_orientation' when nothing classifies (classifyFactorCapability's
+ *      own fallback) — never a silent default to candidate_intake.
+ * A bounded case (context.factorScope / an active candidate case) is
+ * GROUNDING ONLY here — it is never consulted to select a capability, so a
+ * question asked from inside an open case is classified exactly the same
+ * as the identical question asked with no case open at all.
+ */
+export function resolveFactorCapability(context: SpecialistContext): FactorCapabilityId {
+  if (isFactorCapabilityId(context.factorCapabilityId)) return context.factorCapabilityId;
+  const text = context.userPrompt?.trim() || context.intentName;
+  return classifyFactorCapability(text);
+}
 
 // Map specialist + cartridge → default request type so the prompt knows
 // what the user expects shape-wise.
@@ -137,6 +290,10 @@ function inferRequestType(specialistId: SpecialistId, cartridge: string): Specia
   if (specialistId === 'aigent-nakamoto') return 'decentralisation_brief';
   if (specialistId === 'moneypenny') return 'micro_economics_brief';
   if (specialistId === 'metaye') return 'sovereignty_brief';
+  if (specialistId === 'researcher') return 'research_brief';
+  if (specialistId === 'aletheon') return 'sovereignty_brief';
+  if (specialistId === 'factor') return 'system_guidance';
+  if (specialistId === 'aegis') return 'system_guidance';
   // Cartridge hint:
   if (cartridge === 'qriptopian') return 'editorial_angle';
   if (cartridge === 'knyt') return 'mission_recommendation';
@@ -161,22 +318,62 @@ function redact(text: string): string {
 // Prompt assembly.
 // ─────────────────────────────────────────────────────────────────────────
 
-function systemPromptFor(specialistId: SpecialistId): string {
+/**
+ * Factor's authored cognitive profile (Factor cognitive-runtime fix,
+ * 2026-09-05) — replaces the generic "You are an Aigent Me specialist."
+ * fallback that gave a live LLM almost no basis to answer AS Factor.
+ * Boundaries are stated in the prompt itself, not left to the model to
+ * infer, and the resolved capability's real status is appended so the
+ * model cannot claim a planned/advisory capability is live.
+ */
+function factorSystemPrompt(capabilityId: FactorCapabilityId): string {
+  const cap = getFactorCapability(capabilityId);
+  const inventory = FACTOR_CAPABILITIES.map((c) => `- ${c.title} (${c.status})`).join('\n');
+  return [
+    "You are Aigent Factor, MoneyPenny's constitutional economic activation and ecosystem-catalysis specialist.",
+    'You discover, prepare and activate agents and financial services across the iQube Registry, the Horizen',
+    'Journey Spine, and the MoneyPenny runtime. Candidate intake is ONE capability among many — never treat it as',
+    'your governing identity, and never reframe an unrelated question as a candidate-intake question.',
+    '',
+    'Immutable boundaries — state these truthfully whenever they are relevant, never soften them:',
+    '- You cannot assess a candidate independently — that is Aegis\'s role alone; you refer, you do not assess.',
+    '- You cannot decide admission — that authority belongs to MoneyPenny alone.',
+    '- You cannot award standing — you may only submit an evidence-backed standing PROPOSAL.',
+    '- You cannot move funds, register an agent on-chain, tokenize a service, or broadcast anything without',
+    '  proper authority and governed human/MoneyPenny confirmation.',
+    '- You must always distinguish an OPERATIONAL capability (live today) from a PARTIAL one (built but not',
+    '  fully wired), an ADVISORY one (you can explain it, you cannot act on it), and a PLANNED one (not built',
+    '  at all) — never imply a planned or advisory capability is live.',
+    '',
+    `This question has been classified as: "${cap.title}" — status: ${cap.status}. ${factorStatusSentence(cap.status)}`,
+    '',
+    'Your full capability inventory, for reference (never invent a capability not on this list):',
+    inventory,
+  ].join('\n');
+}
+
+function systemPromptFor(specialistId: SpecialistId, hasInvariantSlice = false, factorCapabilityId?: FactorCapabilityId): string {
   const key = SPECIALIST_PERSONA_KEY[specialistId];
-  if (key && personas[key]?.systemPrompt) {
-    return personas[key].systemPrompt;
-  }
-  // Quill (and any future specialist without a registered persona yet)
-  // gets a tight default rooted in the locked decisions.
-  if (specialistId === 'quill') {
-    return [
-      'You are Quill, editor of The Qriptopian, powered by Aigent Q.',
-      'You frame the metaMe ecosystem\'s active work as editorial moments — angles,',
-      'article briefs, issue placements. You speak with editorial clarity and never',
-      'overpromise. You return structured recommendations only.',
-    ].join(' ');
-  }
-  return 'You are an Aigent Me specialist.';
+  const base =
+    specialistId === 'factor'
+      ? factorSystemPrompt(factorCapabilityId ?? 'general_orientation')
+      : key && personas[key]?.systemPrompt
+      ? personas[key].systemPrompt
+      : specialistId === 'quill'
+        ? [
+            'You are Quill, editor of The Qriptopian, powered by Aigent Q.',
+            'You frame the metaMe ecosystem\'s active work as editorial moments — angles,',
+            'article briefs, issue placements. You speak with editorial clarity and never',
+            'overpromise. You return structured recommendations only.',
+          ].join(' ')
+        : 'You are an Aigent Me specialist.';
+  // Every specialist is bound by the no-hallucination mandate: recommendations
+  // must be grounded in the supplied context, never in invented metrics or
+  // fabricated names/incidents. When the packet carries a validated invariant
+  // slice (CFS-006 §2), the specialist is additionally bound to ground on and
+  // cite those invariants as canonical memory.
+  const clause = hasInvariantSlice ? `\n\n${INVARIANT_GROUNDING_CLAUSE}` : '';
+  return `${base}\n\n${GROUNDING_MANDATE}${clause}`;
 }
 
 function userPromptFor(ctx: SpecialistContext, requestType: SpecialistRequestType): string {
@@ -190,6 +387,17 @@ function userPromptFor(ctx: SpecialistContext, requestType: SpecialistRequestTyp
   ];
   if (ctx.intentRationale) lines.push(`Rationale: ${ctx.intentRationale}`);
   if (ctx.userPrompt) lines.push(`User asked: ${ctx.userPrompt}`);
+  if (ctx.invariantSlice && ctx.invariantSlice.length > 0) {
+    lines.push('');
+    lines.push('Validated invariants applicable to this intent (canonical memory — reason from these, cite the markers you use):');
+    for (const inv of ctx.invariantSlice) {
+      // Cite by seedId (e.g. inv.constitutional.001) — a stable, human-legible
+      // marker that survives the UUID-stripping redaction pass below, unlike
+      // the raw invariant UUID.
+      const marker = inv.seedId ? `[${inv.seedId}] ` : '';
+      lines.push(`- ${marker}(${inv.namespace}) ${inv.statement}`);
+    }
+  }
   lines.push('');
   lines.push(
     `Return a JSON object matching this exact shape (no prose outside the JSON):`,
@@ -200,7 +408,9 @@ function userPromptFor(ctx: SpecialistContext, requestType: SpecialistRequestTyp
         title: 'string — 6-12 word headline',
         summary: 'string — 1-3 sentence framing',
         recommendations: ['string — 3-6 actionable bullets'],
-        suggestedArtifacts: ['string — 0-4 artifact types: brief, google-doc, gmail-draft, calendar-block, post-set, image-prompt, video-script, slide-outline, venture-report'],
+        suggestedArtifacts: [
+          'string — 0-4 artifact types from this set: article, brief, google-doc, gmail-draft, calendar-block, post-set, image-prompt, video-script, slide-outline, venture-report, partner-brief, marketa-campaign, mycanvas-remix, myworkbench-draft. Pick artifacts the persona can immediately progress on the aigentMe welcome surface. Routing: gmail-draft / partner-brief / brief / article / google-doc / slide-outline / venture-report -> composer modal; image-prompt / video-script / post-set -> metaMe Studio; mycanvas-remix -> myCanvas remix dialog; myworkbench-draft -> myWorkbench (private internal artifacts); marketa-campaign -> Marketa composer.',
+        ],
         requiresApproval: 'boolean — true if implementing this requires send/share/publish',
         confidence: '"low" | "medium" | "high"',
       },
@@ -375,6 +585,61 @@ async function callLlmChain(systemPrompt: string, userPrompt: string): Promise<s
 // Keeps the demo flow alive when no LLM key is present.
 // ─────────────────────────────────────────────────────────────────────────
 
+/**
+ * Factor's deterministic template fallback — keyed by the SAME capability
+ * classification the live LLM path grounds on (resolveFactorCapability),
+ * never a single hardcoded "candidate-intake framing" (the exact bug this
+ * fix addresses). "What are your capabilities?" -> a real inventory,
+ * regardless of whether an LLM key is present.
+ */
+function factorTemplateResponse(
+  ctx: SpecialistContext,
+  requestType: SpecialistRequestType,
+): Omit<SpecialistResponse, 'specialistId' | 'specialistLabel' | 'generatedAt' | 'source'> {
+  const capabilityId = resolveFactorCapability(ctx);
+  // The SAME policy function the live-LLM path uses (askSpecialist below) —
+  // affordance/requiresApproval/availableActions/blockers can never diverge
+  // between the two response sources.
+  const envelope = deriveFactorResponseEnvelope(capabilityId, ctx.factorScope);
+
+  if (capabilityId === 'general_orientation') {
+    const inventory = FACTOR_CAPABILITIES.filter((c) => c.id !== 'general_orientation').map(
+      (c) => `${c.title} — ${c.status}: ${factorStatusSentence(c.status)}`,
+    );
+    return {
+      requestType,
+      title: `Aigent Factor — capability overview`,
+      summary:
+        `Aigent Factor is MoneyPenny's constitutional economic activation and ecosystem-catalysis specialist. It discovers, prepares and activates agents and financial services across the iQube Registry, the Horizen Journey Spine and the MoneyPenny runtime. Candidate intake is one capability, not its governing identity.`,
+      recommendations: inventory,
+      suggestedArtifacts: ['brief'],
+      confidence: 'high',
+      requiresApproval: envelope.requiresApproval,
+      affordance: envelope.affordance,
+      resolvedCapabilityId: envelope.resolvedCapabilityId,
+      capabilityStatus: envelope.capabilityStatus,
+      availableActions: envelope.availableActions,
+      blockers: envelope.blockers,
+    };
+  }
+
+  const cap = getFactorCapability(capabilityId);
+  return {
+    requestType,
+    title: cap.title,
+    summary: `${cap.description} ${factorStatusSentence(cap.status)}`.trim(),
+    recommendations: cap.examples.length > 0 ? cap.boundaries.concat(cap.examples).slice(0, 4) : cap.boundaries.slice(0, 4),
+    suggestedArtifacts: capabilityId === 'candidate_intake' || capabilityId === 'standing_proposal' ? ['brief', 'myworkbench-draft'] : ['brief'],
+    confidence: cap.status === 'operational' ? 'high' : 'medium',
+    requiresApproval: envelope.requiresApproval,
+    affordance: envelope.affordance,
+    resolvedCapabilityId: envelope.resolvedCapabilityId,
+    capabilityStatus: envelope.capabilityStatus,
+    availableActions: envelope.availableActions,
+    blockers: envelope.blockers,
+  };
+}
+
 function templateResponse(
   specialistId: SpecialistId,
   ctx: SpecialistContext,
@@ -395,7 +660,10 @@ function templateResponse(
         `Stage the offer in three tiers (light / standard / deep) to give the partner a clear lane.`,
         `Close with an activation action — "claim your slot" or "book a 15-minute alignment."`,
       ],
-      suggestedArtifacts: ['brief', 'google-doc', 'gmail-draft'],
+      // Marketa's natural progressions: partner pitch (private brief), the
+      // outbound email itself, a campaign in Marketa proper, and a deck
+      // for the pitch meeting. All four are "act on the recommendation".
+      suggestedArtifacts: ['partner-brief', 'gmail-draft', 'marketa-campaign', 'slide-outline'],
       requiresApproval: true,
       confidence: 'medium',
     };
@@ -412,7 +680,13 @@ function templateResponse(
         `Anchor the piece with a single quote or scene; avoid feature-list narration.`,
         `Close with the next reader move — a deeper article, a participation moment, or a collector path.`,
       ],
-      suggestedArtifacts: ['brief', 'google-doc'],
+      // Quill's editorial responses default to surfaceable artifacts the
+      // user can immediately progress to. 'article' opens the doc
+      // composer pre-seeded with Quill's framing; 'mycanvas-remix'
+      // routes into the RemixDialog so the angle can be staged onto
+      // the persona's myCanvas. Both are picked up by the welcome
+      // surface's artifact-router (composeKindForSuggestedArtifact).
+      suggestedArtifacts: ['article', 'mycanvas-remix', 'brief'],
       requiresApproval: false,
       confidence: 'medium',
     };
@@ -429,7 +703,10 @@ function templateResponse(
         `Acknowledge what's provisional vs finalised in the reward layer.`,
         `Offer one deeper path (correspondent contribution) only if the user is already participant-stage.`,
       ],
-      suggestedArtifacts: ['post-set', 'brief'],
+      // Kn0w1's natural progressions: a social post-set for the KNYT
+      // community, hero art for the moment, a remix onto myCanvas
+      // (publishable to KNYT Pulse), and the article itself.
+      suggestedArtifacts: ['post-set', 'image-prompt', 'mycanvas-remix', 'article'],
       requiresApproval: false,
       confidence: 'medium',
     };
@@ -446,7 +723,9 @@ function templateResponse(
         `Flag any spine constraints (T0/T1 boundaries) that apply.`,
         `Hand back to Aigent Me with a precise next step.`,
       ],
-      suggestedArtifacts: ['brief'],
+      // Aigent Z's progressions are internal: spec/plan doc, brief, and a
+      // workbench draft (private) so the user can iterate before sharing.
+      suggestedArtifacts: ['google-doc', 'brief', 'myworkbench-draft'],
       requiresApproval: false,
       confidence: 'high',
     };
@@ -463,7 +742,9 @@ function templateResponse(
         `Translate platform vocabulary into ordinary language.`,
         `Route to the specialist whose territory the next step lands in.`,
       ],
-      suggestedArtifacts: ['brief'],
+      // Aigent C is the customer-journey lens: a brief, a journey-stage
+      // post-set, an outreach email, and a slide if it's a partner pitch.
+      suggestedArtifacts: ['brief', 'post-set', 'gmail-draft', 'slide-outline'],
       requiresApproval: false,
       confidence: 'medium',
     };
@@ -480,26 +761,102 @@ function templateResponse(
         `If the action settles on-chain, name the settlement assurance you want (provenance, finality, censorship-resistance).`,
         `Spell out the key-management implication for the persona — what they hold, what they delegate, what they should never expose.`,
       ],
-      suggestedArtifacts: ['brief'],
+      // Nakamoto-side artifacts are policy memos, articles framing the
+      // sovereignty implications, and private working drafts.
+      suggestedArtifacts: ['brief', 'article', 'myworkbench-draft'],
       requiresApproval: false,
       confidence: 'high',
     };
   }
   if (specialistId === 'moneypenny') {
+    // PRD-MPY-001 Phase 3 — when a finance-scoped invariant slice was
+    // resolved for this consult (ask-agent's buildSpecialistInvariantSlice
+    // with namespaces:['finance']), ground the recommendations in it instead
+    // of the hand-authored Q¢ framing (PRD's stated gap: "her recommendations
+    // are hand-authored strings, not constitutional projections"). Falls
+    // back to the original text honestly when no slice was resolved — never
+    // fabricates a citation.
+    const financeSlice = (ctx.invariantSlice ?? []).filter((i) => i.namespace === 'finance');
+    const recommendations = financeSlice.length > 0
+      ? financeSlice.slice(0, 4).map((i) => `[${i.seedId ?? 'unseeded'}] ${i.statement}`)
+      : [
+          `Spell out the Q¢ price (and USD parity) for any unit the user is metering.`,
+          `Identify the settlement rail — Q¢, KNYT, USDC, PayPal — and the receipt that will be emitted.`,
+          `Surface any approval thresholds and the second-tier approval flow that applies.`,
+          `Suggest one micro-billing improvement (batch, prepay, streaming) if traffic is high enough to warrant it.`,
+        ];
     return {
       requestType,
       title: `Q¢ economics framing for "${intent}"`,
-      summary:
-        `MoneyPenny frames ${intent} around Q¢ pricing, micro-transaction flows, and payment-ops integrity. The recommendation focuses on how value moves, where it settles, and how the user retains custody.`,
-      recommendations: [
-        `Spell out the Q¢ price (and USD parity) for any unit the user is metering.`,
-        `Identify the settlement rail — Q¢, KNYT, USDC, PayPal — and the receipt that will be emitted.`,
-        `Surface any approval thresholds and the second-tier approval flow that applies.`,
-        `Suggest one micro-billing improvement (batch, prepay, streaming) if traffic is high enough to warrant it.`,
-      ],
-      suggestedArtifacts: ['brief', 'google-doc'],
+      summary: financeSlice.length > 0
+        ? `MoneyPenny grounds ${intent} in ${financeSlice.length} constitutional financial-services invariant(s) from the FS Invariant Library, cited below by seed id.`
+        : `MoneyPenny frames ${intent} around Q¢ pricing, micro-transaction flows, and payment-ops integrity. The recommendation focuses on how value moves, where it settles, and how the user retains custody.`,
+      recommendations,
+      // MoneyPenny artifacts are pricing memos (doc), a spreadsheet with
+      // the unit-economics math, and an outreach email if pricing needs
+      // counterparty alignment.
+      suggestedArtifacts: ['google-doc', 'sheet', 'gmail-draft', 'myworkbench-draft'],
       requiresApproval: true,
-      confidence: 'medium',
+      confidence: financeSlice.length > 0 ? 'high' : 'medium',
+    };
+  }
+  if (specialistId === 'researcher') {
+    return {
+      requestType,
+      title: `Research framing for "${intent}"`,
+      summary:
+        `The Research Copilot frames ${intent} as a question in structured discovery: what does the invariant substrate already say, what hypothesis would test the open part, and what would falsify it. Design before data; ratification is a human step.`,
+      recommendations: [
+        `Surface the validated invariants applicable to ${intent}, ranked by standing; mark validated vs experimental vs canonical.`,
+        `Sharpen the open question into a pre-registered, falsifiable hypothesis with agreed thresholds.`,
+        `Separate the structural question (does invariant organization beat raw experience at matched tokens?) from the execution question (does the runtime add within-call value?).`,
+        `Name the next research move — reproduce, run a held-out task, or contribute evidence — and what result would change the corpus.`,
+      ],
+      // Research artifacts are protocol/design docs, the brief that frames
+      // the experiment, and a private working draft to iterate before
+      // proposing (authoring is a proposal — a human ratifies).
+      suggestedArtifacts: ['google-doc', 'brief', 'myworkbench-draft'],
+      requiresApproval: false,
+      confidence: 'high',
+    };
+  }
+  if (specialistId === 'aletheon') {
+    return {
+      requestType,
+      title: `Constitutional context for "${intent}"`,
+      summary:
+        `Aletheon surfaces the assumptions, dependencies, and constitutional implications of ${intent} — illuminating the decision, not making it.`,
+      recommendations: [
+        `Name the constitutional principles or invariants ${intent} touches, and cite them.`,
+        `Surface what is assumed vs. verified before acting on ${intent}.`,
+        `Identify the bounded-delegation or authority question, if any, that ${intent} raises.`,
+        `Preserve the institutional memory this moment creates — what should be recorded for continuity.`,
+      ],
+      // Aletheon's artifacts are briefs and working drafts — reasoning
+      // support, not campaign/creative output.
+      suggestedArtifacts: ['google-doc', 'brief', 'myworkbench-draft'],
+      requiresApproval: false,
+      confidence: 'high',
+    };
+  }
+  if (specialistId === 'factor') {
+    return factorTemplateResponse(ctx, requestType);
+  }
+  if (specialistId === 'aegis') {
+    return {
+      requestType,
+      title: `Independent assessment framing for "${intent}"`,
+      summary:
+        `Aegis frames ${intent} as an assessment question: what dimensions need evidence-bound findings, and whether any critical finding would block admissibility regardless of aggregate score. Aegis recommends; MoneyPenny alone decides.`,
+      recommendations: [
+        `Lock the evidence snapshot before assessment begins — findings must cite only what was locked, never evidence supplied afterward.`,
+        `Score each dimension independently; a single critical failed finding overrides an otherwise-passing aggregate.`,
+        `State the falsification condition for every finding, not just the claim.`,
+        `Refuse outright if the requester and the subject are the same agent — Aegis never assesses itself.`,
+      ],
+      suggestedArtifacts: ['brief', 'myworkbench-draft'],
+      requiresApproval: false,
+      confidence: 'high',
     };
   }
   // metaye — Sovereign Cybernetic Polity / governance steward.
@@ -514,7 +871,9 @@ function templateResponse(
       `Surface the sovereignty implication — what the user retains, delegates, or risks exposing.`,
       `Recommend one civic next step that strengthens the polity rather than narrows it.`,
     ],
-    suggestedArtifacts: ['brief'],
+    // Metayé's natural artifacts are governance proposals (doc), public
+    // sovereignty articles, and the brief that triggers the civic event.
+    suggestedArtifacts: ['google-doc', 'article', 'brief'],
     requiresApproval: false,
     confidence: 'medium',
   };
@@ -537,8 +896,19 @@ export async function askSpecialist(
   const specialistLabel = SPECIALIST_LABELS[specialistId];
   const generatedAt = new Date().toISOString();
 
+  // Factor's capability classification happens ONCE here, upstream of
+  // whichever response path runs — the live LLM prompt and the
+  // deterministic template both ground on this same resolved capability,
+  // so they can never silently disagree about what was asked.
+  const factorCapabilityId = specialistId === 'factor' ? resolveFactorCapability(context) : undefined;
+  // Server-derived envelope — computed ONCE, applied identically whether
+  // the live LLM answers or the template does (capability-runtime contract
+  // closure, 2026-09-05). The LLM may author explanatory prose; it may
+  // NEVER decide affordance/requiresApproval — see deriveFactorResponseEnvelope.
+  const factorEnvelope = factorCapabilityId ? deriveFactorResponseEnvelope(factorCapabilityId, context.factorScope) : undefined;
+
   // Try live LLM first.
-  const system = systemPromptFor(specialistId);
+  const system = systemPromptFor(specialistId, (context.invariantSlice?.length ?? 0) > 0, factorCapabilityId);
   const user = userPromptFor(context, requestType);
   const raw = await callLlmChain(system, user);
 
@@ -562,15 +932,29 @@ export async function askSpecialist(
           suggestedArtifacts: Array.isArray(parsed.suggestedArtifacts)
             ? (parsed.suggestedArtifacts.filter((a) => typeof a === 'string') as string[])
             : [],
-          requiresApproval: typeof parsed.requiresApproval === 'boolean'
-            ? parsed.requiresApproval
-            : true,
+          // Factor: NEVER trust the model's own requiresApproval — always
+          // the server-derived policy value, identical to the template
+          // path. Every other specialist keeps the model's own judgment.
+          requiresApproval: factorEnvelope
+            ? factorEnvelope.requiresApproval
+            : typeof parsed.requiresApproval === 'boolean'
+              ? parsed.requiresApproval
+              : true,
           confidence:
             parsed.confidence === 'low' || parsed.confidence === 'high'
               ? parsed.confidence
               : 'medium',
           source: 'llm',
           generatedAt,
+          ...(factorEnvelope
+            ? {
+                affordance: factorEnvelope.affordance,
+                resolvedCapabilityId: factorEnvelope.resolvedCapabilityId,
+                capabilityStatus: factorEnvelope.capabilityStatus,
+                availableActions: factorEnvelope.availableActions,
+                blockers: factorEnvelope.blockers,
+              }
+            : {}),
         };
       }
     } catch (err) {
@@ -583,7 +967,6 @@ export async function askSpecialist(
   return {
     specialistId,
     specialistLabel,
-    requestType,
     ...tpl,
     source: 'template',
     generatedAt,

@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "A grounding/selection pipeline over a pool of candidate knowledge objects must establish ELIGIBILITY by intent-relevance and functional/relational necessity BEFORE any evidentiary-standing signal (validation count, confidence, adoption/reach) is consulted. Standing may only RANK or CALIBRATE among candidates already established as relevant and functionally comparable — it must never be the sole discriminating signal over an undifferentiated pool, because doing so lets a high-standing but topically irrelevant candidate permanently occupy the selection budget that a low-standing but genuinely required candidate needed.",
+    "Corrected stage order: intent -> functional necessity/relevance (eligibility) -> relational/graph completion (structurally-required supporting candidates enter BEFORE truncation, even with zero direct lexical match) -> evidentiary standing (ranks WITHIN the relevant+expanded set only) -> [reserved: consequence/value calibration, a DIFFERENT dimension, never collapsed into the same score] -> bounded final representation (truncate last).",
+    "A functional-role/type field (e.g. `semanticType`) should be carried through for transparency and future diversity use but is NOT automatically a hard eligibility gate — only existing, ratified runtime semantics justify excluding a type category outright; absent that, role is informational, not exclusionary.",
+    "A future consequence/value calibration stage (which constitutionally-adequate candidate/composition yields the greatest time-to-value without disproportionate remediation risk) is architecturally DISTINCT from relevance/role/standing and must never be collapsed into one global score with them. Until a ratified model with sufficient cross-validated evidence exists for that stage, its output fields must be present on the type (a named seam) but always `null`/no-op — never a fabricated coefficient, threshold, or synthetic score.",
+    "Discovered via EXP-P1's Arm B rehearsal selector: `buildInvariantSlice` filtered candidates by domain/namespace/status membership only (task-blind, coarse), then ranked the ENTIRE resulting pool by standing alone — with `semanticType` unread and no relational/graph structure ever consulted. Standing operated as a GLOBAL ranking criterion over an undifferentiated 63-member pool rather than a calibrator among already-relevant candidates, exactly the failure mode this invariant forbids.",
+    "Generalizes beyond EXP-P1: any recommendation, retrieval, or context-assembly surface that ranks candidates by a reputation/validation/popularity signal must first establish a genuine relevance/functional-necessity eligibility set — ranking an unfiltered-by-relevance pool by such a signal is the same defect regardless of domain."
+  ],
+  "canaries": [
+    {
+      "path": "tests/task-scoped-selection.test.ts",
+      "assertion": "a highly-standing but irrelevant candidate cannot displace a lower-standing directly-relevant one (test 2); standing orders only already-relevant candidates (test 3); a graph-required supporting candidate with zero direct lexical relevance can still enter before truncation (test 4); semanticType is never a hard eligibility gate; valueEstimate/riskOfRepairEstimate stay null (stage 5 named no-op).",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/exp-p1-rehearsal-runner.test.ts",
+      "assertion": "Arm B is computed once per task via selectTaskScopedInvariants, passing intentText: task.prompt and never task.keywords; two materially different tasks produce different Arm B selections.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "candidateId": "CI-2026-09-07-RELEVANCE-BEFORE-STANDING-CALIBRATION-001",
+  "statement": "In any selection/grounding pipeline over a pool of candidate knowledge objects, intent-relevance and functional/relational necessity MUST determine candidate ELIGIBILITY before any evidentiary-standing signal is consulted. Standing (validation-class confidence, adoption/reach) may only calibrate rank WITHIN the set of candidates already established as relevant and functionally comparable — it must never operate as a global ranking criterion over an undifferentiated pool, and must never be used to substitute one functional type or relational role for another that the intent genuinely requires. Relational/graph completion of the relevant set must occur BEFORE final truncation, so a structurally-required supporting candidate is never discarded merely because it lacked a direct lexical match. A functional-role/type signal may inform transparency and diversity but is not a default hard eligibility gate absent ratified runtime semantics justifying one. A further consequence/value calibration dimension (expected time-to-value net of remediation risk) is architecturally distinct from relevance/role/standing, must never be collapsed into one global score with them, and must remain a named no-op (never a fabricated coefficient) until a ratified, sufficiently cross-validated model exists for it.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-09-07-EXP-P1-ARM-B-SELECTION-FIDELITY-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/invariants/grounding.ts::buildInvariantSlice (as reused, unmodified, by services/research/expP1Rehearsal.ts's pre-fix Arm B construction)",
+      "defect": "Eligibility was domain/namespace/status membership only — task-blind and coarse over a single-domain 63-member pool — with semanticType unread and no relational/graph structure ever consulted, so standing (rankByStanding) was the sole discriminating signal over an undifferentiated candidate set on every one of 16 rehearsal tasks, called once per RUN rather than once per task.",
+      "resolutionId": "RES-2026-09-07-EXP-P1-ARM-B-SELECTION-FIDELITY-001",
+      "evidence": [
+        "tests/task-scoped-selection.test.ts",
+        "tests/exp-p1-rehearsal-runner.test.ts"
+      ]
+    }
+  ],
+  "family": "constitutional",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
+}

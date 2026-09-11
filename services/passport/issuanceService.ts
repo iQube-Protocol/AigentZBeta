@@ -1,0 +1,586 @@
+/**
+ * Polity Passport Bureau — review decision + issuance service (Stage 6).
+ *
+ * PRD §10 steps 7–9, §14 (review policy). Applies a steward review decision
+ * to an application and, on approval, issues the passport:
+ *   - creates the polity_passport_records row with the per-class status
+ *   - citizen issuance also creates the privilege-standing row (Addendum D:
+ *     privileges are the ONLY reputation-consequence surface for citizens)
+ *   - writes the status-transition audit row, driven by the status machine's
+ *     rule metadata (receipt + evidence come from the machine, not ad hoc)
+ *   - emits the passport_issued / passport_status_changed receipt through
+ *     the canonical activity receipt pipeline (DVN anchoring is automatic)
+ *
+ * Authority: callers gate stewards via the spine
+ * (cartridgeFlags.isAdmin || adminCartridges includes
+ * 'polity-passport-bureau' — operator decision 3). This service trusts the
+ * caller's gate and records the steward persona as the transition actor.
+ */
+
+import { randomBytes } from 'crypto';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { getCrmClient } from '@/services/crm/crmDataAccess';
+import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import {
+  accrueCapabilityStanding,
+  computeIdentityDepth,
+} from '@/services/crm/standingAccrualService';
+import {
+  citizenTransitionRule,
+  participantTransitionRule,
+  type CitizenPassportStatus,
+  type ParticipantPassportStatus,
+} from '@/services/passport/passportStatusMachine';
+
+export const PASSPORT_BUREAU_CARTRIDGE_SLUG = 'polity-passport-bureau';
+
+/**
+ * 'escalate' is CITIZEN-ONLY (operator ruling, 2026-08-21 — "do not add
+ * deny/reject/decline as ordinary Citizen review outcomes"). It replaces
+ * 'deny' in the Citizen review vocabulary: it raises a Citizen application
+ * to committee-level attention WITHOUT terminating the applicant's standing
+ * — it maps to the existing `needs_more_information` application_status
+ * (no new status value; CitizenPassportStatus itself is untouched) plus a
+ * `review_priority` bump, never to 'denied'. Participant/agent applications
+ * still use 'deny' exactly as before — this decision value is rejected for
+ * them, by design (see the guard in applyReviewDecision below).
+ */
+export type ReviewDecision = 'approve' | 'deny' | 'needs_more_information' | 'escalate';
+
+export interface ReviewDecisionInput {
+  applicationId: string;
+  decision: ReviewDecision;
+  stewardPersonaId: string;
+  notes?: string | null;
+  /**
+   * Participant approvals may issue as 'approved' (full) or
+   * 'provisionally_issued'. Ignored for citizen applications (citizens
+   * issue to 'active').
+   */
+  participantIssueStatus?: 'approved' | 'provisionally_issued';
+  /**
+   * 'system' marks this decision as machine-initiated (Citizen automatic
+   * recognition — services/passport/citizenAutoIssuance.ts). Defaults to
+   * 'steward' for full backward compatibility with every existing caller.
+   * A system decision never writes `assigned_steward_id` (no human was
+   * assigned) and records `actor_type: 'system'` in the transition audit
+   * row instead of the hardcoded 'steward'.
+   */
+  actorType?: 'steward' | 'system';
+}
+
+export interface ReviewDecisionResult {
+  ok: boolean;
+  applicationStatus?: string;
+  passportId?: string;
+  passportRecordId?: string;
+  receiptId?: string | null;
+  error?: string;
+}
+
+function mintPassportId(passportClass: string): string {
+  const prefix = passportClass === 'citizen' ? 'ppc' : 'ppp';
+  return `${prefix}-${randomBytes(12).toString('hex')}`;
+}
+
+export async function applyReviewDecision(
+  input: ReviewDecisionInput,
+): Promise<ReviewDecisionResult> {
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false, error: 'Supabase configuration missing' };
+
+  const { data: app, error: appError } = await admin
+    .from('polity_passport_applications')
+    .select('*')
+    .eq('id', input.applicationId)
+    .maybeSingle();
+  if (appError) return { ok: false, error: appError.message };
+  if (!app) return { ok: false, error: 'Application not found' };
+
+  const openStatuses = ['submitted', 'pending_approval', 'needs_more_information'];
+  if (!openStatuses.includes(String(app.application_status))) {
+    return {
+      ok: false,
+      error: `Application is ${String(app.application_status)} — only open applications can be decided`,
+    };
+  }
+
+  const passportClass = String(app.passport_class);
+  const isCitizen = passportClass === 'citizen';
+
+  // Citizen applications can never be denied (operator ruling, 2026-08-21):
+  // CitizenPassportStatus itself has no 'denied'/'revoked' — this rejects at
+  // the API boundary too, defense-in-depth against a raw call bypassing the
+  // UI (which no longer offers a Deny control for Citizen rows at all).
+  if (isCitizen && input.decision === 'deny') {
+    return {
+      ok: false,
+      error:
+        "Citizen applications cannot be denied — use 'escalate' for cases requiring further review.",
+    };
+  }
+  // 'escalate' is Citizen-only — Participant/agent review semantics are
+  // deliberately unchanged in this pass (operator ruling, 2026-08-21).
+  if (!isCitizen && input.decision === 'escalate') {
+    return {
+      ok: false,
+      error: "'escalate' is only a valid decision for citizen applications.",
+    };
+  }
+
+  if (
+    input.decision === 'deny' ||
+    input.decision === 'needs_more_information' ||
+    input.decision === 'escalate'
+  ) {
+    const nextStatus =
+      input.decision === 'deny'
+        ? 'denied'
+        // escalate maps to the EXISTING needs_more_information application
+        // status — no new status value, no CitizenPassportStatus change.
+        : 'needs_more_information';
+    const update: Record<string, unknown> = {
+      application_status: nextStatus,
+      assigned_steward_id: input.stewardPersonaId,
+      decided_at: input.decision === 'deny' ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    };
+    if (input.decision === 'escalate') {
+      // Highest existing review_priority value — no schema change.
+      update.review_priority = 'expedited';
+    }
+    const { error: updateError } = await admin
+      .from('polity_passport_applications')
+      .update(update)
+      .eq('id', input.applicationId);
+    if (updateError) return { ok: false, error: updateError.message };
+
+    const receiptId = await writeReceipt({
+      personaId: String(app.persona_id || '') || null,
+      summary:
+        input.decision === 'deny'
+          ? `Passport application denied (${String(app.passport_class)})`
+          : input.decision === 'escalate'
+            ? `Citizen passport application escalated for committee-level review`
+            : `Passport application needs more information (${String(app.passport_class)})`,
+      actionType: 'passport_status_changed',
+    });
+
+    // A human decision on a Citizen application resolves whatever
+    // action_required item drew a steward's attention to it in the first
+    // place (needs_more_information keeps the exception open — the
+    // applicant still owes information — but escalate is itself the
+    // steward's resolution of the ORIGINAL exception, replaced by a fresh
+    // one for committee attention).
+    if (isCitizen && input.decision === 'escalate') {
+      const { resolveOpenActionsForSource, recordAdminAction } = await import(
+        '@/services/adminActions/adminActionService'
+      );
+      const { passportReviewRequiredKey } = await import(
+        '@/services/adminActions/idempotencyKeys'
+      );
+      await resolveOpenActionsForSource(
+        'passport_application',
+        input.applicationId,
+        input.stewardPersonaId,
+      );
+      await recordAdminAction({
+        idempotencyKey: passportReviewRequiredKey(input.applicationId, 'steward_escalated'),
+        category: 'passport',
+        severity: 'urgent',
+        disposition: 'action_required',
+        title: 'Citizen Passport application escalated',
+        summary: 'A steward escalated this application for committee-level review.',
+        sourceType: 'passport_application',
+        sourceRef: input.applicationId,
+        sourceSurface: PASSPORT_BUREAU_CARTRIDGE_SLUG,
+        actionType: 'review_application',
+        metadata: { reasonCode: 'steward_escalated' },
+      });
+    }
+
+    return { ok: true, applicationStatus: nextStatus, receiptId };
+  }
+
+  // ── Approve → issue ──────────────────────────────────────────────────────
+
+  // Status-machine validation: issuance is the pending_approval → issued
+  // edge; the rule supplies the receipt + evidence contract.
+  const issuedStatus: CitizenPassportStatus | ParticipantPassportStatus = isCitizen
+    ? 'active'
+    : input.participantIssueStatus ?? 'approved';
+  const rule = isCitizen
+    ? citizenTransitionRule('pending_approval', issuedStatus as CitizenPassportStatus)
+    : participantTransitionRule(
+        'pending_approval',
+        issuedStatus as ParticipantPassportStatus,
+      );
+  if (!rule) {
+    return {
+      ok: false,
+      error: `Status machine forbids pending_approval → ${issuedStatus} for ${passportClass}`,
+    };
+  }
+
+  const passportId = mintPassportId(passportClass);
+  const actorType = input.actorType ?? 'steward';
+  let recordId: string;
+
+  if (isCitizen) {
+    const { data: record, error: recordError } = await admin
+      .from('polity_passport_records')
+      .insert({
+        passport_id: passportId,
+        passport_class: passportClass,
+        citizen_status: issuedStatus,
+        participant_status: null,
+        passport_grade: app.passport_grade ?? null,
+        persona_id: app.persona_id ?? null,
+        did_persona_id: app.did_persona_id ?? null,
+        kybe_identity_id: app.kybe_identity_id ?? null,
+        root_identity_id: app.root_identity_id ?? null,
+        persona_public_ref: app.persona_public_ref ?? null,
+        kybe_did_public_ref: app.kybe_did_public_ref ?? null,
+        root_did_public_ref: app.root_did_public_ref ?? null,
+        vault_content_id: app.vault_content_id ?? null,
+        vault_content_hash: app.vault_content_hash ?? null,
+        application_id: app.id,
+        issued_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+    if (recordError) return { ok: false, error: recordError.message };
+    recordId = String(record.id);
+
+    // Citizen issuance creates the privilege-standing row (Addendum D).
+    const { error: privError } = await admin.from('passport_citizen_privileges').insert({
+      passport_record_id: recordId,
+    });
+    if (privError) {
+      console.error('[passport issuance] privilege-standing insert failed:', privError.message);
+    }
+
+    // Status-transition audit row — fields come from the machine rule.
+    await admin.from('passport_status_transitions').insert({
+      passport_record_id: recordId,
+      from_status: 'pending_approval',
+      to_status: issuedStatus,
+      passport_class: passportClass,
+      actor_type: actorType,
+      actor_id: input.stewardPersonaId,
+      reason: input.notes ?? null,
+      evidence_type: rule.evidence,
+      receipt_action: rule.receipt,
+    });
+
+    // A system decision assigns no human steward — assigned_steward_id names
+    // the human who reviewed an application, and no human reviewed this one.
+    const appUpdate: Record<string, unknown> = {
+      application_status: 'approved',
+      passport_id: passportId,
+      decided_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    if (actorType === 'steward') appUpdate.assigned_steward_id = input.stewardPersonaId;
+    const { error: appUpdateError } = await admin
+      .from('polity_passport_applications')
+      .update(appUpdate)
+      .eq('id', input.applicationId);
+    if (appUpdateError) {
+      console.error('[passport issuance] application update failed:', appUpdateError.message);
+    }
+  } else {
+    /*
+     * AGENT PASSPORT — ATOMIC issuance + RootDID binding (DiDQube Phase 3
+     * item 1, hardened 2026-09-07 on closure review). The RPC itself now
+     * re-derives every subject/binding field (passport_class, persona/kybe/
+     * root refs, and the agent_root_identity resolved from the CLAIMED
+     * application's own agent_card_url) directly from
+     * polity_passport_applications — never from a caller-supplied
+     * parameter. This closes a confused-deputy gap the first version had
+     * (a caller could in principle pass a mismatched agent_root_identity_id)
+     * and makes the application-status claim itself the concurrency gate:
+     * a second concurrent call against the same application_id gets no
+     * rows back and the RPC raises, rolling back its entire attempted
+     * issuance rather than minting a second Passport. EXECUTE is restricted
+     * to service_role at the database level (see migration
+     * 20260930290000) — this call can only ever succeed from trusted
+     * server code, never from a client holding an anon/authenticated key.
+     */
+    const { data: rpcData, error: rpcError } = await admin.rpc('issue_agent_participant_passport_atomic', {
+      p_application_id: input.applicationId,
+      p_passport_id: passportId,
+      p_issued_status: issuedStatus,
+      p_actor_type: actorType,
+      p_steward_persona_id: input.stewardPersonaId,
+      p_notes: input.notes ?? null,
+      p_evidence_type: rule.evidence,
+      p_receipt_action: rule.receipt,
+    });
+    if (rpcError) return { ok: false, error: rpcError.message };
+    const row = (Array.isArray(rpcData) ? rpcData[0] : rpcData) as
+      | { passport_record_id: string; bound: boolean; already_bound: boolean }
+      | undefined;
+    if (!row) return { ok: false, error: 'atomic issuance RPC returned no row' };
+    recordId = String(row.passport_record_id);
+  }
+
+  const receiptId = await writeReceipt({
+    personaId: String(app.persona_id || '') || null,
+    // Privacy invariant (2026-09-07, T0/T1 ruling refinement): passport_id is
+    // holder-visible, privacy-sensitive credential metadata — it must never
+    // appear in a DVN-anchored receipt's summary (this receipt type is
+    // ANCHORABLE_ACTION_TYPES; `summary` rides verbatim into the chain-bound
+    // payload per services/dvn/activityReceiptDvnPipeline.ts). Omit it; class
+    // + status carry the auditable meaning without the correlatable id.
+    summary:
+      actorType === 'system'
+        ? `Passport issued automatically (${passportClass}, ${issuedStatus})`
+        : `Passport issued (${passportClass}, ${issuedStatus})`,
+    actionType: rule.receipt === 'passport_issued' ? 'passport_issued' : 'passport_status_changed',
+    /*
+     * ATTRIBUTE AN AGENT PASSPORT TO ITS AGENT (operator, 2026-08-03).
+     *
+     * This receipt already goes through the canonical pipeline and is already
+     * DVN-anchored (`passport_issued` ∈ ANCHORABLE_ACTION_TYPES). What it did
+     * NOT carry was any reference to the agent it was issued for — it named
+     * only the applying persona. Every agent-scoped reader on the platform
+     * (findAgentReceiptRefs, the Horizen journey's evidence receipts) matches
+     * on `agents_invoked`, so a real, anchored issuance receipt was invisible
+     * to the one surface most in need of it.
+     *
+     * Citizen passports are deliberately left unstamped — a citizen is not an
+     * agent, and inventing an agent ref for one would be a lie about who acted.
+     */
+    agentsInvoked: isCitizen ? undefined : await resolveAgentRefsForCard(admin, app.agent_card_url),
+  });
+
+  // Sprint 4 — credit Capability Standing for passport issuance. Identity depth
+  // increases to 0.5 (issued) or 0.8 (World ID verified). Best-effort, never
+  // blocks the issuance response. Only applies to the citizen being issued the
+  // passport, not to the steward performing the action.
+  const recipientPersonaId = String(app.persona_id || '');
+  if (recipientPersonaId) {
+    void creditPassportCapabilityStanding(
+      recipientPersonaId,
+      Boolean(app.world_id_verified_at),
+      String(app.passport_grade ?? ''),
+    ).catch(() => {});
+  }
+
+  return {
+    ok: true,
+    applicationStatus: 'approved',
+    passportId,
+    passportRecordId: recordId,
+    receiptId,
+  };
+}
+
+async function creditPassportCapabilityStanding(
+  recipientPersonaId: string,
+  worldIdVerified: boolean,
+  passportGrade: string,
+): Promise<void> {
+  const crm = getCrmClient();
+  const { data: crmPersona } = await crm
+    .from('crm_personas')
+    .select('id')
+    .eq('identity_persona_id', recipientPersonaId)
+    .maybeSingle();
+  const crmPersonaId = crmPersona?.id ? String(crmPersona.id) : null;
+  if (!crmPersonaId) return;
+
+  const identityDepth = computeIdentityDepth({
+    issued: true,
+    worldIdVerified,
+    gradeA: passportGrade === 'A',
+  });
+
+  await accrueCapabilityStanding(crmPersonaId, {
+    demandConfidence: null,
+    opportunityConfidence: null,
+    capabilityConfidence: null,
+    intentClarity: null,
+    identityDepth,
+  });
+}
+
+export interface IssueSuccessorPassportInput {
+  /** The existing, historically-issued passport this successor supersedes. */
+  priorPassportId: string;
+  /**
+   * The recomputed subject anchors, e.g. from a fresh DiDQube resolution.
+   * Only the fields that actually change need be supplied — everything
+   * else is carried forward unchanged from the prior record.
+   */
+  updates?: Partial<
+    Pick<
+      IssueSuccessorPassportRow,
+      'kybe_did_public_ref' | 'root_did_public_ref' | 'persona_public_ref' | 'passport_grade'
+    >
+  >;
+  reason: string;
+  stewardPersonaId: string;
+}
+
+interface IssueSuccessorPassportRow {
+  passport_id: string;
+  passport_class: string;
+  citizen_status: string | null;
+  participant_status: string | null;
+  passport_grade: string | null;
+  persona_id: string | null;
+  did_persona_id: string | null;
+  kybe_identity_id: string | null;
+  root_identity_id: string | null;
+  persona_public_ref: string | null;
+  kybe_did_public_ref: string | null;
+  root_did_public_ref: string | null;
+  vault_content_id: string | null;
+  vault_content_hash: string | null;
+  application_id: string | null;
+  revoked: boolean;
+}
+
+export type IssueSuccessorPassportResult =
+  | { ok: true; passportId: string; passportRecordId: string; priorPassportId: string }
+  | { ok: false; error: string };
+
+/**
+ * SUCCESSOR-CREDENTIAL RECONCILIATION, WITHOUT MUTATION (DiDQube Phase 3
+ * item 3, brief §6 — "design successor credential issuance ... never mutate
+ * the historically-issued credential object"). When a Passport's subject
+ * anchors need to change as a result of reconciliation (e.g. the
+ * class-sensitive subject fix in `passportCredential.ts` would now resolve a
+ * different value than what was originally issued), this issues a NEW
+ * `polity_passport_records` row carrying `renewal_of_passport_id` back to
+ * the prior one — the SAME supersession column the schema already carries
+ * for ordinary renewals (`renewed_at`/`renewal_of_passport_id`), reused here
+ * rather than inventing a parallel "superseded by" concept
+ * (inv.engineering.036/037).
+ *
+ * The prior row is READ ONLY — this function issues no UPDATE against it at
+ * all. History is preserved exactly as it was originally issued; only a NEW
+ * row, referencing the old one, carries the reconciled values. A
+ * `passport_status_transitions` audit row records the supersession with its
+ * own reason, exactly like every other status change.
+ */
+export async function issueSuccessorPassport(
+  input: IssueSuccessorPassportInput,
+): Promise<IssueSuccessorPassportResult> {
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false, error: 'Supabase configuration missing' };
+
+  const { data: prior, error: priorError } = await admin
+    .from('polity_passport_records')
+    .select(
+      'passport_id, passport_class, citizen_status, participant_status, passport_grade, persona_id, did_persona_id, kybe_identity_id, root_identity_id, persona_public_ref, kybe_did_public_ref, root_did_public_ref, vault_content_id, vault_content_hash, application_id, revoked',
+    )
+    .eq('passport_id', input.priorPassportId)
+    .maybeSingle();
+  if (priorError) return { ok: false, error: priorError.message };
+  if (!prior) return { ok: false, error: `prior passport "${input.priorPassportId}" not found` };
+  const priorRow = prior as IssueSuccessorPassportRow;
+  if (priorRow.revoked) {
+    return { ok: false, error: `prior passport "${input.priorPassportId}" is revoked — cannot issue a successor to a revoked passport` };
+  }
+
+  const passportId = mintPassportId(priorRow.passport_class);
+  const { data: record, error: recordError } = await admin
+    .from('polity_passport_records')
+    .insert({
+      passport_id: passportId,
+      passport_class: priorRow.passport_class,
+      citizen_status: priorRow.citizen_status,
+      participant_status: priorRow.participant_status,
+      passport_grade: input.updates?.passport_grade ?? priorRow.passport_grade,
+      persona_id: priorRow.persona_id,
+      did_persona_id: priorRow.did_persona_id,
+      kybe_identity_id: priorRow.kybe_identity_id,
+      root_identity_id: priorRow.root_identity_id,
+      persona_public_ref: input.updates?.persona_public_ref ?? priorRow.persona_public_ref,
+      kybe_did_public_ref: input.updates?.kybe_did_public_ref ?? priorRow.kybe_did_public_ref,
+      root_did_public_ref: input.updates?.root_did_public_ref ?? priorRow.root_did_public_ref,
+      vault_content_id: priorRow.vault_content_id,
+      vault_content_hash: priorRow.vault_content_hash,
+      application_id: priorRow.application_id,
+      renewal_of_passport_id: input.priorPassportId,
+      issued_at: new Date().toISOString(),
+    })
+    .select('id')
+    .single();
+  if (recordError) return { ok: false, error: recordError.message };
+
+  await admin.from('passport_status_transitions').insert({
+    passport_record_id: record.id,
+    from_status: priorRow.citizen_status ?? priorRow.participant_status ?? 'unknown',
+    to_status: priorRow.citizen_status ?? priorRow.participant_status ?? 'unknown',
+    passport_class: priorRow.passport_class,
+    actor_type: 'steward',
+    actor_id: input.stewardPersonaId,
+    reason: input.reason,
+    evidence_type: 'successor_credential_reconciliation',
+    receipt_action: 'passport_status_changed',
+  });
+
+  return { ok: true, passportId, passportRecordId: String(record.id), priorPassportId: input.priorPassportId };
+}
+
+/**
+ * The agent refs an agent-class Passport receipt should be attributed to.
+ *
+ * `agent_card_url` is how a Delegate Passport application names its subject.
+ * The root-identity row for that card carries the runtime agent id every
+ * agent-scoped receipt reader matches on. Best-effort by design: an issuance
+ * must never fail because its attribution lookup did — an unattributed receipt
+ * is a smaller loss than a Passport that was not issued.
+ */
+async function resolveAgentRefsForCard(
+  admin: ReturnType<typeof getSupabaseServer>,
+  agentCardUrl: unknown,
+): Promise<string[] | undefined> {
+  if (!admin || typeof agentCardUrl !== 'string' || !agentCardUrl) return undefined;
+  try {
+    const { data } = await admin
+      .from('agent_root_identity')
+      .select('agent_id')
+      .eq('agent_card_url', agentCardUrl)
+      .maybeSingle();
+    const agentId = (data as { agent_id?: string } | null)?.agent_id;
+    return agentId ? [agentId] : undefined;
+  } catch (e) {
+    console.error('[passport issuance] agent attribution lookup failed:', e);
+    return undefined;
+  }
+}
+
+
+async function writeReceipt(input: {
+  personaId: string | null;
+  summary: string;
+  actionType: 'passport_issued' | 'passport_status_changed';
+  agentsInvoked?: string[];
+}): Promise<string | null> {
+  const personaId = input.personaId || process.env.PASSPORT_BUREAU_SYSTEM_PERSONA_ID || null;
+  if (!personaId) {
+    console.error(
+      '[passport issuance] no persona for receipt and PASSPORT_BUREAU_SYSTEM_PERSONA_ID unset — receipt skipped:',
+      input.summary,
+    );
+    return null;
+  }
+  try {
+    const receipt = await createActivityReceipt({
+      personaId,
+      activeCartridge: PASSPORT_BUREAU_CARTRIDGE_SLUG,
+      actionType: input.actionType,
+      summary: input.summary,
+      ...(input.agentsInvoked ? { agentsInvoked: input.agentsInvoked } : {}),
+    });
+    return receipt?.id ?? null;
+  } catch (e) {
+    console.error('[passport issuance] receipt write failed:', e);
+    return null;
+  }
+}

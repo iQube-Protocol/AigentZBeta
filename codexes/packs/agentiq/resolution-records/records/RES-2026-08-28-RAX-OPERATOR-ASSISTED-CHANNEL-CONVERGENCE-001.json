@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-28",
+  "resolutionId": "RES-2026-08-28-RAX-OPERATOR-ASSISTED-CHANNEL-CONVERGENCE-001",
+  "capability": "reciprocal-artifact-exchange",
+  "milestone": "OCSGA Boundary Research exchange 0b4134a6-6246-48a8-98f6-e3a22fcd18b3 — Party B custody + channel-independent constitutional acts",
+  "problem": "Ian, the verified OCSGA-side principal on an open Reciprocal Artifact Exchange, held a real artifact and explicit authorization to register it, but could not complete his own bridge crossing (a separate, still-open /bridge/ocsga reload-loop defect). depositArtifact() is strictly principal-bound by design and correctly refuses any caller whose own persona does not resolve to the party slot -- there was no legitimate path to custody the artifact for him, and forcing it through depositArtifact would have written it as Party A (the caller's own principal), silently overwriting the already-deposited Constitutional Internet/IRL baseline. Separately, once a legitimate custody path was designed, the operator raised the broader architectural question of whether every remaining constitutional act (confirm, freeze, sign) could be completed through Ian's authorized delegated agent (Microsoft Copilot) via the Threshold MCP surface, with the bridge as a pure projection rather than a gate -- and required this proven, not asserted.",
+  "observedFailure": [
+    "get_exchange_state (live, read-only) showed initiatorRef matching the calling session's own principal, viewerParty: 'A', and the CI/IRL baseline already deposited as Party A -- confirming the calling session was NOT Ian, and that any deposit call from it would act on Party A's slot.",
+    "counterpartyRef: null, counterpartyArtifact: null -- Party B was genuinely unbound; no fabricated identifier or descriptive-metadata substitute could satisfy resolveMembership()'s real relational check against counterparty_persona_id.",
+    "No exported function in reciprocalExchange.ts (createExchange, inviteCounterparty, joinExchange, depositArtifact, declareFreeze, signInstrument, acknowledgeReceipt, openComparison, createDerivative, withdrawPreExchange, revokeAccessPostExchange) accepted an operator-attribution or custodial-registration shape.",
+    "The MCP tool surface (services/threshold/mcpConstitutionalActs.ts) had no tool for confirming a not-yet-existing operator-assisted artifact, since the primitive itself did not exist yet."
+  ],
+  "rootCauses": [
+    "The exchange model correctly has exactly one write path per party (the party's own principal), which is the right default for an evidentiary system -- but it conflated 'who may deposit' with 'who may exist as a custody-registered, not-yet-attested record', when in fact these are two different evidentiary claims that need two different primitives.",
+    "The admission primitive that DOES already solve the symmetric problem for membership (ensureBoundaryResearchExchangeMembership, built 2026-08-26/27, server-side invite+join with no human ever seeing a code) was wired only for self-service -- it resolves the HTTP caller's own session, with no admin-invoked variant for a verified third party.",
+    "The Threshold MCP surface was built stage-by-stage as each constitutional act was needed (delegation, deposit, freeze, sign, readback); nothing had yet audited it end-to-end against a full constitutional-act sequence to find the one stage (artifact confirmation) that had never been asked for before because the primitive it confirms didn't exist until this same resolution."
+  ],
+  "resolution": [
+    "registerArtifactOperatorAssisted() added as a genuinely distinct primitive from depositArtifact() -- not an overload, not a flag on it. Records source/bound principal, registering operator, and authority basis as three separate fields (never folded into ownershipDeclaration prose), sets pending_principal_attestation: true, and is refused if the target party slot already holds any deposited artifact (generalised, not Party-A-specific).",
+    "declareFreeze()/signInstrument() gained exactly one new early-return each, gated on pendingPrincipalAttestation -- both otherwise unmodified, proven by a structural body-hash canary against depositArtifact()'s exact source.",
+    "confirmOperatorAssistedArtifact() added: clears the pending flag, resolvable and callable only by the exact bound party (structural, not a role check -- the party is derived from the caller's own membership, so no other identity can even reach the row), hash provably unchanged across confirm.",
+    "ensureBoundaryResearchExchangeMembershipOperatorAssisted() added as a thin, admin-gated wrapper that reuses the unmodified ensureBoundaryResearchExchangeMembership() -- itself reusing the unmodified inviteCounterparty/joinExchange -- rather than reimplementing eligibility (Passport usability + research-lab grant scope) a second time.",
+    "confirm_operator_assisted_artifact MCP tool added, wired to the unmodified confirmOperatorAssistedArtifact(), following the exact declarationConfirmed explicit-consent pattern every other constitutional-act tool already uses.",
+    "get_exchange_state extended with freezeDeclarationText/exchangeInstrumentClauses so an agent has real clause text to present before requesting a principal's freeze/sign consent -- closing a real informed-consent gap (you cannot obtain genuine consent to sign something the tool never showed).",
+    "agentRef added to exchange receipts (depositArtifact, declareFreeze, signInstrument, confirmOperatorAssistedArtifact), threaded from the session's own agent alias -- closing the one real three-identities gap found: channel identity ('mcp' vs 'native-ui' vs 'operator-assisted') already existed, but the delegated executing agent's own identity was never captured distinctly from the principal.",
+    "The channel-convergence property was proven, not built: tests/journey-spine-channel-convergence.test.ts performs real (non-mocked) writes via the MCP-path functions and reads them back via the Journey Spine / bridge resolver's own function (a genuinely different code path), in both directions, for freeze, sign, and delegation -- confirming the property the operator required as a literal acceptance criterion already held from the 2026-08-26/27 admission-boundary fix, and now has direct evidence."
+  ],
+  "rejectedApproaches": [
+    "Calling deposit_exchange_artifact from the operator's own session with descriptive attribution fields (title, provenance, attribution: 'Ian / OCSGA'). Rejected because the tool's own real semantics deposit into the CALLER's own principal slot -- this would have overwritten the operator's own already-deposited Party A baseline while claiming, falsely, to represent Party B.",
+    "Fabricating or accepting a chat-asserted personaId/authProfileId for Ian to drive either the admission wrapper or the registration primitive. Rejected per the operator's own explicit instruction: identifiers must come from a verified DB read against real Passport/grant records, never from an unverified chat assertion -- the admission wrapper's contract is designed so it is impossible to call correctly with only a claimed identifier.",
+    "Making the registration primitive mark the artifact as immediately frozen/signed 'on Ian's behalf' once authorised by the operator. Rejected -- explicit-principal-consent is load-bearing: a delegated agent or operator may present and transmit Ian's own declaration, never infer or perform it. pending_principal_attestation exists specifically to make this distinction structural, not documentary.",
+    "Encoding operator-assisted origin as 'system' or 'native-ui' on the existing EvidenceOriginChannel enum. Rejected -- both values mean something else already (an automated process, or the ordinary human UI), and reusing either would misrepresent the record's actual provenance.",
+    "Treating fixing /bridge/ocsga's reload loop as a prerequisite for, or a side effect of, this work. Rejected per explicit operator instruction -- the bridge is a journey surface projecting canonical state, not the constitutional ceremony itself; the reload loop remains a separate, open, unfixed defect this work does not depend on and must not be read as having closed."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-28-CONSTITUTIONAL-STATE-IS-INTERFACE-SOVEREIGN-001",
+    "CI-2026-08-28-MEET-PRINCIPALS-WHERE-THEY-ARE-001",
+    "CI-2026-08-28-CHANNEL-INDEPENDENT-PROVENANCE-PRESERVING-001",
+    "CI-2026-08-28-NO-CEREMONIAL-DUPLICATION-ACROSS-CHANNELS-001",
+    "CI-2026-08-28-PRINCIPAL-AGENT-CHANNEL-ARE-DISTINCT-IDENTITIES-001"
+  ],
+  "canaries": [
+    "tests/reciprocal-exchange.test.ts",
+    "tests/boundary-research-exchange-admission.test.ts",
+    "tests/journey-spine-channel-convergence.test.ts",
+    "tests/threshold-mcp-constitutional-rituals.test.ts",
+    "tests/threshold-gateway.test.ts",
+    "tests/threshold-constitutional-navigator.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [
+      "50d3d6e32",
+      "063471451",
+      "33fed9bb6",
+      "c36c2824b"
+    ],
+    "tests": [
+      "tests/reciprocal-exchange.test.ts",
+      "tests/boundary-research-exchange-admission.test.ts",
+      "tests/journey-spine-channel-convergence.test.ts",
+      "tests/threshold-mcp-constitutional-rituals.test.ts",
+      "tests/threshold-gateway.test.ts",
+      "tests/threshold-constitutional-navigator.test.ts"
+    ],
+    "receipts": [
+      "exchange_artifact_registered_operator_assisted",
+      "exchange_operator_assisted_artifact_confirmed"
+    ],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-08-28_operator-assisted-registration-and-channel-convergence.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-28_operator-assisted-registration-and-channel-convergence.md"
+  ],
+  "projections": {
+    "targets": ["irl", "constitutional-computing", "research-registry"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

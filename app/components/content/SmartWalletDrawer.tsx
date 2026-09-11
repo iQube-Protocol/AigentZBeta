@@ -1,5 +1,8 @@
 "use client";
 
+import { createPortal } from "react-dom";
+import { overlayZClass } from "@/components/ui/overlayLayers";
+import { MarkdownLite } from "@/components/ui/markdown-lite";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
 
@@ -10,14 +13,25 @@ const ExternalWalletConnect = dynamic(
 import { useBalances } from "@/app/hooks/useBalances";
 import { useDVNEvents } from "@/app/hooks/useDVNEvents";
 import { useKnytBalance } from "@/app/hooks/useKnytBalance";
-import { useOwnedEntitlements } from "@/app/hooks/useOwnedEntitlements";
+import { useEntitlementsList } from "@/app/hooks/useEntitlementsList";
 import { useBaseQcBalance } from "@/app/hooks/useBaseQcBalance";
+import { useQctBaseMainnetBalance } from "@/app/hooks/useQctBaseMainnetBalance";
+import { useBitcentTestnet } from "@/hooks/ops/useBitcentTestnet";
+import type { QriptoDenomination } from "@/services/qriptocent/settlement/types";
 import { useEthPrice } from "@/app/hooks/useEthPrice";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 import { getSupabaseBrowserClient } from "@/utils/supabaseBrowser";
+import { personaFetch } from "@/utils/personaSpine";
 import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
+import { PassportConnectPanel, type PassportFacts } from "@/components/companion/PassportConnectPanel";
+import { PasskeyEnrolmentPanel } from "@/components/passport/PasskeyEnrolmentPanel";
+import { PrincipalWalletProvisioningPanel } from "@/components/wallet/PrincipalWalletProvisioningPanel";
+import { subscribeWalletSurfaceRequest, acknowledgeWalletSurfaceRequest, announceWalletSurfaceCompletion } from "@/services/wallet/walletSurfaceRequest";
+import { PendingActionsPanel } from "@/components/wallet/PendingActionsPanel";
 import AliasConsentToggle from "../identity/AliasConsentToggle";
+import PersonaReferencesInventory from "../identity/PersonaReferencesInventory";
 import SettlementRetryButton from "../x402/SettlementRetryButton";
+import { KnytsBridgeCampaignSummaryCard } from "@/components/journey/KnytsBridgeCampaignSummaryCard";
 import LibraryShelf from "./LibraryShelf";
 import PurchaseFlow, { type PurchaseStep, type PaymentMethod } from "./PurchaseFlow";
 import type { SmartWalletNode, WalletTask, QuestProgress, RecentReward, PersonaState } from "@/types/smartWallet";
@@ -29,6 +43,16 @@ import { PaymentRequestsPanel } from "../wallet/PaymentRequestsPanel";
 import { PersonaEditModal } from "../wallet/PersonaEditModal";
 import { PersonaQuickAddModal } from "../wallet/PersonaQuickAddModal";
 import { PersonaSetupWizard } from "../wallet/PersonaSetupWizard";
+import { MoneyPennyWalletArchitect } from "../wallet/MoneyPennyWalletArchitect";
+import { MoneyPennyWalletRuntime } from "../wallet/MoneyPennyWalletRuntime";
+// The full cartridge components, reused as-is (composition, not a rewrite)
+// for the expanded Architect/Runtime views — see the MoneyPenny Wallet
+// Service Reconstitution pass (2026-08-06). Neither takes props; both are
+// already self-contained personaFetch-driven components with no
+// window.open/target=_blank anywhere in them.
+import { ArchitectPanel } from "@/app/(shell)/moneypenny/components/ArchitectPanel";
+import { RuntimePanel } from "@/app/(shell)/moneypenny/components/RuntimePanel";
+import { useArchitectDraft } from "@/hooks/useArchitectDraft";
 import { TransactionModal } from "../wallet/TransactionModal";
 import { buildCodexUrl } from "@/utils/codex-nav";
 import { UnlockModal } from "../wallet/UnlockModal";
@@ -64,6 +88,7 @@ import {
   BookOpen,
   Settings,
   ChevronDown,
+  ChevronUp,
   ChevronRight,
   Bot,
   User,
@@ -99,7 +124,22 @@ import {
   RotateCcw,
   Trash2,
   Loader2,
+  ShieldCheck,
+  Download,
+  Compass,
+  Cpu,
 } from "lucide-react";
+const WorldIdButton = dynamic(
+  () => import("@/components/passport/WorldIdButton").then((m) => ({ default: m.WorldIdButton })),
+  { ssr: false, loading: () => <span className="text-[10px] text-sky-400">Loading…</span> },
+);
+interface WorldIdProofBundle {
+  proof: string;
+  merkle_root: string;
+  nullifier_hash: string;
+  verification_level: 'orb' | 'device';
+  signal?: string;
+}
 
 
 // Tooltip component for icon hints
@@ -145,6 +185,54 @@ const isMotionContent = (ent: any): boolean => {
 
 type DrawerTab = "wallet" | "library" | "tasks" | "reputation" | "rewards" | "payments" | "connections" | "iqube";
 
+/**
+ * The wallet-level surface override (operator ruling, 2026-08-02: "the
+ * persona menu may INITIATE Passport sign-in, it may not HOST it"). When
+ * non-null, this REPLACES the entire tab-nav + tab-content region — not one
+ * more thing stacked inside a tab — so any entry point (the persona menu's
+ * "Sign in with Passport" row, or a future access gate / Companion prompt /
+ * Threshold onboarding / Passport Bureau CTA) reaches the SAME ceremony
+ * regardless of which `DrawerTab` happened to be active when it fired. This
+ * is deliberately narrow: it is NOT a rewrite of the tab system below, and
+ * it does NOT introduce pair-device/cloud-backup/recovery-contact
+ * infrastructure — `RECOVERY_OPTIONS` is reserved for that day but nothing
+ * sets it yet, since `PassportConnectPanel` already owns its own internal
+ * recovery states (see that file's `NoLocalWalletState`) and duplicating
+ * them at this layer would be exactly the parallel-implementation defect
+ * inv.engineering.037 forbids.
+ */
+type WalletSurface =
+  | null
+  | "PASSPORT_SIGN_IN"
+  | "PASSPORT_CONNECTED"
+  | "RECOVERY_OPTIONS"
+  /**
+   * Creating and proving a first-party principal wallet (operator ruling,
+   * 2026-08-02). A wallet surface rather than a modal or a Register-stage
+   * component, because the boundary is:
+   *
+   *   Journey detects and explains the prerequisite
+   *   → SmartWallet provisions and proves the wallet
+   *   → Journey resumes the consequential act
+   *
+   * Register deep-links here when the principal wallet is not configured or
+   * its control has not been proven — the operator never has to discover
+   * wallet setup on their own.
+   */
+  | "PRINCIPAL_WALLET_PROVISIONING"
+  /**
+   * Acts waiting on the operator's own key (Signing Phase 2). Register has
+   * been preparing real principal mandates and then saying, honestly, that
+   * the surface to sign them did not exist. This is that surface.
+   */
+  | "PENDING_ACTIONS"
+  /**
+   * One-shot: converted straight into `setActiveTab('tasks')` by the effect
+   * below, then cleared. Never rendered as an overlay — see
+   * services/wallet/walletSurfaceRequest.ts's matching doc comment.
+   */
+  | "TASKS_TAB";
+
 interface SmartWalletDrawerProps {
   open: boolean;
   onClose: () => void;
@@ -165,6 +253,27 @@ interface SmartWalletDrawerProps {
   onPurchaseComplete?: (content?: SmartContentQube) => void;
   recipientAddress?: string;
   initialTab?: DrawerTab;
+  /**
+   * Force the auth form to a specific mode on open. Used by the
+   * thin-client deep-link envelope's `intent` field — when the shell
+   * dispatches `MENU_ACTION { action_id: "wallet", deep_link: { ..., intent: "signup" } }`
+   * the runtime passes `initialAuthMode="signup"` so the drawer's
+   * Sign Up tab is pre-selected. Falls back to "signin" (the default)
+   * when omitted. Only consulted when the persona is unauthenticated;
+   * a no-op for already-signed-in users.
+   */
+  initialAuthMode?: "signin" | "signup";
+  /**
+   * Auto-launch the persona create flow on open. Used by the
+   * thin-client deep-link envelope's `flow` field — when the shell
+   * dispatches `MENU_ACTION { action_id: "persona", deep_link: { module: "persona", flow: "create-wizard" } }`
+   * the runtime opens the drawer with `initialPersonaFlow="create-wizard"`
+   * and the drawer auto-launches `PersonaSetupWizard`. `quick-add`
+   * launches `PersonaQuickAddModal` instead. Both require an
+   * authenticated session; for unauthenticated users the drawer falls
+   * through to its normal Sign In landing and the flow is skipped.
+   */
+  initialPersonaFlow?: "create-wizard" | "quick-add";
   onPersonaChange?: (personaId: string) => void;
   onCreatePersona?: () => void;
   onSubmitReputationClaim?: (claimData: any) => void;
@@ -180,13 +289,66 @@ interface SmartWalletDrawerProps {
   onCopilotStateChange?: (open: boolean) => void;
   /** When provided, the persona menu shows a "Set as default for this cartridge" option. */
   cartridgeSlug?: string;
+  /**
+   * Companion 1.1 wallet-chrome simplification (2026-07-29, operator-directed).
+   *
+   * When true, hides the ENTIRE top identity row — the persona/sign-in
+   * trigger + dropdown, the Copilot toggle, and the Close Wallet button —
+   * and instead renders the Copilot toggle inline in the tab icon row,
+   * which becomes a horizontally scrollable strip to make room. The persona
+   * chooser and sign-in are redundant there because the Companion's own
+   * header badge now drives persona/sign-in context (see
+   * `components/companion/CompanionPersonaBadgeModal.tsx`); the close
+   * button is redundant for the same reason.
+   *
+   * SCOPED TO THE COMPANION'S OWN EMBEDDED WALLET MOUNT ONLY — set at
+   * exactly one call site, `app/(embed)/triad/embed/companion/page.tsx`'s
+   * `activeSurface === "wallet"` branch. Every other embedded/overlay mount
+   * (marketa-codex, knyt-codex, metame-codex, the Polity Passport Bureau
+   * cartridge, CodexCopilotLayer's own `walletDrawerNode`) leaves this unset
+   * and renders the exact top chrome it always has — this prop touches ONLY
+   * the header/tab-row layout below, never the balance/currency rendering
+   * elsewhere in this file.
+   */
+  simplifiedTopChrome?: boolean;
+  /**
+   * Open directly onto a wallet surface (operator ruling, 2026-08-02).
+   *
+   * The Journey DETECTS and EXPLAINS a missing prerequisite; the wallet
+   * PROVISIONS and PROVES. Register passes
+   * `initialWalletSurface="PRINCIPAL_WALLET_PROVISIONING"` when the principal
+   * wallet is not configured or its control has not been proven, so the
+   * operator lands on the ceremony instead of being told to go and find it.
+   */
+  initialWalletSurface?: WalletSurface;
+  /**
+   * Bumped by the host on each NEW surface request. An effect keyed on the
+   * surface name alone would either re-fire on every render — overriding a
+   * deliberate Back, which MS-5 forbids — or never re-fire, silently dropping
+   * a second request after a dismissal. The token distinguishes the two.
+   */
+  walletSurfaceRequestToken?: number;
+  /**
+   * Where to send the operator once the surface's work is done. Rendered as
+   * the "Continue to …" button. Absent when nobody sent them here — the
+   * wallet never invents a destination it was not given.
+   */
+  /**
+   * Serializable identifier of whoever asked for the surface, and the label for
+   * the wallet's "Continue to …" button. NOT a callback: a function cannot be
+   * structured-cloned across the iframe boundary the Multi-Cartridge Viewer
+   * puts between an embedded Journey and this wallet, and a closure bound to
+   * the requester's lifetime does not survive either side reloading.
+   */
+  walletSurfaceReturnTarget?: string | null;
+  walletSurfaceReturnLabel?: string | null;
 }
 
 const TAB_CONFIG: Array<{ key: DrawerTab; label: string; icon: React.ReactNode }> = [
   { key: "wallet", label: "Wallet", icon: <Wallet className="w-4 h-4" /> },
   { key: "library", label: "Library", icon: <BookOpen className="w-4 h-4" /> },
   { key: "tasks", label: "Tasks", icon: <CheckSquare className="w-4 h-4" /> },
-  { key: "reputation", label: "Reputation", icon: <Trophy className="w-4 h-4" /> },
+  { key: "reputation", label: "Reputation & Standing", icon: <Trophy className="w-4 h-4" /> },
   { key: "rewards", label: "Rewards", icon: <Gift className="w-4 h-4" /> },
   { key: "payments", label: "Payments", icon: <CreditCard className="w-4 h-4" /> },
   { key: "connections", label: "Connections", icon: <Link className="w-4 h-4" /> },
@@ -196,7 +358,13 @@ const TAB_CONFIG: Array<{ key: DrawerTab; label: string; icon: React.ReactNode }
 const TOKEN_LOGOS: Record<string, string> = {
   ethereum: "https://cryptologos.cc/logos/ethereum-eth-logo.png?v=040",
   arbitrum: "https://cryptologos.cc/logos/arbitrum-arb-logo.png?v=040",
-  base: "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/base/info/logo.png",
+  // No `base` entry: the only asset previously mapped here (a trustwallet/assets
+  // mirror) resolves to a plain blue square with no "B" glyph and a baked-in
+  // white background — not Coinbase's actual Base brand mark. Rather than
+  // fabricate a replacement URL, the two Base Q¢ balance rows fall back to
+  // their existing lucide `fallbackIcon` until a real Base logo asset is
+  // supplied (operator-provided file, same pattern as the metaMe/iQube brand
+  // assets in public/metaMe/).
   optimism: "https://cryptologos.cc/logos/optimism-ethereum-op-logo.png?v=040",
   polygon: "https://cryptologos.cc/logos/polygon-matic-logo.png?v=040",
   solana: "https://cryptologos.cc/logos/solana-sol-logo.png?v=040",
@@ -216,6 +384,12 @@ export default function SmartWalletDrawer({
   onPurchaseComplete,
   recipientAddress,
   initialTab = "wallet",
+  initialAuthMode,
+  initialWalletSurface,
+  walletSurfaceRequestToken,
+  walletSurfaceReturnTarget,
+  walletSurfaceReturnLabel,
+  initialPersonaFlow,
   onPersonaChange,
   onCreatePersona,
   onSubmitReputationClaim,
@@ -229,6 +403,7 @@ export default function SmartWalletDrawer({
   codexMode = false,
   onCopilotStateChange,
   cartridgeSlug,
+  simplifiedTopChrome = false,
 }: SmartWalletDrawerProps) {
   const isValidEvmAddress = (value?: string): value is `0x${string}` =>
     typeof value === "string" && /^0x[a-fA-F0-9]{40}$/.test(value);
@@ -239,12 +414,48 @@ export default function SmartWalletDrawer({
   const [personaEvmOverride, setPersonaEvmOverride] = useState<`0x${string}` | undefined>(walletNodePersonaEvmAddress);
   // External wallet address connected via ExternalWalletConnect (MetaMask etc.)
   const [externalEvmAddress, setExternalEvmAddress] = useState<string | undefined>(undefined);
-  const sanitizedEvmSepolia = personaEvmOverride || (isValidEvmAddress(agent.evmSepolia) ? agent.evmSepolia : undefined);
-  const sanitizedEvmArb = personaEvmOverride || (isValidEvmAddress(agent.evmArb) ? agent.evmArb : undefined);
+  /*
+   * NO AGENT-ADDRESS FALLTHROUGH FOR THE PRINCIPAL (operator ruling,
+   * 2026-08-02; wallet-binding trace #121).
+   *
+   * These two lines previously read `personaEvmOverride || agent.evm*`. When
+   * the active persona had no address, `personaEvmOverride` was undefined and
+   * both Base Q¢ rows fell through to the AGENT's address — and three hosts
+   * (ContentHubView, SmartTriadSurfaces, ComposerStudio) pass Aigent Z's
+   * hardcoded literal, which the trace identified as the platform DEPLOYER
+   * EOA holding QCT's premine and recorded as compromised.
+   *
+   * So an unbound human operator saw the deployer's 4,000,000 Base Q¢
+   * rendered in their persona wallet, undistinguished from their own. That is
+   * precisely what PILOT-WALLET-EXCEPTION-001's prohibit list names: "the
+   * legacy wallet substituting for the human principal wallet".
+   *
+   * An unresolved principal now stays UNRESOLVED. The agent's address is
+   * still available to the surfaces that legitimately show an AGENT wallet —
+   * it simply may no longer stand in for a person. A balance shown under
+   * someone's own persona is a claim about their holdings, and a fallback is
+   * not a weaker version of that claim; it is a false one.
+   */
+  const sanitizedEvmSepolia = personaEvmOverride;
+  const sanitizedEvmArb = personaEvmOverride;
+  /** The agent address, kept for surfaces that render an AGENT wallet as such. */
+  const agentEvidenceEvmAddress = isValidEvmAddress(agent.evmArb)
+    ? agent.evmArb
+    : isValidEvmAddress(agent.evmSepolia)
+      ? agent.evmSepolia
+      : undefined;
+  /**
+   * A principal wallet that did not resolve. Rendered as "Not configured" —
+   * never as a zero balance, which would assert the account is empty rather
+   * than unknown.
+   */
+  const principalWalletUnresolved = !personaEvmOverride;
 
   const [activeTab, setActiveTab] = useState<DrawerTab>(initialTab);
   const [dismissed, setDismissed] = useState(false);
   const [localPersonaId, setLocalPersonaId] = useState<string | null>(null);
+  // The persona to return to after "Act as aigentMe" (B+). Captured on switch.
+  const [preActAsPersonaId, setPreActAsPersonaId] = useState<string | null>(null);
   const [balanceRefreshKey, setBalanceRefreshKey] = useState(0);
   const bals = useBalances(
     {
@@ -255,7 +466,7 @@ export default function SmartWalletDrawer({
     },
     { refreshKey: balanceRefreshKey }
   );
-  const { sessionEmail, sessionPersonas, isLoading: sessionPersonasLoading, signOut: signOutSession, signIn: signInWithEmail, signUp: signUpWithEmail, refreshPersonas } = useSupabaseSessionPersonas();
+  const { sessionEmail, sessionPersonas, personasLoadFailed, isLoading: sessionPersonasLoading, signOut: signOutSession, signIn: signInWithEmail, signUp: signUpWithEmail, refreshPersonas } = useSupabaseSessionPersonas();
   const { getCartridgeDefault, setCartridgeDefault, activePersonaId: ctxActivePersonaId, setActivePersonaId: ctxSetActivePersonaId } = usePersonaSafe();
 
   // NOTE: these two useState calls MUST be declared before the allAvailablePersonas
@@ -326,10 +537,24 @@ export default function SmartWalletDrawer({
   const hasAnyPersona = allAvailablePersonas.length > 0 || !!walletNode?.personaContext?.activePersonaId;
   const effectivePersonaId =
     personaId || localPersonaId || ctxActivePersonaId || walletNode?.personaContext?.activePersonaId || activePersona?.id;
-  const { entitlements: ownedEntitlements, loading: ownedEntitlementsLoading } = useOwnedEntitlements(effectivePersonaId);
+  const { entitlements: ownedEntitlements, loading: ownedEntitlementsLoading } = useEntitlementsList(effectivePersonaId);
   const { balance: knytBalance, loading: knytLoading, refreshBalance: refreshKnyt } =
     useKnytBalance(effectivePersonaId, externalEvmAddress);
-  const { balance: baseQcBalance } = useBaseQcBalance(effectivePersonaId);
+  const { balance: baseQcBalance, refresh: refreshDvnQc } = useBaseQcBalance(effectivePersonaId);
+  // Base Q¢ MAINNET (chain 8453, live ERC-20 read) — distinct from bals.qctBase,
+  // which reads the Base SEPOLIA testnet contract, and from baseQcBalance above,
+  // which is the off-chain DVN custody ledger.
+  const canonicalEvmAddress = sanitizedEvmArb || sanitizedEvmSepolia;
+  const {
+    balance: qctMainnetBalance,
+    configured: qctMainnetConfigured,
+    loading: qctMainnetLoading,
+    refresh: refreshQctMainnet,
+  } = useQctBaseMainnetBalance(canonicalEvmAddress);
+  // Bitcent (B¢) TESTNET — live premine balance, resolved from primary chain
+  // data by /api/ops/bitcent/testnet (see services/ops/bitcentBalance.ts).
+  // Reuses the same ops-card hook rather than duplicating the fetch.
+  const bitcentTestnet = useBitcentTestnet(30000);
   const { knytPriceUsd } = useEthPrice();
   const evs = useDVNEvents(agent.id);
   const [transactionModalOpen, setTransactionModalOpen] = useState(false);
@@ -350,11 +575,208 @@ export default function SmartWalletDrawer({
     { role: 'assistant', content: "Hi! I can help you manage your wallet, find content, or answer questions. What would you like to do?" }
   ]);
   const [copilotLoading, setCopilotLoading] = useState(false);
-  const [copilotMode, setCopilotMode] = useState<'chat' | 'avatar'>('chat');
+  // MoneyPenny Wallet Service Reconstitution (2026-08-06) — ONE top-level
+  // mode selector for the whole MoneyPenny service, replacing the prior
+  // two-level copilotMode('chat'|'avatar') + moneyPennyMode('chat'|
+  // 'architect'|'runtime') split that presented Chat/Copilot, Architect,
+  // Runtime and metaAvatar as competing/overlapping surfaces. 'chat' is
+  // both the former "Copilot" tab AND the former metaVatar-tab "cyan Chat"
+  // — those already shared one engine (handleSendPrompt -> copilotMessages
+  // -> /api/moneypenny/chat, unified 2026-08-06 earlier this session); this
+  // pass removes the second RENDERING of that same chat, not a second
+  // engine (there never was a second one to reconcile).
+  const [moneyPennyMode, setMoneyPennyMode] = useState<'chat' | 'architect' | 'runtime' | 'avatar'>('chat');
+  // Expand/collapse for Architect and Runtime — swaps the compact wallet-
+  // native wrapper (MoneyPennyWalletArchitect / MoneyPennyWalletRuntime) for
+  // the full cartridge component (ArchitectPanel / RuntimePanel, imported
+  // directly — composition, not a rewrite) IN PLACE, and grows the panel's
+  // own height. Never navigates anywhere, so it can never open a new tab and
+  // always stays inside whichever host currently has this drawer mounted.
+  const [moneyPennyExpanded, setMoneyPennyExpanded] = useState(false);
+  // ONE shared Architect draft/result state, passed to BOTH ArchitectPanel
+  // (expanded) and MoneyPennyWalletArchitect (compact) below via their
+  // `sharedState` prop, so expand/collapse shows the SAME conversation
+  // instead of two independently-preserved ones (operator report,
+  // 2026-08-06: "the full screen modal is not getting the active inference
+  // and conversation injected into it").
+  const architectDraft = useArchitectDraft(effectivePersonaId);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [sidebarOffset, setSidebarOffset] = useState(64);
   const [copilotQuickPromptsVisible, setCopilotQuickPromptsVisible] = useState(true);
   const [personaMenuOpen, setPersonaMenuOpen] = useState(false);
+  // Wallet-surface override (see the WalletSurface type's own doc comment).
+  // `activeTab` itself is never touched by this state — the overlay renders
+  // ON TOP OF whatever tab was active, so clearing it back to `null` (Back,
+  // or a successful connection's "Return to Wallet Home") naturally reveals
+  // the SAME tab the visitor was already on, with no separate "previous tab"
+  // tracker required.
+  // Seeded from `initialWalletSurface` so a Journey deep-link lands ON the
+  // ceremony. The auto-open sign-in effect below still wins for a signed-out
+  // visitor — provisioning a wallet for nobody is not a coherent surface.
+  const [walletSurface, setWalletSurface] = useState<WalletSurface>(initialWalletSurface ?? null);
+  const [connectedPassport, setConnectedPassport] = useState<PassportFacts | null>(null);
+  // A deep-link request from an already-mounted drawer (the Journey blocking on
+  // a missing principal wallet). Keyed on the TOKEN, never on the surface name:
+  // re-running on the name would fight the operator's own Back, and a
+  // deliberate act outranks an ambient one (MS-5).
+  /*
+   * The wallet also listens for itself.
+   *
+   * There are several wallet mounts in this codebase (the copilot layer, the
+   * SmartTriad surfaces, KnytTab, DevPersonaTab) and only one of them was
+   * wired to forward a surface request. A request that reaches a host with no
+   * forwarder would open nothing — which is the class of failure the browser
+   * run hit, one layer up. Listening here means an OPEN wallet always honours
+   * a request, whatever mounted it.
+   *
+   * The host-level subscription is still required and is not redundant: only
+   * the host can OPEN a closed wallet. This covers the other half.
+   */
+  useEffect(
+    () =>
+      subscribeWalletSurfaceRequest((request) => {
+        // Honour any surface this drawer can render — a listener that only
+        // knew one surface would silently drop the second one added.
+        if (
+          request.surface !== 'PRINCIPAL_WALLET_PROVISIONING' &&
+          request.surface !== 'PENDING_ACTIONS' &&
+          request.surface !== 'PASSPORT_SIGN_IN' &&
+          request.surface !== 'TASKS_TAB'
+        ) return;
+        setWalletSurface(request.surface);
+        setDeepLinkReturn({ target: request.returnTarget ?? null, label: request.returnLabel ?? null });
+        acknowledgeWalletSurfaceRequest(request.token, "SmartWalletDrawer");
+      }),
+    [],
+  );
+  const [deepLinkReturn, setDeepLinkReturn] = useState<{ target: string | null; label: string | null }>({
+    target: null,
+    label: null,
+  });
+
+  /*
+   * The principal wallet's state, as a chip on the entry row.
+   *
+   * The operator asked for a signal that a wallet actually exists — a
+   * successful ceremony left no trace anywhere the wallet is normally looked
+   * at, so "did that work?" could only be answered by opening the surface. A
+   * state worth celebrating that is invisible until you go looking is not a
+   * signal.
+   *
+   * Reads the SAME authoritative route the surface uses; never a second
+   * classification (inv.engineering.037). Null while unknown — an absent chip
+   * says "not checked", never "no wallet".
+   */
+  const [principalChip, setPrincipalChip] = useState<'proven' | 'configured' | 'none' | null>(null);
+  /*
+   * How many acts are waiting. Null while unknown — an absent count says
+   * "not checked", never "nothing pending", for the same reason the wallet
+   * chip does: a mandate the operator cannot see is a mandate they will not
+   * complete.
+   */
+  const [pendingActionCount, setPendingActionCount] = useState<number | null>(null);
+  /** Residue, counted apart — never folded into "waiting on you". */
+  const [expiredActionCount, setExpiredActionCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (!sessionEmail || !effectivePersonaId) {
+      setPrincipalChip(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await personaFetch('/api/wallet/principal/status', {
+          cache: 'no-store',
+          personaIdHint: effectivePersonaId,
+        });
+        const j = (await res.json()) as { ok?: boolean; capability?: string; controlProven?: boolean };
+        if (cancelled) return;
+        if (!res.ok || !j.ok) {
+          setPrincipalChip(null);
+          return;
+        }
+        setPrincipalChip(
+          j.capability === 'SIGNER_CONFIGURED' ? (j.controlProven ? 'proven' : 'configured') : 'none',
+        );
+      } catch {
+        if (!cancelled) setPrincipalChip(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionEmail, effectivePersonaId, walletSurface]);
+
+  useEffect(() => {
+    if (!sessionEmail || !effectivePersonaId) {
+      setPendingActionCount(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await personaFetch('/api/wallet/signing-requests', {
+          cache: 'no-store',
+          personaIdHint: effectivePersonaId,
+        });
+        const j = (await res.json()) as { ok?: boolean; requests?: { expired?: boolean }[] };
+        if (cancelled) return;
+        /*
+         * ACTIONABLE AND EXPIRED ARE COUNTED SEPARATELY (operator, 2026-08-02).
+         *
+         *   > "Expired requests may remain visible under history, but they
+         *   >  must not contribute to 'waiting on you'. A useful split would
+         *   >  be: 2 pending / 5 expired."
+         *
+         * Expired rows stay `status = pending` in the store until something
+         * acts on them, and nothing reaps them — so an unfiltered length read
+         * five dead mandates as five acts waiting on a signature. Overstating
+         * is the same defect as understating.
+         *
+         * The route's caller-scoping supplies the rest of the predicate: the
+         * store returns `status = pending` only, and the route resolves the
+         * persona through the spine, so "eligible signer" and "not superseded
+         * or revoked" are already true of every row that arrives here. What
+         * was missing was `expires_at > now()`.
+         */
+        if (res.ok && j.ok && Array.isArray(j.requests)) {
+          setPendingActionCount(j.requests.filter((r) => !r?.expired).length);
+          setExpiredActionCount(j.requests.filter((r) => r?.expired).length);
+        } else {
+          setPendingActionCount(null);
+          setExpiredActionCount(null);
+        }
+      } catch {
+        if (!cancelled) {
+          setPendingActionCount(null);
+          setExpiredActionCount(null);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionEmail, effectivePersonaId, walletSurface]);
+  const lastWalletSurfaceTokenRef = useRef<number | undefined>(walletSurfaceRequestToken);
+  useEffect(() => {
+    if (walletSurfaceRequestToken === undefined) return;
+    if (walletSurfaceRequestToken === lastWalletSurfaceTokenRef.current) return;
+    lastWalletSurfaceTokenRef.current = walletSurfaceRequestToken;
+    if (initialWalletSurface) setWalletSurface(initialWalletSurface);
+  }, [walletSurfaceRequestToken, initialWalletSurface]);
+  // TASKS_TAB is a request for the EXISTING "tasks" DrawerTab, not a new
+  // overlay — convert it to a plain tab switch and clear the surface so
+  // nothing below tries to render an overlay for it (2026-08-12, KNYTS↔CI
+  // parity pass: Wallet → Tasks, requested from KnytQuestsTab).
+  useEffect(() => {
+    if (walletSurface !== 'TASKS_TAB') return;
+    setActiveTab('tasks');
+    setWalletSurface(null);
+  }, [walletSurface]);
+  // Auto-opens PASSPORT_SIGN_IN exactly once per signed-out visit — never
+  // re-fires after an explicit Back, and resets once the visitor is
+  // genuinely signed in so a LATER sign-out prompts again.
+  const autoPromptedPassportSignInRef = useRef(false);
   // showArchivedPersonas + archivedPersonas are declared earlier (above the
   // allAvailablePersonas useMemo) so the deps array doesn't hit TDZ in prod.
   const [signingIn, setSigningIn] = useState(false);
@@ -364,13 +786,20 @@ export default function SmartWalletDrawer({
   const [signInPasswordInput, setSignInPasswordInput] = useState("");
   const [signInError, setSignInError] = useState<string | null>(null);
   const [signInPending, setSignInPending] = useState(false);
-  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
+  // Seeded from the `initialAuthMode` prop so the thin-client deep-link
+  // envelope's `intent: "signup"` flips the form to Sign Up on open
+  // (default is "signin"). Once mounted the user can switch tabs
+  // freely — this is just the initial-state seed.
+  const [authMode, setAuthMode] = useState<"signin" | "signup">(initialAuthMode ?? "signin");
   const [signUpConfirmationSent, setSignUpConfirmationSent] = useState(false);
   const [showQcBreakdown, setShowQcBreakdown] = useState(false);
   const [logoLoadErrors, setLogoLoadErrors] = useState<Record<string, boolean>>({});
-  const askCopilotCardRef = useRef<HTMLElement | null>(null);
-  const copilotAnchorRef = useRef<HTMLDivElement | null>(null);
-  const avatarAnchorRef = useRef<HTMLElement | null>(null);
+  // ONE anchor for the whole MoneyPenny mode viewport (replaces the former
+  // askCopilotCardRef/copilotAnchorRef/avatarAnchorRef trio) — the avatar
+  // overlay position effect below now measures this single container
+  // regardless of which mode is active, since only one mode renders at a
+  // time and they all share this same viewport box.
+  const moneyPennyViewportRef = useRef<HTMLDivElement | null>(null);
   const copilotChatScrollRef = useRef<HTMLDivElement | null>(null);
   const copilotQuickPromptsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [selectedLibraryItem, setSelectedLibraryItem] = useState<any>(null);
@@ -388,6 +817,28 @@ export default function SmartWalletDrawer({
       setLocalPersonaId(sessionPersonas[0].id);
     }
   }, [personaId, sessionPersonas, localPersonaId, walletNode?.personaContext?.activePersonaId]);
+
+  // Auto-open the wallet-level Passport sign-in surface for a signed-out
+  // visitor, regardless of which tab is active (operator ruling, 2026-08-02:
+  // "an application access gate or account-menu sign-in action must work
+  // regardless of whichever wallet tab was previously active"). Waits for
+  // `useSupabaseSessionPersonas`'s own resolution to finish so an
+  // already-signed-in citizen never sees a flash of the sign-in surface.
+  // Fires at most once per signed-out visit — an explicit Back
+  // (`walletSurface` returning to `null`) is a deliberate dismissal, not a
+  // "try again" signal, so the ref guard prevents this effect from
+  // reopening it on the very next render.
+  useEffect(() => {
+    if (sessionPersonasLoading) return;
+    if (sessionEmail) {
+      autoPromptedPassportSignInRef.current = false;
+      return;
+    }
+    if (autoPromptedPassportSignInRef.current) return;
+    if (walletSurface !== null) return;
+    autoPromptedPassportSignInRef.current = true;
+    setWalletSurface('PASSPORT_SIGN_IN');
+  }, [sessionEmail, sessionPersonasLoading, walletSurface]);
 
   // When the session-resolved active persona has a registered EVM address, upgrade the
   // balance query address so on-chain Q¢ resolves to the persona's FIO-canonical wallet.
@@ -435,11 +886,34 @@ export default function SmartWalletDrawer({
     if (!open) setIsFullscreen(false);
   }, [open]);
 
+  // Deep-link prop application — when the drawer opens with
+  // `initialAuthMode` / `initialPersonaFlow` set, seed the matching
+  // state. Runs only on the `open` transition; if the user dismisses
+  // the modals or switches tabs manually after open, we don't
+  // re-trigger. The thin-client dispatches a fresh deep-link envelope
+  // for each user click, so the next open will re-seed if needed.
   useEffect(() => {
-    if (open && copilotOpen && copilotMode === "chat") {
+    if (!open) return;
+    if (initialAuthMode) {
+      setAuthMode(initialAuthMode);
+    }
+    if (initialPersonaFlow === "create-wizard") {
+      setPersonaSetupOpen(true);
+    } else if (initialPersonaFlow === "quick-add") {
+      setQuickAddOpen(true);
+    }
+    // Intentionally not listing initialAuthMode / initialPersonaFlow in
+    // the dep array — they're a one-shot seed at open time. Listing
+    // them would cause the wizard to re-open if the parent flipped the
+    // flag while the drawer was already mounted, which is wrong.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  useEffect(() => {
+    if (open && copilotOpen && moneyPennyMode === "chat") {
       showCopilotQuickPrompts();
     }
-  }, [open, copilotOpen, copilotMode, showCopilotQuickPrompts]);
+  }, [open, copilotOpen, moneyPennyMode, showCopilotQuickPrompts]);
 
   useEffect(() => {
     scrollCopilotToBottom();
@@ -490,12 +964,18 @@ export default function SmartWalletDrawer({
     }
     
     try {
-      // Call the wallet copilot API
-      const response = await fetch('/api/wallet-copilot', {
+      // Wallet Copilot is grounded through the same MoneyPenny backend as the
+      // "MoneyPenny" tab / avatar mode (app/api/moneypenny/chat/route.ts) —
+      // it shares the common invariant/Canon grounding + domain knowledge,
+      // not a standalone ungrounded implementation (previously
+      // /api/wallet-copilot, a bare OpenAI call with no invariant grounding).
+      const response = await fetch('/api/moneypenny/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: localReply ? [...baseMessages, localReply] : baseMessages,
+          agent_class: 'moneypenny',
+          tenant_id: 'wallet-copilot',
           context: {
             walletBalance: bals.qctArb ? Number(bals.qctArb) / Math.pow(10, bals.qctArbDecimals || 18) : 0,
             personaId: effectivePersonaId,
@@ -503,10 +983,10 @@ export default function SmartWalletDrawer({
           }
         }),
       });
-      
+
       if (response.ok) {
         const data = await response.json();
-        const message = data.message || "I'm here to help! What would you like to know?";
+        const message = data.message || data.response || "I'm here to help! What would you like to know?";
         const content = localIntent.handled ? `More detail: ${message}` : message;
         setCopilotMessages(prev => [...prev, { role: 'assistant', content }]);
       } else {
@@ -557,7 +1037,9 @@ export default function SmartWalletDrawer({
   const refreshWalletBalances = useCallback(() => {
     setBalanceRefreshKey((key) => key + 1);
     refreshKnyt();
-  }, [refreshKnyt]);
+    refreshDvnQc();
+    refreshQctMainnet();
+  }, [refreshKnyt, refreshDvnQc, refreshQctMainnet]);
 
   useEffect(() => {
     const generateDid = async () => {
@@ -583,23 +1065,30 @@ export default function SmartWalletDrawer({
     generateDid();
   }, [agent?.fioHandle, activePersona?.fioHandle]);
 
-  // Request/release avatar based on copilot state and mode
+  // Request/release avatar based on the unified mode. The live MetaAvatar
+  // iframe is a fixed-position overlay anchored to moneyPennyViewportRef's
+  // bounding rect (see app/(shell)/layout.tsx) — it is requested ONLY while
+  // 'avatar' is the active MoneyPenny mode, so it never renders on top of
+  // Chat/Architect/Runtime (MoneyPenny Wallet Service Reconstitution,
+  // 2026-08-06 — "avatar mode does not render simultaneously over another
+  // MoneyPenny mode"). Selecting the metaAvatar tab IS the deliberate
+  // request; no separate Show/Hide Avatar toggle is needed.
   useEffect(() => {
-    if (open && copilotOpen && copilotMode === 'avatar') {
+    if (open && copilotOpen && moneyPennyMode === 'avatar') {
       requestAvatar('copilot', 'aigent-moneypenny');
     } else {
       releaseAvatar('copilot');
     }
-    
+
     // Cleanup on unmount
     return () => releaseAvatar('copilot');
-  }, [open, copilotOpen, copilotMode, requestAvatar, releaseAvatar, agent?.id]);
+  }, [open, copilotOpen, moneyPennyMode, requestAvatar, releaseAvatar, agent?.id]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const root = document.documentElement;
     const updateAnchor = () => {
-      const anchor = askCopilotCardRef.current ?? avatarAnchorRef.current ?? copilotAnchorRef.current;
+      const anchor = moneyPennyViewportRef.current;
       if (!anchor) return;
       const rect = anchor.getBoundingClientRect();
       root.style.setProperty("--metaavatar-copilot-x", `${Math.round(rect.left)}px`);
@@ -616,7 +1105,7 @@ export default function SmartWalletDrawer({
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [open, copilotOpen, copilotMode, activeTab]);
+  }, [open, copilotOpen, moneyPennyMode, moneyPennyExpanded, activeTab]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -668,6 +1157,9 @@ export default function SmartWalletDrawer({
   }
   const [identityProfile, setIdentityProfile] = useState<IdentityProfile | null>(null);
   const [rootDidExpanded, setRootDidExpanded] = useState(false);
+  // Persona & Agent IDs inventory (three-level reference model). Collapsed by
+  // default; the inventory component mounts (and fetches) only when opened.
+  const [personaRefsExpanded, setPersonaRefsExpanded] = useState(false);
 
   // Purchase flow state
   const [purchaseStep, setPurchaseStep] = useState<PurchaseStep>("idle");
@@ -678,6 +1170,11 @@ export default function SmartWalletDrawer({
   const [convertStep, setConvertStep] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [convertError, setConvertError] = useState<string | null>(null);
   const [convertResult, setConvertResult] = useState<any>(null);
+  // Destination denomination for the USDC→Q¢ conversion — reuses the
+  // QriptoDenomination union from the cross-denomination settlement substrate
+  // (services/qriptocent/settlement/types.ts) so the choice stays in lockstep
+  // with the rest of the platform's B¢/Base Q¢ naming.
+  const [convertDestination, setConvertDestination] = useState<QriptoDenomination>("BASE_QC");
 
   const openTransactionModal = (
     tab: TransactionTab,
@@ -798,35 +1295,42 @@ export default function SmartWalletDrawer({
   };
 
   // Auto-open the persona setup wizard for newly signed-up users.
-  // Operator decision (2026-05-09): FIO registration is mandatory at
-  // signup. When a user has signed in but owns zero personas, we open
-  // the wizard automatically and disable cancellation — they cannot
-  // proceed without completing FIO chain registration.
   //
-  // Race-condition guards (the bug "wizard opens on every login"):
-  //   1. Wait for sessionPersonasLoading to settle. At session start,
-  //      sessionEmail flips to set BEFORE the personas API call returns,
-  //      so allAvailablePersonas.length === 0 is briefly true even for
-  //      users who own personas. Without this guard, the effect fires
-  //      in that gap and opens the wizard.
-  //   2. Auto-close the wizard if personas appear after it auto-opened.
-  //      Covers the case where a different tab created a persona, or
-  //      the user signs in just as a sync completes.
+  // 2026-05-30 operator decision (REVERSED): mandatory persona creation
+  // at signup is removed. Users can sign in without owning a persona —
+  // the wizard becomes opt-in via the drawer's "Add persona" button,
+  // and persona-requiring actions (compose, sign, mint) prompt the
+  // wizard contextually at the point of need rather than blocking the
+  // entire app behind a sign-up gate.
+  //
+  // The previous mandatory mode caused a hard infinite loop for users
+  // whose persona row was created but not surfacing via
+  // /api/wallet/personas (RLS/auth_profile mismatch, etc.) — they'd
+  // sign in, see the mandatory wizard, complete it, get bounced back
+  // to "zero personas" on the next session refresh, and the wizard
+  // would re-open every time. fayeofori@hotmail / inquisitor@knyt is
+  // the operator-reported case.
+  //
+  // The race-condition guards that previously gated the auto-open are
+  // preserved as guards on the auto-close path: if the wizard is open
+  // (because the operator opened it intentionally) and personas
+  // subsequently appear, close it cleanly.
   useEffect(() => {
     if (!sessionEmail) return;
     if (sessionPersonasLoading) return;
     if (allAvailablePersonas.length > 0) {
-      // Personas exist — if the wizard auto-opened during the loading
-      // gap, close it now.
+      // Personas exist — if the wizard is open in mandatory mode for
+      // any reason (legacy state, cross-tab race), close it.
       if (personaSetupOpen && personaSetupMandatory) {
         setPersonaSetupOpen(false);
         setPersonaSetupMandatory(false);
       }
       return;
     }
-    if (personaSetupOpen) return;
-    setPersonaSetupOpen(true);
-    setPersonaSetupMandatory(true);
+    // Zero personas + no in-flight wizard: do NOTHING. Operator now
+    // signs in cleanly and opens the wizard themselves when they're
+    // ready. Persona-requiring actions handle their own contextual
+    // prompts.
   }, [sessionEmail, sessionPersonasLoading, allAvailablePersonas.length, personaSetupOpen, personaSetupMandatory]);
 
   // Persona state
@@ -834,33 +1338,364 @@ export default function SmartWalletDrawer({
   const [isWalletUnlocked, setIsWalletUnlocked] = useState(false);
   const [personaToUnlock, setPersonaToUnlock] = useState<string | null>(null);
 
-  // iQube persona minting state
-  const [mintStatus, setMintStatus] = useState<"idle" | "staging" | "staged" | "error">("idle");
-  const [mintStubId, setMintStubId] = useState<string | null>(null);
+  // PersonaQube mint state — Polity Passport rail (Sui + Walrus).
+  // Distinct from the legacy Qripto/KNYT mint paths (AutoDrive rail).
+  const [mintStatus, setMintStatus] = useState<"idle" | "staging" | "minted" | "error">("idle");
   const [mintError, setMintError] = useState<string | null>(null);
+  const [mintResult, setMintResult] = useState<{
+    suiObjectId: string | null;
+    walrusBlobId: string | null;
+    baseTokenId: string | null;
+    baseTxHash: string | null;
+    mode: "stub" | "sui-walrus" | "base" | null;
+    onChain: boolean;
+    deferred: boolean;
+    mintedAt: string | null;
+  }>({ suiObjectId: null, walrusBlobId: null, baseTokenId: null, baseTxHash: null, mode: null, onChain: false, deferred: false, mintedAt: null });
 
-  const handleStageMint = useCallback(async () => {
+  // Load any existing mint on mount / persona change so the UI shows
+  // "minted" without making the operator re-mint.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
+        if (!session?.access_token) return;
+        const res = await fetch("/api/iqube/persona/passport/mint", {
+          method: "GET",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled || !data?.ok || !data.minted) return;
+        setMintResult({
+          suiObjectId: data.suiObjectId ?? null,
+          walrusBlobId: data.walrusBlobId ?? null,
+          baseTokenId: data.baseTokenId ?? null,
+          baseTxHash: data.baseTxHash ?? null,
+          mode: data.mode ?? null,
+          onChain: Boolean(data.onChain),
+          deferred: Boolean(data.deferred),
+          mintedAt: data.mintedAt ?? null,
+        });
+        setMintStatus("minted");
+      } catch {
+        // Silent — wallet drawer survives mint endpoint failure.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [walletNode?.personaContext?.activePersona?.personaId]);
+
+  const handleStageMint = useCallback(async (opts?: { chain?: string; strategy?: string }) => {
     setMintStatus("staging");
     setMintError(null);
     try {
       const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
-      const headers: Record<string, string> = {};
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (session?.access_token) {
         headers["Authorization"] = `Bearer ${session.access_token}`;
       }
-      const res = await fetch("/api/iqube/persona/qripto/mint", { method: "POST", headers });
-      const data: { stub_id?: string; status?: string; error?: string } = await res.json();
-      if (!res.ok) {
-        setMintError(data.error ?? "Staging failed — check that you have an active Qripto persona.");
+      // Owner = the persona's wallet (x402) EVM address. Send it so a persona
+      // with no server-stored evm_address can still mint to its own wallet —
+      // the route falls back to this and persists it for the deferred batch
+      // processor. Prefer the connected external wallet, then the persona's
+      // own EVM address.
+      const ownerAddress =
+        externalEvmAddress ||
+        personaEvmOverride ||
+        walletNodePersonaEvmAddress ||
+        undefined;
+      // Default to the Base mainnet rail (immediate) so the wallet's primary
+      // mint button lands the PersonaQube ERC-721 on Base — matching the
+      // AgentiQ OS mint path. Sui/Walrus still runs server-side as the
+      // encrypted locker the Base token bears.
+      const res = await fetch("/api/iqube/persona/passport/mint", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          chain: opts?.chain ?? "base",
+          strategy: opts?.strategy ?? "immediate",
+          ...(ownerAddress ? { ownerAddress } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        setMintError(data?.error ?? "Mint failed — please try again.");
         setMintStatus("error");
         return;
       }
-      setMintStubId(data.stub_id ?? null);
-      setMintStatus("staged");
+      setMintResult({
+        suiObjectId: data.suiObjectId ?? null,
+        walrusBlobId: data.walrusBlobId ?? null,
+        baseTokenId: data.baseTokenId ?? null,
+        baseTxHash: data.baseTxHash ?? null,
+        mode: data.mode ?? null,
+        onChain: Boolean(data.onChain),
+        deferred: Boolean(data.deferred),
+        mintedAt: data.mintedAt ?? null,
+      });
+      setMintStatus("minted");
     } catch {
       setMintError("Network error — please try again.");
       setMintStatus("error");
     }
+  }, [externalEvmAddress, personaEvmOverride, walletNodePersonaEvmAddress]);
+
+  // PassportQube wallet state
+  interface PassportQubeItem {
+    passportId: string;
+    passportClass: string;
+    passportGrade: string | null;
+    passportStatus: string | null;
+    claimedAt: string | null;
+    claimable: boolean;
+    credential?: Record<string, unknown>;
+  }
+  const [passportQubes, setPassportQubes] = useState<PassportQubeItem[]>([]);
+  const [passportQubesLoading, setPassportQubesLoading] = useState(false);
+  const [passportVcExpanded, setPassportVcExpanded] = useState<string | null>(null);
+  const [passportCardCollapsed, setPassportCardCollapsed] = useState<Set<string>>(new Set());
+  const [personaQubeCollapsed, setPersonaQubeCollapsed] = useState(false);
+  const [agentCardCollapsed, setAgentCardCollapsed] = useState<Set<string>>(new Set());
+  const [passportVcCopied, setPassportVcCopied] = useState<string | null>(null);
+  // T0/T1 ruling (2026-09-07): passportId is public non-secret metadata (the
+  // credential's own public identifier) — every API that accepts it
+  // independently authenticates the caller and checks ownership server-side,
+  // so there is no security reason to hide it. It was truncated with no way
+  // to actually obtain it; these let the holder reveal and copy the full id.
+  const [passportIdRevealed, setPassportIdRevealed] = useState<Set<string>>(new Set());
+  const [passportIdCopied, setPassportIdCopied] = useState<string | null>(null);
+
+  // Sponsored agents — wallet section "Agents I sponsor" (Sprint 3).
+  interface SponsoredAgentItem {
+    agentRootId: string;
+    agentId: string;
+    didUri: string;
+    agentClass: string;
+    displayName: string;
+    description: string;
+    agentCardUrl: string;
+    agentCardSlug: string;
+    isAigentMe?: boolean;
+    sponsorPassportId: string | null;
+    boundPassportId: string | null;
+    passport: {
+      passportId: string;
+      passportClass: string;
+      passportGrade: string | null;
+      passportStatus: string | null;
+      issuedAt: string | null;
+      claimedAt: string | null;
+      worldIdVerified: boolean;
+    } | null;
+    /** Sprint 4 — aigentMe Standing lanes (null for non-aigentMe agents). */
+    standing: {
+      personal: number;
+      delegated: number;
+      stewardship: number;
+      overall: number;
+      bucket: number;
+    } | null;
+    createdAt: string;
+  }
+  const [sponsoredAgents, setSponsoredAgents] = useState<SponsoredAgentItem[]>([]);
+  const [sponsoredAgentsLoading, setSponsoredAgentsLoading] = useState(false);
+  // Phase 3 — Sponsorship Capacity Protocol.
+  type SponsorshipCapacity =
+    | { bounded: true; base: number; earned: number; used: number; remaining: number; overCapacity: boolean }
+    | { bounded: false; base: null; earned: null; used: number; remaining: null; source: string };
+  const [sponsorshipCapacity, setSponsorshipCapacity] = useState<SponsorshipCapacity | null>(null);
+
+  // aigentMe bounded-delegation awareness. The delegation is keyed by the
+  // active persona (the human delegating to aigentMe / Aigent C). Surfaced on
+  // the aigentMe agent card so the operator sees, in the wallet, whether
+  // delegation is live, what it's scoped to, and how much budget remains.
+  interface DelegationState {
+    active?: boolean;
+    suspended?: boolean;
+    expired?: boolean;
+    trust_band?: string;
+    allowed_actions?: string[];
+    expires_at?: string | null;
+    actions_taken?: number;
+    max_actions?: number;
+  }
+  const [aigentMeDelegation, setAigentMeDelegation] = useState<DelegationState | null>(null);
+  const loadAigentMeDelegation = useCallback(async () => {
+    if (!effectivePersonaId) { setAigentMeDelegation(null); return; }
+    try {
+      const res = await fetch(
+        `/api/codex/chat/agentiq-os/delegation?persona_id=${encodeURIComponent(effectivePersonaId)}`,
+        { cache: "no-store" },
+      );
+      if (!res.ok) return;
+      const data = (await res.json()) as DelegationState;
+      setAigentMeDelegation(data ?? null);
+    } catch {
+      // Silent — wallet survives endpoint failure.
+    }
+  }, [effectivePersonaId]);
+
+  const loadSponsoredAgents = useCallback(async () => {
+    setSponsoredAgentsLoading(true);
+    try {
+      const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
+      if (!session?.access_token) return;
+      const res = await fetch("/api/persona/sponsored-agents", {
+        method: "GET",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        cache: "no-store",
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data?.ok) return;
+      setSponsoredAgents(data.agents ?? []);
+      setSponsorshipCapacity(data.capacity ?? null);
+    } catch {
+      // Silent — wallet survives endpoint failure.
+    } finally {
+      setSponsoredAgentsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== "iqube") return;
+    void loadSponsoredAgents();
+    void loadAigentMeDelegation();
+  }, [activeTab, walletNode?.personaContext?.activePersona?.personaId, loadSponsoredAgents, loadAigentMeDelegation]);
+
+  // CFS-024/Homecoming Phase II P1 Item 3 — /api/persona/sponsored-agents
+  // itself now sources isAigentMe from resolveConstitutionalContext()
+  // (the single source of truth), so a second client-side re-resolution
+  // via /api/identity/constitutional-context is no longer needed here — it
+  // existed only to override a since-fixed disagreement. Resolve once,
+  // project everywhere: the wallet renders sponsoredAgents directly.
+  const displaySponsoredAgents = sponsoredAgents;
+
+  // World ID strong-verification state — per passport. 'busy' shows the
+  // spinner while the verification round-trip is in flight; 'error' surfaces
+  // a failure message back into the card.
+  const [worldIdBusy, setWorldIdBusy] = useState<string | null>(null);
+  const [worldIdError, setWorldIdError] = useState<Record<string, string | null>>({});
+
+  // World ID upgrade — receives a real proof bundle from <WorldIdButton>
+  // (or a dev-worldid-orb fallback when NEXT_PUBLIC_WORLD_ID_APP_ID is
+  // unset). Forwards to verify-worldid; optimistically flips grade in
+  // the local list on success so the UI updates without a refetch.
+  const handleWorldIdProof = useCallback(
+    async (passportId: string, proof: WorldIdProofBundle) => {
+      setWorldIdBusy(passportId);
+      setWorldIdError((e) => ({ ...e, [passportId]: null }));
+      try {
+        const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
+        if (!session?.access_token) {
+          setWorldIdError((e) => ({ ...e, [passportId]: 'Sign in required' }));
+          return;
+        }
+        const res = await fetch('/api/polity-passport/verify-worldid', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ passportId, proof }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data?.ok) {
+          setWorldIdError((e) => ({ ...e, [passportId]: data?.error ?? 'Verification failed' }));
+          return;
+        }
+        setPassportQubes((prev) =>
+          prev.map((pq) =>
+            pq.passportId === passportId ? { ...pq, passportGrade: 'verified_citizen' } : pq,
+          ),
+        );
+      } catch (e) {
+        setWorldIdError((err) => ({
+          ...err,
+          [passportId]: e instanceof Error ? e.message : 'Network error',
+        }));
+      } finally {
+        setWorldIdBusy(null);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (activeTab !== "iqube") return;
+    setPassportQubesLoading(true);
+    const fetchPassports = async () => {
+      try {
+        const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
+        if (!session?.access_token) { setPassportQubesLoading(false); return; }
+        const res = await fetch("/api/polity-passport/wallet", {
+          cache: "no-store",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        const json = await res.json();
+        if (json.ok) setPassportQubes(json.passportQubes ?? []);
+      } catch {
+        // Silent — wallet load is non-blocking
+      } finally {
+        setPassportQubesLoading(false);
+      }
+    };
+    void fetchPassports();
+  }, [activeTab]);
+
+  const handleDownloadVc = useCallback((pq: PassportQubeItem) => {
+    if (!pq.credential) return;
+    const blob = new Blob([JSON.stringify(pq.credential, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `passport-${pq.passportId}.vc.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, []);
+
+  const handleCopyVc = useCallback((pq: PassportQubeItem) => {
+    if (!pq.credential) return;
+    void navigator.clipboard.writeText(JSON.stringify(pq.credential, null, 2)).then(() => {
+      setPassportVcCopied(pq.passportId);
+      setTimeout(() => setPassportVcCopied((prev) => (prev === pq.passportId ? null : prev)), 2000);
+    });
+  }, []);
+
+  const toggleRevealPassportId = useCallback((passportId: string) => {
+    setPassportIdRevealed((prev) => {
+      const next = new Set(prev);
+      if (next.has(passportId)) next.delete(passportId);
+      else next.add(passportId);
+      return next;
+    });
+  }, []);
+
+  const handleCopyPassportId = useCallback((passportId: string) => {
+    void navigator.clipboard.writeText(passportId).then(() => {
+      setPassportIdCopied(passportId);
+      setTimeout(() => setPassportIdCopied((prev) => (prev === passportId ? null : prev)), 2000);
+    });
+  }, []);
+
+  const togglePassportCardCollapse = useCallback((passportId: string) => {
+    setPassportCardCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(passportId)) next.delete(passportId);
+      else next.add(passportId);
+      return next;
+    });
+  }, []);
+
+  const toggleAgentCardCollapse = useCallback((agentId: string) => {
+    setAgentCardCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(agentId)) next.delete(agentId);
+      else next.add(agentId);
+      return next;
+    });
   }, []);
 
   const hasPaidTier = useCallback((content?: SmartContentQube | null): boolean => {
@@ -1005,6 +1840,48 @@ export default function SmartWalletDrawer({
   const formatFixed = (value?: number | null, digits: number = 2) =>
     Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
+  // Bitcent (B¢) — canonical prose spelling per operator ruling 2026-07-30
+  // (was "BitCent"; the on-chain Rune name stays BITCENT, unaffected). The
+  // Rune was etched for real on Bitcoin testnet 2026-07-30 — tx
+  // 551bbaaa50b5ed91c585aee90af1e8f41932da80a93525fd1eebe234a68deb65 (see
+  // codexes/packs/agentiq/updates/2026-07-30_bitcent-testnet-etch-broadcast.md,
+  // R-12 closed, verified VALID_ETCH 2026-08-02). TESTNET now reads the live
+  // premine balance from /api/ops/bitcent/testnet, which resolves it from
+  // PRIMARY chain data (services/ops/bitcentBalance.ts) rather than waiting
+  // on a Rune-aware indexer — see that module's header for why a Rune-aware
+  // indexer isn't needed for the common case. MAINNET stays pending: no
+  // mainnet etch has been broadcast (deploy-qct-bitcoin.js unconditionally
+  // refuses mainnet) — there is no Rune to have a balance yet.
+  const bcentMainnetPending = true;
+  const bcentTestnetPending = !bitcentTestnet.data?.balanceResolved;
+  /*
+   * SAY WHY IT IS UNRESOLVED, NOT A STALE MECHANISM NAME (pilot, 2026-08-03).
+   *
+   * "Awaiting Runes indexer" described a dependency the balance resolver no
+   * longer has: testnet B¢ is derived from PRIMARY CHAIN DATA (decode the
+   * Runestone, check the etch output's spend status), so there is no indexer
+   * to await. When resolution now fails it fails for a different, knowable
+   * reason — which the API already returns as `balanceUnresolvedReason` and
+   * this surface was throwing away, printing a fixed sentence over it.
+   *
+   * Same defect shape as Verify's partner-message refusal the same day: an
+   * honest "unknown" that discards the one field explaining the unknown.
+   */
+  const bcentTestnetPendingLabel = bitcentTestnet.data?.balanceUnresolvedReason ?? 'Balance unresolved';
+  const bcentMainnetAmount = 0;
+  const bcentTestnetAmount = bitcentTestnet.data?.balance ?? 0;
+
+  // Base Q¢ MAINNET — live ERC-20 read via useQctBaseMainnetBalance (chain 8453).
+  const baseQcMainnetAmount = Number(qctMainnetBalance?.balanceFormatted ?? 0);
+  // Base Q¢ TESTNET — bals.qctBase already reads the Base SEPOLIA contract.
+  const baseQcTestnetAmount = (() => {
+    try {
+      return Number(BigInt(bals.qctBase || "0")) / 10 ** (bals.qctBaseDecimals ?? 0);
+    } catch {
+      return 0;
+    }
+  })();
+
   const balanceRows: Array<{
     key: string;
     label: string;
@@ -1013,7 +1890,69 @@ export default function SmartWalletDrawer({
     logo?: string;
     fallbackIcon: React.ReactNode;
     dvn?: boolean;
+    /** Which expanded-balances group this row renders in. Q¢ rows only —
+     * KNYT/USDC rows below are untouched by the Mainnet/Testnet split and
+     * don't set this field. */
+    group?: "mainnet" | "testnet" | "dvn";
+    pending?: boolean;
   }> = [
+    // ─── Mainnet ───────────────────────────────────────────────────────────
+    {
+      key: "bcent-mainnet",
+      label: "Bitcent (B¢)",
+      // Unresolved must never render as zero (operator ruling 2026-07-31):
+      // no Bitcoin explorer available to this app can read Rune balances —
+      // that requires a dedicated Runes-aware indexer, not yet wired in.
+      // "Awaiting Runes indexer" says exactly what's unresolved and why,
+      // rather than an ambiguous dash a viewer could read as "confirmed
+      // zero balance".
+      value: bcentMainnetPending ? "Awaiting Runes indexer" : formatFixed(bcentMainnetAmount),
+      unit: bcentMainnetPending ? "" : "B¢",
+      logo: TOKEN_LOGOS.bitcoin,
+      fallbackIcon: <TrendingUp className="w-4 h-4 text-orange-300" />,
+      group: "mainnet",
+      pending: bcentMainnetPending,
+    },
+    {
+      key: "base-qc-mainnet",
+      label: "Base Q¢",
+      /*
+       * An unresolved principal wallet has an UNKNOWN balance, not a zero one
+       * (operator ruling, 2026-08-02). Rendering 0 would assert the account is
+       * empty; rendering the agent's balance — the prior behaviour — asserted
+       * someone else's holdings were theirs. Both are claims we cannot make.
+       */
+      value: principalWalletUnresolved
+        ? "Not configured"
+        : qctMainnetLoading
+          ? "…"
+          : formatFixed(baseQcMainnetAmount),
+      unit: principalWalletUnresolved ? "" : "Q¢",
+      fallbackIcon: <TrendingUp className="w-4 h-4 text-blue-300" />,
+      group: "mainnet",
+      pending: principalWalletUnresolved || !qctMainnetConfigured,
+    },
+    // ─── Testnet ───────────────────────────────────────────────────────────
+    {
+      key: "bcent-testnet",
+      label: "Bitcent (B¢)",
+      // See bcent-mainnet above — unresolved must never render as zero.
+      value: bcentTestnetPending ? bcentTestnetPendingLabel : formatFixed(bcentTestnetAmount),
+      unit: bcentTestnetPending ? "" : "B¢",
+      logo: TOKEN_LOGOS.bitcoin,
+      fallbackIcon: <TrendingUp className="w-4 h-4 text-orange-300" />,
+      group: "testnet",
+      pending: bcentTestnetPending,
+    },
+    {
+      key: "base-qc-testnet",
+      label: "Base Q¢",
+      // Same rule as the mainnet row above — unknown is not zero.
+      value: principalWalletUnresolved ? "Not configured" : formatQcent(bals.qctBase, bals.qctBaseDecimals),
+      unit: principalWalletUnresolved ? "" : "Q¢",
+      fallbackIcon: <TrendingUp className="w-4 h-4 text-blue-300" />,
+      group: "testnet",
+    },
     {
       key: "eth-qc",
       label: "Ethereum Q¢",
@@ -1021,6 +1960,7 @@ export default function SmartWalletDrawer({
       unit: "Q¢",
       logo: TOKEN_LOGOS.ethereum,
       fallbackIcon: <Coins className="w-4 h-4 text-indigo-300" />,
+      group: "testnet",
     },
     {
       key: "arb-qc",
@@ -1029,22 +1969,7 @@ export default function SmartWalletDrawer({
       unit: "Q¢",
       logo: TOKEN_LOGOS.arbitrum,
       fallbackIcon: <Zap className="w-4 h-4 text-cyan-300" />,
-    },
-    {
-      key: "base-qc",
-      label: "Base Q¢",
-      value: formatQcent(bals.qctBase, bals.qctBaseDecimals),
-      unit: "Q¢",
-      logo: TOKEN_LOGOS.base,
-      fallbackIcon: <TrendingUp className="w-4 h-4 text-blue-300" />,
-    },
-    {
-      key: "dvn-qc",
-      label: "Q¢ (DVN)",
-      value: (baseQcBalance?.dvnQc ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      unit: "Q¢",
-      fallbackIcon: <Coins className="w-4 h-4 text-cyan-300" />,
-      dvn: true,
+      group: "testnet",
     },
     {
       key: "opt-qc",
@@ -1053,6 +1978,7 @@ export default function SmartWalletDrawer({
       unit: "Q¢",
       logo: TOKEN_LOGOS.optimism,
       fallbackIcon: <TrendingUp className="w-4 h-4 text-rose-300" />,
+      group: "testnet",
     },
     {
       key: "polygon-qc",
@@ -1061,6 +1987,7 @@ export default function SmartWalletDrawer({
       unit: "Q¢",
       logo: TOKEN_LOGOS.polygon,
       fallbackIcon: <TrendingUp className="w-4 h-4 text-purple-300" />,
+      group: "testnet",
     },
     {
       key: "sol-qc",
@@ -1069,6 +1996,7 @@ export default function SmartWalletDrawer({
       unit: "Q¢",
       logo: TOKEN_LOGOS.solana,
       fallbackIcon: <TrendingUp className="w-4 h-4 text-emerald-300" />,
+      group: "testnet",
     },
     {
       key: "btc-qc",
@@ -1077,7 +2005,19 @@ export default function SmartWalletDrawer({
       unit: "Q¢",
       logo: TOKEN_LOGOS.bitcoin,
       fallbackIcon: <TrendingUp className="w-4 h-4 text-amber-300" />,
+      group: "testnet",
     },
+    // ─── DVN (off-chain deferred custody Q¢) ──────────────────────────────
+    {
+      key: "dvn-qc",
+      label: "Q¢ (DVN)",
+      value: (baseQcBalance?.dvnQc ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      unit: "Q¢",
+      fallbackIcon: <Coins className="w-4 h-4 text-cyan-300" />,
+      dvn: true,
+      group: "dvn",
+    },
+    // ─── KNYT + USDC — Cartridge Economy section, untouched by this change ──
     {
       key: "knyt-dvn",
       label: "KNYT (DVN)",
@@ -1101,8 +2041,70 @@ export default function SmartWalletDrawer({
       fallbackIcon: <CircleDollarSign className="w-4 h-4 text-green-300" />,
     },
   ];
-  const qcentBalanceRows = balanceRows.filter((row) => row.unit === "Q¢");
-  const nonQcentBalanceRows = balanceRows.filter((row) => row.unit !== "Q¢");
+  // Mainnet/Testnet/DVN groups drive the expanded "Balances" section (item 6:
+  // B¢ and Base Q¢ appear in BOTH groups, sourced from the contract
+  // appropriate to that group). KNYT + USDC below are ungrouped and untouched.
+  const mainnetBalanceRows = balanceRows.filter((row) => row.group === "mainnet");
+  const testnetBalanceRows = balanceRows.filter((row) => row.group === "testnet");
+  const dvnBalanceRows = balanceRows.filter((row) => row.group === "dvn");
+  const nonQcentBalanceRows = balanceRows.filter((row) => !row.group && row.unit !== "Q¢");
+
+  // Shared row renderer for the expanded Balances section — one visual
+  // pattern for dvn / pending / normal so Mainnet, Testnet, and the DVN line
+  // stay pixel-identical instead of three hand-copied JSX blocks.
+  const renderBalanceRow = (row: (typeof balanceRows)[number]) => {
+    if (row.dvn) {
+      return (
+        <li key={row.key} className="flex items-center justify-between p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+          <span className="flex items-center gap-2 text-xs">
+            {row.fallbackIcon}
+            <span className="text-cyan-300">{row.label}</span>
+            <span className="text-[9px] text-cyan-400 bg-cyan-500/20 px-1 rounded">Deferred</span>
+          </span>
+          <span className="font-mono text-xs text-cyan-300">{row.value}</span>
+        </li>
+      );
+    }
+    if (row.pending) {
+      return (
+        <li key={row.key} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5 border-dashed opacity-70">
+          <span className="flex items-center gap-2">
+            {row.logo && !logoLoadErrors[row.key] ? (
+              <img
+                src={row.logo}
+                alt={`${row.label} logo`}
+                className="w-4 h-4 rounded-full object-cover grayscale"
+                onError={() => setLogoLoadErrors((prev) => ({ ...prev, [row.key]: true }))}
+              />
+            ) : (
+              row.fallbackIcon
+            )}
+            <span>{row.label}</span>
+            <span className="text-[9px] text-white/40 bg-white/10 px-1 rounded">Pending</span>
+          </span>
+          <span className="font-mono text-white/50">{row.value} {row.unit}</span>
+        </li>
+      );
+    }
+    return (
+      <li key={row.key} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
+        <span className="flex items-center gap-2">
+          {row.logo && !logoLoadErrors[row.key] ? (
+            <img
+              src={row.logo}
+              alt={`${row.label} logo`}
+              className="w-4 h-4 rounded-full object-cover"
+              onError={() => setLogoLoadErrors((prev) => ({ ...prev, [row.key]: true }))}
+            />
+          ) : (
+            row.fallbackIcon
+          )}
+          <span>{row.label}</span>
+        </span>
+        <span className="font-mono text-white">{row.value} {row.unit}</span>
+      </li>
+    );
+  };
 
   const detectIntentAndSwitchTab = (
     message: string
@@ -1382,20 +2384,41 @@ export default function SmartWalletDrawer({
     };
   };
 
-  const qctEvmTotal = (() => {
+  // L1s = B¢ + Base Q¢ (MAINNET). This REPLACES the old "EVM total", which
+  // summed every legacy testnet EVM Q¢ balance (eth/arb/opt/polygon/sol/btc).
+  // Those legacy rows still render in the expanded Testnet group below — they
+  // just no longer feed the headline L1s / Total Q¢ figures.
+  const l1sTotal = bcentMainnetAmount + baseQcMainnetAmount;
+  const l1sTotalStr = l1sTotal.toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+  // "Total Q¢" in the expanded Balances section = L1s + DVN (unchanged shape,
+  // just fed by the redefined L1s total instead of the old EVM total).
+  const qctDvnTotal = baseQcBalance?.dvnQc ?? 0;
+  const qctCombinedTotal = l1sTotal + qctDvnTotal;
+  const qctTotalStr = qctCombinedTotal.toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+  // Legacy testnet-only EVM Q¢ balances (eth/arb Sepolia + generic BTC Q¢) —
+  // still part of the Testnet group's subtotal (item 6: "the remaining
+  // balances... plus their subtotal"). opt/polygon/sol are hardcoded 0 today.
+  const testnetLegacyTotal = (() => {
     try {
       const ethQ = Number(BigInt(bals.qctSep || "0")) / 10 ** (bals.qctSepDecimals ?? 0);
       const arbQ = Number(BigInt(bals.qctArb || "0")) / 10 ** (bals.qctArbDecimals ?? 0);
-      const baseQ = Number(BigInt(bals.qctBase || "0")) / 10 ** (bals.qctBaseDecimals ?? 0);
       const btcQ = Number(BigInt(bals.btcQcent || "0"));
-      return ethQ + arbQ + baseQ + btcQ;
+      return ethQ + arbQ + btcQ;
     } catch {
       return 0;
     }
   })();
-  const qctDvnTotal = baseQcBalance?.dvnQc ?? 0;
-  const qctCombinedTotal = qctEvmTotal + qctDvnTotal;
-  const qctTotalStr = qctCombinedTotal.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  const testnetTotal = bcentTestnetAmount + baseQcTestnetAmount + testnetLegacyTotal;
+  const testnetTotalStr = testnetTotal.toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+  // Top-of-wallet total (item 4) — B¢ + Base Q¢ only; DVN is NOT folded in
+  // here (it stays in the Balances section's "Total Q¢" above).
+  const qcTopTotal = l1sTotal;
+  const qcTopTotalStr = qcTopTotal.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  // CLAUDE.md Q¢ pricing: $1 = 100 Q¢ — usd = qc / 100, never qc === usd.
+  const qcTopTotalUsd = (qcTopTotal / 100).toFixed(2);
 
   const knytTotal = knytBalance?.totalKnyt ?? 0;
   const knytUsd = knytPriceUsd ? (knytTotal * knytPriceUsd).toFixed(2) : "0.00";
@@ -1445,6 +2468,15 @@ export default function SmartWalletDrawer({
       community: number;
       lifetimeCvs: number;
       totalTasksCompleted: number;
+    } | null;
+    // Phase 2 keystone — Standing alongside Reputation. Three lanes
+    // (Personal/Delegated/Stewardship) + composite + 0..4 bucket.
+    standing?: {
+      personal: number;
+      delegated: number;
+      stewardship: number;
+      overall: number;
+      bucket: number;
     } | null;
   }
   const [walletTasksData, setWalletTasksData] = useState<WalletTasksPayload | null>(null);
@@ -1781,10 +2813,17 @@ export default function SmartWalletDrawer({
     }
 
     try {
-      const r = await fetch("/api/wallet/qct/convert/usdc-to-qc", {
+      // Authorization repair (2026-09-01): the route resolves the wallet
+      // subject server-side from the authenticated caller — a body-supplied
+      // personaId is no longer read or trusted. personaFetch attaches the
+      // Bearer token and the caller's persona SELECTION as personaIdHint
+      // (getActivePersona validates it's actually owned by this caller),
+      // the same pattern this file already uses for /api/wallet/principal/status.
+      const r = await personaFetch("/api/wallet/qct/convert/usdc-to-qc", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ personaId: effectivePersonaId, usdcAmount: n }),
+        body: JSON.stringify({ usdcAmount: n, destination: convertDestination }),
+        personaIdHint: effectivePersonaId,
       });
 
       const j = await r.json().catch(() => ({}));
@@ -1829,8 +2868,25 @@ export default function SmartWalletDrawer({
     return codexMode ? `${baseClasses} ring-indigo-500/30 border-l-indigo-500/30` : baseClasses;
   };
 
-  return (
-    <div className={variant === "overlay" ? "fixed inset-0 z-50" : "h-full min-h-0"}>
+  /*
+   * OVERLAY STACKING — named layer, and portalled out of the cartridge tree
+   * (operator, 2026-08-02: the wallet was unreachable in fullscreen).
+   *
+   * `z-50` lost to the Journey's fullscreen portal at `z-[70]`, so the one
+   * surface an operator must reach mid-demo could not be opened in exactly the
+   * mode demos are given in. The number now comes from
+   * components/ui/overlayLayers.ts, where the ORDERING lives — a number held
+   * locally can only ever be right by luck.
+   *
+   * The portal is the other half and is not belt-and-braces: `z-index` orders
+   * siblings within a stacking context, and any cartridge ancestor with a
+   * transform, filter or opacity creates one — which would trap this
+   * `fixed inset-0` below an unrelated body-level portal at ANY z-index.
+   * Rendering at `document.body` is what makes the layer number mean what it
+   * says.
+   */
+  const overlayTree = (
+    <div className={variant === "overlay" ? `fixed inset-0 ${overlayZClass('WALLET_OVERLAY')}` : "h-full min-h-0"}>
       {variant === 'overlay' && (
         <div className="absolute inset-0 drawer-backdrop bg-black/60 backdrop-blur-sm" onClick={onClose} />
       )}
@@ -1838,7 +2894,14 @@ export default function SmartWalletDrawer({
         className={`${getDrawerClasses()} overflow-hidden min-h-0 flex flex-col transition-all duration-300 pt-4`}
         style={variant === "overlay" && isFullscreen ? { left: `${sidebarOffset}px` } : undefined}
       >
-        {/* Header with persona switch + controls (Qriptopian parity) */}
+        {/* Header with persona switch + controls (Qriptopian parity).
+            Companion 1.1 (2026-07-29): entirely hidden when
+            `simplifiedTopChrome` is set — the persona/sign-in trigger, the
+            Copilot toggle and the Close Wallet button all become redundant
+            once the Companion's own header badge owns persona/sign-in
+            context; the Copilot toggle moves into the tab icon row below
+            instead of disappearing. */}
+        {!simplifiedTopChrome && (
         <header className="flex items-center justify-between gap-2 px-3 py-2 mx-3 rounded-xl bg-white/5 ring-1 ring-white/10 flex-shrink-0">
           <div className="relative z-[100]">
             <button
@@ -1852,22 +2915,58 @@ export default function SmartWalletDrawer({
                   <User className="w-4 h-4 text-cyan-400" />
                 )}
               </div>
-              {(activePersona?.fioHandle || agent.fioHandle || effectivePersonaId) && (
+              {(activePersona?.displayName || activePersona?.fioHandle || agent.fioHandle || effectivePersonaId) && (
                 <span className={`text-xs font-medium truncate max-w-[110px] ${activePersona?.isAgent ? "text-amber-300" : "text-cyan-300"}`}>
-                  {activePersona?.fioHandle || agent.fioHandle || effectivePersonaId}
+                  {activePersona?.displayName || activePersona?.fioHandle || agent.fioHandle || effectivePersonaId}
                 </span>
               )}
               <ChevronDown className={`w-3 h-3 text-white/50 transition-transform ${personaMenuOpen ? "rotate-180" : ""}`} />
             </button>
 
             {personaMenuOpen && (
-              <div className="absolute top-full left-0 mt-1 min-w-[240px] bg-slate-950 rounded-lg border border-white/20 shadow-2xl z-[200] overflow-hidden">
+              <div className="absolute top-full left-0 mt-1 min-w-[240px] max-h-[calc(100vh-120px)] bg-slate-950 rounded-lg border border-white/20 shadow-2xl z-[200] overflow-y-auto overscroll-contain">
 
                 {/* Signed-in account header */}
                 {sessionEmail && (
                   <div className="px-3 py-2 border-b border-white/10 flex items-center gap-2">
                     <Mail className="w-3.5 h-3.5 text-white/40 flex-shrink-0" />
                     <p className="text-xs text-white/60 truncate">{sessionEmail}</p>
+                  </div>
+                )}
+
+                {/* Passport-native connect — PAS-001 §20 Phase 2 (2026-07-31),
+                    REVISED 2026-08-02 (wallet-surface convergence): the
+                    persona menu INITIATES Passport sign-in, it does not HOST
+                    it. Mounting the full `PassportConnectPanel` ceremony
+                    inside this small popover was itself the wrong surface —
+                    an authentication ceremony belongs in the wallet's own
+                    main body, not an account dropdown, independent of
+                    whether any individual step happens to render full-screen
+                    or inline. This row only sets `walletSurface` and closes
+                    the dropdown; the ceremony renders in the drawer body via
+                    the `walletSurface !== null` branch below, which is
+                    reachable from every tab, not just this dropdown.
+                    Always visible while signed out, not gated behind the
+                    "Sign In" click below, so a citizen with a wallet is
+                    never funneled into the legacy password form first. */}
+                {!sessionEmail && (
+                  <div className="border-b border-slate-800 p-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPersonaMenuOpen(false);
+                        setWalletSurface('PASSPORT_SIGN_IN');
+                      }}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-purple-500/20 to-cyan-500/20 border border-purple-500/30 px-3 py-2 text-sm text-white transition-colors hover:from-purple-500/30 hover:to-cyan-500/30"
+                    >
+                      <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                      Sign in with Passport
+                    </button>
+                    <div className="flex items-center gap-2 pt-3">
+                      <div className="h-px flex-1 bg-slate-800" />
+                      <span className="text-[10px] uppercase tracking-wider text-white/30">or</span>
+                      <div className="h-px flex-1 bg-slate-800" />
+                    </div>
                   </div>
                 )}
 
@@ -1934,48 +3033,7 @@ export default function SmartWalletDrawer({
                             if (e.key !== "Enter") return;
                             setSignInPending(true);
                             setSignInError(null);
-                            if (authMode === "signin") {
-                              const { error } = await signInWithEmail(signInEmailInput, signInPasswordInput);
-                              setSignInPending(false);
-                              if (error) {
-                                setSignInError(error);
-                              } else {
-                                setSigningIn(false);
-                                setSignInEmailInput("");
-                                setSignInPasswordInput("");
-                                setPersonaMenuOpen(false);
-                              }
-                            } else {
-                              const { error, requiresEmailConfirmation } = await signUpWithEmail(signInEmailInput, signInPasswordInput);
-                              setSignInPending(false);
-                              if (error) {
-                                setSignInError(error);
-                              } else if (requiresEmailConfirmation) {
-                                setSignUpConfirmationSent(true);
-                              } else {
-                                // session already populated — onAuthStateChange will close panel
-                                setSigningIn(false);
-                                setSignInPasswordInput("");
-                                setPersonaMenuOpen(false);
-                              }
-                            }
-                          }}
-                          className="w-full mb-2 px-2 py-1.5 text-sm bg-white/5 border border-white/10 rounded text-white placeholder-white/30 focus:outline-none focus:border-cyan-500/50"
-                          autoComplete={authMode === "signup" ? "new-password" : "current-password"}
-                        />
-                        {authMode === "signup" && (
-                          <p className="text-[10px] text-white/40 mb-2">
-                            FIO handle is optional and can be added later from your wallet. Required only for transactions.
-                          </p>
-                        )}
-                        {signInError && (
-                          <p className="text-xs text-red-400 mb-2">{signInError}</p>
-                        )}
-                        <div className="flex gap-2">
-                          <button
-                            onClick={async () => {
-                              setSignInPending(true);
-                              setSignInError(null);
+                            try {
                               if (authMode === "signin") {
                                 const { error } = await signInWithEmail(signInEmailInput, signInPasswordInput);
                                 setSignInPending(false);
@@ -1999,6 +3057,62 @@ export default function SmartWalletDrawer({
                                   setSignInPasswordInput("");
                                   setPersonaMenuOpen(false);
                                 }
+                              }
+                            } catch (err) {
+                              console.error('[SmartWallet] auth error:', err);
+                              setSignInPending(false);
+                              setSignInError(
+                                err instanceof Error ? err.message : 'Sign-in failed — check your connection and try again.',
+                              );
+                            }
+                          }}
+                          className="w-full mb-2 px-2 py-1.5 text-sm bg-white/5 border border-white/10 rounded text-white placeholder-white/30 focus:outline-none focus:border-cyan-500/50"
+                          autoComplete={authMode === "signup" ? "new-password" : "current-password"}
+                        />
+                        {authMode === "signup" && (
+                          <p className="text-[10px] text-white/40 mb-2">
+                            FIO handle is optional and can be added later from your wallet. Required only for transactions.
+                          </p>
+                        )}
+                        {signInError && (
+                          <p className="text-xs text-red-400 mb-2">{signInError}</p>
+                        )}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={async () => {
+                              setSignInPending(true);
+                              setSignInError(null);
+                              try {
+                                if (authMode === "signin") {
+                                  const { error } = await signInWithEmail(signInEmailInput, signInPasswordInput);
+                                  setSignInPending(false);
+                                  if (error) {
+                                    setSignInError(error);
+                                  } else {
+                                    setSigningIn(false);
+                                    setSignInEmailInput("");
+                                    setSignInPasswordInput("");
+                                    setPersonaMenuOpen(false);
+                                  }
+                                } else {
+                                  const { error, requiresEmailConfirmation } = await signUpWithEmail(signInEmailInput, signInPasswordInput);
+                                  setSignInPending(false);
+                                  if (error) {
+                                    setSignInError(error);
+                                  } else if (requiresEmailConfirmation) {
+                                    setSignUpConfirmationSent(true);
+                                  } else {
+                                    setSigningIn(false);
+                                    setSignInPasswordInput("");
+                                    setPersonaMenuOpen(false);
+                                  }
+                                }
+                              } catch (err) {
+                                console.error('[SmartWallet] auth error:', err);
+                                setSignInPending(false);
+                                setSignInError(
+                                  err instanceof Error ? err.message : 'Sign-in failed — check your connection and try again.',
+                                );
                               }
                             }}
                             disabled={signInPending}
@@ -2030,6 +3144,30 @@ export default function SmartWalletDrawer({
                       const isConfirming = confirmDeletePersonaId === persona.id;
                       const isPending = personaActionPending === persona.id;
                       const isArchived = (persona as Record<string, unknown>).status === 'inactive';
+                      // aigentMe persona — the citizen's delegate. Default tap is
+                      // "engage" (B), NOT a spine identity swap. The explicit
+                      // "Act as" control performs the full switch (B+).
+                      const isAigentMePersona =
+                        (persona as { appOrigin?: string }).appOrigin === 'aigent-me';
+                      const switchToPersona = () => {
+                        setLocalPersonaId(persona.id);
+                        ctxSetActivePersonaId(persona.id);
+                        onPersonaChange?.(persona.id);
+                        setPersonaMenuOpen(false);
+                        window.dispatchEvent(new CustomEvent("persona-switched", { detail: { personaId: persona.id } }));
+                      };
+                      const engageAigentMe = () => {
+                        // B — engage as delegate/chief-of-staff. Updates the local
+                        // UI state so the dropdown shows aigentMe as selected, but
+                        // does NOT swap the spine Bearer token (that's B+ via "Act as").
+                        setLocalPersonaId(persona.id);
+                        ctxSetActivePersonaId(persona.id);
+                        onPersonaChange?.(persona.id);
+                        setPersonaMenuOpen(false);
+                        window.dispatchEvent(
+                          new CustomEvent("aigentme-engaged", { detail: { personaId: persona.id } }),
+                        );
+                      };
                       return (
                         <div
                           key={persona.id}
@@ -2038,13 +3176,7 @@ export default function SmartWalletDrawer({
                           } ${isArchived ? 'opacity-50' : ''}`}
                         >
                           <button
-                            onClick={() => {
-                              setLocalPersonaId(persona.id);
-                              ctxSetActivePersonaId(persona.id);
-                              onPersonaChange?.(persona.id);
-                              setPersonaMenuOpen(false);
-                              window.dispatchEvent(new CustomEvent("persona-switched", { detail: { personaId: persona.id } }));
-                            }}
+                            onClick={isAigentMePersona ? engageAigentMe : switchToPersona}
                             className="flex items-center gap-2 flex-1 min-w-0 text-left"
                           >
                             {persona.isAgent ? (
@@ -2053,8 +3185,19 @@ export default function SmartWalletDrawer({
                               <User className="w-4 h-4 text-cyan-400 shrink-0" />
                             )}
                             <div className="text-left min-w-0 flex-1">
-                              <p className="text-sm text-white/90 truncate">{persona.displayName || "Persona"}</p>
-                              <p className="text-xs text-white/50 truncate">{persona.fioHandle || "No handle"}</p>
+                              <p className="text-sm text-white/90 truncate flex items-center gap-1.5">
+                                {persona.displayName || "Persona"}
+                                {isAigentMePersona && (
+                                  <span className="inline-flex items-center gap-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0 text-[9px] font-medium text-amber-300">
+                                    <Star className="w-2.5 h-2.5" /> aigentMe
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-xs text-white/50 truncate">
+                                {isAigentMePersona
+                                  ? (effectivePersonaId === persona.id ? 'Delegate · engaged' : 'Your delegate · tap to engage')
+                                  : (persona.fioHandle || "No handle")}
+                              </p>
                             </div>
                             {effectivePersonaId === persona.id && !isConfirming && (
                               <Check className="w-3 h-3 text-emerald-400 shrink-0" />
@@ -2064,6 +3207,18 @@ export default function SmartWalletDrawer({
                           {/* Manage actions — revealed on hover */}
                           {!isConfirming && !isPending && (
                             <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                              {isAigentMePersona && effectivePersonaId !== persona.id && (
+                                <button
+                                  title="Act as your aigentMe (advanced — occupy the agent seat)"
+                                  onClick={() => {
+                                    setPreActAsPersonaId(effectivePersonaId ?? null);
+                                    switchToPersona();
+                                  }}
+                                  className="px-1.5 py-0.5 rounded text-[10px] font-medium text-amber-300 border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 transition-colors"
+                                >
+                                  Act as
+                                </button>
+                              )}
                               {cartridgeSlug && (() => {
                                 const isDefault = getCartridgeDefault(cartridgeSlug) === persona.id;
                                 return (
@@ -2116,8 +3271,33 @@ export default function SmartWalletDrawer({
                   </div>
                 )}
 
-                {/* Signed in but no personas yet — prompt to create */}
-                {sessionEmail && allAvailablePersonas.length === 0 && (
+                {/* COULD NOT LOAD ≠ HAS NONE (operator report, 2026-08-02).
+                    A failed persona fetch used to render as "No personas yet.
+                    Create one to get started." — which hid the failure AND
+                    invited an operator with existing personas to create a
+                    duplicate. An unknown list must never offer that remedy. */}
+                {sessionEmail && personasLoadFailed !== null && (
+                  <div className="px-3 py-3 border-b border-white/10">
+                    <p className="text-xs text-amber-300">Your personas could not be loaded.</p>
+                    <p className="mt-1 text-[11px] text-white/40">
+                      This is a loading problem, not a sign that your personas are gone — nothing has been
+                      changed. Don&apos;t create a new one; retry instead.
+                    </p>
+                    <p className="mt-1 text-[10px] font-mono text-white/30">
+                      {personasLoadFailed === 0 ? 'request failed or timed out' : `HTTP ${personasLoadFailed}`}
+                      {personasLoadFailed === 401 ? ' — the session was not accepted; signing out and back in usually clears it' : ''}
+                    </p>
+                    <button
+                      onClick={() => void refreshPersonas()}
+                      className="mt-2 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-1.5 text-xs text-white/80 transition-colors hover:bg-slate-900"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
+
+                {/* Signed in and CONFIRMED to have none — prompt to create */}
+                {sessionEmail && personasLoadFailed === null && allAvailablePersonas.length === 0 && (
                   <div className="px-3 py-3 border-b border-white/10">
                     <p className="text-xs text-white/40 mb-2">No personas yet. Create one to get started.</p>
                     <button
@@ -2291,16 +3471,94 @@ export default function SmartWalletDrawer({
             </Tooltip>
           </div>
         </header>
+        )}
 
-        {/* Tab Navigation */}
-        <div className="wallet-tab-nav px-3 py-2 bg-black/20">
-          <div className="flex w-full items-center justify-between gap-0">
+        {/* Acting-as-aigentMe banner (B+) — visible while the active persona is
+            an aigentMe, with a one-tap return to the citizen persona. */}
+        {(() => {
+          const activeRow = allAvailablePersonas.find((p) => p.id === effectivePersonaId);
+          if ((activeRow as { appOrigin?: string } | undefined)?.appOrigin !== 'aigent-me') return null;
+          const returnTarget =
+            allAvailablePersonas.find(
+              (p) => p.id === preActAsPersonaId && (p as { appOrigin?: string }).appOrigin !== 'aigent-me',
+            ) ||
+            allAvailablePersonas.find(
+              (p) => (p as { appOrigin?: string }).appOrigin !== 'aigent-me' && !p.isAgent,
+            ) ||
+            null;
+          return (
+            <div className="mx-3 mt-2 flex items-center justify-between gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Bot className="w-4 h-4 text-amber-400 shrink-0" />
+                <p className="text-xs text-amber-200 truncate">
+                  Acting as your aigentMe{activeRow?.displayName ? ` (${activeRow.displayName})` : ''} — you are in the agent seat.
+                </p>
+              </div>
+              {returnTarget && (
+                <button
+                  onClick={() => {
+                    setLocalPersonaId(returnTarget.id);
+                    ctxSetActivePersonaId(returnTarget.id);
+                    onPersonaChange?.(returnTarget.id);
+                    setPreActAsPersonaId(null);
+                    window.dispatchEvent(
+                      new CustomEvent("persona-switched", { detail: { personaId: returnTarget.id } }),
+                    );
+                  }}
+                  className="shrink-0 rounded-lg border border-amber-500/40 bg-amber-500/15 px-2.5 py-1 text-[11px] font-medium text-amber-200 hover:bg-amber-500/25 transition-colors"
+                >
+                  Return to {returnTarget.displayName || 'my persona'}
+                </button>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Wallet-surface override (operator ruling, 2026-08-02): when a
+            Passport entry point has set `walletSurface`, it REPLACES the
+            entire tab-nav + tab-content region below — not one more tab, and
+            not a second popup — so it is reachable identically regardless of
+            which `DrawerTab` was active. `walletSurface === null` preserves
+            every byte of the existing tab system unchanged. */}
+        {walletSurface === null ? (
+        <>
+        {/* Tab Navigation.
+            Companion 1.1 (2026-07-29): when `simplifiedTopChrome` hid the top
+            row's Copilot toggle, it is re-added here as one more icon and the
+            row becomes a horizontally scrollable strip to make room —
+            operator-approved ("if fitting it in requires the icon row to
+            become a scrollable/carousel row, that's acceptable"). Every other
+            mount keeps the original equal-width `flex-1` row, unchanged. */}
+        <div className={`wallet-tab-nav px-3 bg-black/20 ${simplifiedTopChrome ? 'py-1' : 'py-2'}`}>
+          <div
+            className={
+              simplifiedTopChrome
+                ? "flex w-full items-center gap-2.5 overflow-x-auto"
+                : "flex w-full items-center justify-between gap-0"
+            }
+          >
+            {simplifiedTopChrome && (
+              <div className="flex shrink-0 justify-center">
+                <Tooltip text="Copilot">
+                  <button
+                    onClick={() => {
+                      setCopilotOpen(!copilotOpen);
+                      onOpenCopilot?.();
+                    }}
+                    className={`wallet-icon-btn py-1.5 px-2 ${copilotOpen ? 'active' : ''}`}
+                    data-active={copilotOpen}
+                  >
+                    <Bot className="w-4 h-4" />
+                  </button>
+                </Tooltip>
+              </div>
+            )}
             {TAB_CONFIG.map((tab) => (
-              <div key={tab.key} className="flex flex-1 justify-center">
+              <div key={tab.key} className={simplifiedTopChrome ? "flex shrink-0 justify-center" : "flex flex-1 justify-center"}>
                 <Tooltip text={tab.label}>
                   <button
                     onClick={() => setActiveTab(tab.key)}
-                    className={`wallet-icon-btn py-2 ${activeTab === tab.key ? 'active' : ''}`}
+                    className={`wallet-icon-btn ${simplifiedTopChrome ? 'py-1.5 px-2' : 'py-2'} ${activeTab === tab.key ? 'active' : ''}`}
                     data-active={activeTab === tab.key}
                   >
                     {tab.icon}
@@ -2311,71 +3569,129 @@ export default function SmartWalletDrawer({
           </div>
         </div>
 
-        {/* Copilot Panel (Qriptopian parity) */}
+        {/* MoneyPenny Wallet Service — ONE modal, ONE persistent identity
+            header, ONE horizontally-scrollable mode rail (Chat / Architect /
+            Runtime / metaAvatar). Reconstituted 2026-08-06 from what used to
+            be two competing tab levels (Copilot/metaVatar, then a SEPARATE
+            Chat/Architect/Runtime sub-nav only reachable from "metaVatar")
+            into a single mode selector, per the MoneyPenny Wallet Service
+            Reconstitution brief. All four mode viewports below stay mounted
+            at all times (visibility toggled via the `hidden` class, never
+            unmounted) so switching modes never resets the Chat conversation,
+            the Architect draft, or the Runtime execution state. */}
         {copilotOpen && (
-          <div className="mx-3 mt-2 mb-0 flex flex-col animate-fade-in flex-shrink-0 h-[380px] overflow-hidden rounded-xl border border-white/10 bg-white/5">
-            <div className="flex items-center justify-between px-4 py-2 bg-white/5 border-b border-white/10 rounded-t-xl flex-shrink-0">
-              <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1 bg-white/5 rounded-lg p-0.5">
+          <div className={`mx-3 mt-2 mb-0 flex flex-col animate-fade-in flex-shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/5 transition-all ${moneyPennyExpanded ? 'h-[70vh]' : 'h-[380px]'}`}>
+            <div className="flex items-center justify-between gap-2 px-3 py-2 bg-white/5 border-b border-white/10 rounded-t-xl flex-shrink-0">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <Tooltip text="MoneyPenny — the Wallet Copilot's native Financial Services agent">
+                  <span className="flex shrink-0 items-center gap-1 px-2 py-1 rounded-md text-xs bg-cyan-500/20 text-cyan-400">
+                    <BadgeCheck className="w-3 h-3" />
+                    MoneyPenny
+                  </span>
+                </Tooltip>
+                {/* Mode rail — horizontally scrollable, never wraps (narrow
+                    wallet widths keep every tab reachable via scroll rather
+                    than shrinking labels into illegibility). */}
+                <div
+                  role="tablist"
+                  aria-label="MoneyPenny mode"
+                  className="flex min-w-0 items-center gap-1 overflow-x-auto no-scrollbar flex-nowrap"
+                >
                   <button
-                    onClick={() => setCopilotMode('chat')}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-all ${
-                      copilotMode === 'chat'
-                        ? 'bg-purple-500/20 text-purple-400'
-                        : 'text-white/50 hover:text-white/80'
+                    role="tab"
+                    aria-selected={moneyPennyMode === 'chat'}
+                    onClick={() => setMoneyPennyMode('chat')}
+                    className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap px-2 py-1 rounded-md text-xs transition-all ${
+                      moneyPennyMode === 'chat' ? 'bg-purple-500/20 text-purple-400' : 'text-white/50 hover:text-white/80'
                     }`}
                   >
                     <MessageSquare className="w-3 h-3" />
-                    Copilot
+                    Chat
                   </button>
                   <button
-                    onClick={() => setCopilotMode('avatar')}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-all ${
-                      copilotMode === 'avatar'
-                        ? 'bg-cyan-500/20 text-cyan-400'
-                        : 'text-white/50 hover:text-white/80'
+                    role="tab"
+                    aria-selected={moneyPennyMode === 'architect'}
+                    onClick={() => setMoneyPennyMode('architect')}
+                    className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap px-2 py-1 rounded-md text-xs transition-all ${
+                      moneyPennyMode === 'architect' ? 'bg-emerald-500/20 text-emerald-400' : 'text-white/50 hover:text-white/80'
+                    }`}
+                  >
+                    <Compass className="w-3 h-3" />
+                    Architect
+                  </button>
+                  <button
+                    role="tab"
+                    aria-selected={moneyPennyMode === 'runtime'}
+                    onClick={() => setMoneyPennyMode('runtime')}
+                    className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap px-2 py-1 rounded-md text-xs transition-all ${
+                      moneyPennyMode === 'runtime' ? 'bg-violet-500/20 text-violet-300' : 'text-white/50 hover:text-white/80'
+                    }`}
+                  >
+                    <Cpu className="w-3 h-3" />
+                    Runtime
+                  </button>
+                  <button
+                    role="tab"
+                    aria-selected={moneyPennyMode === 'avatar'}
+                    onClick={() => setMoneyPennyMode('avatar')}
+                    className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap px-2 py-1 rounded-md text-xs transition-all ${
+                      moneyPennyMode === 'avatar' ? 'bg-cyan-500/20 text-cyan-400' : 'text-white/50 hover:text-white/80'
                     }`}
                   >
                     <User className="w-3 h-3" />
-                    MoneyPenny
+                    metaAvatar
                   </button>
                 </div>
               </div>
-              <Tooltip text="Back">
-                <button
-                  onClick={() => setCopilotOpen(false)}
-                  className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/5 transition-all"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                </button>
-              </Tooltip>
+              <div className="flex shrink-0 items-center gap-1">
+                {(moneyPennyMode === 'architect' || moneyPennyMode === 'runtime') && (
+                  <Tooltip text={moneyPennyExpanded ? 'Collapse' : 'Expand — open the full workspace in place, never a new tab'}>
+                    <button
+                      onClick={() => setMoneyPennyExpanded((v) => !v)}
+                      className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/5 transition-all"
+                    >
+                      {moneyPennyExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                    </button>
+                  </Tooltip>
+                )}
+                <Tooltip text="Back">
+                  <button
+                    onClick={() => setCopilotOpen(false)}
+                    className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/5 transition-all"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                  </button>
+                </Tooltip>
+              </div>
             </div>
 
-            {copilotMode === "chat" ? (
-              <div ref={copilotAnchorRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
-              {/* Ask Copilot - Chat Interface */}
+            <div ref={moneyPennyViewportRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
+              {/* CHAT — the ONE canonical MoneyPenny text chat. This is the
+                  former "Copilot" chat AND the former metaVatar-tab "cyan
+                  Chat" — both already called the same handleSendPrompt ->
+                  copilotMessages -> /api/moneypenny/chat engine before this
+                  pass (unified earlier this session); this removes the
+                  second RENDERING of that one chat, never a second store. */}
               <section
-                ref={askCopilotCardRef}
-                className="relative rounded-xl backdrop-blur-xl bg-white/5 border border-white/10 p-3 h-[290px] flex flex-col"
+                className={`relative rounded-xl backdrop-blur-xl bg-white/5 border border-white/10 p-3 flex flex-col ${moneyPennyMode === 'chat' ? '' : 'hidden'} ${moneyPennyExpanded ? 'h-[calc(70vh-180px)]' : 'h-[290px]'}`}
                 onMouseEnter={() => showCopilotQuickPrompts()}
                 onMouseLeave={() => showCopilotQuickPrompts()}
               >
-                <div className="text-xs uppercase tracking-wider text-white/60 mb-3">Ask Copilot</div>
-                
-                {/* Chat Messages Area */}
+                <div className="text-xs uppercase tracking-wider text-white/60 mb-3">Ask MoneyPenny</div>
+
                 <div ref={copilotChatScrollRef} className="mb-2 flex-1 min-h-0 overflow-y-auto space-y-3 pb-16">
                   {copilotMessages.map((msg, i) => (
                     <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
                       {msg.role === 'assistant' && (
                         <Bot className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
                       )}
-                      <p className={`text-sm leading-relaxed max-w-[85%] ${
-                        msg.role === 'user' 
-                          ? 'bg-white/10 text-white/90 px-3 py-2 rounded-lg rounded-br-sm' 
-                          : 'text-white/80'
-                      }`}>
-                        {msg.content}
-                      </p>
+                      {msg.role === 'assistant' ? (
+                        <MarkdownLite text={msg.content} className="max-w-[85%] space-y-1 text-sm leading-relaxed text-white/80" />
+                      ) : (
+                        <p className="text-sm leading-relaxed max-w-[85%] bg-white/10 text-white/90 px-3 py-2 rounded-lg rounded-br-sm">
+                          {msg.content}
+                        </p>
+                      )}
                       {msg.role === 'user' && (
                         <User className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
                       )}
@@ -2439,12 +3755,12 @@ export default function SmartWalletDrawer({
                       }
                     }}
                     onFocus={() => showCopilotQuickPrompts()}
-                    placeholder="Ask anything..."
+                    placeholder="Ask MoneyPenny anything..."
                     disabled={copilotLoading}
                     className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white/90 placeholder:text-white/40 focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all disabled:opacity-50"
                   />
                   <Tooltip text="Send message">
-                    <button 
+                    <button
                       onClick={() => handleSendPrompt()}
                       disabled={copilotLoading || !copilotPrompt.trim()}
                       className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 border border-white/20 text-white/90 hover:bg-white/15 hover:border-purple-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -2456,176 +3772,243 @@ export default function SmartWalletDrawer({
                 </div>
               </section>
 
-              {/* Wide/copilot contextual tab content */}
-              {activeTab === "wallet" && (
+              {/* ARCHITECT — proposal-only. Collapsed uses the compact
+                  wallet-native wrapper; expanded swaps in the full cartridge
+                  ArchitectPanel component IN PLACE (composition, never a
+                  navigation) so the draft can be read at full size. Neither
+                  path forms, authorizes, or settles anything.
+
+                  BOTH stay MOUNTED, toggled by class only — never
+                  conditionally rendered by component type (operator report,
+                  2026-08-06: "when the full screen is activated or collapsed
+                  it's losing state"). Swapping `moneyPennyExpanded ? <A/> :
+                  <B/>` unmounts whichever one wasn't showing, wiping its
+                  intent/result `useState`. This is the SAME ternary-hidden-
+                  class discipline the four mode viewports already use above
+                  (MS-3-style: state survives a visibility toggle) — and both
+                  surfaces are handed the SAME `architectDraft` (via
+                  `sharedState`, hooks/useArchitectDraft.ts) rather than each
+                  keeping its own independent copy, so expand/collapse shows
+                  ONE conversation, not two (operator follow-up, 2026-08-06:
+                  "the full screen modal is not getting the active inference
+                  and conversation injected into it"). */}
+              <div className={moneyPennyMode === 'architect' ? (moneyPennyExpanded ? 'min-h-[420px]' : 'h-[290px] overflow-y-auto') : 'hidden'}>
+                <div className={moneyPennyExpanded ? '' : 'hidden'}>
+                  <ArchitectPanel sharedState={architectDraft} />
+                </div>
+                <div className={moneyPennyExpanded ? 'hidden' : ''}>
+                  <MoneyPennyWalletArchitect personaIdHint={effectivePersonaId} sharedState={architectDraft} />
+                </div>
+              </div>
+
+              {/* RUNTIME — read-only shadow preview. Collapsed uses the
+                  compact wallet-native wrapper (always shadow, Financial
+                  Intelligence only). Expanded swaps in the full cartridge
+                  RuntimePanel component IN PLACE — the SAME component the
+                  standalone /moneypenny page renders, carrying the complete
+                  Constitutional Agreement lifecycle (Form/Accept/Authorize)
+                  behind its own human-click Authorize gate. This REPLACES
+                  the former "Open full Runtime + Agreement lifecycle in
+                  MoneyPenny" page navigation — the full runtime now opens
+                  in place, inside whichever host currently has this drawer
+                  mounted, and never opens a new tab. Preview/shadow/
+                  authoritative semantics are RuntimePanel's own, untouched.
+
+                  BOTH stay MOUNTED, toggled by class only — same state-
+                  preservation fix as Architect above, same reason. */}
+              <div className={moneyPennyMode === 'runtime' ? (moneyPennyExpanded ? 'min-h-[420px]' : 'h-[290px] overflow-y-auto') : 'hidden'}>
+                <div className={moneyPennyExpanded ? '' : 'hidden'}>
+                  <RuntimePanel />
+                </div>
+                <div className={moneyPennyExpanded ? 'hidden' : ''}>
+                  <MoneyPennyWalletRuntime personaIdHint={effectivePersonaId} />
+                </div>
+              </div>
+
+              {/* METAAVATAR — the video avatar companion. Occupies this same
+                  mode viewport (never a second panel overlaying the modal
+                  and the wallet at once); the D-ID iframe itself is a fixed
+                  overlay positioned against moneyPennyViewportRef above, only
+                  requested while this mode is active (the effect near
+                  requestAvatar). Chat remains the canonical text surface —
+                  no second text-input implementation here. */}
+              <div className={moneyPennyMode === 'avatar' ? 'h-[290px] flex flex-col' : 'hidden'}>
+                <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-3 rounded-xl bg-black/20 border border-white/10">
+                  <div className="text-xs uppercase tracking-wider text-white/60">MoneyPenny — metaAvatar</div>
+                  <p className="max-w-xs text-center text-[11px] text-white/40">
+                    Video avatar companion. Use Chat for the canonical text interaction with MoneyPenny.
+                  </p>
+                  <button
+                    onClick={refreshAvatar}
+                    className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/60 transition-all hover:bg-white/10 hover:text-white"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Refresh Avatar
+                  </button>
+                </div>
+              </div>
+
+              {/* Persistent wallet context (Quick Actions / Q¢ Balance /
+                  Smart Triad / per-activeTab context) — lives OUTSIDE the
+                  active MoneyPenny mode viewport per the reconstitution
+                  brief: renders once regardless of which mode is selected
+                  (never duplicated per-mode), and steps aside while a mode
+                  is expanded so that mode gets the full height. */}
+              {!moneyPennyExpanded && (
                 <>
-                  <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-3">
-                    <div className="text-[10px] uppercase tracking-wider text-white/60 mb-2">Quick Actions</div>
-                    <div className="quick-actions-carousel">
-                      <Tooltip text="Browse your content library">
-                        <button
-                          onClick={() => {
-                            triadContext?.actions.refreshLibrary?.();
-                            setActiveTab("library");
-                          }}
-                          className="quick-action-item"
-                        >
-                          <BookOpen className="w-3.5 h-3.5" />
-                          <span>Library</span>
-                        </button>
-                      </Tooltip>
-                      <Tooltip text="Claim pending rewards">
-                        <button onClick={() => setActiveTab("rewards")} className="quick-action-item">
-                          <Gift className="w-3.5 h-3.5" />
-                          <span>Rewards</span>
-                        </button>
-                      </Tooltip>
-                      <Tooltip text="View available tasks">
-                        <button onClick={() => setActiveTab("tasks")} className="quick-action-item">
-                          <CheckSquare className="w-3.5 h-3.5" />
-                          <span>Tasks</span>
-                        </button>
-                      </Tooltip>
-                      <Tooltip text="Build your reputation">
-                        <button onClick={() => setActiveTab("reputation")} className="quick-action-item">
-                          <Trophy className="w-3.5 h-3.5" />
-                          <span>Reputation</span>
-                        </button>
-                      </Tooltip>
-                    </div>
-                  </section>
-
-                  <section className="rounded-xl backdrop-blur-xl bg-gradient-to-br from-purple-500/10 to-fuchsia-500/5 border border-purple-500/20 p-4">
-                    <div className="text-xs uppercase tracking-wider text-white/70 mb-3">Your Q¢ Balance</div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-3xl font-bold text-white/95">
-                          {bals.qctArb ? (Number(bals.qctArb) / Math.pow(10, bals.qctArbDecimals || 18)).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "0"}
+                  {activeTab === "wallet" && (
+                    <>
+                      <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-3">
+                        <div className="text-[10px] uppercase tracking-wider text-white/60 mb-2">Quick Actions</div>
+                        <div className="quick-actions-carousel">
+                          <Tooltip text="Browse your content library">
+                            <button
+                              onClick={() => {
+                                triadContext?.actions.refreshLibrary?.();
+                                setActiveTab("library");
+                              }}
+                              className="quick-action-item"
+                            >
+                              <BookOpen className="w-3.5 h-3.5" />
+                              <span>Library</span>
+                            </button>
+                          </Tooltip>
+                          <Tooltip text="Claim pending rewards">
+                            <button onClick={() => setActiveTab("rewards")} className="quick-action-item">
+                              <Gift className="w-3.5 h-3.5" />
+                              <span>Rewards</span>
+                            </button>
+                          </Tooltip>
+                          <Tooltip text="View available tasks">
+                            <button onClick={() => setActiveTab("tasks")} className="quick-action-item">
+                              <CheckSquare className="w-3.5 h-3.5" />
+                              <span>Tasks</span>
+                            </button>
+                          </Tooltip>
+                          <Tooltip text="Build your reputation">
+                            <button onClick={() => setActiveTab("reputation")} className="quick-action-item">
+                              <Trophy className="w-3.5 h-3.5" />
+                              <span>Reputation</span>
+                            </button>
+                          </Tooltip>
                         </div>
-                        <div className="text-sm text-white/60 mt-1">Q¢ on Arbitrum</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm text-white/60">Ready for payments</div>
-                        <div className="text-xs text-emerald-400 flex items-center justify-end gap-1 mt-1">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                          Live
-                        </div>
-                      </div>
-                    </div>
-                  </section>
+                      </section>
 
-                  <section className="rounded-xl backdrop-blur-xl bg-gradient-to-br from-purple-500/10 to-fuchsia-500/10 border border-purple-500/20 p-4">
-                    <div className="text-xs uppercase tracking-wider text-white/70 mb-3">Smart Triad</div>
-                    <div className="space-y-2">
-                      <Tooltip text="Purchase selected content with Q¢">
-                        <button
-                          className="w-full p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-purple-500/30 transition-all text-left flex items-center gap-3 disabled:opacity-50"
-                          onClick={async () => {
-                            if (currentContent && triadContext) {
-                              await triadContext.actions.purchaseContent(currentContent.id, "arb");
-                            }
-                          }}
-                          disabled={!currentContent}
-                        >
-                          <CreditCard className="w-5 h-5 text-purple-400" />
+                      <section className="rounded-xl backdrop-blur-xl bg-gradient-to-br from-purple-500/10 to-fuchsia-500/5 border border-purple-500/20 p-4">
+                        <div className="text-xs uppercase tracking-wider text-white/70 mb-3">Your Q¢ Balance</div>
+                        <div className="flex items-center justify-between">
                           <div>
-                            <div className="text-sm text-white/90">Purchase Content</div>
-                            <div className="text-xs text-white/60">Pay with Q¢ on Arbitrum</div>
+                            <div className="text-3xl font-bold text-white/95">
+                              {bals.qctArb ? (Number(bals.qctArb) / Math.pow(10, bals.qctArbDecimals || 18)).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "0"}
+                            </div>
+                            <div className="text-sm text-white/60 mt-1">Q¢ on Arbitrum</div>
                           </div>
-                        </button>
-                      </Tooltip>
-                      <Tooltip text="Refresh library from QubeBase">
-                        <button
-                          className="w-full p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-purple-500/30 transition-all text-left flex items-center gap-3"
-                          onClick={() => {
-                            triadContext?.actions.refreshLibrary?.();
-                            setActiveTab("library");
-                          }}
-                        >
-                          <RefreshCw className="w-5 h-5 text-purple-400" />
-                          <div>
-                            <div className="text-sm text-white/90">Sync Library</div>
-                            <div className="text-xs text-white/60">Refresh from QubeBase</div>
+                          <div className="text-right">
+                            <div className="text-sm text-white/60">Ready for payments</div>
+                            <div className="text-xs text-emerald-400 flex items-center justify-end gap-1 mt-1">
+                              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                              Live
+                            </div>
                           </div>
-                        </button>
-                      </Tooltip>
-                    </div>
-                  </section>
+                        </div>
+                      </section>
+
+                      <section className="rounded-xl backdrop-blur-xl bg-gradient-to-br from-purple-500/10 to-fuchsia-500/10 border border-purple-500/20 p-4">
+                        <div className="text-xs uppercase tracking-wider text-white/70 mb-3">Smart Triad</div>
+                        <div className="space-y-2">
+                          <Tooltip text="Purchase selected content with Q¢">
+                            <button
+                              className="w-full p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-purple-500/30 transition-all text-left flex items-center gap-3 disabled:opacity-50"
+                              onClick={async () => {
+                                if (currentContent && triadContext) {
+                                  await triadContext.actions.purchaseContent(currentContent.id, "arb");
+                                }
+                              }}
+                              disabled={!currentContent}
+                            >
+                              <CreditCard className="w-5 h-5 text-purple-400" />
+                              <div>
+                                <div className="text-sm text-white/90">Purchase Content</div>
+                                <div className="text-xs text-white/60">Pay with Q¢ on Arbitrum</div>
+                              </div>
+                            </button>
+                          </Tooltip>
+                          <Tooltip text="Refresh library from QubeBase">
+                            <button
+                              className="w-full p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-purple-500/30 transition-all text-left flex items-center gap-3"
+                              onClick={() => {
+                                triadContext?.actions.refreshLibrary?.();
+                                setActiveTab("library");
+                              }}
+                            >
+                              <RefreshCw className="w-5 h-5 text-purple-400" />
+                              <div>
+                                <div className="text-sm text-white/90">Sync Library</div>
+                                <div className="text-xs text-white/60">Refresh from QubeBase</div>
+                              </div>
+                            </button>
+                          </Tooltip>
+                        </div>
+                      </section>
+                    </>
+                  )}
+
+                  {activeTab === "library" && (
+                    <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
+                      <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Library Context</div>
+                      <div className="text-sm text-white/80">
+                        {walletNode?.contentEntitlements?.length || 0} item(s) available. Use the Library tab below to browse covers and open entitlements.
+                      </div>
+                    </section>
+                  )}
+
+                  {activeTab === "tasks" && (
+                    <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
+                      <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Task Context</div>
+                      <div className="text-sm text-white/80">
+                        {tasks.filter((t) => t.status === "pending" || t.status === "in_progress").length} active tasks and {quests.length} active quest(s).
+                      </div>
+                    </section>
+                  )}
+
+                  {activeTab === "reputation" && (
+                    <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
+                      <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Reputation Context</div>
+                      <div className="text-sm text-white/80">
+                        Score {activePersona?.reputationScore || 0} with {(activePersona?.badges || []).length} badge(s) earned.
+                      </div>
+                    </section>
+                  )}
+
+                  {activeTab === "rewards" && (
+                    <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
+                      <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Rewards Context</div>
+                      <div className="text-sm text-white/80">
+                        Lifetime rewards are surfaced in the Rewards tab. Use this copilot to claim pending rewards and review history.
+                      </div>
+                    </section>
+                  )}
+
+                  {activeTab === "payments" && (
+                    <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
+                      <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Payments Context</div>
+                      <div className="text-sm text-white/80">
+                        Payment flow is active. Use this copilot for conversion, settlement retries, and purchase assistance.
+                      </div>
+                    </section>
+                  )}
+
+                  {activeTab === "iqube" && (
+                    <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
+                      <div className="text-xs uppercase tracking-wider text-white/70 mb-2">PersonaQube</div>
+                      <div className="text-sm text-white/80">
+                        Stage your persona as a content-addressed PersonaQube on Autonomys — enables cryptographic binding to SkillQubes and cross-platform portability.
+                      </div>
+                    </section>
+                  )}
                 </>
               )}
-
-              {activeTab === "library" && (
-                <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
-                  <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Library Context</div>
-                  <div className="text-sm text-white/80">
-                    {walletNode?.contentEntitlements?.length || 0} item(s) available. Use the Library tab below to browse covers and open entitlements.
-                  </div>
-                </section>
-              )}
-
-              {activeTab === "tasks" && (
-                <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
-                  <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Task Context</div>
-                  <div className="text-sm text-white/80">
-                    {tasks.filter((t) => t.status === "pending" || t.status === "in_progress").length} active tasks and {quests.length} active quest(s).
-                  </div>
-                </section>
-              )}
-
-              {activeTab === "reputation" && (
-                <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
-                  <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Reputation Context</div>
-                  <div className="text-sm text-white/80">
-                    Score {activePersona?.reputationScore || 0} with {(activePersona?.badges || []).length} badge(s) earned.
-                  </div>
-                </section>
-              )}
-
-              {activeTab === "rewards" && (
-                <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
-                  <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Rewards Context</div>
-                  <div className="text-sm text-white/80">
-                    Lifetime rewards are surfaced in the Rewards tab. Use this copilot to claim pending rewards and review history.
-                  </div>
-                </section>
-              )}
-
-              {activeTab === "payments" && (
-                <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
-                  <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Payments Context</div>
-                  <div className="text-sm text-white/80">
-                    Payment flow is active. Use this copilot for conversion, settlement retries, and purchase assistance.
-                  </div>
-                </section>
-              )}
-
-              {activeTab === "iqube" && (
-                <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
-                  <div className="text-xs uppercase tracking-wider text-white/70 mb-2">PersonaQube</div>
-                  <div className="text-sm text-white/80">
-                    Stage your persona as a content-addressed PersonaQube on Autonomys — enables cryptographic binding to SkillQubes and cross-platform portability.
-                  </div>
-                </section>
-              )}
             </div>
-            ) : (
-              <section
-                ref={avatarAnchorRef}
-                className="mx-3 mt-3 mb-3 rounded-xl bg-white/5 border border-white/10 p-4 h-[290px] flex-1 min-h-0 flex flex-col items-center justify-center"
-              >
-                <div className="text-xs uppercase tracking-wider text-white/60 mb-3">Ask MoneyPenny</div>
-                <p className="text-sm text-white/40 text-center mb-4">
-                  MoneyPenny is ready to help with your wallet, rewards, and Q¢ questions.
-                </p>
-                <button
-                  onClick={refreshAvatar}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-white/60 hover:text-white hover:bg-white/10 transition-all"
-                >
-                  <RefreshCw className="w-3 h-3" />
-                  Refresh Avatar
-                </button>
-              </section>
-            )}
           </div>
         )}
 
@@ -2634,7 +4017,225 @@ export default function SmartWalletDrawer({
           {/* Wallet Tab */}
           {activeTab === "wallet" && (
             <div className="space-y-4">
-              {!hasAnyPersona && (
+              {/*
+                LEGACY PLATFORM WALLET EVIDENCE — separate, labelled, inert.
+                PILOT-WALLET-EXCEPTION-001 (services/wallet/pilotWalletException.ts).
+
+                The exception permits this address to remain VISIBLE for pilot
+                continuity. It does not permit it to sign, and it does not permit
+                it to stand in for the principal. Rendering it as its own block
+                with its own heading is what keeps "evidence" from quietly
+                reading as "authority" — the same address, undistinguished
+                inside the persona's own balances, is what the trace found and
+                what the exception's prohibit list forbids.
+
+                Shown only when the principal is unresolved: once a real
+                principal wallet exists, this is no longer the interesting fact
+                about the surface.
+              */}
+              {principalWalletUnresolved && agentEvidenceEvmAddress && (
+                <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-3">
+                  <div className="text-xs font-medium text-slate-200">Principal wallet — Not configured</div>
+                  <p className="mt-1 text-[11px] leading-relaxed text-white/40">
+                    No principal wallet is bound to this persona, so no balance is shown and no signing action can
+                    be offered. The address below belongs to the platform, not to you.
+                  </p>
+                  <div className="mt-2.5 rounded-lg border border-amber-500/25 bg-amber-500/5 p-2.5">
+                    <div className="text-[10px] uppercase tracking-wide text-amber-200">
+                      Legacy platform wallet evidence
+                    </div>
+                    <div className="mt-1 break-all font-mono text-[10px] text-white/50">
+                      {agentEvidenceEvmAddress}
+                    </div>
+                    <ul className="mt-1.5 space-y-0.5 text-[10px] text-amber-200/70">
+                      <li>Pilot exception active — PILOT-WALLET-EXCEPTION-001</li>
+                      <li>Signing unavailable</li>
+                      <li>Rotation deferred — AIGENT-Z-WALLET-ROTATION-001</li>
+                    </ul>
+                  </div>
+                  {/* The remedy lives WITH the diagnosis. Naming a missing
+                      principal wallet and then leaving the operator to find
+                      the ceremony elsewhere is what "do not require the user
+                      to discover the wallet setup manually" forbids. */}
+                  <button
+                    type="button"
+                    onClick={() => setWalletSurface('PRINCIPAL_WALLET_PROVISIONING')}
+                    className="mt-2.5 w-full rounded-lg border border-violet-500/30 bg-gradient-to-r from-violet-500/20 to-cyan-500/20 px-3 py-2 text-xs text-white transition-colors hover:from-violet-500/30 hover:to-cyan-500/30"
+                  >
+                    Set up your principal wallet
+                  </button>
+                </section>
+              )}
+              {/*
+                PENDING ACTIONS ENTRY — always present for a signed-in persona.
+
+                It used to render only when `pendingActionCount > 0`, on the
+                reasoning that a permanent "0 pending" row trains the operator
+                to ignore it. That reasoning cost more than it saved:
+
+                  · A count that could not be READ (null) rendered exactly like
+                    a count of zero — absent. So "could not check" and "you have
+                    none" were the same pixels, which is the collapse this
+                    codebase forbids everywhere else. The old comment claimed
+                    "absent while unknown, never rendered as zero"; absent IS
+                    how zero rendered, so the two were indistinguishable.
+
+                  · It made the signing surface reachable ONLY through a
+                    successful count query. When the deep link from Journey did
+                    not open the wallet, the operator opened the wallet
+                    themselves and found — in their words — nowhere to sign.
+                    A wallet whose signing surface can vanish is not a wallet
+                    the operator can fall back to, and falling back to it is the
+                    entire point of the manual route.
+
+                The row now states which of the three things is true, and opens
+                the surface in all of them (MS-9 holds: it can always act — the
+                surface itself reports emptiness or an unreadable list in its
+                own words).
+              */}
+              {sessionEmail && effectivePersonaId && (
+                <button
+                  type="button"
+                  onClick={() => setWalletSurface('PENDING_ACTIONS')}
+                  className={`flex w-full items-center justify-between gap-3 rounded-2xl border p-3 text-left transition-colors ${
+                    (pendingActionCount ?? 0) > 0
+                      ? 'border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/10'
+                      : 'border-slate-800 bg-slate-900/40 hover:bg-slate-900/70'
+                  }`}
+                >
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-2">
+                      <span
+                        className={`text-xs font-medium ${
+                          (pendingActionCount ?? 0) > 0 ? 'text-violet-100' : 'text-slate-200'
+                        }`}
+                      >
+                        Pending actions
+                      </span>
+                      {pendingActionCount !== null && pendingActionCount > 0 && (
+                        <span className="inline-flex items-center rounded-full border border-violet-500/40 bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-medium text-violet-200">
+                          {pendingActionCount}
+                        </span>
+                      )}
+                    </span>
+                    <span className="mt-0.5 block text-[11px] text-white/40">
+                      {pendingActionCount === null
+                        ? // Not the same statement as "none" — and saying so is
+                          // what lets the operator try rather than give up.
+                          'Could not be read just now — this is not the same as having none'
+                        : pendingActionCount > 0
+                          ? `Waiting on your signature or approval${
+                              expiredActionCount ? ` · ${expiredActionCount} expired` : ''
+                            }`
+                          : expiredActionCount
+                            ? // Nothing to do, and where the attempts went.
+                              `Nothing waiting · ${expiredActionCount} expired before completion`
+                            : 'Nothing waiting on your signature'}
+                    </span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-white/30" aria-hidden="true" />
+                </button>
+              )}
+
+              {/*
+                PRINCIPAL WALLET ENTRY — always present for a signed-in
+                persona, in every capability state.
+
+                The legacy-evidence block above renders only when the
+                principal is UNRESOLVED (`!personaEvmOverride`), and the
+                operator's own row is not that case: it holds a real MetaMask
+                address written into the principal field by the passport-mint
+                route, so `personaEvmOverride` is set and that block never
+                appears. A remedy reachable only from a diagnosis that does
+                not fire is not reachable.
+
+                It deliberately asserts NOTHING about the wallet's state —
+                the surface itself classifies, server-side, via
+                `/api/wallet/principal/status`. A second classification here
+                would be the parallel implementation inv.engineering.037
+                forbids, and would disagree with the first one the moment
+                either changed.
+              */}
+              {sessionEmail && effectivePersonaId && (
+                <button
+                  type="button"
+                  onClick={() => setWalletSurface('PRINCIPAL_WALLET_PROVISIONING')}
+                  className="flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/40 p-3 text-left transition-colors hover:bg-slate-900/70"
+                >
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-slate-200">Principal wallet</span>
+                      {principalChip === 'proven' && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">
+                          <ShieldCheck className="h-2.5 w-2.5" aria-hidden="true" /> Ready
+                        </span>
+                      )}
+                      {principalChip === 'configured' && (
+                        <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-200">
+                          Proof incomplete
+                        </span>
+                      )}
+                      {principalChip === 'none' && (
+                        <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-800/60 px-1.5 py-0.5 text-[10px] font-medium text-white/50">
+                          Not set up
+                        </span>
+                      )}
+                    </span>
+                    <span className="mt-0.5 block text-[11px] text-white/40">
+                      {principalChip === 'proven'
+                        ? 'Created, control proven — view address and key'
+                        : principalChip === 'configured'
+                          ? 'Created — one step left to prove control'
+                          : 'Create, repair or prove the wallet that signs on your behalf'}
+                    </span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-white/30" aria-hidden="true" />
+                </button>
+              )}
+
+              {/* Signed OUT entirely (2026-08-02, revised): the wallet-level
+                  `walletSurface` override (rendered above the whole tab-nav +
+                  content region — see its own block below) is now the ONE
+                  place Passport sign-in actually runs, auto-opened the
+                  moment this drawer resolves a signed-out visitor,
+                  regardless of which tab they land on. This branch is only
+                  ever visible in the narrow window BEFORE that auto-open
+                  fires, or after the visitor explicitly dismissed it (Back)
+                  — it may only OFFER re-entry, never host a second copy of
+                  the ceremony (the same "menu initiates, wallet hosts" rule
+                  the persona dropdown's own entry row is bound by). */}
+              {!sessionEmail ? (
+                <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
+                  <div className="text-sm text-white/80 mb-2">Sign in with your Passport to unlock wallet features.</div>
+                  <button
+                    type="button"
+                    onClick={() => setWalletSurface('PASSPORT_SIGN_IN')}
+                    className="w-full px-3 py-2 rounded-lg bg-gradient-to-r from-purple-500/20 to-cyan-500/20 border border-purple-500/30 text-white text-sm"
+                  >
+                    Sign in with Passport
+                  </button>
+                </section>
+              ) : personasLoadFailed !== null && !hasAnyPersona ? (
+                /* COULD NOT LOAD ≠ HAS NONE. Same defect as the persona
+                   dropdown: an unknown list must not be presented as an empty
+                   one, and must never offer "Create Persona" as the remedy —
+                   that invites a duplicate of a persona that already exists. */
+                <section className="rounded-2xl bg-slate-900/40 ring-1 ring-slate-800 p-3">
+                  <div className="text-sm text-amber-300 mb-1">Your personas could not be loaded.</div>
+                  <div className="text-[11px] text-white/40 mb-2">
+                    Nothing has been changed — this is a loading problem. Retry rather than creating a new persona.
+                    <span className="ml-1 font-mono text-white/30">
+                      {personasLoadFailed === 0 ? '(request failed or timed out)' : `(HTTP ${personasLoadFailed})`}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => void refreshPersonas()}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-800 bg-slate-900/60 text-white text-sm transition-colors hover:bg-slate-900"
+                  >
+                    Retry
+                  </button>
+                </section>
+              ) : !hasAnyPersona ? (
                 <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
                   <div className="text-sm text-white/80 mb-2">Create your first persona to unlock wallet features.</div>
                   <button
@@ -2644,36 +4245,30 @@ export default function SmartWalletDrawer({
                     Create Persona
                   </button>
                 </section>
-              )}
+              ) : null}
               {effectivePersonaId && (
-                <section className="rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 ring-1 ring-amber-500/30 p-3">
+                <section className="rounded-2xl bg-gradient-to-br from-cyan-500/10 to-purple-500/10 ring-1 ring-cyan-500/30 p-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-2xl font-bold text-amber-300">
-                        {knytLoading
+                      <div className="text-2xl font-bold text-cyan-300">
+                        {qctMainnetLoading
                           ? "Loading..."
-                          : `${knytTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} `}
-                        <span className="text-amber-400 text-lg">KNYT</span>
+                          : `${qcTopTotalStr} `}
+                        <span className="text-cyan-400 text-lg">Q¢</span>
                       </div>
-                      <div className="text-xs text-white/50 mt-0.5">≈ ${knytUsd} USD</div>
+                      <div className="text-xs text-white/50 mt-0.5">≈ ${qcTopTotalUsd} USD · B¢ + Base Q¢</div>
                     </div>
-                    <button
-                      onClick={() => setBuyKnytModalOpen(true)}
-                      className="px-2 py-1 text-[10px] bg-amber-500/20 text-amber-300 rounded hover:bg-amber-500/30"
-                    >
-                      Buy
-                    </button>
                   </div>
                   <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-white/10">
                     <button
-                      onClick={() => openTransactionModal("send")}
-                      className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-medium transition-colors"
+                      onClick={() => openTransactionModal("send", { chainId: 8453 })}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-xs font-medium transition-colors"
                     >
                       <Send className="w-3.5 h-3.5" />
                       Send
                     </button>
                     <button
-                      onClick={() => openTransactionModal("receive")}
+                      onClick={() => openTransactionModal("receive", { chainId: 8453 })}
                       className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/10 ring-1 ring-emerald-500/20 hover:bg-emerald-500/20 text-emerald-300 text-xs font-medium transition-colors"
                     >
                       <Wallet className="w-3.5 h-3.5" />
@@ -2704,9 +4299,9 @@ export default function SmartWalletDrawer({
                 <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-[11px] uppercase tracking-wider text-white/60">
-                      KNYT + USDC
+                      B¢ + Base Q¢ + USDC
                     </div>
-                    {knytLoading ? (
+                    {qctMainnetLoading ? (
                       <div className="text-[10px] text-amber-400 flex items-center gap-1">
                         <RefreshCw className="w-3 h-3 animate-spin" />
                         Loading
@@ -2719,24 +4314,22 @@ export default function SmartWalletDrawer({
                     )}
                   </div>
                   <div className="space-y-1.5 text-sm text-white/90">
-                    <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-orange-500/5 border border-orange-500/10">
                       <span className="flex items-center gap-2 text-xs">
-                        <Award className="w-4 h-4 text-amber-400" />
-                        <span className="text-amber-300">KNYT (DVN)</span>
-                        <span className="text-[9px] text-emerald-400 bg-emerald-500/20 px-1 rounded">Spendable</span>
+                        <TrendingUp className="w-4 h-4 text-orange-400/70" />
+                        <span className="text-orange-300/70">BitCent (B¢)</span>
+                        <span className="text-[9px] text-cyan-400 bg-cyan-500/20 px-1 rounded">Pending etch</span>
                       </span>
-                      <span className="font-mono text-xs text-amber-300">
-                        {knytBalance?.dvnKnyt?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"}
-                      </span>
+                      <span className="font-mono text-xs text-orange-300/70">—</span>
                     </div>
-                    <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/5 border border-amber-500/10">
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
                       <span className="flex items-center gap-2 text-xs">
-                        <Award className="w-4 h-4 text-amber-400/60" />
-                        <span className="text-amber-300/60">KNYT (EVM)</span>
-                        <span className="text-[9px] text-white/40 bg-white/10 px-1 rounded">On-chain</span>
+                        <TrendingUp className="w-4 h-4 text-blue-400" />
+                        <span className="text-blue-300">Base Q¢</span>
+                        <span className="text-[9px] text-emerald-400 bg-emerald-500/20 px-1 rounded">Mainnet</span>
                       </span>
-                      <span className="font-mono text-xs text-amber-300/60">
-                        {knytBalance?.evmKnyt?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"}
+                      <span className="font-mono text-xs text-blue-300">
+                        {formatFixed(baseQcMainnetAmount)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between p-2 rounded-lg bg-green-500/10 border border-green-500/20">
@@ -2765,42 +4358,42 @@ export default function SmartWalletDrawer({
                 </div>
                 
                 <ul className="space-y-1.5 text-sm text-white/90">
-                  {showQcBreakdown &&
-                    qcentBalanceRows.map((row) =>
-                      row.dvn ? (
-                        <li key={row.key} className="flex items-center justify-between p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
-                          <span className="flex items-center gap-2 text-xs">
-                            {row.fallbackIcon}
-                            <span className="text-cyan-300">{row.label}</span>
-                            <span className="text-[9px] text-cyan-400 bg-cyan-500/20 px-1 rounded">Deferred</span>
-                          </span>
-                          <span className="font-mono text-xs text-cyan-300">
-                            {row.value}
-                          </span>
-                        </li>
-                      ) : (
-                        <li key={row.key} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
-                          <span className="flex items-center gap-2">
-                            {row.logo && !logoLoadErrors[row.key] ? (
-                              <img
-                                src={row.logo}
-                                alt={`${row.label} logo`}
-                                className="w-4 h-4 rounded-full object-cover"
-                                onError={() => {
-                                  setLogoLoadErrors((prev) => ({ ...prev, [row.key]: true }));
-                                }}
-                              />
-                            ) : (
-                              row.fallbackIcon
-                            )}
-                            <span>{row.label}</span>
-                          </span>
-                          <span className="font-mono text-white">
-                            {row.value} {row.unit}
-                          </span>
-                        </li>
-                      )
-                    )}
+                  {showQcBreakdown && (
+                    <>
+                      {/* Mainnet — B¢ then Base Q¢, sourced from mainnet contracts */}
+                      <li className="pt-1 pb-0.5">
+                        <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-blue-300/80">
+                          <span className="h-px flex-1 bg-blue-500/20" />
+                          Mainnet
+                          <span className="h-px flex-1 bg-blue-500/20" />
+                        </div>
+                      </li>
+                      {mainnetBalanceRows.map(renderBalanceRow)}
+                      <li className="flex items-center justify-between px-2 text-[10px] text-white/50">
+                        <span>Mainnet subtotal</span>
+                        <span className="font-mono text-white/70">{l1sTotalStr} Q¢</span>
+                      </li>
+
+                      {/* Testnet — B¢ then Base Q¢ (from TESTNET contracts), then the
+                          remaining legacy per-chain testnet balances */}
+                      <li className="pt-2 pb-0.5">
+                        <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-purple-300/80">
+                          <span className="h-px flex-1 bg-purple-500/20" />
+                          Testnet
+                          <span className="h-px flex-1 bg-purple-500/20" />
+                        </div>
+                      </li>
+                      {testnetBalanceRows.map(renderBalanceRow)}
+                      <li className="flex items-center justify-between px-2 text-[10px] text-white/50">
+                        <span>Testnet subtotal</span>
+                        <span className="font-mono text-white/70">{testnetTotalStr} Q¢</span>
+                      </li>
+
+                      {/* DVN — off-chain deferred custody Q¢, bottom of the list,
+                          just above the grand total */}
+                      {dvnBalanceRows.map(renderBalanceRow)}
+                    </>
+                  )}
 
                   {/* Total Q¢ (always visible, controls collapse/expand) */}
                   <li className="pt-2 mt-1 border-t border-white/10">
@@ -2824,15 +4417,16 @@ export default function SmartWalletDrawer({
                         )}
                       </span>
                     </button>
-                    {/* EVM vs DVN breakdown (always shown under total) */}
+                    {/* L1s vs DVN breakdown (always shown under total). L1s =
+                        B¢ + Base Q¢ (mainnet) — replaces the old EVM total. */}
                     <div className="mt-1 grid grid-cols-2 gap-1.5 px-1">
                       <div className="flex items-center justify-between p-1.5 rounded bg-white/5 border border-white/5">
                         <span className="text-[10px] text-white/50 flex items-center gap-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" />
-                          EVM
+                          L1s
                         </span>
                         <span className="text-[10px] font-mono text-white/70">
-                          {qctEvmTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                          {l1sTotalStr}
                         </span>
                       </div>
                       <div className="flex items-center justify-between p-1.5 rounded bg-cyan-500/10 border border-cyan-500/20">
@@ -2900,6 +4494,40 @@ export default function SmartWalletDrawer({
                   Convert USDC → Q¢
                 </div>
                 <div className="text-[10px] text-white/50 mb-2">1 USDC = 99 Q¢ (1% fee)</div>
+                <div className="mb-2">
+                  <div className="text-[10px] text-white/50 mb-1">Credit as</div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setConvertDestination("BASE_QC")}
+                      aria-pressed={convertDestination === "BASE_QC"}
+                      className={`px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        convertDestination === "BASE_QC"
+                          ? "bg-blue-500/20 ring-1 ring-blue-500/50 text-blue-300"
+                          : "bg-white/5 ring-1 ring-white/10 text-white/60 hover:bg-white/10"
+                      }`}
+                    >
+                      Base Q¢
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConvertDestination("BCENT")}
+                      aria-pressed={convertDestination === "BCENT"}
+                      className={`px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        convertDestination === "BCENT"
+                          ? "bg-orange-500/20 ring-1 ring-orange-500/50 text-orange-300"
+                          : "bg-white/5 ring-1 ring-white/10 text-white/60 hover:bg-white/10"
+                      }`}
+                    >
+                      BitCent (B¢)
+                    </button>
+                  </div>
+                  {convertDestination === "BCENT" && (
+                    <div className="text-[9px] text-orange-300/60 mt-1">
+                      Settles off-chain until the BitCent Rune is etched — 1 B¢ = 1 Base Q¢.
+                    </div>
+                  )}
+                </div>
                 <div className="grid grid-cols-3 gap-2">
                   <input
                     value={convertUsdcAmount}
@@ -2911,14 +4539,14 @@ export default function SmartWalletDrawer({
                   <button
                     onClick={handleConvertUsdcToQc}
                     disabled={convertStep === "processing"}
-                    className="px-3 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs font-medium disabled:opacity-60"
+                    className="px-3 py-2 rounded-lg bg-emerald-500/15 ring-1 ring-emerald-400/30 backdrop-blur-sm text-emerald-200 text-xs font-medium transition-colors hover:bg-emerald-500/25 disabled:opacity-60"
                   >
                     {convertStep === "processing" ? "Converting" : "Convert"}
                   </button>
                 </div>
                 {convertStep === "success" && convertResult?.quote && (
                   <div className="mt-2 p-2 rounded-lg bg-emerald-500/10 ring-1 ring-emerald-500/30 text-xs text-emerald-200">
-                    Credited {convertResult.quote.qctNet} Q¢ (fee {convertResult.quote.feeQct} Q¢)
+                    Credited {convertResult.quote.qctNet} {convertResult.destination === "BCENT" ? "B¢" : "Q¢"} (fee {convertResult.quote.feeQct} Q¢)
                   </div>
                 )}
                 {convertStep === "error" && convertError && (
@@ -3290,6 +4918,32 @@ export default function SmartWalletDrawer({
                         {!identityProfile && (
                           <div className="text-white/30 italic">Loading…</div>
                         )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Persona & Agent IDs — the reference inventory (three-level
+                    model): private UUIDs (masked, owner-only), Polity public
+                    refs, and pairwise external service refs. Ends the
+                    treasure hunt for persona/agent UUIDs. */}
+                {sessionEmail && (
+                  <div className="mt-3 rounded-xl bg-white/[0.03] ring-1 ring-white/10">
+                    <button
+                      onClick={() => setPersonaRefsExpanded((v) => !v)}
+                      className="w-full flex items-center justify-between px-3 py-2 text-[11px] text-white/60 hover:text-white/80"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <IdCard className="w-3.5 h-3.5 text-cyan-400" />
+                        <span className="uppercase tracking-wider">Persona &amp; Agent IDs</span>
+                      </span>
+                      {personaRefsExpanded
+                        ? <ChevronDown className="w-3.5 h-3.5" />
+                        : <ChevronRight className="w-3.5 h-3.5" />}
+                    </button>
+                    {personaRefsExpanded && (
+                      <div className="px-3 pb-3">
+                        <PersonaReferencesInventory />
                       </div>
                     )}
                   </div>
@@ -3895,6 +5549,65 @@ export default function SmartWalletDrawer({
                 )}
               </section>
 
+              {/* Standing — Personal/Delegated/Stewardship + Overall */}
+              {walletTasksData?.standing && (
+                <section className="rounded-xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10 ring-1 ring-emerald-500/20 p-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-[10px] uppercase tracking-wider text-white/70">Standing</div>
+                    <div className="flex items-center gap-1">
+                      {[...Array(5)].map((_, i) => (
+                        <span
+                          key={i}
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            i < (walletTasksData.standing?.bucket ?? 0)
+                              ? 'bg-emerald-400'
+                              : 'bg-slate-600'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-2.5">
+                    {([
+                      { label: 'Personal',     value: walletTasksData.standing.personal,                                   color: 'bg-emerald-500', tip: 'Accrues from completed tasks' },
+                      { label: 'Delegated',    value: walletTasksData.standing.delegated,                                   color: 'bg-teal-500',    tip: 'Accrues when your sponsored citizen completes tasks' },
+                      { label: 'Stewardship',  value: walletTasksData.standing.stewardship,                                 color: 'bg-cyan-500',    tip: 'Accrues from community contributions' },
+                      { label: 'Capability',   value: (walletTasksData.standing as Record<string, number>).capability ?? 0, color: 'bg-violet-500',  tip: 'Builds from VentureQube signals — mission, intents, identity depth', cap: 40 },
+                    ] as { label: string; value: number; color: string; tip: string; cap?: number }[]).map(({ label, value, color, tip, cap }) => (
+                      <div key={label}>
+                        <div className="flex items-center justify-between text-[10px] mb-1">
+                          <span className="text-white/60">{label}</span>
+                          <span className={`font-medium ${value > 0 ? 'text-white/80' : 'text-white/30'}`}>
+                            {value > 0 ? `${value.toFixed(1)}${cap ? ` / ${cap}` : ''}` : '—'}
+                          </span>
+                        </div>
+                        {value > 0 ? (
+                          <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                            <div className={`h-full ${color}`} style={{ width: `${Math.min(100, cap ? (value / cap) * 100 : value)}%` }} />
+                          </div>
+                        ) : (
+                          <div className="text-[9px] text-white/25 italic">{tip}</div>
+                        )}
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between text-[10px] pt-1 border-t border-white/10 mt-1">
+                      <span className="text-white/50">Overall Accrual</span>
+                      <span className="text-white/90 font-semibold">{walletTasksData.standing.overall.toFixed(1)}</span>
+                    </div>
+                    {walletTasksData.standingScore != null && (
+                      <div className="flex items-center justify-between text-[10px] pt-1 border-t border-white/10 mt-1">
+                        <span className="text-white/50">Standing Score <span className="text-white/25 italic">(veracity-led)</span></span>
+                        <span className="text-white/90 font-semibold">{(walletTasksData.standingScore as { score: number }).score.toFixed(0)} / 100</span>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {/* KNYTS Bridge campaign summary — Gate D. Self-fetching,
+                  renders nothing for personas with no campaign evidence. */}
+              <KnytsBridgeCampaignSummaryCard />
+
               {/* Submit Claim */}
               <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
                 <div className="text-[10px] uppercase tracking-wider text-white/50 mb-2">Submit Reputation Claim</div>
@@ -4108,10 +5821,18 @@ export default function SmartWalletDrawer({
           {activeTab === "iqube" && (
             <div className="space-y-4">
               <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
-                <div className="text-[10px] uppercase tracking-wider text-white/60 mb-3 flex items-center gap-2">
-                  <Layers className="w-3.5 h-3.5 text-violet-400" />
-                  PersonaQube — On-Chain Identity
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setPersonaQubeCollapsed((p) => !p)}
+                  className="flex w-full items-center justify-between mb-3"
+                >
+                  <div className="text-[10px] uppercase tracking-wider text-white/60 flex items-center gap-2">
+                    <Layers className="w-3.5 h-3.5 text-violet-400" />
+                    PersonaQube — On-Chain Identity
+                  </div>
+                  {personaQubeCollapsed ? <ChevronDown className="h-3 w-3 text-white/40" /> : <ChevronUp className="h-3 w-3 text-white/40" />}
+                </button>
+                {!personaQubeCollapsed && <>
                 {/* Active persona identity summary */}
                 {walletNode?.personaContext?.activePersona && (
                   <div className="space-y-1.5 mb-4">
@@ -4137,39 +5858,447 @@ export default function SmartWalletDrawer({
                   </div>
                 )}
                 {/* Mint action */}
-                {mintStatus === "staged" ? (
-                  <div className="rounded-lg border border-violet-500/30 bg-violet-500/10 p-3 space-y-2">
+                {mintStatus === "minted" ? (
+                  <div className={`rounded-lg border p-3 space-y-2 ${
+                    mintResult.deferred
+                      ? "border-amber-500/30 bg-amber-500/10"
+                      : "border-emerald-500/30 bg-emerald-500/10"
+                  }`}>
                     <div className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-violet-400" />
-                      <span className="text-sm font-medium text-violet-300">PersonaQube staged</span>
+                      {mintResult.deferred ? (
+                        <Clock className="w-4 h-4 text-amber-400" />
+                      ) : (
+                        <Check className="w-4 h-4 text-emerald-400" />
+                      )}
+                      <span className={`text-sm font-medium ${mintResult.deferred ? "text-amber-300" : "text-emerald-300"}`}>
+                        {mintResult.deferred
+                          ? "PersonaQube queued for batch mint"
+                          : `PersonaQube minted ${mintResult.onChain ? "(on-chain)" : "(stub mode)"}`}
+                      </span>
                     </div>
                     <p className="text-xs text-white/50 leading-relaxed">
-                      Your persona data is encrypted and queued for the Autonomys write pipeline. The chain write completes asynchronously.
+                      {mintResult.deferred
+                        ? "Your PersonaQube bearer token is queued for the next batch mint on Base. The encrypted persona locker is staged now; the on-chain token id + tx hash land here once the batch is processed."
+                        : mintResult.mode === "base"
+                        ? "Persona minted as a PersonaQube (a derivative of the iQube primitive) — an ERC-721 on Base mainnet against the iQube NFT contract. The token id is a one-way commitment over your persona (T0-safe), anchored to your DVN receipt trail."
+                        : "Persona descriptor encrypted client-side, published to Walrus, and bound to a Sui object representing your PersonaQube. The (Sui object, Walrus blob) pair anchors to your DVN receipt trail."}
                     </p>
-                    {mintStubId && (
-                      <code className="text-[10px] text-white/30 font-mono block">stub: {mintStubId}</code>
+                    <div className="space-y-1">
+                      {mintResult.baseTokenId && (
+                        <div className="flex items-start gap-2">
+                          <span className="text-[10px] uppercase tracking-wider text-white/40 shrink-0 mt-0.5">PersonaQube NFT</span>
+                          <code className="text-[10px] text-emerald-200/80 font-mono break-all">{mintResult.baseTokenId}</code>
+                        </div>
+                      )}
+                      {mintResult.baseTxHash && (
+                        <div className="flex items-start gap-2">
+                          <span className="text-[10px] uppercase tracking-wider text-white/40 shrink-0 mt-0.5">Base tx</span>
+                          <code className="text-[10px] text-emerald-200/80 font-mono break-all">{mintResult.baseTxHash}</code>
+                        </div>
+                      )}
+                      {!mintResult.baseTokenId && mintResult.suiObjectId && (
+                        <div className="flex items-start gap-2">
+                          <span className="text-[10px] uppercase tracking-wider text-white/40 shrink-0 mt-0.5">Sui object</span>
+                          <code className="text-[10px] text-emerald-200/80 font-mono break-all">{mintResult.suiObjectId}</code>
+                        </div>
+                      )}
+                      {!mintResult.baseTokenId && mintResult.walrusBlobId && (
+                        <div className="flex items-start gap-2">
+                          <span className="text-[10px] uppercase tracking-wider text-white/40 shrink-0 mt-0.5">Walrus blob</span>
+                          <code className="text-[10px] text-emerald-200/80 font-mono break-all">{mintResult.walrusBlobId}</code>
+                        </div>
+                      )}
+                    </div>
+                    {!mintResult.onChain && !mintResult.deferred && (
+                      <p className="text-[10px] text-amber-300/70 leading-relaxed">
+                        Stub mode — set IQUBE_NFT_CONTRACT_ADDRESS + BASE_MINTER_PRIVATE_KEY (Base mainnet) to mint the PersonaQube on-chain, or SUI_PACKAGE_ID + WALRUS_PUBLISHER_URL for the Sui/Walrus rail.
+                      </p>
                     )}
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <p className="text-xs text-white/50 leading-relaxed">
-                      Mint your persona as a <strong className="text-white/70">PersonaQube</strong> — content-addressed on Autonomys with your FIO key.
+                      Mint your persona as a <strong className="text-white/70">PersonaQube</strong> on the Polity Passport rail — encrypted persona descriptor on Walrus, ownership object on Sui, DVN-anchored to your Root DiD.
                       Enables cryptographic binding to SkillQubes and AigentQubes, and cross-platform portability without trusting this database.
                     </p>
                     <p className="text-[10px] text-white/30 leading-relaxed">
-                      Your DVN receipts are already anchored to your Root DiD through the ordinal inscription pipeline — minting adds content-addressable persona data on Autonomys.
+                      T0 discipline: only public commitment refs (persona_public_ref, kybe_did_public_ref) ever land on Sui or Walrus — your persona_id never leaves the server.
                     </p>
                     {mintStatus === "error" && (
                       <p className="text-xs text-red-400">{mintError}</p>
                     )}
                     <button
                       type="button"
-                      onClick={handleStageMint}
+                      onClick={() => handleStageMint({ chain: "base", strategy: "deferred" })}
                       disabled={mintStatus === "staging"}
                       className="w-full rounded-lg border border-violet-500/40 bg-violet-600/20 py-2 text-sm font-semibold text-violet-200 hover:bg-violet-600/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {mintStatus === "staging" ? "Staging…" : "Stage PersonaQube"}
+                      {mintStatus === "staging" ? "Queuing…" : "Mint PersonaQube"}
                     </button>
+                    <p className="text-[10px] text-white/30 leading-relaxed">
+                      The PersonaQube is the on-chain bearer token (an ERC-721, minted on
+                      Base today — multi-chain ready). Sui/Walrus holds the encrypted
+                      persona locker the token bears. Your mint is queued and minted in the
+                      next batch against your wallet's EVM address.
+                    </p>
+                  </div>
+                )}
+                </>}
+              </section>
+
+              {/* PassportQube — claimed passport credentials */}
+              <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
+                <div className="text-[10px] uppercase tracking-wider text-white/60 mb-3 flex items-center gap-2">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  PassportQube — Verifiable Credentials
+                </div>
+                {passportQubesLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-4 w-4 animate-spin text-violet-400" />
+                  </div>
+                ) : passportQubes.length === 0 ? (
+                  <p className="text-xs text-white/40 leading-relaxed">
+                    No passport credentials in your wallet. Claim an approved passport from the Polity Passport Registry.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {passportQubes.map((pq) => {
+                      const isCollapsed = passportCardCollapsed.has(pq.passportId);
+                      return (
+                      <div
+                        key={pq.passportId}
+                        className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-2"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => togglePassportCardCollapse(pq.passportId)}
+                          className="flex w-full items-center justify-between"
+                        >
+                          <div className="flex items-center gap-2">
+                            <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                            <span className="text-xs font-medium text-emerald-300">
+                              {pq.passportClass === "citizen" ? "Citizen" : "Participant"} Passport
+                            </span>
+                            {pq.passportGrade === 'verified_citizen' && (
+                              <span className="flex items-center gap-1 rounded-full border border-sky-500/40 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-medium text-sky-300">
+                                <ShieldCheck className="h-2.5 w-2.5" />
+                                Verified
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-white/40 font-mono">
+                              {pq.passportId.slice(0, 12)}…
+                            </span>
+                            {isCollapsed ? <ChevronDown className="h-3 w-3 text-white/40" /> : <ChevronUp className="h-3 w-3 text-white/40" />}
+                          </div>
+                        </button>
+                        {!isCollapsed && (
+                          <>
+                        <div className="flex items-center gap-2 text-[10px] text-white/50 flex-wrap">
+                          <span>Status: <span className="text-emerald-300">{pq.passportStatus}</span></span>
+                          {pq.passportGrade && <span>· Grade: {pq.passportGrade}</span>}
+                          {pq.claimedAt && <span>· Claimed {new Date(pq.claimedAt).toLocaleDateString()}</span>}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[10px] text-white/50">
+                          <span>Passport ID:</span>
+                          <span className="font-mono text-white/70">
+                            {passportIdRevealed.has(pq.passportId) ? pq.passportId : `${pq.passportId.slice(0, 12)}…`}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => toggleRevealPassportId(pq.passportId)}
+                            title={passportIdRevealed.has(pq.passportId) ? 'Hide Passport ID' : 'Reveal full Passport ID'}
+                            className="text-white/40 hover:text-white/70"
+                          >
+                            {passportIdRevealed.has(pq.passportId) ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyPassportId(pq.passportId)}
+                            title="Copy Passport ID"
+                            className="text-white/40 hover:text-white/70"
+                          >
+                            {passportIdCopied === pq.passportId ? (
+                              <Check className="h-3 w-3 text-emerald-400" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </button>
+                        </div>
+                        {pq.passportClass === 'citizen' && pq.passportGrade !== 'verified_citizen' && pq.claimedAt && (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <WorldIdButton
+                              onProof={(proof) => handleWorldIdProof(pq.passportId, proof)}
+                              busy={worldIdBusy === pq.passportId}
+                              signal={pq.passportId}
+                              label="Upgrade with World ID"
+                              className="flex items-center gap-1 rounded bg-sky-500/15 px-2 py-1 text-[10px] text-sky-300 hover:bg-sky-500/25 transition-colors disabled:opacity-50"
+                            />
+                            {worldIdError[pq.passportId] && (
+                              <span className="text-[10px] text-rose-400">{worldIdError[pq.passportId]}</span>
+                            )}
+                          </div>
+                        )}
+                        {pq.credential && (
+                          <>
+                            <div className="flex gap-1.5">
+                              <button
+                                onClick={() => setPassportVcExpanded(passportVcExpanded === pq.passportId ? null : pq.passportId)}
+                                className="flex items-center gap-1 rounded bg-white/5 px-2 py-1 text-[10px] text-white/50 hover:bg-white/10 transition-colors"
+                              >
+                                <Eye className="h-3 w-3" />
+                                {passportVcExpanded === pq.passportId ? "Hide VC" : "View VC"}
+                              </button>
+                              <button
+                                onClick={() => handleDownloadVc(pq)}
+                                className="flex items-center gap-1 rounded bg-white/5 px-2 py-1 text-[10px] text-white/50 hover:bg-white/10 transition-colors"
+                              >
+                                <Download className="h-3 w-3" />
+                                Download
+                              </button>
+                              <button
+                                onClick={() => handleCopyVc(pq)}
+                                className="flex items-center gap-1 rounded bg-white/5 px-2 py-1 text-[10px] text-white/50 hover:bg-white/10 transition-colors"
+                              >
+                                {passportVcCopied === pq.passportId ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                                {passportVcCopied === pq.passportId ? "Copied" : "Copy"}
+                              </button>
+                            </div>
+                            {passportVcExpanded === pq.passportId && (
+                              <div className="rounded bg-black/30 p-2 max-h-32 overflow-y-auto">
+                                <pre className="text-[9px] text-white/40 leading-relaxed whitespace-pre-wrap">
+                                  {JSON.stringify(pq.credential, null, 2)}
+                                </pre>
+                              </div>
+                            )}
+                          </>
+                        )}
+                        {!pq.claimedAt && pq.claimable && (
+                          <p className="text-[10px] text-amber-300">
+                            Claimable — visit the Polity Passport Registry to claim this credential.
+                          </p>
+                        )}
+                          </>
+                        )}
+                      </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+
+              {/* AgentQubes — agents sponsored by this persona (Sprint 3) */}
+              <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
+                <div className="text-[10px] uppercase tracking-wider text-white/60 mb-3 flex items-center gap-2">
+                  <Bot className="w-3.5 h-3.5 text-violet-400" />
+                  AgentQubes — Bound Delegates
+                </div>
+                {/* Sponsorship Capacity Protocol — bounded (tier-derived) or explicitly unbounded (admin/platform). */}
+                {sponsorshipCapacity && (
+                  <div className="mb-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 flex items-center justify-between">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase tracking-wider text-emerald-300/80">Sponsorship Capacity</span>
+                      <span className="text-[10px] text-white/50">
+                        {sponsorshipCapacity.bounded === false
+                          ? `Used ${sponsorshipCapacity.used}`
+                          : `Base ${sponsorshipCapacity.base} + Earned ${sponsorshipCapacity.earned} · Used ${sponsorshipCapacity.used}`}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <div className={`text-base font-semibold ${sponsorshipCapacity.bounded === false || sponsorshipCapacity.remaining > 0 ? 'text-emerald-300' : 'text-amber-300'}`}>
+                        {sponsorshipCapacity.bounded === false ? '∞' : sponsorshipCapacity.remaining}
+                      </div>
+                      <div className="text-[9px] text-white/40 uppercase tracking-wider">remaining</div>
+                    </div>
+                  </div>
+                )}
+                {sponsoredAgentsLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-4 w-4 animate-spin text-violet-400" />
+                  </div>
+                ) : displaySponsoredAgents.length === 0 ? (
+                  <p className="text-xs text-white/40 leading-relaxed">
+                    No agents sponsored yet. Sponsor a Polity-bound agent from the Polity Passport → Apply tab to delegate work under your bounded authority.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {displaySponsoredAgents.map((sa) => {
+                      const agentCollapsed = agentCardCollapsed.has(sa.agentRootId);
+                      return (
+                      <div
+                        key={sa.agentRootId}
+                        className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 space-y-2"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => toggleAgentCardCollapse(sa.agentRootId)}
+                          className="flex w-full items-center justify-between"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Bot className="h-4 w-4 text-violet-400" />
+                            <span className="text-sm font-medium text-violet-300">{sa.displayName}</span>
+                            {sa.isAigentMe && (
+                              <span className="inline-flex items-center gap-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0 text-[9px] font-medium text-amber-300">
+                                <Star className="h-2.5 w-2.5" /> aigentMe
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-white/40 font-mono">{sa.agentClass}</span>
+                            {agentCollapsed ? <ChevronDown className="h-3 w-3 text-white/40" /> : <ChevronUp className="h-3 w-3 text-white/40" />}
+                          </div>
+                        </button>
+                        {!agentCollapsed && <>
+                        <p className="text-[10px] text-white/50 leading-relaxed line-clamp-2">
+                          {sa.description}
+                        </p>
+                        {/* Bounded-delegation awareness — only on the aigentMe
+                            card, scoped to the active persona's delegation. */}
+                        {/* Sprint 4 — aigentMe Standing lanes */}
+                        {sa.isAigentMe && sa.standing && (
+                          <div className="rounded-lg border border-violet-500/15 bg-violet-500/5 p-2 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] uppercase tracking-wider text-violet-300/70">
+                                Standing signal
+                              </span>
+                              <span className="text-[10px] font-semibold text-violet-200">
+                                {sa.standing.overall.toFixed(1)}
+                              </span>
+                            </div>
+                            {(
+                              [
+                                { label: 'Personal', value: sa.standing.personal, color: 'bg-emerald-400' },
+                                { label: 'Delegated', value: sa.standing.delegated, color: 'bg-violet-400' },
+                                { label: 'Stewardship', value: sa.standing.stewardship, color: 'bg-sky-400' },
+                              ] as { label: string; value: number; color: string }[]
+                            ).map(({ label, value, color }) => (
+                              <div key={label} className="space-y-0.5">
+                                <div className="flex items-center justify-between text-[9px] text-white/40">
+                                  <span>{label}</span>
+                                  <span>{value.toFixed(1)}</span>
+                                </div>
+                                <div className="h-1 w-full rounded-full bg-white/10">
+                                  <div
+                                    className={`h-1 rounded-full ${color} transition-all duration-500`}
+                                    style={{ width: `${Math.min(100, (value / Math.max(1, sa.standing!.overall || 100)) * 100)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {sa.isAigentMe && (
+                          <div className="rounded-lg border border-white/10 bg-white/5 p-2 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] uppercase tracking-wider text-white/50">
+                                Bounded delegation
+                              </span>
+                              {aigentMeDelegation?.active ? (
+                                <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[9px] text-emerald-300">
+                                  Active
+                                </span>
+                              ) : aigentMeDelegation?.suspended ? (
+                                <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[9px] text-amber-300">
+                                  Suspended · budget spent
+                                </span>
+                              ) : (
+                                <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[9px] text-white/40">
+                                  {aigentMeDelegation?.expired ? "Expired" : "Not delegated"}
+                                </span>
+                              )}
+                            </div>
+                            {(aigentMeDelegation?.active || aigentMeDelegation?.suspended) ? (
+                              <div className="space-y-1 text-[10px] text-white/50">
+                                {aigentMeDelegation.trust_band && (
+                                  <div className="flex items-center justify-between">
+                                    <span>Trust band</span>
+                                    <span className="font-mono text-violet-300">{aigentMeDelegation.trust_band}</span>
+                                  </div>
+                                )}
+                                {typeof aigentMeDelegation.max_actions === "number" && (
+                                  <div className="flex items-center justify-between">
+                                    <span>Actions</span>
+                                    <span className="font-mono text-white/70">
+                                      {aigentMeDelegation.actions_taken ?? 0}/{aigentMeDelegation.max_actions}
+                                    </span>
+                                  </div>
+                                )}
+                                {aigentMeDelegation.expires_at && (
+                                  <div className="flex items-center justify-between">
+                                    <span>Expires</span>
+                                    <span className="text-white/70">
+                                      {new Date(aigentMeDelegation.expires_at).toLocaleString()}
+                                    </span>
+                                  </div>
+                                )}
+                                {aigentMeDelegation.allowed_actions && aigentMeDelegation.allowed_actions.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 pt-0.5">
+                                    {aigentMeDelegation.allowed_actions.map((a) => (
+                                      <span
+                                        key={a}
+                                        className="rounded border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9px] text-violet-200"
+                                      >
+                                        {a}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-[10px] text-white/40 leading-relaxed">
+                                No work is currently delegated to aigentMe. Grant bounded
+                                delegation from AgentiQ OS → Bounded Delegation to let it act
+                                under your authority.
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 text-[10px] text-white/50 flex-wrap">
+                          {sa.passport ? (
+                            <>
+                              <span>
+                                Passport: <span className="text-emerald-300">{sa.passport.passportStatus}</span>
+                              </span>
+                              {sa.passport.claimedAt ? (
+                                <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[9px] text-emerald-300">
+                                  VC claimed
+                                </span>
+                              ) : (
+                                <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[9px] text-amber-300">
+                                  VC unclaimed
+                                </span>
+                              )}
+                              {sa.passport.worldIdVerified && (
+                                <span className="rounded-full border border-sky-500/40 bg-sky-500/10 px-2 py-0.5 text-[9px] text-sky-300">
+                                  World ID
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[9px] text-amber-300">
+                              Passport pending submission
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px]">
+                          <a
+                            href={sa.agentCardUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 rounded bg-white/5 px-2 py-1 text-white/50 hover:bg-white/10 transition-colors"
+                          >
+                            <Link className="h-3 w-3" />
+                            View Agent Card
+                          </a>
+                          <code className="text-[9px] text-white/30 font-mono truncate">
+                            {sa.didUri}
+                          </code>
+                        </div>
+                        </>}
+                      </div>
+                      );
+                    })}
                   </div>
                 )}
               </section>
@@ -4222,6 +6351,128 @@ export default function SmartWalletDrawer({
             </div>
           </div>
         </div>
+        </>
+        ) : (
+          <div className="flex-1 min-h-0 overflow-y-auto p-4">
+            {walletSurface !== 'PASSPORT_CONNECTED' && (
+              <button
+                type="button"
+                onClick={() => setWalletSurface(null)}
+                className="mb-3 flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-white/70 transition-colors hover:bg-white/10"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                Back
+              </button>
+            )}
+
+            {walletSurface === 'PASSPORT_SIGN_IN' && (
+              <PassportConnectPanel
+                world="application"
+                embedded
+                onConnected={(passport) => {
+                  // Same re-pin as every other persona switch in this file —
+                  // composition, never a parallel write (see the dropdown
+                  // entry row's own comment history for why this matters).
+                  try {
+                    const pinned = window.localStorage.getItem('currentPersonaId');
+                    if (pinned) ctxSetActivePersonaId(pinned);
+                  } catch {
+                    /* ignore */
+                  }
+                  void refreshPersonas();
+                  setConnectedPassport(passport ?? null);
+                  setWalletSurface('PASSPORT_CONNECTED');
+                  // Tell a cross-iframe requester (e.g. a campaign surface's
+                  // Remix-gate) that Passport sign-in completed, so it can
+                  // resume the intent it was interrupted from. A no-op for
+                  // every existing entry point (persona menu, auto-open) —
+                  // those never set a returnTarget, so deepLinkReturn.target
+                  // is null and nothing is announced.
+                  if (deepLinkReturn.target) {
+                    announceWalletSurfaceCompletion({
+                      surface: 'PASSPORT_SIGN_IN',
+                      outcome: 'ACTION_COMPLETED',
+                      returnTarget: deepLinkReturn.target,
+                    });
+                  }
+                }}
+              />
+            )}
+
+            {walletSurface === 'PRINCIPAL_WALLET_PROVISIONING' && (
+              <PrincipalWalletProvisioningPanel
+                personaId={effectivePersonaId ?? ''}
+                returnTarget={deepLinkReturn.target ?? walletSurfaceReturnTarget ?? null}
+                returnTo={(() => {
+                  const label = deepLinkReturn.label ?? walletSurfaceReturnLabel;
+                  return label ? { label, onReturn: () => setWalletSurface(null) } : null;
+                })()}
+              />
+            )}
+
+            {walletSurface === 'PENDING_ACTIONS' && (
+              <PendingActionsPanel personaId={effectivePersonaId ?? ''} />
+            )}
+
+            {walletSurface === 'PASSPORT_CONNECTED' && (
+              <div className="space-y-4">
+                <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 text-center">
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/15">
+                    <ShieldCheck className="h-6 w-6 text-emerald-400" aria-hidden="true" />
+                  </div>
+                  <div className="text-sm font-medium text-emerald-300">Passport connected</div>
+                  {connectedPassport?.passportClass && (
+                    <div className="mt-1 text-xs text-white/60">
+                      Citizen Passport · {connectedPassport.passportClass}
+                    </div>
+                  )}
+                  <div className="mt-2 text-xs text-white/60">
+                    {activePersona?.displayName || activePersona?.fioHandle || 'Persona resolved'}
+                  </div>
+                  {/* Honest three-state read of ALREADY-tracked local state
+                      (this.isWalletUnlocked) — never fabricated. A passkey
+                      connection never touches local wallet key material at
+                      all (see PassportConnectPanel's own header), so
+                      "unavailable" is the correct, common resting state for
+                      it, not a bug. */}
+                  <div className="mt-1 text-[11px] text-white/40">
+                    Session active · Wallet {isWalletUnlocked ? 'unlocked' : hasAnyPersona ? 'locked' : 'unavailable'}
+                  </div>
+                </div>
+                {/* THE MISSING HALF OF THE PASSKEY CEREMONY (2026-08-02).
+                    The enrol routes existed, ratified and working, with NO
+                    client caller anywhere — so no citizen could ever register
+                    a passkey, and every "Continue with passkey" ran against an
+                    authenticator holding nothing. This is the first place a
+                    citizen is both signed in AND looking at their Passport, so
+                    it is where a passkey is offered. Optional by design: the
+                    wallet-password path stays complete without it. */}
+                <PasskeyEnrolmentPanel />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWalletSurface(null);
+                    setConnectedPassport(null);
+                  }}
+                  className="w-full rounded-lg border border-purple-500/30 bg-gradient-to-r from-purple-500/20 to-cyan-500/20 px-3 py-2 text-sm text-white transition-colors hover:from-purple-500/30 hover:to-cyan-500/30"
+                >
+                  Continue to Wallet Home
+                </button>
+              </div>
+            )}
+
+            {/* Reserved, unreached today (see the WalletSurface type's own
+                doc comment) — nothing in this file sets this yet, so this
+                honestly names what is missing rather than fabricating a
+                recovery flow that does not exist. */}
+            {walletSurface === 'RECOVERY_OPTIONS' && (
+              <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 text-xs text-white/60">
+                Recovery options are not yet available as a standalone wallet surface — use
+                &quot;Using a new device?&quot; inside Passport sign-in.
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Unlock Modal */}
@@ -4282,6 +6533,11 @@ export default function SmartWalletDrawer({
               fioHandle: updated.fioHandle,
             });
             setPersonaEditModalOpen(false);
+            // Refresh the dropdown so the renamed persona reflects immediately;
+            // also refresh sponsored agents so an aigentMe rename propagates to
+            // its Bound Delegates card.
+            refreshPersonas();
+            void loadSponsoredAgents();
           }}
         />
       )}
@@ -4367,4 +6623,10 @@ export default function SmartWalletDrawer({
       )}
     </div>
   );
+
+  // Portalled ONLY in overlay mode. Embedded mode belongs inside its host's
+  // layout (the copilot's flex column) and must not escape it.
+  return variant === 'overlay' && typeof document !== 'undefined'
+    ? createPortal(overlayTree, document.body)
+    : overlayTree;
 }

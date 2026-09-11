@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "A shared reader that serves TWO genuinely different callers — 'one scoped view of a sharded collection' (a UI picker) and 'the whole collection regardless of how it was sharded' (a programme/aggregate consumer) — must not let the aggregate consumer default into the scoped contract by omitting an optional filter argument. When a collection is deliberately sharded on write (here: acquisition tagging every candidate with an institution-derived sub_domain) but a programme-level reader needs the union across shards, that union must be its OWN named function/query, never 'the scoped-view function, called without its scoping argument.' An optional argument whose absence silently narrows scope is easy to omit by accident and impossible to distinguish, at the call site, from 'I want everything.'",
+    "This is the same family as `inv.engineering.036`/`037` (one authoritative location per concern; a parallel implementation is a defect) applied to READ scope rather than write logic: the defect here was not a duplicated implementation, but a single implementation silently serving two incompatible read contracts through one default. The fix is symmetric to the usual `inv.engineering.036` remedy — add the SECOND named reader (never mutate the first caller's contract to fit the second), so a UI picker's existing scoped view stays byte-identical while an aggregate consumer gets its own honestly-named function.",
+    "The tell that this defect class is present: a derived 'total' or 'count' figure that stays SUSPICIOUSLY STABLE across many operations that should have moved it (here: 'extracted 3, validated 3, assigned 11' across dozens of runs and 25 approval rounds spanning three days) while a direct, unfiltered query of the same underlying table shows substantially more rows exist. A frozen derived number is not evidence of a settled state; it can equally be evidence that the number's own query stopped seeing new rows.",
+    "Distinguish this from a genuinely narrow, correctly-scoped derived count — the invariant is not 'aggregate reads must never filter,' it is 'an aggregate/programme reader must never inherit a per-view function's DEFAULT scope by omission; the scope it reads must be an explicit, deliberate choice made by and named for the aggregate reader itself.'"
+  ],
+  "canaries": [
+    {
+      "path": "tests/discovery-candidates-cross-subdomain.test.ts",
+      "assertion": "`listCandidatesAcrossSubDomains` never applies an `eq`/`is` filter on the `sub_domain` column (behavioural, via a call-tracking fake Supabase client) AND `researchProgrammeOrchestrator.ts`/`crystalCohortMembership.ts` are grepped, at the source level, to confirm they call `listCandidatesAcrossSubDomains(admin, acquisitionDomain)` for their programme-cohort composition rather than the narrowed `listCandidates(admin, acquisitionDomain)` baseline-view call. Verified failing against the pre-fix HEAD versions of both files (neither contained the corrected call) before the fix landed.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "candidateId": "CI-2026-09-03-PROGRAMME-COHORT-READS-ALL-SUBDOMAINS-001",
+  "statement": "When a collection is deliberately sharded on write into named sub-partitions (here: candidates tagged with an acquisition-institution-derived sub_domain), a shared reader that serves both a single-partition UI view AND a whole-collection programme/aggregate consumer must expose the union-across-partitions as its OWN explicitly named function — never as 'the scoped-view function, called with its scoping argument omitted.' A programme-level consumer inheriting a per-view function's default scope by omission is a defect even when both the single-view contract and the aggregate consumer are individually correct in isolation.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-09-03-EXP-P1-SUBDOMAIN-INVISIBILITY-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/researchProgrammeOrchestrator.ts — loadTrack2ProgrammeState",
+      "defect": "Called `listCandidates(admin, acquisitionDomain)` with no subDomain, silently narrowing to `sub_domain IS NULL` for what is actually the programme's ENTIRE candidate population signal — feeding the Copilot's population disclosure, `unblockedStageIds`, the review-and-promote queue, and the advance-until-gate loop's stage projection. Hid 55 of 75 (73%) already-promoted EXP-P1/financial-services candidates from every downstream Track 2 stage for at least three days across 25 acquisition-approval rounds.",
+      "resolutionId": "RES-2026-09-03-EXP-P1-SUBDOMAIN-INVISIBILITY-001",
+      "evidence": [
+        "tests/discovery-candidates-cross-subdomain.test.ts",
+        "tests/research-programme-orchestrator.test.ts"
+      ]
+    },
+    {
+      "site": "services/research/crystalCohortMembership.ts — resolveSuccessorConstructionCohort",
+      "defect": "The identical narrowed `listCandidates(admin, acquisitionDomain)` call, in the ONE shared resolver Stage 6 validate, Stage 7 relationships, relationship-adjudication and validate-all all route through — discovered by inspection once the orchestrator occurrence was understood (the module's own header already documents it as the shared resolver for exactly these routes).",
+      "resolutionId": "RES-2026-09-03-EXP-P1-SUBDOMAIN-INVISIBILITY-001",
+      "evidence": [
+        "tests/discovery-candidates-cross-subdomain.test.ts",
+        "tests/crystal-cohort-membership.test.ts"
+      ]
+    },
+    {
+      "site": "app/api/research/track2/[experimentId]/diversity-candidates/route.ts",
+      "defect": "The identical narrowed call for Stage 9's 'find diversity candidates' scan over extracted-but-unpromoted candidates — the same defect shape one stage earlier in the lifecycle, fixed for consistency alongside the two primary occurrences.",
+      "resolutionId": "RES-2026-09-03-EXP-P1-SUBDOMAIN-INVISIBILITY-001",
+      "evidence": [
+        "tests/track2-diversity-candidates-route.test.ts"
+      ]
+    }
+  ],
+  "family": "engineering",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
+}

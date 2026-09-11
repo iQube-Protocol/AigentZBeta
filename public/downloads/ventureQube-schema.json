@@ -1,0 +1,788 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://aigentz.me/downloads/ventureQube-schema.json",
+  "title": "Venture iQube (v0.5)",
+  "description": "Self-sovereign upload format used by aigentMe to populate the operator's ExperienceModel (strategy, ventures, goals, KPIs, priority partners), ExperienceGuide (the 7-sphere lived-state lattice), Standing (self-attested capability declarations), and optionally a myCartridge — in one upload. v0.5 adds the experienceGuide, standing, experienceGoals, and priorityPartners blocks so the upload mirrors the full in-app setup process.",
+  "_agent_briefing": {
+    "audience": "An off-platform AI assistant (ChatGPT, Claude, Gemini, etc.) helping a user prepare a Venture iQube to upload back into their own aigentMe.",
+    "what_this_is": "A Venture iQube is a structured snapshot of who the operator is, what they're building, and the work in front of them. It travels with them across the AgentiQ platform and populates: (1) their ExperienceModel (the cockpit's strategy + ventures + KPI rails), (2) their ExperienceGuide (the per-venture progressive coaching surface), and (3) their myCartridge wizard (the operator's own first cartridge inside AgentiQ).",
+    "what_to_produce": "A single JSON file that conforms to the schema below. Use the worked example at `examples[0]` as a template and replace every value with the operator's actual content. Keep arrays non-empty where required (ventures, plan horizons, objectives per venture).",
+    "system_overview": [
+      "AgentiQ is a sovereignty-first agent platform. The operator runs metaMe (their guardian), aigentMe (their personal assistant), and one or more Cartridges (their domains of work). aigentMe coordinates with system agents (Aigent Z, Aigent C) and specialists (Marketa, Quill, Know1) to drive each venture forward.",
+      "Every operator has an ExperienceModel (the structured plan) and an ExperienceGuide (the coaching surface that walks them through each venture's next-best action). Uploading a Venture iQube populates both, plus optionally a myCartridge configuration if the operator wants to publish a cartridge.",
+      "All ingestion is receipt-eligible and zero-knowledge respecting — server-side fields like persona_id never appear in browser-bound responses or chain-bound receipts. The operator's identity stays at T0 (server-internal); only T2 cohort commitments are network-visible."
+    ],
+    "sovereignty_principles_summary": [
+      "The operator owns their data. The Venture iQube is theirs; aigentMe ingests it but never resells, syndicates, or trains foundation models on it.",
+      "Identity is tiered. T0 (server-internal: personaId, authProfileId, rootDid) NEVER leaves the server. T1 (browser-safe: displayLabel, ownFioHandle) is render-only. T2 (public-network: cohortAliasCommitment) is the only identifier that ever touches a chain receipt.",
+      "Access is gated on the spine, not on client UI. Even when this file is uploaded, server-side policy resolves whether each field can be persisted, and the operator's metaMe guardian retains final override over any consequential downstream action.",
+      "Receipts are durable. Every state change (intent_queued, artifact_created, artifact_sent, specialist_invoked, etc.) produces a DVN-receipt-eligible orchestration event that is sealed to Bitcoin within a 15-minute audit SLA.",
+      "Refresh is daily-or-as-needed. The Venture iQube is a snapshot of where the operator is and where they want to go. Re-upload anytime — the system reconciles by schema version and last-emitted timestamp."
+    ],
+    "why_safer_than_sharing_with_off_platform_agent": [
+      "When the operator shares this snapshot with you (an off-platform agent), they share a structured, redactable document — not their live data plane.",
+      "You only see what they decide to put in the file. Their identity is opaque to you: there is no personaId, no rootDid, no authProfileId in this schema. The operator's display name and (optional) FIO handle are the only identifiers exposed, both T1-safe.",
+      "On upload back into aigentMe, the file passes through a server-side Zod validator (services/iqube/ventureQubeSchema.ts) that enforces every constraint. The runtime resolves the persona from the spine, NOT from any field in this file. Even if you accidentally included a sensitive field, the schema rejects unknown top-level keys.",
+      "The myCartridge.ownerPersonaId field is explicitly `never` typed — any attempt to pre-populate it is rejected at parse time. Ownership is spine-resolved.",
+      "Compare: pasting strategy notes into a chat with an off-platform agent has no receipt trail, no policy gate, no scoped tool access. Uploading a Venture iQube into aigentMe lands on a receipt-anchored pipeline with cartridge-scoped policy enforcement."
+    ],
+    "refresh_cadence": "Re-upload as often as you like — daily standup, weekly review, after a major pivot. Each upload is a snapshot; the system records what changed via DVN receipts. The operator's emittedAt timestamp helps the runtime decide whether to merge or supersede prior plan blocks.",
+    "experience_guide_explainer": {
+      "what_it_is": "The ExperienceGuide has two parts. (1) The per-venture progressive coaching surface aigentMe renders inside the venture cockpit — it walks the operator through their next-best-action sequence (Brief Me → Move Forward → Engage Specialist → Approve Action → Mark Complete) for each declared objective, derived at runtime from `ventures[].objectives[]` + `plan`. (2) v0.5: the operator's 7-sphere 'lived-state' self-assessment (the PersonalGuide lattice), captured in the top-level `experienceGuide` block — the same thing the in-app ExperienceGuide wizard sets up.",
+      "how_to_help_the_operator_populate_it": "For the coaching surface: (1) write `successCriteria[]` for each objective in concrete, observable terms ('partner signs LOI', not 'partner is happy'), (2) declare `dependencies[]` honestly — the system uses these to suggest the right specialist, (3) split `plan.today` into 1–3 concrete `actions[]` with `owner` + `due`, (4) pick a `specialistHint` per objective (marketa for outreach/PR, quill for content, kn0w1 for research/synthesis). For the lived-state lattice (v0.5): fill `experienceGuide.sphereMaturity` / `sphereAlignment` for the seven spheres (energy, body, mind, emotion, relationship, community, legacy) only where the operator has a real read — unspecified spheres default sensibly. Set `experienceGuide.focusIntent` to what they're focused on now.",
+      "guide_personality": "The guide is direct. It tells the operator the ONE thing to do next, surfaces blockers, and asks 'do you want me to liaise with X?' before triggering a specialist chain. The richer the success criteria + dependencies + sphere assessment, the better the guide's recommendations."
+    },
+    "standing_explainer": {
+      "what_it_is": "Standing is the operator's attestation of who they are, what they know and have done, and what they intend — the basis on which the platform helps them achieve their intent. The top-level `standing.core` block holds the seven Standing Core declarations; on upload they are written as PRINCIPAL_VERIFIED self-attested facts and compiled into the operator's Standing Asset Graph (a capability graph) that calibrates venture confidence.",
+      "how_to_help_the_operator_populate_it": "Fill `standing.core` honestly and specifically — whoYouAre, whatYouKnow, whatYouveDone, interests, intentions, experiencesThatMatter, accomplish. Concrete, verifiable statements produce a stronger Standing Graph than vague ones. Standing is about veracity, not self-promotion: only state what is true. If the operator has a public LinkedIn, put it in `standing.linkedInUrl` — but note the automatic LinkedIn enrichment runs interactively via the wizard's 'Connect LinkedIn' button, not during this upload.",
+      "relationship_to_ventures": "Standing calibrates ventures: capabilities the operator can stand behind raise venture confidence. It never gates — a venture works without Standing, but Standing makes the system's guidance sharper."
+    },
+    "my_cartridge_explainer": {
+      "what_it_is": "myCartridge is the operator's own first cartridge inside AgentiQ — a public-or-private surface they author for an audience (their team, customers, community, or themselves). When the operator wants to ship a cartridge, fill the optional `ventures[].myCartridge` block on the venture that will own it.",
+      "required_when_present": "If `myCartridge.configured` is true, then slug, title, description, purpose, category, visibility, tabs, smartTriad, specialists, activeTab, membershipModel, stateChangeReceipts, and triadNomenclature='v0.2' are all required. See the worked example for shape.",
+      "tabs_guidance": "Always include at least one tab with `primary: true`. Common templates: codex-v1 (knowledge), active-v1 (ops surface), community-v1 (members), pulse-v1 (changelog), wallet-v1 (token economy)."
+    }
+  },
+  "type": "object",
+  "required": ["schemaVersion", "operator", "strategy", "ventures", "plan"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "enum": [
+        "venture-iqube/v0.1",
+        "venture-iqube/v0.2",
+        "venture-iqube/v0.3",
+        "venture-iqube/v0.4",
+        "venture-iqube/v0.5"
+      ],
+      "description": "Use v0.5 for new uploads — it adds the experienceGuide, standing, experienceGoals, and priorityPartners blocks. v0.4 adds the myCartridge nested block. Earlier versions remain accepted for backwards-compatible reads."
+    },
+    "emittedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp of when this snapshot was produced. Used by the runtime to reconcile against prior uploads."
+    },
+    "operator": {
+      "type": "object",
+      "required": ["displayLabel", "archetype"],
+      "additionalProperties": false,
+      "properties": {
+        "displayLabel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "T1-safe operator name — what aigentMe will address the operator as. NOT the legal name unless the operator wants it shown."
+        },
+        "archetype": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Short self-label. Examples: 'sovereign founder', 'venture studio operator', 'creator-economy builder', 'community steward'."
+        },
+        "tagline": {
+          "type": "string",
+          "maxLength": 280,
+          "description": "Optional one-line positioning statement."
+        },
+        "fioHandle": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Optional FIO Protocol handle (e.g. 'name@aigentz'). Only the operator's OWN handle. Never include another persona's handle."
+        }
+      }
+    },
+    "strategy": {
+      "type": "object",
+      "required": ["headline", "thesis"],
+      "additionalProperties": false,
+      "properties": {
+        "headline": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 280,
+          "description": "One-line statement of what the operator is building right now."
+        },
+        "thesis": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8000,
+          "description": "Multi-paragraph operating thesis. Why this, why now, who it serves, what success looks like."
+        },
+        "currentStage": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Free-text stage label. Examples: 'pre-revenue', 'seed-stage', 'scaling', 'post-product-market-fit'."
+        },
+        "blockers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Strategic blockers. Be specific — these drive specialist routing."
+        },
+        "constraints": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Hard constraints (time, capital, regulatory, talent)."
+        }
+      }
+    },
+    "ventures": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/venture" },
+      "description": "At least one venture. A 'venture' is a stream of work with its own KPI + objectives. Solo founders often have one. Studios have many."
+    },
+    "plan": {
+      "type": "object",
+      "required": ["today", "next24h", "next7d", "next30d", "next90d"],
+      "additionalProperties": { "$ref": "#/definitions/planHorizon" },
+      "properties": {
+        "today": { "$ref": "#/definitions/planHorizon" },
+        "next24h": { "$ref": "#/definitions/planHorizon" },
+        "next7d": { "$ref": "#/definitions/planHorizon" },
+        "next30d": { "$ref": "#/definitions/planHorizon" },
+        "next90d": { "$ref": "#/definitions/planHorizon" }
+      },
+      "description": "All five horizons are required. Each horizon has a `focus` paragraph and 1–N concrete `actions`."
+    },
+    "specialistPreferences": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Optional map of context → preferred specialist. Example: { 'partner_outreach': 'marketa', 'research_synthesis': 'kn0w1' }."
+    },
+    "kpiBoard": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/kpiRow" },
+      "description": "Optional cross-venture KPI rollup. v0.5: these now hydrate the cockpit's Active KPIs rail (blak.activeKpis) as manual-source metrics, in addition to rendering on the home panel."
+    },
+    "experienceGoals": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 200 },
+      "maxItems": 30,
+      "description": "v0.5. Explicit ExperienceModel goals (the operator's working goal list). Merged with the titles derived from ventures[].objectives. These are what the next-best-experience catalog scores against."
+    },
+    "priorityPartners": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 200 },
+      "maxItems": 12,
+      "description": "v0.5. The operator's priority partners/relationships at the ExperienceModel level (distinct from per-venture partners). Surfaces in Marketa relationship flows."
+    },
+    "experienceGuide": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "v0.5. The ExperienceGuide — the operator's 7-sphere 'lived state' self-assessment (the PersonalGuide lattice). Optional; when present it hydrates the same surface the metaMe ExperienceGuide wizard sets up, so the off-platform agent can prepare it too. Every sphere is optional; unspecified spheres default sensibly.",
+      "properties": {
+        "sphereMaturity": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Per-sphere maturity self-assessment. Each value is one of the 7 maturity levels.",
+          "properties": {
+            "energy": { "$ref": "#/definitions/maturityLevel" },
+            "body": { "$ref": "#/definitions/maturityLevel" },
+            "mind": { "$ref": "#/definitions/maturityLevel" },
+            "emotion": { "$ref": "#/definitions/maturityLevel" },
+            "relationship": { "$ref": "#/definitions/maturityLevel" },
+            "community": { "$ref": "#/definitions/maturityLevel" },
+            "legacy": { "$ref": "#/definitions/maturityLevel" }
+          }
+        },
+        "sphereAlignment": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Per-sphere alignment posture.",
+          "properties": {
+            "energy": { "$ref": "#/definitions/alignmentState" },
+            "body": { "$ref": "#/definitions/alignmentState" },
+            "mind": { "$ref": "#/definitions/alignmentState" },
+            "emotion": { "$ref": "#/definitions/alignmentState" },
+            "relationship": { "$ref": "#/definitions/alignmentState" },
+            "community": { "$ref": "#/definitions/alignmentState" },
+            "legacy": { "$ref": "#/definitions/alignmentState" }
+          }
+        },
+        "precedenceMode": {
+          "type": "string",
+          "enum": ["auto", "energy", "body", "mind", "emotion", "relationship", "community", "legacy"],
+          "description": "Which sphere takes precedence when the guide resolves priorities. 'auto' lets the system pick."
+        },
+        "focusIntent": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Free-text statement of what the operator is focused on right now — frames the guide's coaching."
+        }
+      }
+    },
+    "standing": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "v0.5. Standing — the operator's self-attestation of who they are and what they intend (Standing Core). When present, the `core` answers are written as PRINCIPAL_VERIFIED self-attested facts that feed the Standing Asset Graph (capability graph) used to calibrate ventures. This is the same surface the Standing Core wizard captures.",
+      "properties": {
+        "core": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The seven Standing Core declarations. All optional — fill what's true.",
+          "properties": {
+            "whoYouAre": { "type": "string", "maxLength": 4000, "description": "Who are you? Identity in your own words." },
+            "whatYouKnow": { "type": "string", "maxLength": 4000, "description": "What do you know? Domains, skills, expertise." },
+            "whatYouveDone": { "type": "string", "maxLength": 4000, "description": "What have you done? Track record." },
+            "interests": { "type": "string", "maxLength": 4000, "description": "What are your interests?" },
+            "intentions": { "type": "string", "maxLength": 4000, "description": "What are your intentions? The direction you're attesting to." },
+            "experiencesThatMatter": { "type": "string", "maxLength": 4000, "description": "What experiences matter to you? Formative experiences." },
+            "accomplish": { "type": "string", "maxLength": 4000, "description": "What would you like to accomplish? The outcome you want help achieving." }
+          }
+        },
+        "linkedInUrl": {
+          "type": "string",
+          "maxLength": 400,
+          "description": "Optional public LinkedIn URL. Note: automatic enrichment runs interactively via the Standing Core wizard's 'Connect LinkedIn' button (it is NOT fetched during this upload). Included here so your agent can carry it forward."
+        }
+      }
+    }
+  },
+  "definitions": {
+    "maturityLevel": {
+      "type": "string",
+      "enum": ["noticing", "exploring", "experimenting", "practicing", "integrating", "sustaining", "stewarding"],
+      "description": "ExperienceGuide maturity level for a sphere (lowest → highest)."
+    },
+    "alignmentState": {
+      "type": "string",
+      "enum": ["aligned", "drifting", "at_risk", "repair"],
+      "description": "ExperienceGuide alignment posture for a sphere."
+    },
+    "venture": {
+      "type": "object",
+      "required": ["id", "name", "objectives"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "description": "Stable slug — keep it consistent across uploads so the runtime can correlate." },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "tagline": { "type": "string", "maxLength": 280 },
+        "stage": { "type": "string", "maxLength": 64 },
+        "cartridgeBindings": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Which AgentiQ cartridges this venture lives inside (slugs like 'knyt', 'qriptopian', 'mvl')."
+        },
+        "northStarKpi": { "type": "string", "maxLength": 280 },
+        "objectives": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/objective" },
+          "description": "1–N objectives. Each becomes a row in the operator's ExperienceGuide."
+        },
+        "partners": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/partner" }
+        },
+        "notes": { "type": "string", "maxLength": 8000 },
+        "myCartridge": {
+          "$ref": "#/definitions/myCartridgeBlock",
+          "description": "Optional — populate ONLY when the operator wants to ship a cartridge for this venture."
+        }
+      }
+    },
+    "objective": {
+      "type": "object",
+      "required": ["id", "title", "impact", "effort"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 280 },
+        "summary": { "type": "string", "maxLength": 2000 },
+        "impact": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "Free-text impact label. Common values: 'low', 'medium', 'high', 'critical'."
+        },
+        "effort": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "Free-text effort label. Common values: 'xs', 's', 'm', 'l', 'xl'."
+        },
+        "horizon": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Which plan horizon this maps to. Use one of: today, next24h, next7d, next30d, next90d."
+        },
+        "successCriteria": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Concrete, observable. Drives the ExperienceGuide's 'mark complete' prompt."
+        },
+        "dependencies": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "specialistHint": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Suggested specialist for this objective. One of: marketa, quill, kn0w1, aigent-z, aigent-c, aigent-nakamoto, moneypenny, metaye."
+        }
+      }
+    },
+    "partner": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "role": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "maxLength": 64 }
+      }
+    },
+    "planHorizon": {
+      "type": "object",
+      "required": ["focus", "actions"],
+      "additionalProperties": false,
+      "properties": {
+        "focus": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "description": "One-paragraph statement of what matters in this horizon."
+        },
+        "actions": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/planAction" }
+        }
+      }
+    },
+    "planAction": {
+      "type": "object",
+      "required": ["title", "ventureId"],
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 280 },
+        "ventureId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Must reference a ventures[].id declared above."
+        },
+        "objectiveId": { "type": "string" },
+        "owner": { "type": "string" },
+        "due": { "type": "string", "description": "ISO date or free-text deadline." },
+        "blocker": { "type": "string" }
+      }
+    },
+    "kpiRow": {
+      "type": "object",
+      "required": ["name", "metric", "target", "horizon"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 140 },
+        "metric": { "type": "string", "minLength": 1, "maxLength": 280 },
+        "current": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "number" },
+            { "type": "null" }
+          ]
+        },
+        "target": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "number" }
+          ]
+        },
+        "horizon": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "ventureId": { "type": "string" }
+      }
+    },
+    "myCartridgeBlock": {
+      "type": "object",
+      "required": [
+        "configured", "slug", "title", "description", "purpose",
+        "category", "visibility", "audience", "template", "tabs",
+        "smartTriad", "specialists", "activeTab", "membershipModel",
+        "stateChangeReceipts", "triadNomenclature"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "configured": { "const": true },
+        "slug": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 64,
+          "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$",
+          "description": "URL-safe lowercase with dashes. Becomes /triad/embed/codex/<slug>."
+        },
+        "title": { "type": "string", "minLength": 1, "maxLength": 140 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "purpose": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "category": {
+          "type": "string",
+          "enum": ["community", "venture", "knowledge", "creative", "media", "franchise", "learning", "research", "professional", "private"]
+        },
+        "visibility": {
+          "type": "string",
+          "enum": ["public", "private", "invite-only", "member-only"]
+        },
+        "audience": {
+          "type": "object",
+          "required": ["kind", "estimatedSize", "languages"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "type": "string", "enum": ["open", "gated", "franchise", "inner-circle"] },
+            "estimatedSize": { "type": "string", "enum": ["1-10", "10-100", "100-1k", "1k-10k", "10k+"] },
+            "languages": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 2, "maxLength": 8 },
+              "description": "ISO language codes. Example: ['en', 'es']."
+            }
+          }
+        },
+        "template": {
+          "anyOf": [
+            { "type": "string", "enum": ["pulse-v1", "codex-v1", "experience-v1", "active-v1", "wallet-v1", "ledger-v1", "community-v1", "members-v1", "venture-v1", "settings-v1", "admin-v1", "overview-v1"] },
+            { "const": "custom" }
+          ]
+        },
+        "tabs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 24,
+          "items": {
+            "type": "object",
+            "required": ["slug", "templateId", "visibility", "primary"],
+            "additionalProperties": false,
+            "properties": {
+              "slug": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "templateId": { "type": "string", "enum": ["pulse-v1", "codex-v1", "experience-v1", "active-v1", "wallet-v1", "ledger-v1", "community-v1", "members-v1", "venture-v1", "settings-v1", "admin-v1", "overview-v1"] },
+              "visibility": { "type": "string", "enum": ["public", "member", "admin", "invite", "token-gated"] },
+              "primary": { "type": "boolean" },
+              "tokenGate": {
+                "type": "object",
+                "required": ["tokenId", "minBalance"],
+                "additionalProperties": false,
+                "properties": {
+                  "tokenId": { "type": "string", "enum": ["q-cent", "usdc", "knyt"] },
+                  "minBalance": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "smartTriad": {
+          "type": "object",
+          "required": ["copilot", "knowledgeBase", "codex", "wallet"],
+          "additionalProperties": false,
+          "properties": {
+            "copilot": {
+              "type": "object",
+              "required": ["source", "promptContext"],
+              "additionalProperties": false,
+              "properties": {
+                "source": { "type": "string", "enum": ["aigentMe", "cartridge-copilot", "specialist"] },
+                "cartridgeCopilotPersonaId": { "type": "string" },
+                "promptContext": { "type": "string", "maxLength": 4000 }
+              }
+            },
+            "knowledgeBase": {
+              "type": "object",
+              "required": ["ingestSources", "embeddingScope"],
+              "additionalProperties": false,
+              "properties": {
+                "ingestSources": {
+                  "type": "array",
+                  "items": { "type": "string", "enum": ["mycanvas", "myworkspace", "uploads", "codex", "json_blob"] }
+                },
+                "embeddingScope": { "type": "string", "enum": ["cartridge", "domain"] },
+                "jsonBlob": {
+                  "type": "object",
+                  "required": ["uri", "uploadedAt", "sizeBytes"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "uri": { "type": "string", "minLength": 1 },
+                    "uploadedAt": { "type": "string" },
+                    "sizeBytes": { "type": "integer", "minimum": 0 }
+                  }
+                }
+              }
+            },
+            "codex": {
+              "type": "object",
+              "required": ["enabled", "rootTabSlug"],
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "rootTabSlug": { "const": "codex" },
+                "registryEligible": { "type": "boolean" },
+                "mintingEnabled": { "type": "boolean" }
+              }
+            },
+            "wallet": {
+              "type": "object",
+              "required": ["enabled", "tokenWhitelist", "primitives"],
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "tokenWhitelist": {
+                  "type": "array",
+                  "items": { "type": "string", "enum": ["q-cent", "usdc", "knyt"] }
+                },
+                "primitives": {
+                  "type": "object",
+                  "required": ["cryptoSend", "cryptoReceive", "paymentRequest", "rewardPayout"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "cryptoSend": { "type": "boolean" },
+                    "cryptoReceive": { "type": "boolean" },
+                    "paymentRequest": { "type": "boolean" },
+                    "rewardPayout": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "specialists": {
+          "type": "object",
+          "required": ["available"],
+          "additionalProperties": false,
+          "properties": {
+            "available": {
+              "type": "array",
+              "maxItems": 3,
+              "items": { "type": "string", "enum": ["marketa", "quill", "kn0w1", "aigent-z", "aigent-c", "aigent-nakamoto", "moneypenny", "metaye"] },
+              "description": "Free tier caps available specialists at 3 — payment-gated above that. Suggest the 3 most aligned with the venture's blockers."
+            },
+            "primary": { "type": "string", "enum": ["marketa", "quill", "kn0w1", "aigent-z", "aigent-c", "aigent-nakamoto", "moneypenny", "metaye"] }
+          }
+        },
+        "activeTab": {
+          "type": "object",
+          "required": ["slug", "catalogId", "metrics", "actions"],
+          "additionalProperties": false,
+          "properties": {
+            "slug": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "catalogId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "metrics": { "type": "array", "maxItems": 16, "items": { "type": "string" } },
+            "actions": { "type": "array", "maxItems": 16, "items": { "type": "string" } }
+          }
+        },
+        "membershipModel": {
+          "type": "object",
+          "required": ["rolesEnabled", "invitePolicy", "membershipReceipts"],
+          "additionalProperties": false,
+          "properties": {
+            "rolesEnabled": {
+              "type": "array",
+              "items": { "type": "string", "enum": ["owner", "admin", "editor", "contributor", "member", "partner", "franchisee", "correspondent", "guest"] }
+            },
+            "invitePolicy": { "type": "string", "enum": ["owner-only", "admin-allowed", "public-request"] },
+            "membershipReceipts": { "type": "boolean" }
+          }
+        },
+        "stateChangeReceipts": {
+          "type": "object",
+          "required": ["enabled", "receiptKinds"],
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "receiptKinds": {
+              "type": "array",
+              "items": { "type": "string", "enum": ["created", "tab_visibility", "member_invited", "crypto_send", "payment_request", "reward_payout", "codex_published", "activation_submitted", "activation_reviewed"] }
+            }
+          }
+        },
+        "triadNomenclature": { "const": "v0.2" },
+        "catalogueOptIn": { "type": "boolean" }
+      }
+    }
+  },
+  "examples": [
+    {
+      "schemaVersion": "venture-iqube/v0.5",
+      "emittedAt": "2026-06-22T14:00:00Z",
+      "operator": {
+        "displayLabel": "Alex Founder",
+        "archetype": "sovereign founder",
+        "tagline": "building a creator-owned music economy",
+        "fioHandle": "alex@aigentz"
+      },
+      "strategy": {
+        "headline": "Launch a creator-owned distribution network for independent musicians in Q3.",
+        "thesis": "Independent musicians currently lose 70% of streaming revenue to platform intermediaries. A creator-owned distribution co-op, anchored by a token-incentivised superfan tier, can flip the economics. Phase 1: 500-artist closed beta with three flagship labels. Phase 2: open marketplace with cross-platform syndication. Phase 3: rights tokenisation.",
+        "currentStage": "pre-revenue",
+        "blockers": ["need a launch partner with existing artist roster", "no public technical credibility"],
+        "constraints": ["6 months runway", "team of 3"]
+      },
+      "experienceGoals": [
+        "Sign one flagship label as launch partner",
+        "Onboard 500 artists to the closed beta",
+        "Establish public technical credibility"
+      ],
+      "priorityPartners": [
+        "Flagship indie label (launch partner)",
+        "Token infrastructure provider",
+        "Three superfan community leads"
+      ],
+      "experienceGuide": {
+        "sphereMaturity": {
+          "mind": "practicing",
+          "community": "experimenting",
+          "legacy": "exploring"
+        },
+        "sphereAlignment": {
+          "mind": "aligned",
+          "community": "drifting",
+          "energy": "at_risk"
+        },
+        "precedenceMode": "auto",
+        "focusIntent": "Land the launch partner and ship the closed beta without burning out the 3-person team."
+      },
+      "standing": {
+        "core": {
+          "whoYouAre": "A product-led founder with a decade in music tech and two prior creator-economy startups.",
+          "whatYouKnow": "Marketplace design, token incentive mechanics, music licensing, community-led growth.",
+          "whatYouveDone": "Built and sold a playlisting analytics tool; ran growth for an indie distribution platform to 50k artists.",
+          "interests": "Creator ownership, cooperative economics, rights tokenisation.",
+          "intentions": "Flip streaming economics in favour of independent musicians via a creator-owned co-op.",
+          "experiencesThatMatter": "Watching independent artists lose 70% of revenue to intermediaries shaped this thesis.",
+          "accomplish": "A self-sustaining creator-owned distribution network with 500+ artists by end of Q3."
+        },
+        "linkedInUrl": "https://www.linkedin.com/in/alex-founder"
+      },
+      "ventures": [
+        {
+          "id": "creator-coop",
+          "name": "Creator Co-op",
+          "tagline": "creator-owned distribution",
+          "stage": "alpha",
+          "cartridgeBindings": ["mvl"],
+          "northStarKpi": "500 artists onboarded by end of Q3",
+          "objectives": [
+            {
+              "id": "secure-launch-partner",
+              "title": "Secure one flagship label as launch partner",
+              "summary": "Need an established indie label to co-sign the beta and bring their artist roster.",
+              "impact": "critical",
+              "effort": "l",
+              "horizon": "next30d",
+              "successCriteria": [
+                "Partner signs term sheet",
+                "Co-marketing plan published",
+                "Joint press release scheduled"
+              ],
+              "dependencies": ["pitch deck v2", "founder intros warmed"],
+              "specialistHint": "marketa"
+            }
+          ],
+          "partners": [
+            { "name": "Untitled Records", "role": "candidate launch partner", "status": "warm intro" }
+          ],
+          "notes": "Founder has a personal relationship with Untitled Records' A&R lead; warm intro arranged for next week.",
+          "myCartridge": {
+            "configured": true,
+            "slug": "creator-coop",
+            "title": "Creator Co-op",
+            "description": "Creator-owned distribution + superfan tier for independent musicians.",
+            "purpose": "Surface the co-op's founding cohort, distribution rails, and contributor compensation model. Doubles as the project's public canon.",
+            "category": "creative",
+            "visibility": "invite-only",
+            "audience": {
+              "kind": "gated",
+              "estimatedSize": "100-1k",
+              "languages": ["en"]
+            },
+            "template": "active-v1",
+            "tabs": [
+              { "slug": "pulse", "templateId": "pulse-v1", "visibility": "member", "primary": true },
+              { "slug": "codex", "templateId": "codex-v1", "visibility": "member", "primary": false },
+              { "slug": "members", "templateId": "members-v1", "visibility": "admin", "primary": false }
+            ],
+            "smartTriad": {
+              "copilot": {
+                "source": "cartridge-copilot",
+                "promptContext": "You are the Creator Co-op cartridge copilot. Help founding members navigate distribution, rights, and contributor compensation. Defer to Marketa on outreach, Quill on copy, Know1 on rights research."
+              },
+              "knowledgeBase": {
+                "ingestSources": ["uploads", "codex"],
+                "embeddingScope": "cartridge"
+              },
+              "codex": {
+                "enabled": true,
+                "rootTabSlug": "codex",
+                "registryEligible": false,
+                "mintingEnabled": false
+              },
+              "wallet": {
+                "enabled": true,
+                "tokenWhitelist": ["q-cent", "usdc"],
+                "primitives": {
+                  "cryptoSend": false,
+                  "cryptoReceive": true,
+                  "paymentRequest": true,
+                  "rewardPayout": true
+                }
+              }
+            },
+            "specialists": {
+              "available": ["marketa", "quill", "kn0w1"],
+              "primary": "marketa"
+            },
+            "activeTab": {
+              "slug": "pulse",
+              "catalogId": "creator-coop-pulse",
+              "metrics": ["artists_onboarded", "weekly_active_artists", "distribution_volume_usd"],
+              "actions": ["invite_artist", "publish_pulse_post", "open_distribution_window"]
+            },
+            "membershipModel": {
+              "rolesEnabled": ["owner", "admin", "editor", "member", "partner"],
+              "invitePolicy": "admin-allowed",
+              "membershipReceipts": true
+            },
+            "stateChangeReceipts": {
+              "enabled": true,
+              "receiptKinds": ["created", "tab_visibility", "member_invited", "reward_payout", "codex_published"]
+            },
+            "triadNomenclature": "v0.2",
+            "catalogueOptIn": false
+          }
+        }
+      ],
+      "plan": {
+        "today": {
+          "focus": "Lock the Untitled Records intro call. Get the pitch deck v2 in shape.",
+          "actions": [
+            { "title": "Send confirmation email to Untitled A&R", "ventureId": "creator-coop", "objectiveId": "secure-launch-partner", "owner": "Alex", "due": "today" },
+            { "title": "Final pass on pitch deck v2", "ventureId": "creator-coop", "owner": "Alex", "due": "today" }
+          ]
+        },
+        "next24h": {
+          "focus": "Have the intro call. Send same-day follow-up with deck.",
+          "actions": [
+            { "title": "Untitled Records intro call", "ventureId": "creator-coop", "objectiveId": "secure-launch-partner", "owner": "Alex", "due": "tomorrow 14:00" }
+          ]
+        },
+        "next7d": {
+          "focus": "Convert the intro call into a term-sheet conversation.",
+          "actions": [
+            { "title": "Draft term-sheet outline with counsel", "ventureId": "creator-coop", "objectiveId": "secure-launch-partner", "owner": "Alex" }
+          ]
+        },
+        "next30d": {
+          "focus": "Signed launch partner. Beta cohort confirmed.",
+          "actions": [
+            { "title": "Signed LOI with Untitled Records", "ventureId": "creator-coop", "objectiveId": "secure-launch-partner", "owner": "Alex" }
+          ]
+        },
+        "next90d": {
+          "focus": "Beta live with first 100 artists. First distribution window run.",
+          "actions": [
+            { "title": "Beta launch", "ventureId": "creator-coop", "owner": "Alex" }
+          ]
+        }
+      },
+      "specialistPreferences": {
+        "partner_outreach": "marketa",
+        "rights_research": "kn0w1"
+      },
+      "kpiBoard": [
+        { "name": "Artists onboarded", "metric": "count of artists with signed distribution agreement", "current": 0, "target": 500, "horizon": "next90d", "ventureId": "creator-coop" }
+      ]
+    }
+  ]
+}

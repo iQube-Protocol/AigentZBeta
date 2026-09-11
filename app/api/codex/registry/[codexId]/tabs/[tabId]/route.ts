@@ -25,14 +25,15 @@ import { UpdateTabRequest, CodexRegistryResponse } from '@/types/codex';
 export const dynamic = 'force-dynamic';
 
 interface RouteContext {
-  params: { codexId: string; tabId: string };
+  params: Promise<{ codexId: string; tabId: string }>;
 }
 
 /**
  * PUT /api/codex/registry/[codexId]/tabs/[tabId]
  * Update tab configuration
  */
-export async function PUT(request: NextRequest, { params }: RouteContext) {
+export async function PUT(request: NextRequest, props: RouteContext) {
+  const params = await props.params;
   try {
     const { codexId, tabId } = params;
     const body: UpdateTabRequest = await request.json();
@@ -96,7 +97,8 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
  * PATCH /api/codex/registry/[codexId]/tabs/[tabId]
  * Enable/disable tab
  */
-export async function PATCH(request: NextRequest, { params }: RouteContext) {
+export async function PATCH(request: NextRequest, props: RouteContext) {
+  const params = await props.params;
   try {
     const { codexId, tabId } = params;
     const body = await request.json();
@@ -151,7 +153,8 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
  * DELETE /api/codex/registry/[codexId]/tabs/[tabId]
  * Delete tab
  */
-export async function DELETE(request: NextRequest, { params }: RouteContext) {
+export async function DELETE(request: NextRequest, props: RouteContext) {
+  const params = await props.params;
   try {
     const { codexId, tabId } = params;
 

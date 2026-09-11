@@ -21,11 +21,12 @@ import {
   validatePassword,
 } from './keyService';
 import {
-  getPersonaFioService, 
-  generateDidFromHandle, 
+  getPersonaFioService,
+  generateDidFromHandle,
   buildFioHandle,
   isValidUsername,
 } from './personaFioService';
+import { saveLocalWalletProfile } from './localWalletStore';
 
 function getAuthProfileIdFromStorage(): string | null {
   if (typeof window === 'undefined') return null;
@@ -302,6 +303,18 @@ export async function createPersona(input: CreatePersonaInput): Promise<CreatePe
     // 7. Store persona (initial row — fio_registration_status defaults to pending
     //    until the chain register call below confirms it)
     await storePersona(persona);
+
+    // 7b. Dual-write a local wallet profile on THIS device (never the source
+    //     of truth — see localWalletStore.ts header). This is what lets
+    //     Passport connect enumerate a usable metaMe wallet with zero
+    //     Supabase session: a wallet created/imported here is immediately
+    //     selectable in the Connect flow without any server round trip.
+    saveLocalWalletProfile({
+      personaId: persona.id,
+      address: evmKey.address,
+      displayLabel: persona.displayName || fioHandle,
+      encryptedPrivateKey: evmKey.encryptedPrivateKey,
+    });
 
     // 8. Register FIO handle on-chain. Operator decision (2026-05-09): FIO
     //    is mandatory at signup; the platform's FIO_SYSTEM_* funded wallet

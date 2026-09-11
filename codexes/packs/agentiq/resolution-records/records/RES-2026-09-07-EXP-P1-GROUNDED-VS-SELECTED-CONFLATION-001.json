@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-07",
+  "resolutionId": "RES-2026-09-07-EXP-P1-GROUNDED-VS-SELECTED-CONFLATION-001",
+  "capability": "exp-p1-execution-model",
+  "milestone": "Operator audit of the second (post-repair) EXP-P1 internal rehearsal run before authorizing a larger rehearsal task set — 'Confirm mechanically whether actuallyGroundedInvariantIds represents evidence demonstrably used by the arm's generated response, or whether it is currently just copied/derived from selectedInvariantIds... If it is merely the selected set, stop and repair that measurement before further runs.'",
+  "problem": "The `RES-2026-09-07-EXP-P1-REHEARSAL-INSTRUMENT-VALIDATION-001` fix (same day, earlier) introduced `actuallyGroundedInvariantIds` as a THIRD invariant-id field alongside `availableInvariantIds`/`selectedInvariantIds`, documented as 'what the score was actually computed against... kept as its own field because a live-model confirmatory run's ACTUAL cited set can differ from what it was merely offered.' That documentation named the right DISTINCTION but the IMPLEMENTATION never honored it: every arm's `actuallyGroundedInvariantIds` was set to the literal same array as `selectedInvariantIds` (`[]` for A/D). A field whose name implies 'demonstrated use' held a value that was actually 'was offered' — retrieval AVAILABILITY silently presented as if it were reasoning USE, exactly the confusion the operator's audit was checking for.",
+  "observedFailure": [
+    "services/research/expP1Rehearsal.ts's task-result construction set `actuallyGroundedInvariantIds: armBSelectedIds` for Arm B and `actuallyGroundedInvariantIds: armCSelectedIds` for Arm C — verified by direct code read to be the IDENTICAL array reference/value as `selectedInvariantIds` on every arm, every task, in both the first and second persisted rehearsal runs.",
+    "No model/runtime execution step, and no evidence-of-use extraction step, exists anywhere in this harness or this codebase for EXP-P1 (confirmed in the module's own header from the prior resolution) — so there was never any mechanism BY WHICH `actuallyGroundedInvariantIds` could have held anything other than a copy of `selectedInvariantIds`. The field's very existence as a non-null `string[]` implied a measurement that could not possibly have been taken.",
+    "components/research/ExpP1ExecutionStatus.tsx's `TaskResultsList` used `a.actuallyGroundedInvariantIds?.length` as the GATE deciding whether to show the 'N selected (M available)' annotation at all — a latent bug: fixing the field to `null` (the correct repair) would have silently hidden that annotation for every arm, since the gate read the wrong field."
+  ],
+  "rootCauses": [
+    "The prior same-day resolution correctly identified THREE distinct concepts (available / selected / actually-grounded) but, lacking any live model to source the third from, defaulted it to the only value on hand (`selectedInvariantIds`) rather than to an explicit 'not measured' sentinel. A same-shape field with a plausible-looking value is far more dangerous than a missing one — it invites exactly the question this operator asked, and would silently mislead any reader who did not ask it.",
+    "The UI's display-gate bug was a direct consequence: a boolean-like gate (`length > 0`) computed from a field that MEANT one thing (demonstrated use) was used to gate the display of a DIFFERENT thing (selection size) — the two concepts had been kept nominally distinct in the type but had already re-merged operationally in the one place that read both."
+  ],
+  "resolution": [
+    "types/research.ts: `RehearsalArmTaskResult.actuallyGroundedInvariantIds` widened to `string[] | null`. `null` means 'no evidence-of-use extraction step exists for this run' — structurally distinct from `[]` ('measured, and zero were used'). Doc comment rewritten to state the exact formula every scored task/arm actually runs: `groundTruthInvariantIds -> arm selection -> [NO model/runtime execution] -> [NO evidence-of-use extraction] -> score (computed from selectedInvariantIds, never from this field)`.",
+    "services/research/expP1Rehearsal.ts: all four arms now set `actuallyGroundedInvariantIds: null` unconditionally. `scoringConfiguration` gained an explicit `actuallyGroundedInvariantIds` entry stating it is 'always null in this harness... score is computed from selectedInvariantIds directly, never from a demonstrated-use set' — so a reader of the raw persisted JSON, not just the source code, can see this without needing to ask.",
+    "components/research/ExpP1ExecutionStatus.tsx: the 'N selected (M available)' annotation's display gate changed from `actuallyGroundedInvariantIds.length > 0` to `selectedInvariantIds.length > 0` (the field that is actually always populated) — fixing the latent bug the null-repair would otherwise have introduced. Added a SEPARATE, additive 'N demonstrably used' annotation that renders only when `actuallyGroundedInvariantIds !== null`, so a future confirmatory run populating this field for real gets its own distinct, correctly-labeled display rather than being silently folded into the selection count.",
+    "Documented, per task and arm, the exact formula this harness runs today (module header + this record), and verified live against the actually-persisted second rehearsal run (`EXP-P1/execution-run/internal-rehearsal/2026-09-07T15:58:43.405Z`) that `score` was, and remains, computed purely from `selectedInvariantIds` vs `groundTruthInvariantIds` — the repair changes what is PERSISTED (honesty of the record), not what is SCORED (the measurement itself was never wrong, only its labeling was)."
+  ],
+  "rejectedApproaches": [
+    "Building a real model/runtime execution + citation-extraction step so `actuallyGroundedInvariantIds` could hold a genuine measurement — rejected as scope creep far beyond the audit's ask: no judge-config, rubric, or model-calling seam exists anywhere in this codebase for EXP-P1 (Austin's deliverable per the registered protocol's own division of responsibility); building one unilaterally to satisfy an internal rehearsal would be exactly the kind of unauthorized protocol/capability expansion the operator's standing instructions forbid ('Do not modify EXP-P1/crystal-vP2... do not invite Austin yet').",
+    "Deleting `actuallyGroundedInvariantIds` entirely rather than nulling it — rejected: the field's SHAPE is the correct forward-compatible schema marker for the day a real confirmatory judge exists (its doc comment already anticipated this); deleting it would require re-adding it later with no guarantee the next author remembers this exact lesson. Keeping it, permanently null until a real measurement exists, keeps the lesson encoded in the type itself.",
+    "Leaving the UI's display gate on the (now-null) `actuallyGroundedInvariantIds` and accepting that the 'N selected' annotation would stop rendering — rejected: this would have silently regressed a working display as a side effect of an unrelated honesty fix; caught by re-reading every consumer of the field before repairing it, not merely the type/service pair the operator's question was about."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-07-USAGE-MUST-BE-NULL-NOT-COPIED-WHEN-UNMEASURED-001"
+  ],
+  "canaries": [
+    "tests/exp-p1-rehearsal-runner.test.ts",
+    "tests/exp-p1-execution-run-persistence.test.ts",
+    "tests/exp-p1-execution-status-ui.test.tsx"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "invariant-incomplete-or-misscoped",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/exp-p1-rehearsal-runner.test.ts",
+      "tests/exp-p1-execution-run-persistence.test.ts",
+      "tests/exp-p1-execution-status-ui.test.tsx"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "Operator instruction, 2026-09-07, verbatim: \"Before running a larger rehearsal, audit the scoring path end-to-end for invariant-id-recall. Confirm mechanically whether actuallyGroundedInvariantIds represents evidence demonstrably used by the arm's generated response, or whether it is currently just copied/derived from selectedInvariantIds... If actuallyGroundedInvariantIds is merely the selected set, stop and repair that measurement before further runs. The experiment must not confuse retrieval availability with actual reasoning use.\""
+    ]
+  },
+  "sourceDocs": [],
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

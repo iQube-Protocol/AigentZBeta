@@ -1,0 +1,25 @@
+{
+  "id": "polity-constitution",
+  "title": "Polity Constitution",
+  "version": "1.0.0",
+  "status": "ratified",
+  "ratifiedAt": "2026-06-17",
+  "corePrinciple": {
+    "authorityDelegable": true,
+    "sovereigntyDelegable": false,
+    "statement": "Authority may be delegated. Sovereignty may not be delegated.",
+    "chainOfLegitimacy": ["polity", "citizen", "delegation", "agent"],
+    "rule": "An agent may exercise delegated authority but may never create new authority."
+  },
+  "sovereignty": {
+    "holder": "human_citizen",
+    "delegable": false,
+    "statement": "Sovereignty remains exclusively with human citizens. Autonomous agents are delegated instruments of citizens and organizations. They are not constitutional persons and possess no independent sovereignty, citizenship, standing, or governance authority."
+  },
+  "constitutionalPersons": {
+    "humansAreConstitutionalPersons": true,
+    "agentsAreConstitutionalPersons": false
+  },
+  "amends": [],
+  "supersedes": null
+}

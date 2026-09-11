@@ -1,0 +1,234 @@
+# SPEC-MMC-003 — MCP-Assisted Companion Deployment
+
+**metaMe IRL / iQube Protocol / AgentiQ · Deployment-flow specification · Status: RATIFIED (operator-directed, 2026-07-25) — Phase 1 shipped (§3.3 pairing persona gate, §3.6 surface tagging, §3.7 tri-state verification). §3.1/§3.2 (browser detection + install orchestration), §3.3's PROPOSED pairing-code routes, and §5 (MCP assist) remain deliberately unbuilt — see §8 for exactly what shipped and why the rest did not.**
+**Title:** *MCP-Assisted Companion Deployment — Browser Detection, Install Orchestration, Pairing, Passport Linking, Delegation, Runtime Registration, and Post-Install Verification for the metaMe Companion browser extension*
+**Companion to:** `PRD-MMC-001_metame-companion.md` (umbrella) · `SPEC-MMC-001_constitutional-flow.md` (interaction model) · `SPEC-MMC-002_my-software-artefact-inventory.md` (sibling SPEC in the same series, read for the exact header/governance template this document follows) · **`SPEC-COS-001_constitutional-onboarding-specification.md`** — a concurrently-authored sibling document (Strand 3 of the same 4-strand operator programme this SPEC is Strand 4-A of) covering the broader platform substrate every arrival crosses (Claude → MCP → Passport → Delegation → Agent Me → Experience Qubes → Journey recommendation). **Its title and one-line scope were confirmed from its own header only — its body was deliberately not read, since it was being authored concurrently by another agent in this same run.** This SPEC is narrower by design and does not restate that substrate; it covers only the mechanics of the one piece SPEC-COS-001 depends on: getting the Companion browser extension itself installed and paired.
+**Owner:** AgentiQ Runtime stewards + Identity & Access Spine stewards, same ownership as SPEC-MMC-001/002. **Origin:** operator programme, Strand 4-A of a 4-strand operator initiative, 2026-07-24. Authored by Claude Code against the shipped `extension/companion-observer/` source and the shipped Companion runtime contract.
+
+> **Governance note (binding, this SPEC):** Filed 2026-07-24 as **DESIGN**, docs-only, same regime as SPEC-MMC-001 and SPEC-MMC-002 — per this repo's ratify-before-build discipline (CLAUDE.md "Security — Access Gates", "Hypothesis vs Canon — Epistemic Honesty Discipline"), a document cannot ratify itself, so the filing shipped with §7 unchecked and no code attached. **The operator ratified it and directed a Phase 1 implementation pass on 2026-07-25**; §7's record is now checked and §8 records exactly what that pass built. The original docs-only constraint ("no code, no new routes, no extension changes are made by this document") governed the 2026-07-24 filing and is superseded only by that explicit operator direction — the Phase 1 pass adds **no new routes and no schema change**, and every remaining **PROPOSED** mechanism (pairing-code routes, MCP install-assist gateway, browser detection / install orchestration) stays unbuilt and still labelled PROPOSED, cited against the existing primitive it would compose over — never a parallel mechanism.
+
+> **Companion documents (read alongside):** `PRD-MMC-001_metame-companion.md` §0.5 (agentic hosts reach the runtime via MCP/Threshold; the regular web reaches it via the Companion extension/sidebar/overlay — this SPEC is entirely inside the second surface), §4 (Observer consent-gate law — untouched by this SPEC, which governs a different concern: getting the extension onto the machine and paired, not what it may read once running). `SPEC-MMC-001_constitutional-flow.md` §0.5 (honest build-status ledger for the extension — Observer/search-read-side only as of 2026-07-23) — **superseded in part by this document's own §0.1**, which re-audits the extension against its current 2026-07-24 state (Capture/"Pull Across" has since shipped; this SPEC's own scope, deployment mechanics, remains unbuilt). `PRD-THR-001_metame-threshold.md` (the sibling MCP/agentic-host surface; this SPEC's own §5 MCP section is explicitly speculative and does not extend Threshold). The live extension source at `extension/companion-observer/` (`manifest.json`, `background.js`, `popup.js`/`popup.html`, `sidepanel.html`/`sidepanel.js`, `content.js`, `observerConsentExt.js`, `constants.js`) — read in full before this document; every mechanic below cites it precisely. `configs/embed/policy.v1.json` (the CSP `frame-ancestors` allowlist governing what may iframe what — cited in §3.4). `services/identity/getActivePersona.ts`, `utils/personaSpine.tsx` (the identity spine this SPEC's pairing/runtime-registration design composes with, never bypasses).
+
+---
+
+## 0. Read this first — reconciliation against what's already built
+
+### 0.1 The extension is further along than SPEC-MMC-001 §0.5 recorded, and the deployment flow this SPEC covers is the part that is genuinely still missing
+
+SPEC-MMC-001 §0.5 (2026-07-23) recorded the extension as "Observer/search-read-side only." One day later the repo shows more has shipped: `background.js`'s own header cites **PRD-MMC-IMPL-003 Increment 4** ("Pull Across" capture, a `chrome.contextMenus` "Pull Across → metaMe" item wired to `POST /api/companion/capture`) alongside the Observer/grants machinery from **PRD-MMC-IMPL-001**. Six `PRD-MMC-IMPL-00{1..6}` plans and a seventh (`PRD-MMC-IMPL-007`, My Software) exist under `codexes/packs/agentiq/updates/`, each chartering one Companion increment. **None of them charter the deployment flow this SPEC is scoped to.** They all *assume* the extension is already on the machine and already paired — `background.js`'s `connectToMetaMe()` is the one piece of shipped code that touches pairing at all, and it is the starting point for §3.3 below, not a finished deployment flow. Browser detection, install orchestration, a pairing-code alternative, Passport-linking-on-first-pair, delegation-at-deployment-time, runtime registration of the extension as a distinct surface, and post-install verification as a first-class UX step were **all unbuilt at filing time** — this document specifies them for the first time. **Updated 2026-07-25:** the ratified Phase 1 pass has since built the pairing persona gate (§3.3), runtime registration's surface tagging (§3.6), and post-install verification (§3.7); the rest remain unbuilt. See §8.
+
+### 0.2 The extension today is single-browser, unpublished, and pinned by a hardcoded dev key — this bounds what "browser detection" and "install orchestration" can honestly propose
+
+`manifest.json` declares `"manifest_version": 3` (Chromium-family only — Manifest V3 is not Firefox's extension model, though Firefox has partial MV3 support; this extension has not been built or tested against it) and a hardcoded `"key"` field, which pins the extension's ID to a fixed value (`chrome-extension://iilmfkmooabjinenhphppmdgiemhieef` — the exact origin `configs/embed/policy.v1.json`'s `frameAncestors` allowlist already carries) **regardless of how it's loaded** — this is the mechanism that lets a locally-loaded-unpacked dev build and a hypothetical future Chrome Web Store listing share the same extension ID and therefore the same CSP allowlist entry, but **there is no Chrome Web Store listing today.** `host_permissions` is scoped to exactly one origin, `https://dev-beta.aigentz.me/*` — the dev deployment, not a production URL. Per CLAUDE.md's "No Guessing or Hallucinating" rule, this document does **not** invent a Chrome Web Store URL, a Firefox Add-ons URL, or an Edge Add-ons URL anywhere below — every install-path reference is written as "the (not-yet-existing) store listing" or cites the manifest/CSP facts above, and any real store URL must be supplied by the operator before an install-orchestration implementation pass can link to it.
+
+### 0.3 "Pairing" already has a shipped mechanism (`connectToMetaMe`) — this SPEC documents it precisely and proposes one complementary alternative, it does not invent a first mechanism from scratch
+
+`background.js`'s `connectToMetaMe()` (lines ~316–346) is real, shipped pairing: on a user's explicit "Connect to metaMe" click in `popup.js`, it uses `chrome.scripting.executeScript` (an `activeTab`-gated, user-gesture-only capability) to run `extractSupabaseSessionFromPage()` **inside the active metaMe tab's own JavaScript context** — reading that tab's own `localStorage` for the Supabase auth-token key and (as of a 2026-07-24 fix, per the file's own comment) `currentPersonaId` — then persists both into `chrome.storage.local` and calls `GET /api/companion/observer/grants` with the extracted Bearer token. This is the exact mechanism CLAUDE.md's own "Debugging from DevTools" snippet documents as the sanctioned manual extraction pattern, automated behind a single click. §3.3 below cites this as the primary, already-shipped pairing path and names its one open gap precisely (persona-hint timing, §0.4). §3.3 also proposes, as a **PROPOSED, not-yet-built** complementary mechanism, a one-time pairing code — for the case (a fresh install, no metaMe tab open yet) where `connectToMetaMe()`'s `activeTab` precondition cannot be met.
+
+### 0.4 The known, already-documented pairing gap this SPEC's flow must close by construction
+
+`background.js`'s own comments (lines 46–52, `popup.js` lines 33–41) record a real 2026-07-24 incident: if the active metaMe tab's `localStorage` has no `currentPersonaId` at the moment "Connect" is clicked (a visitor who never opened the wallet, or has more than one persona and never picked one), pairing silently completes with a valid Bearer token but **no persona hint** — every subsequent server call then resolves through `getActivePersona`'s step-4 fallback ("first owned persona, sorted"), not the persona the operator actually intended. `popup.js` already surfaces this honestly today (`personaFound: false` → a warning string), but only *after* the fact. §3.3 below proposes closing this by construction: the deployment flow's Pairing step routes the user through explicit persona confirmation **before** exposing "Connect," not after.
+
+### 0.5 Runtime registration has a ready hook (`CompanionSurfaceKind`) that the extension does not yet use
+
+`types/companion.ts`'s `CompanionSurfaceKind` union already names `'extension-sidebar'` and `'extension-overlay'` as Phase-2+ presentation surfaces (alongside `'web-embed'`, the first surface `app/(embed)/triad/embed/companion/page.tsx` passes to `resolveCompanionContext({ surface: "web-embed", personaIdHint: personaId })`). **The extension's own background worker never calls `resolveCompanionContext` at all** — its grants/observation/capture calls go straight to `/api/companion/observer/*` and `/api/companion/capture` with a Bearer token and an `x-persona-id` header, with no `surface` tag anywhere in the request. §3.6 below names this precisely as the Runtime Registration gap: the surface-kind enum already anticipates the extension; nothing today stamps its calls with it, so the Timeline/receipts (component 14, PRD-MMC-001 §3) cannot yet distinguish "the operator acted from the extension" from "the operator acted from the web-embed panel."
+
+### 0.6 The cross-origin lesson (2026-07-24, `sidepanel.html`'s `allow="clipboard-write"` fix) generalises to this SPEC's pairing design
+
+`sidepanel.html`'s iframe (`chrome-extension://<id>` parent, `https://dev-beta.aigentz.me` child) needed an explicit `allow="clipboard-write"` attribute because a cross-origin iframe denies `navigator.clipboard.writeText()` by default unless the parent grants it — a real, just-fixed bug (`sidepanel.html` lines 42–50). The general lesson this SPEC carries forward: **any point in the deployment flow where the extension's own UI (popup, side panel, or a future first-run screen) hosts or is hosted across the `chrome-extension://` ↔ `https://dev-beta.aigentz.me` origin boundary must be audited for the browser API it needs — clipboard, but the same class of gap applies to any future `postMessage`-based pairing handshake across that boundary.** §3.3's pairing-code alternative (a page-to-extension handshake) is designed with this lesson in hand: it deliberately avoids relying on a cross-origin iframe capability grant, using `chrome.scripting.executeScript` (same-context injection, no cross-origin boundary at all, as `connectToMetaMe` already does) or a copy-paste code (no live channel needed) instead of a `postMessage` handshake across the extension/page boundary.
+
+---
+
+## 1. Objective
+
+**Zero-friction Companion activation without violating browser security models.** "Zero-friction" does not mean "no steps" — a browser will never allow that, and pretending otherwise produces a broken design (§2). It means: at every step, the user faces exactly one unavoidable action (an explicit click on a page the browser itself controls), and every other step is inferred, pre-filled, or automated by the runtime around that one click. The deployment flow is the concrete mechanics; it composes with, and does not restate, the broader onboarding substrate the sibling Constitutional Onboarding Specification (Strand 3, this same operator session) covers.
+
+---
+
+## 2. The governing browser security constraints (ground truth — cite before designing around it)
+
+These are the real, current constraints of the Chromium extension platform (Manifest V3) that every step in §3 is designed to respect, not route around:
+
+1. **No silent install.** No web page, no script, no MCP tool call can add an extension to a user's browser without the user's own explicit action on the browser vendor's own install surface (the Chrome Web Store's "Add to Chrome" button, or the browser's own "Load unpacked" developer-mode flow). `chrome.management.install` exists but is itself gated to installing *other* extensions the calling extension is already permitted to manage, from the Chrome Web Store, with the browser's own confirmation UI in between — it is not a bypass, and nothing in this repo uses it. There is no API a third-party site can call to trigger this.
+2. **A site CAN detect whether a known extension is already installed**, via a small number of fingerprint-safe techniques: (a) `externally_connectable` messaging, where the extension's manifest explicitly declares which web origins may message it directly via `chrome.runtime.sendMessage(extensionId, ...)` and the page gets a response only if the extension exists and is listening (this extension's `manifest.json` does not declare `externally_connectable` today); or (b) a content-script-injected marker/ping the page can query via `window.postMessage`/`CustomEvent`, timing out if no response arrives (this extension's `content.js` already runs an equivalent ping/pong with its OWN background worker — `sendMessage({type:'PING'})` → `{type:'PONG'}`, lines 90–96 — just not yet exposed one hop further to the hosting page). Neither technique lets a site enumerate *all* installed extensions — only ask "is this specific, known extension present," and only if that extension opts in.
+3. **Pairing after install is a same-origin or explicit-channel problem, not a cross-origin one by default.** `chrome.scripting.executeScript` (used by `connectToMetaMe()` today) runs injected code inside the target tab's own document — same-origin, same `localStorage`, no cross-origin fetch — but it requires the `activeTab` permission's user-gesture precondition (the extension's own UI must be invoked by the user while that tab is active). A pairing design that instead tries to have the extension's iframe/page read the host site's storage directly, across the `chrome-extension://` ↔ `https://` origin boundary, hits ordinary cross-origin storage isolation and fails — §0.6's clipboard lesson is the same class of gap, just for a different API.
+4. **No cross-origin clipboard or storage access without an explicit grant.** An iframe (or any cross-origin embed) does not get clipboard read/write, and does not get the parent's storage, unless the embedding context explicitly grants it (the `allow="clipboard-write"` attribute; there is no equivalent "allow storage access" attribute — cross-origin storage isolation is enforced at the browser/platform level, not opt-outable by an `allow` attribute at all). This SPEC's pairing design (§3.3) is built to never need such a grant for identity data — it uses same-context script injection (constraint 3) or an opaque, short-lived code (no live cross-origin channel at all), precisely because storage is not a grantable exception the way clipboard is.
+
+---
+
+## 3. The deployment flow — seven stages
+
+Each stage names: the mechanics, which constraint from §2 it respects, what already ships (cite exactly), and what is PROPOSED (design only, not built).
+
+### 3.1 Browser detection
+
+**Two distinct questions, kept separate — conflating them is the most common design error in this space:**
+
+**(a) "Which browser/OS is this visitor on, to pick the right install path?"** — a capability/UA question with no browser-security constraint attached; it is ordinary feature detection. PROPOSED: prefer `navigator.userAgentData` (Chromium's User-Agent Client Hints API, structured and lower-entropy than the legacy string) with a `navigator.userAgent` regex fallback for browsers that don't implement it, to classify into: `chrome-family` (Chrome, Edge, Brave, Opera — all Chromium/MV3-capable), `firefox`, `safari`, `unsupported-mobile`. **Given §0.2's finding — this extension is Manifest V3, single-origin (`dev-beta.aigentz.me`), and has no Firefox/Safari build or manifest variant today — the only honest `chrome-family` path should offer an install CTA; every other classification should render an honest "not yet supported on this browser" message, never a broken/dead install link.** No such detection helper exists in this repo today (confirmed by a repo-wide search for `userAgentData`/browser-sniffing patterns — the handful of `navigator.userAgent` hits in the codebase are unrelated: speech recognition, PDF-viewer quirks, article-sharing). This is genuinely new code for a future implementation pass, not a citation of something shipped.
+
+**(b) "Is the Companion extension already installed for this visitor, right now?"** — the fingerprint-safe detection technique named in §2.2(b). PROPOSED: extend `content.js`'s existing ping/pong pattern (§2.2, cite lines 90–96) one hop further — have `content.js` additionally listen for a `window`-dispatched `CustomEvent` (e.g. `metame-companion-probe`) from the hosting page's own script and reply with a `metame-companion-present` event carrying the extension's version (from `constants.js`/manifest) — a page-visible signal, timeout-based (assume "not installed" if no reply within ~300ms), requiring **no new permission** (the content script already runs on `dev-beta.aigentz.me` per its existing `matches` pattern) and **no `externally_connectable` manifest change** (that mechanism talks to the background worker directly from an origin's top-level script; the content-script-CustomEvent approach is simpler and sufficient for a same-origin presence check). This closes the "Install Companion" vs. "Open Companion" CTA-selection problem without inventing a new capability the browser doesn't offer (constraint §2.2).
+
+### 3.2 Companion installation orchestration
+
+The guided flow from "I want the Companion" to "it's installed," respecting §2.1 (no silent install) at every step:
+
+1. **Browser + presence detection first** (§3.1). If already installed → skip to §3.3 (Pairing). If browser unsupported → honest message, no CTA (§0.2).
+2. **If Chrome-family and not installed:** the CTA is a plain, explicit-click `<a target="_blank">` (or `window.open`, itself only permitted as a direct result of the click, per every modern browser's popup-blocker rules) to **the store listing** — which, per §0.2, does not exist yet; this step is a placeholder for an operator-supplied URL once one is published, never a fabricated one. This is the one unavoidable, explicit-gesture step §2.1 describes — no design can remove it.
+3. **The browser itself renders its own install confirmation UI** (permissions list, "Add extension" button) — outside this repo's control by design; the extension's `manifest.json` `permissions` (`storage`, `activeTab`, `scripting`, `sidePanel`, `contextMenus`) and single `host_permissions` entry are exactly what that dialog will list, so keeping that list minimal (already the case — no `<all_urls>` host permission, no `tabs`) keeps the confirmation dialog short and non-alarming.
+4. **Post-install, the extension itself (never the web page) takes the next non-silent action.** `background.js` already has a real `chrome.runtime.onInstalled` listener (registers the "Pull Across" context menu, lines 519–525) — PROPOSED: extend that same listener to also call `chrome.tabs.create({ url: COMPANION_APP_ORIGIN })`, opening a first-run tab back at metaMe. This is legitimate because it is the *extension* (which the user just explicitly installed) taking an action on its own initiative immediately after install completes — not a page reaching back into the browser, and not something the confirmation dialog didn't already imply ("this extension can open tabs" is not a permission Chrome separately gates; opening a tab to a URL is unprivileged).
+5. **The returning tab re-runs the presence probe (§3.1b), now succeeding**, and the flow proceeds to Pairing (§3.3) automatically — no separate "now go connect" instruction needed if the first-run tab lands the user directly on a Companion-aware page that already runs the probe.
+
+### 3.3 Pairing
+
+> **SHIPPED 2026-07-25 (§8.1)** — the PROPOSED persona-confirmation fix below is built. The PROPOSED pairing-code alternative is not.
+
+**Primary, already-shipped mechanism — cite exactly, close the one open gap (§0.3, §0.4):**
+
+`background.js`'s `connectToMetaMe()` — user clicks "Connect to metaMe" in `popup.js` (a direct, `activeTab`-qualifying user gesture) → `chrome.scripting.executeScript` runs `extractSupabaseSessionFromPage()` inside the active metaMe tab's own document (same-origin `localStorage` read, no cross-origin boundary, §2.3) → extracts `{ accessToken, refreshToken, expiresAt, personaId }` (the last field read from that same tab's `localStorage.getItem('currentPersonaId')`, mirroring `personaFetch`'s own fallback in `utils/personaSpine.tsx`) → persists via `persistAuthSession` / `persistActivePersonaId` into `chrome.storage.local` → calls `refreshGrantsFromServer()` against `GET /api/companion/observer/grants` with the extracted Bearer token.
+
+**PROPOSED fix for §0.4's gap — persona confirmation BEFORE exposing "Connect":** rather than only warning post-hoc (`personaFound: false`, `popup.js` lines 39–41), the deployment flow's Pairing step should, on the metaMe-side tab the user is asked to have open, surface the currently-active persona (already resolvable client-side via `usePersonaSpine()` / `personaFetch`, `utils/personaSpine.tsx`) and let the user confirm or switch it **before** the popup's "Connect" button is enabled — closing the gap by construction rather than by a post-connect warning string. No new persona-resolution mechanism is invented; this only sequences the existing `usePersonaSpine` state ahead of the existing `connectToMetaMe()` call.
+
+**PROPOSED complementary mechanism — a one-time pairing code, for when `activeTab`'s precondition can't be met** (fresh install, no metaMe tab open, e.g. the user is on a fresh new-tab page when the first-run tab from §3.2 step 4 opens): the authenticated web app (where the user is already signed in, e.g. inside the wallet) exposes a "Pair a device" action that calls a **not-yet-built** `POST /api/companion/pair/code` route, server-side, to mint a short-lived (e.g. 5-minute TTL), single-use, opaque pairing code — scoped to the caller's own already-authenticated session server-side, never containing the raw persona UUID in the code itself (the same T2-safe-commitment discipline CLAUDE.md's HMS Identifier Isolation section already mandates for other server-computed references). The user copies that code into the extension's popup, which POSTs it to a **not-yet-built** `POST /api/companion/pair/redeem` route; the server resolves the code back to the session that minted it and returns a scoped session for the extension to store, the same way `connectToMetaMe()` already stores one. This avoids ever needing the extension to read the page's raw Supabase tokens via `localStorage`, at the cost of two new server routes this SPEC does not build — named here as the more robust option for a future increment, not a replacement for the shipped mechanism today.
+
+### 3.4 Passport linking
+
+**Composes the already-chartered mechanism (CFS-043 / CFS-043a) — does not redefine it.** Once paired, the Companion's own Passport surface is the wallet already mounted by `app/(embed)/triad/embed/companion/page.tsx` (`SmartWalletDrawer variant="embedded"`) — the same Passport-aware UI the web app already renders, reading the SAME `getActivePersona`-resolved persona the pairing step (§3.3) just bound. This SPEC's only contribution here is sequencing: **pairing must complete and resolve the correct persona (§3.3's fix) BEFORE the wallet mounts**, so the Passport state shown is the operator's actual Passport, not a fallback persona's. If the paired persona has no Passport yet, the Companion routes to the existing guided-onboarding flow — `services/constitutional/guidedOnboarding.ts`'s executable form of the CFS-043a script, composing the existing `POST /api/constitutional/agreement` endpoint — rather than the extension inventing a second "get a Passport" UI. `configs/embed/policy.v1.json`'s `frameAncestors` allowlist already includes the pinned extension origin (`chrome-extension://iilmfkmooabjinenhphppmdgiemhieef`), which is what makes the `sidepanel.html` iframe (§0.6) legal to mount at all — cite this as the existing origin-allowlisting mechanism already governing what can iframe what; this SPEC does not add a new one.
+
+### 3.5 Delegation
+
+**Composes `services/constitutional/constitutionalAgreement.ts` (`DelegatedAuthority`) and `guidedOnboarding.ts` (`recommendDelegatedAuthority`, `requiredProofGrade`) — does not redefine them, and does not create a new authority path "because it's an extension."** If the deployment flow needs the paired persona to grant the Companion (or an agent acting through it, e.g. via Threshold/MCP per PRD-MMC-001 §0.5) a bounded delegation — for example, to let a background agent surface suggestions without the human re-approving every read — the SAME `recommendDelegatedAuthority()` drafting logic and the SAME graded proof-of-humanity requirement (`requiredProofGrade`: weak captcha for read/write, strong World ID for money-moving, CFS-043 §2.1/§6) applies, unchanged. **Principal–Delegate Separation is absolute here, same as every other Companion surface (PRD-MMC-001 §4.3):** the extension never authorizes its own delegation, never authenticates on the human's behalf, never switches persona on its own initiative. The human authorizes inside the wallet UI the extension has already, correctly, paired into (§3.3–3.4) — deployment orchestration's job stops at getting the human to that authorize screen with the right persona and the right draft authority pre-filled; it never crosses into performing the authorize step itself.
+
+### 3.6 Runtime registration
+
+> **SHIPPED 2026-07-25 (§8.2)**, minus persistence — the extension now stamps `x-companion-surface` and the embed resolves its real surface; storing surface provenance on a capture/observation row still needs a migration and its own operator go-ahead.
+
+**A ready hook exists (§0.5) and is not yet used — this SPEC names the concrete, additive fix, not a new mechanism.** `types/companion.ts`'s `CompanionSurfaceKind` already reserves `'extension-sidebar'` and `'extension-overlay'` alongside the `'web-embed'` value `app/(embed)/triad/embed/companion/page.tsx` already passes to `resolveCompanionContext({ surface: "web-embed", personaIdHint })`. PROPOSED: once §3.3's pairing completes, the background worker's server-bound calls (`refreshGrantsFromServer`, `forwardObservationToServer`, `performCapture`) should carry an additional `x-companion-surface: extension-sidebar` (or `extension-overlay`, depending on which UI triggered the call — the popup/side-panel vs. an in-page overlay, PRD-MMC-001 component 10) header, mirrored server-side into whatever field the Timeline/receipt writer already uses to record surface provenance — **an additive field on an existing receipt type, never a new receipt mechanism, never a DVN pipeline change** (CLAUDE.md "DVN Pipeline Protection" — the only unilateral-safe change is a new action type or an additive field, never a mechanism change). This is what lets My Ledger's Timeline (component 14) honestly show "acted from the extension" vs. "acted from the web-embed panel" — today it cannot, because nothing tags the difference. Runtime registration, concretely, is this one field threading through calls that already exist — it is not a new "device registry" table, not a new session store, and not a rebuild of `agent_gateway_sessions` (PAG-001 §4) or the SessionQube (PRD-MMC-001 §0.1 Component 13); the extension is simply one more caller of the SAME session substrate, tagged with which surface it is.
+
+### 3.7 Post-install verification
+
+> **SHIPPED 2026-07-25 (§8.3)** — one tri-state check; the old session-only status path was removed rather than left alongside.
+
+**Three checks already exist as disconnected signals — PROPOSED: surface them as one honest, single verification step, not a raw status string to interpret.** Today, `popup.js`'s `GET_CONNECTION_STATUS`/`CONNECT_METAME` handlers already report (a) whether a valid, non-expired session exists (`ensureFreshToken`), (b) whether the grants fetch succeeded (`refreshGrantsFromServer`'s `{ok:true|false}`), and (c) whether a persona was actually found (`personaFound`, surfaced honestly as a warning string since the 2026-07-24 fix, §0.4). PROPOSED: a single "Verify Companion" affordance (in the popup, or the side panel's Companion rail) that runs all three in sequence and renders one of exactly three states — **Connected & verified** (session valid, grants fetched, persona confirmed), **Connected, needs attention** (session valid but grants or persona resolution failed — with the specific failing check named, not a generic error), or **Not connected** (no session) — rather than three independently-worded status strings the user has to piece together themselves. This is the natural point where §5's MCP-assisted variant could also plug in (an agent host driving the same three checks via tool calls instead of a human reading the popup).
+
+---
+
+## 4. Sequencing summary
+
+```
+§3.1 Browser detection ──┬─→ unsupported browser → honest message, stop
+                          └─→ chrome-family
+                                   │
+                    already installed? (§3.1b probe)
+                          │                    │
+                         yes                   no
+                          │                    │
+                          │            §3.2 Install orchestration
+                          │            (explicit-gesture store click →
+                          │             browser's own install UI →
+                          │             extension's own onInstalled →
+                          │             first-run tab back to metaMe)
+                          │                    │
+                          └────────────────────┘
+                                   │
+                          §3.3 Pairing
+                 (persona confirmed BEFORE "Connect" enabled →
+                  connectToMetaMe() same-context extraction,
+                  OR proposed pairing-code path)
+                                   │
+                          §3.4 Passport linking
+                (existing wallet + guided-onboarding flow,
+                 now showing the CORRECT persona's Passport)
+                                   │
+                          §3.5 Delegation (if needed)
+                 (existing recommendDelegatedAuthority + human
+                  authorize step — never automated)
+                                   │
+                          §3.6 Runtime registration
+                (extension's calls now tagged with a
+                 CompanionSurfaceKind — Timeline can attribute)
+                                   │
+                          §3.7 Post-install verification
+                (one honest tri-state check, not three strings)
+```
+
+---
+
+## 5. MCP's role here — explicitly speculative, forward-looking
+
+**MCP is not built for this flow in this repo today.** `services/threshold/gateway.ts` (PRD-THR-001) is the one real MCP surface this codebase has, and it exists for agentic hosts (Claude, ChatGPT, VS Code) to reach the **already-paired** Companion runtime for reasoning/action — it is not an install-assist mechanism, and this SPEC does not extend it to become one. The operator's stated interest — an agent host driving the human through §3's steps via MCP tool calls — depends on a **"metaMe Agent Bridge" MCP gateway** discussed elsewhere in this same operator session but **not yet committed to this repo in any form.** Everything in this section is accordingly written as a possible future shape, not a specification of something that exists:
+
+- **`companion.checkInstallStatus`** — a hypothetical tool an agent host could call to run §3.1's browser + presence detection server-side-assisted (the agent can't run `content.js`'s `CustomEvent` probe itself, but could ask the user "open this page and tell me what you see," or, more usefully, could be handed a webhook/poll result once the presence-probe page reports back).
+- **`companion.generatePairingCode`** — a hypothetical tool wrapping the §3.3 PROPOSED `POST /api/companion/pair/code` route, letting an agent host say "here's your one-time code: 482913, enter it in the extension popup" instead of the human navigating to a "Pair a device" button themselves.
+- **`companion.verifyPostInstall`** — a hypothetical tool wrapping §3.7's tri-state check, letting an agent host confirm "you're paired and verified" without the human reading the popup themselves.
+
+**None of these tool names, schemas, or the gateway that would host them exist yet.** This section names the shape an MCP-assisted variant of §3 could plausibly take, once (a) the metaMe Agent Bridge gateway is chartered and built, and (b) the underlying HTTP routes it would wrap (§3.3's pairing-code routes, primarily) are themselves built and ratified. Until then, §3's flow stands entirely on its own as a human-driven, browser-native flow — MCP assistance is a possible accelerant on top of it, not a dependency of it.
+
+---
+
+## 6. Out of scope / non-goals
+
+- **Does NOT weaken or duplicate the Observer's per-capability consent model** (PRD-MMC-001 §4.1's capability-grant table: `current-tab`, `selection`, `page-document`, `downloads`, `clipboard`, `notifications`, `history`). Deployment (getting the extension installed and paired) and consent (what the extension may read once running) are different concerns, kept conceptually separate throughout this document — pairing grants nothing beyond identity-only, exactly as PRD-MMC-001 §4.1 already states ("the install grants nothing beyond identity-only").
+- **Does NOT invent a Chrome Web Store URL, Firefox Add-ons URL, or any other store URL** — none exists in this repo or has been operator-confirmed; every install-path reference names the gap explicitly (§0.2).
+- **Does NOT propose any silent-install mechanism** — every install step in §3.2 requires an explicit user gesture on a surface the browser itself renders (§2.1).
+- **Does NOT redefine Passport linking or delegation** — both cite and compose CFS-043/CFS-043a and the existing `POST /api/constitutional/agreement` endpoint (§3.4, §3.5); no new authority path, no new proof-of-humanity grading scheme.
+- **Does NOT build a second SessionQube or a new device-registry table for "runtime registration"** — §3.6 is one additive header/field threading through calls that already exist, composing the already-reserved `CompanionSurfaceKind` enum.
+- **Does NOT modify the DVN pipeline or any protected spine file** — any receipt-provenance addition (§3.6) is an additive field on an existing receipt type only, per CLAUDE.md "DVN Pipeline Protection."
+- **Does NOT claim MCP install-assist exists** — §5 is explicitly, repeatedly labelled speculative; no tool schema, gateway, or route named there should be treated as shipped or implementable without first chartering the gateway itself.
+- **Does NOT restate the broader onboarding substrate** (Claude → MCP → Passport → Delegation → Agent Me → Experience Qubes → Journey recommendation) — that is the sibling Constitutional Onboarding Specification's scope (Strand 3, this operator session); this document is narrower by design and only covers getting the Companion browser extension installed and paired.
+
+---
+
+## 7. Ratification record
+
+- [x] Operator ratifies **SPEC-MMC-003** (filed 2026-07-24 as DESIGN, docs-only), a companion specification to PRD-MMC-001/SPEC-MMC-001/SPEC-MMC-002, scoped specifically to Companion browser-extension deployment mechanics. — operator-directed, 2026-07-25.
+- [x] Operator confirms the **seven-stage deployment flow** (§3: Browser detection, Installation orchestration, Pairing, Passport linking, Delegation, Runtime registration, Post-install verification) as the target mechanics, with each stage's already-shipped vs. PROPOSED status as recorded (§0, §3). — 2026-07-25. Ratifying the *target mechanics* is not ratifying a build of all seven: the same phase-gating discipline SPEC-MMC-002 §7 used applies, and §8 records which three were built.
+- [x] Operator confirms the **Pairing gap fix** (§3.3 — persona confirmation sequenced BEFORE "Connect" is enabled) as the priority fix over the current post-hoc `personaFound` warning. — 2026-07-25, built as the Phase 1 pass's first item (§8.1); it is a correctness fix, not a feature.
+- [x] Operator confirms pursuing the **PROPOSED pairing-code alternative** (§3.3) as a **future increment, deliberately NOT built in this pass** — two new server routes (`/api/companion/pair/code`, `/api/companion/pair/redeem`), still not built, still not chartered elsewhere. The primary same-context path (`connectToMetaMe`) works today, so the alternative stays a nice-to-have rather than a blocker (§8.4).
+- [x] Operator confirms the **Runtime registration** additive design (§3.6 — `x-companion-surface` header, no new session/device-registry mechanism). — 2026-07-25. Built as far as it can go *without a schema change*: the extension now stamps the header and the embed surface now resolves its real `CompanionSurfaceKind`; **persisting** surface provenance onto a capture/observation row would require a migration and is therefore held for its own operator go-ahead (§8.2).
+- [x] Operator confirms **§5's MCP section is read as speculative/forward-looking**, not a claim that a metaMe Agent Bridge MCP gateway exists — and no such gateway is chartered by this SPEC or built by the Phase 1 pass (§8.4).
+- [x] The **authorized implementation pass** chartered on ratification (2026-07-25) covered §3.3, §3.6, and §3.7 only, under the same operator-approval regime as PRD-MMC-001 §4.4 and the existing PRD-MMC-IMPL-00x plans. It touches no protected spine file, no DVN pipeline file, adds no route, and adds no migration — see §8.
+
+---
+
+## 8. Implementation record — Phase 1 (operator-directed, 2026-07-25)
+
+Full pass write-up: `codexes/packs/agentiq/updates/2026-07-25_spec-mmc-003-phase1-pairing-and-verification.md`.
+
+**The Companion extension is loaded unpacked — every change below requires the operator to reload it (`chrome://extensions` → reload ↻) before it takes effect.**
+
+### 8.1 §3.3 shipped — persona confirmation is now sequenced BEFORE "Connect"
+
+§0.4's gap is closed **by construction**, replacing the post-hoc `personaFound: false` warning:
+
+- New `PROBE_ACTIVE_PERSONA` message → `probeActivePersona()` reads the active tab's `currentPersonaId` and returns it **without any token** (the popup renders this result, so nothing that reaches it is a bearer credential; the token-bearing `extractSupabaseSessionFromPage` stays confined to the Connect path inside the service worker).
+- `popup.html` ships `connectBtn` **disabled in the markup**; `popup.js` renders the persona to be paired (masked — the raw UUID is the owner's private root identifier per the three-level reference model) and enables Connect only on a successful probe.
+- `connectToMetaMe(confirmedPersonaId)` is **strict**, refusing with `persona-confirmation-required`, `no-active-persona`, or `persona-changed-since-confirmation` — all three **before** anything is persisted. There is no half-paired state, and no path left that stores a session without its matching persona hint.
+
+**A real bug was found and fixed while building this** (not anticipated by §2 or §3.3): `chrome.scripting.executeScript` under `activeTab` runs against whatever tab is active, independent of `host_permissions`, and `connectToMetaMe()` had no origin check — so clicking Connect on an unrelated site scanned **that site's** `localStorage` for any `auth-token` key and could persist a foreign bearer token as the metaMe session. A shared `isCompanionAppUrl` / `getCompanionAppTab` guard now fronts **both** injection paths. This sharpens §2's constraint 3: same-context injection is the right mechanism, but it must be pinned to the intended origin — `activeTab` grants the tab, it does not check which tab.
+
+### 8.2 §3.6 shipped as far as it can go without a migration
+
+- `types/companion.ts` now derives `CompanionSurfaceKind` from a `COMPANION_SURFACE_KINDS` const array (one source of truth, not a hand-copied second list) and exports `COMPANION_SURFACE_HEADER` + `parseCompanionSurfaceKind` (returns `null` for unknown — never coerces to `'web-embed'`).
+- `background.js`'s `withPersonaHeader` became `withCompanionHeaders(headers, surface)` — the surface rides the **same** helper as `x-persona-id`, never a second one. In-page origins (content-script observation, "Pull Across" capture) tag `extension-overlay`; the popup's grant refreshes tag `extension-sidebar`.
+- `sidepanel.js` now loads the embed as `?surface=extension-sidebar`, and `app/(embed)/triad/embed/companion/page.tsx` validates and passes it to `resolveCompanionContext` instead of the hardcoded `'web-embed'` it used even inside the extension. **This is the one place the surface tag has a functional effect today.**
+- `POST /api/companion/capture` reads the header and **logs** surface provenance. It does not persist it: neither `companion_captured_objects` nor `companion_observation_latest` has a column for it, and adding one is a migration — held for its own operator go-ahead per §7 rather than invented here. This is the honest limit of "additive": the header arrives and is observable, but Timeline attribution of "acted from the extension" needs that column before it can be *rendered*.
+
+### 8.3 §3.7 shipped — one tri-state check, and the old status path removed
+
+`VERIFY_COMPANION` → `verifyCompanion()` runs the three existing signals in sequence (`ensureFreshToken` → stored persona → `refreshGrantsFromServer`) and returns exactly one of **Connected & verified** / **Connected, needs attention** (naming the specific failing check) / **Not connected**. The former `GET_CONNECTION_STATUS` handler is **deleted**, not left alongside — it was session-only and reported a confident "Connected." for a session with no persona hint that could not reach the server. One status path, not two.
+
+### 8.4 What was NOT built, and the one value that unblocks the rest
+
+- **§3.1 browser detection** — not built; it has no consumer until §3.2 exists.
+- **§3.2 install orchestration** — **cannot be built honestly today.** There is still no Chrome Web Store listing (§0.2's finding is unchanged: pinned dev `key`, single `dev-beta.aigentz.me` host permission, loaded unpacked). No store URL was invented anywhere in this pass. **The operator-supplied value that unblocks §3.2 is a published store listing URL** — nothing else about §3.1/§3.2 is blocked on design.
+- **§3.3's PROPOSED pairing-code routes** — still unbuilt. The primary same-context path now works *and* is correct, so the code path stays a robustness increment (two routes with their own token-scoping design), not a tail-end addition.
+- **§3.4 Passport linking / §3.5 Delegation** — nothing to build: both are sequencing requirements over already-shipped mechanisms, and §8.1 is exactly the sequencing they needed (the wallet now mounts against a confirmed persona, not a fallback). Principal–Delegate Separation is untouched.
+- **§5 MCP install-assist** — not built, not chartered, still speculative.
+
+### 8.5 Governance conformance
+
+No new route, no migration, no protected-spine file, no DVN pipeline file, no receipt type/payload/state-machine change. Canaries in `tests/companion-capture.test.ts` were extended (not weakened) with five new checks covering the confirmation gate, refusal-before-persistence, the origin guard's call-site count, surface stamping, and the single tri-state path.
+
+---
+
+*Authored docs-only, 2026-07-24; Phase 1 implemented 2026-07-25 (§8). Reconciled against `PRD-MMC-001_metame-companion.md`, `SPEC-MMC-001_constitutional-flow.md`, `SPEC-MMC-002_my-software-artefact-inventory.md` (header/governance template), `extension/companion-observer/{manifest.json,background.js,popup.js,popup.html,sidepanel.html,sidepanel.js,content.js,observerConsentExt.js,constants.js}`, `app/(embed)/triad/embed/companion/page.tsx`, `app/(embed)/triad/embed/codex/_lib/useCodexEmbedAuthBridge.ts`, `services/identity/getActivePersona.ts`, `utils/personaSpine.tsx`, `services/constitutional/{guidedOnboarding.ts,constitutionalAgreement.ts}`, `configs/embed/policy.v1.json`, `types/companion.ts`, `services/companion/runtime.ts`, and the "Identity & Access Spine," "DVN Pipeline Protection," "HMS Identifier Isolation," and "No Guessing or Hallucinating" sections of `CLAUDE.md`. Builds nothing; proposes deployment-flow mechanics for operator ratification, narrower in scope than and composing with PRD-MMC-001's umbrella and the concurrently-authored Constitutional Onboarding Specification's broader substrate.*

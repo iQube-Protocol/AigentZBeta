@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-08-15-PASSPORT-PRINCIPAL-FIRST-SUPERSESSION-001",
+  "capability": "Legacy Passport/personhood linkage reconciliation — identity resolution direction (PRD-PAG-001 Amendment A ontology)",
+  "milestone": "A same-day, operator-directed read-only audit of the identity schema proved the persona-upward reconciliation capability built earlier the same day (resolveClusterPrincipalForPersona) relied on a semantically overloaded column and was superseded by a principal-first replacement before any live execution occurred.",
+  "problem": "services/passport/legacyPassportLinkageRepair.ts (v1, built earlier 2026-08-15) resolved a legacy Passport's missing kybe_identity_id/root_identity_id by walking UP from the Passport's own persona_id: cluster every persona sharing that persona's auth_profile_id, match each one's personas.root_did against root_identity.did_uri, and take the resolved kybe/root if exactly one was found. This is a PERSONA-UPWARD heuristic. The operator directed a read-only audit before any further repair work, on the suspicion that personas.root_did — a legacy schema field — was being treated as a sovereign RootDID merely because of its name.",
+  "observedFailure": [
+    "The audit (Explore agent, read-only, file:line evidence only) found personas.root_did is written by AT LEAST EIGHT distinct call sites, and only ONE of them (services/passport/bureauIdentityService.ts::bindBureauIdentity) ever writes a genuine root_identity.did_uri value into it.",
+    "Every other write site — services/identity/personaService.ts (default persona creation), app/api/persona/create, app/api/identity/persona/create-with-fio, app/api/admin/sync-agent-personas, app/api/wallet/persona (via services/wallet/personaFioService.ts's SHA-256-of-handle), and two batch-import scripts — writes a disposable, persona-level identifier instead (an FIO-handle-derived DID string, a hash of that handle, or an import placeholder) that structurally cannot and does not match any root_identity.did_uri row.",
+    "resolveClusterPrincipalForPersona therefore only ever worked by COINCIDENCE — for personas that happened to be created via the Bureau bind path. Its own test suite (tests/cluster-principal-resolution.test.ts, now removed) used clean fixtures that never modeled this inconsistency, so the tests passed while the underlying resolution mechanism was fragile against real data — the exact 'canary encoded the defect instead of detecting it' shape this repo's resolution-record loop exists to catch, discovered here before any live execution rather than after.",
+    "A genuine principal-first entry point already existed and was already production-ratified (PRD-PAG-001 Amendment A §A.3.1/§A.3.2, 2026-07-26): resolvePassportPrincipalForAuthUser walks auth_user_id -> root_identity -> kybe_id directly, never touching personas at all. The gap was never the resolution direction — it was that legacy polity_passport_records rows have kybe_identity_id = NULL, so that already-correct query structurally cannot find them. The v1 repair solved the wrong half of the problem."
+  ],
+  "rootCauses": [
+    "personas.root_did is a semantically overloaded legacy column: its name promises a sovereign RootDID, but its actual contents depend entirely on which of eight independent persona-creation code paths last wrote it. Only the narrow Bureau signup path produces a genuine root_identity.did_uri; every generic/default persona-creation path produces a disposable, persona-level identifier instead.",
+    "The v1 repair (and its test suite) assumed personas.root_did was a reliable pointer to root_identity without first auditing its write sites — precisely the 'no guessing, verify from the codebase' discipline this repo mandates, applied one step too late (after building, not before)."
+  ],
+  "resolution": [
+    "resolveClusterPrincipalForPersona and its ClusterPrincipalFailure/ClusterPrincipalResult types are REMOVED from services/identity/passportPrincipal.ts (not deprecated-in-place) — it must not remain callable as a production reconciliation mechanism.",
+    "A new, extracted resolveRootPrincipalForAuthUser (services/identity/passportPrincipal.ts) is the sole principal-resolution mechanism: auth_user_id -> root_identity -> kybe_id, reused (not re-derived) by the existing resolvePassportPrincipalForAuthUser via a factor-out refactor with unchanged external behavior.",
+    "services/passport/legacyPassportLinkageRepair.ts (v2, full rewrite) resolves the repair's root_identity_id/kybe_identity_id EXCLUSIVELY from the ACTING CALLER's own authenticated session (their auth_user_id) — never from the target Passport's persona, and never by reading personas.root_did anywhere in the call path.",
+    "Persona-cluster ownership (auth_profile_id -> listOwnedPersonaIds) is now used ONLY as an authorization predicate — does the caller's own cluster own the persona this Passport belongs to? — never as the identity-resolution mechanism. A caller can never submit an arbitrary rootIdentityId/kybeId; the route only ever accepts a passportId.",
+    "Fails closed on: caller principal unresolved/ambiguous, Passport not found or not usable, Passport's persona not owned by the caller's cluster, or an existing non-null anchor disagreeing with the caller's resolved principal (principal_conflict — never silently overwritten, never silently ignored).",
+    "personas.root_did itself is deliberately left untouched by this closeout — renaming it, migrating its eight write sites, or introducing a replacement FK is out of scope here and is recorded as separate schema debt (see notes) for a future identity-spine normalization task, not solved by this record.",
+    "Test suite replaced: tests/cluster-principal-resolution.test.ts (tested the removed function) deleted; tests/legacy-passport-linkage-repair.test.ts rewritten for the new gates/conflict/authorization semantics; tests/root-principal-resolution.test.ts added for the extracted resolver; tests/legacy-passport-linkage-principal-first.test.ts added as an END-TO-END regression using the REAL (unmocked) resolver + ownership check against a realistic multi-table fixture, proving (a) a legacy personas.root_did = 'did:fio:*' value does not block reconciliation, and (b) a persona owned by a different auth_profile_id cluster cannot have its Passport rebound to the caller's kybe/root."
+  ],
+  "rejectedApproaches": [
+    "Patching resolveClusterPrincipalForPersona to be more careful about which root_did values it trusts (e.g. only match Bureau-formatted did:root:ppb:* strings). Rejected: this is still a persona-upward heuristic reading an overloaded column, and the operator explicitly directed reconciling the resolution DIRECTION rather than hardening the existing one.",
+    "Renaming/migrating personas.root_did or introducing a new dedicated bound_root_identity_id FK as part of this closeout. Rejected per explicit operator instruction: that is separate identity-spine normalization work, and folding it into this repair risks touching eight independent write sites (persona creation, FIO onboarding, wallet persona, agent provisioning, batch imports) under time pressure with no independent review of each.",
+    "Keeping resolveClusterPrincipalForPersona as a deprecated-but-present fallback for callers that lack a resolvable auth_user_id. Rejected: the operator was explicit that it 'must not remain an authoritative reconciliation path' — a present-but-discouraged function is exactly the kind of thing a future caller reaches for under pressure, reintroducing the same fragility."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-15-PRINCIPAL-RESOLUTION-NEVER-VIA-PERSONA-DID-001"
+  ],
+  "canaries": [
+    "tests/legacy-passport-linkage-repair.test.ts",
+    "tests/root-principal-resolution.test.ts",
+    "tests/legacy-passport-linkage-principal-first.test.ts"
+  ],
+  "scope": "local",
+  "status": "observed",
+  "trigger": "workaround-replaced",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/legacy-passport-linkage-repair.test.ts",
+      "tests/root-principal-resolution.test.ts",
+      "tests/legacy-passport-linkage-principal-first.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "services/identity/passportPrincipal.ts",
+      "services/passport/legacyPassportLinkageRepair.ts",
+      "services/passport/bureauIdentityService.ts",
+      "services/identity/personaService.ts",
+      "app/api/polity-passport/repair-legacy-linkage/route.ts"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-15_aletheon-homecoming-phase-a-capability-census.md",
+    "codexes/packs/agentiq/resolution-records/records/RES-2026-08-15-ALETHEON-LIVE-STATE-SUPERSESSION-001.json"
+  ],
+  "date": "2026-08-15",
+  "projections": {
+    "targets": [
+      "constitutional-computing",
+      "irl"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

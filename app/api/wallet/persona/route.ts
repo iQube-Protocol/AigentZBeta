@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { PersonaQube } from '@/types/persona';
 import { getCallerAuthProfileId } from '@/services/wallet/personaRepo';
+import { getSubscriberPersonaLimit } from '@/services/billing/personaPlan';
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -72,7 +73,31 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       );
     }
-    
+
+    // Plan-tier persona cap (per-subscriber). The cap is the highest active
+    // plan across all personas the caller owns; cancelled plans fall to free.
+    // Counts existing non-deleted personas under this auth_profile.
+    const { personaLimit, planLabel } = await getSubscriberPersonaLimit(supabase, callerAuthProfileId);
+    const { count: personaCount } = await supabase
+      .from('personas')
+      .select('id', { count: 'exact', head: true })
+      .eq('auth_profile_id', callerAuthProfileId)
+      .neq('status', 'deleted');
+    if ((personaCount ?? 0) >= personaLimit) {
+      return NextResponse.json(
+        {
+          error: 'persona_limit_reached',
+          message:
+            personaLimit <= 1
+              ? `Your ${planLabel} plan includes 1 persona. Upgrade to Sovereignty (3), Stewardship (8), or a Founder Office tier for more.`
+              : `Your ${planLabel} plan includes ${personaLimit} personas. Upgrade your tier to create more.`,
+          limit: personaLimit,
+          current: personaCount ?? 0,
+        },
+        { status: 403 },
+      );
+    }
+
     // Insert persona
     const { data, error } = await supabase
       .from('personas')

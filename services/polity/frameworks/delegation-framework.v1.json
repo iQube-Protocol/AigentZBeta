@@ -1,0 +1,28 @@
+{
+  "id": "delegation-framework",
+  "title": "Delegation Framework",
+  "version": "1.0.0",
+  "status": "ratified",
+  "ratifiedAt": "2026-06-17",
+  "boundConstitutionVersion": "1.0.0",
+  "boundedBy": [
+    "scope",
+    "duration",
+    "spending_limits",
+    "information_access_limits",
+    "operational_domains"
+  ],
+  "prohibited": ["permanent_delegation", "unlimited_delegation"],
+  "rule": "Permanent or unlimited delegation is prohibited. Every delegation must be bounded on every dimension.",
+  "envelope": {
+    "requiredDimensions": {
+      "scope": "Explicit allowed actions.",
+      "duration": "A finite TTL; no permanent grants.",
+      "spendingLimits": "A capped economic envelope; assets remain the sponsor's.",
+      "informationAccessLimits": "A disclosure class bounding what the agent may read.",
+      "operationalDomains": "The surfaces/cartridges the agent may act within."
+    },
+    "immutableAfterCreation": true,
+    "expansionForbidden": "No conversation or agent action may expand the envelope."
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-07",
+  "resolutionId": "RES-2026-09-07-DIDQUBE-PHASE-4-FACTOR-CONSUMER-MIGRATION-001",
+  "capability": "factor-use-case-zero-identity-resolution",
+  "milestone": "DiDQube Phase 4 item 1 (execution plan §Phase 4): Factor is the first real consumer of the canonical resolveDiDQube resolver, migrating its own independent identity walk in the Use Case Zero readiness projection's agentShell leg.",
+  "problem": "services/factor/useCaseZeroReadinessProjection.ts's resolveAgentShellLeg treated a bare agent_root_identity row (found via findAgentRootIdentityBySlug) as sufficient proof of 'agent shell established' -- it never checked whether that anchor was actually bound into its DiDQube constitutional container (the Phase 1 supertype tables: didqubes/agent_didqubes). This is exactly the class of gap Phase 4 exists to close: a consumer reasoning about identity via a raw anchor table lookup, parallel to (and unaware of) the canonical resolver Phase 2 built for precisely this question.",
+  "observedFailure": [
+    "Code inspection: resolveAgentShellLeg's 'rootIdentity found' branch (useCaseZeroReadinessProjection.ts, prior to this change) returned state:'established' from findAgentRootIdentityBySlug's result alone, with no call to resolveDiDQube anywhere in the file.",
+    "Live query against the 'Aigent Z' Supabase project (bsjhfvctmduxhohtllly) confirmed the DiDQube Phase 1 tables (didqubes/human_didqubes/agent_didqubes) exist and, as of this session, all 19 existing agent_root_identity rows already have an agent_didqubes binding (0 unbound) -- so there is no LIVE data gap today, but nothing in the code protected against one emerging: any future agent_root_identity row created through a path that does not call the new ensureAgentDiDQubeBinding would silently pass agentShell as 'established' while remaining permanently unresolvable through the canonical resolver, invisible to every other Phase 4 consumer that will come to rely on it.",
+    "tests/activity-receipts-action-type-parity.test.ts failed immediately after adding the new 'agent_didqube_container_bound' action type to ActivityActionType, confirming the drift-incident regression guard (2026-07-24) still catches an unpaired TS-union/CHECK-constraint addition -- required a wholesale-rebuild migration before the addition was safe to ship."
+  ],
+  "rootCauses": [
+    "Phase 2 (the resolver itself) and Phase 1 (the supertype tables) were built and verified in isolation, deliberately not wired into any consumer yet (the resolver's own module doc: 'NO consumer ... calls this yet'). Factor's readiness projection predates the resolver's existence and was never revisited once it shipped.",
+    "No mechanism existed to CREATE a DiDQube binding for an agent_root_identity row outside the one-time Phase 0 backfill script -- meaning even a consumer that wanted to check resolveDiDQube had no path to remediate an unresolved result short of a manual database operation."
+  ],
+  "resolution": [
+    "services/identity/didQubeResolver.ts: added ensureAgentDiDQubeBinding -- a narrow, idempotent write path (the resolver's own module doc updated to name it as the ONE exception to 'writes nothing'). Never manufactures the agent_root_identity anchor; requires it to already exist. Handles the insert-race case by re-reading rather than assuming failure.",
+    "services/factor/useCaseZeroReadinessProjection.ts: added a new, distinct, REQUIRED leg 'didqubeContainer' (never overloading agentShell's own state) that calls resolveDiDQube against the resolved agent_root_identity_id and reports established/missing/blocked/unreadable honestly, mirroring the file's own established leg-state discipline. REGISTRABLE_AGENTS platform runtime agents (a separate identity model, out of scope for this pass) are reported established+optional so they never block.",
+    "services/factor/useCaseZeroOrchestrator.ts: added the 'didqubeContainer' actionable step, calling ensureAgentDiDQubeBinding ONLY when the leg's own state is 'missing' (never when 'blocked'/'unreadable' -- mirrors agentShell's own pre-mutation state check), writing a new LOCAL (non-anchored) 'agent_didqube_container_bound' receipt on success.",
+    "services/receipts/activityReceiptService.ts + a new migration (20260930300000_didqube_container_bound_receipt_action_type.sql, applied live) add 'agent_didqube_container_bound' to both the TS union and the activity_receipts_action_type_check CHECK constraint -- verified live via pg_get_constraintdef after apply.",
+    "tests/use-case-zero-orchestrator.test.ts: added a new describe block (5 tests) proving prepare-gating end-to-end through the REAL (unmocked) projection: an unresolved container is treated as a Factor-owned action and attempts to bind (one step per call, never chaining into case creation in the same call); ensureAgentDiDQubeBinding itself failing blocks rather than being treated as bound; a conflicted resolver state blocks without ever attempting to bind; a REGISTRABLE_AGENTS platform agent never invokes resolveDiDQube at all. Also updated the one pre-existing test this change affected to assert the new integration explicitly (resolveDiDQube called with the correct anchor id) rather than merely not regressing."
+  ],
+  "rejectedApproaches": [
+    "Overloading agentShell's own existing leg state to also carry the DiDQube-container fact (e.g. treating a bound-but-not-DiDQube-resolved anchor as agentShell:'missing') -- rejected: this file's own architecture gives every distinct fact its own leg with its own orchestrator handler; conflating two facts into one leg's state would require the orchestrator to parse reason-string content to disambiguate 'no RootDID yet, genesis needed' from 'RootDID exists, container binding needed' -- fragile, and inconsistent with every other leg in this file.",
+    "Creating the DiDQube binding inside sponsorPolityAgent.ts's own genesis transaction (the shared, capacity/authority-gated agent-genesis primitive many other subsystems call) -- rejected as out of scope for a Factor-only vertical migration: touching a shared, heavily-documented primitive used across the platform is a larger, cross-cutting change the operator's 'do not perform another estate-wide audit between consumers' instruction argues against; the new didqubeContainer leg + orchestrator step achieves the same effect scoped entirely within Factor's own files, and is itself the reusable primitive (ensureAgentDiDQubeBinding) any future genesis-time caller can adopt later without another audit.",
+    "Adding 'agent_didqube_container_bound' to services/dvn/activityReceiptDvnPipeline.ts's ANCHORABLE_ACTION_TYPES -- explicitly NOT done. The operator's instruction keeps the DiDQube DVN consumer/payload migration behind its own required standalone approval (execution plan Phase 4 item 6); this receipt stays local-only."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-07-DIDQUBE-CONSUMER-RESOLVER-NOT-RAW-ANCHOR-001"
+  ],
+  "canaries": [
+    "tests/use-case-zero-orchestrator.test.ts",
+    "tests/use-case-zero-readiness-corrections.test.ts",
+    "tests/didqube-resolver.test.ts",
+    "tests/activity-receipts-action-type-parity.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/use-case-zero-orchestrator.test.ts",
+      "tests/use-case-zero-readiness-corrections.test.ts",
+      "tests/use-case-zero-capsule-provider-mode.test.tsx",
+      "tests/didqube-resolver.test.ts",
+      "tests/activity-receipts-action-type-parity.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-07_didqube-canonical-resolver-execution-plan.md",
+    "services/identity/didQubeResolver.ts",
+    "services/factor/useCaseZeroReadinessProjection.ts",
+    "services/factor/useCaseZeroOrchestrator.ts",
+    "supabase/migrations/20260930300000_didqube_container_bound_receipt_action_type.sql"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "unresolvedRisks": [
+    "The 'bring your own agent' path grants Factor the ability to bind a DiDQube container for ANY existing agent_root_identity row it discovers by slug, not only ones it itself minted. Today this is safe (every existing row is already bound), but the underlying policy question -- who is authorized to complete a container binding for an identity they did not create -- was not separately ruled on; flagged rather than decided here, since it is the same shape of question the T0/T1 wallet-authority brief already resolved for Passport possession (prepare-gating is not authority), and no live data currently exercises the edge case.",
+    "No systematic canary yet enforces 'every consumer that reads agent identity must go through resolveDiDQube' across the codebase -- this migration covers Factor's own agentShell path only, per the operator's explicit 'do not perform another estate-wide audit between consumers' instruction. Aegis, CTP, DCIR, Standing, and Registry/Horizen remain unmigrated, tracked as their own separate vertical commits."
+  ]
+}

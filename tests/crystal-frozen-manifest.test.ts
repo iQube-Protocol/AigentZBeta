@@ -1,0 +1,390 @@
+/**
+ * Frozen Crystal Manifest (services/research/crystalFrozenManifest.ts) —
+ * canaries for the Validation Programme JSON Agent Package's External
+ * Review Completeness Pass (2026-08-09), point 2 and point 10's required
+ * canary: "the frozen manifest hash matches the reviewed artifact" and "no
+ * live-corpus substitution can silently change the reviewed object."
+ */
+
+import { describe, it, expect, vi } from 'vitest';
+
+const FIXTURE_INVARIANTS = [
+  {
+    id: 'inv-001',
+    seedId: null,
+    statement: 'If a market clears, price equals marginal cost at equilibrium.',
+    namespace: 'financial-risk',
+    ontologyClassId: null,
+    semanticType: 'law',
+    status: 'validated',
+    confidence: 0.9,
+    confidenceBasis: 'validated',
+    standing: 0.7,
+    reach: 3,
+    timesValidated: 4,
+    timesContradicted: 0,
+    timesReferenced: 2,
+    timesUsed: 1,
+    version: 1,
+    supersedesId: null,
+    ratifiedSource: null,
+    provenance: { evidenceProvenance: 'external-established', source: 'Test Source A' },
+    reasoningProvenance: {},
+    creatorAliasCommitment: 'commit-abc',
+    dvnReceiptId: 'receipt-1',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'inv-002',
+    seedId: null,
+    statement: 'Liquidity risk increases as bid-ask spread widens.',
+    namespace: 'financial-risk',
+    ontologyClassId: null,
+    semanticType: 'constraint',
+    status: 'canonical',
+    confidence: 0.95,
+    confidenceBasis: 'canonical',
+    standing: 0.9,
+    reach: 5,
+    timesValidated: 6,
+    timesContradicted: 0,
+    timesReferenced: 4,
+    timesUsed: 2,
+    version: 1,
+    supersedesId: null,
+    ratifiedSource: 'operator ruling 2026-01-02',
+    provenance: { evidenceProvenance: 'external-empirical', source: 'Test Source B' },
+    reasoningProvenance: {},
+    creatorAliasCommitment: 'commit-def',
+    dvnReceiptId: 'receipt-2',
+    createdAt: '2026-01-02T00:00:00.000Z',
+    updatedAt: '2026-01-02T00:00:00.000Z',
+  },
+];
+
+vi.mock('@/services/invariants/store', () => ({
+  listInvariants: vi.fn(async () => FIXTURE_INVARIANTS),
+  listEdgesForInvariants: vi.fn(async () => []),
+}));
+
+const OBSERVED_AT = '2026-08-09T20:00:00.000Z';
+
+describe('buildFrozenCrystalManifest — hash-verified against the persisted freeze', () => {
+  it('is UNVERIFIED and withholds members when the artifact carries no contentHash', async () => {
+    const { buildFrozenCrystalManifest } = await import('@/services/research/crystalFrozenManifest');
+    const manifest = await buildFrozenCrystalManifest({
+      experimentId: 'EXP-P1',
+      observedAt: OBSERVED_AT,
+      artifact: { id: 'EXP-P1/crystal-vP1', contentHash: null, commitmentHash: null, frozenAt: '2026-01-03T00:00:00.000Z', signedBy: ['operator'], receiptId: null },
+    });
+    expect(manifest.verifiedAgainstFreeze).toBe(false);
+    expect(manifest.members).toBeNull();
+    expect(manifest.verificationDetail).toMatch(/no contentHash/);
+  });
+
+  it('VERIFIES and serves the full member list, split into frozenRecord vs currentSupplementary, when the live corpus reproduces the frozen hash exactly', async () => {
+    const { runCrystalStatisticsReport } = await import('@/services/research/crystalStatistics');
+    const { buildFrozenCrystalManifest } = await import('@/services/research/crystalFrozenManifest');
+    // The frozen artifact's contentHash IS the frozenHash a real operator would
+    // have passed to freezeArtifact() at the moment of freeze — recompute it
+    // here the same way, over the SAME (mocked) live corpus, to get a
+    // genuinely matching hash rather than a hand-typed one.
+    const stats = await runCrystalStatisticsReport({ experimentId: 'EXP-P1' });
+    const manifest = await buildFrozenCrystalManifest({
+      experimentId: 'EXP-P1',
+      observedAt: OBSERVED_AT,
+      artifact: { id: 'EXP-P1/crystal-vP1', contentHash: stats.frozenHash, commitmentHash: stats.frozenHash, frozenAt: '2026-01-03T00:00:00.000Z', signedBy: ['operator-ref'], receiptId: 'receipt-freeze' },
+    });
+    expect(manifest.verifiedAgainstFreeze).toBe(true);
+    expect(manifest.recomputedLiveHash).toBe(stats.frozenHash);
+    expect(manifest.members).not.toBeNull();
+    expect(manifest.members).toHaveLength(2);
+    const byId = new Map(manifest.members!.map((m) => [m.frozenRecord.id, m]));
+    expect(byId.get('inv-001')?.frozenRecord.statement).toBe(FIXTURE_INVARIANTS[0].statement);
+    expect(byId.get('inv-002')?.currentSupplementary.standing).toBe(0.9);
+    expect(byId.get('inv-002')?.currentSupplementary.observedAt).toBe(OBSERVED_AT);
+    // The two classes never collapse into one flat object — a frozen fact
+    // and a current observation are structurally distinct fields.
+    expect(Object.keys(byId.get('inv-001')!).sort()).toEqual(['currentSupplementary', 'frozenRecord']);
+  });
+
+  it('derivedTopology is a separate, labeled ANALYSIS over the verified frozen set — not itself a frozen fact', async () => {
+    const { runCrystalStatisticsReport } = await import('@/services/research/crystalStatistics');
+    const { buildFrozenCrystalManifest, INTRA_CRYSTAL_TOPOLOGY_ALGORITHM_VERSION } = await import('@/services/research/crystalFrozenManifest');
+    const stats = await runCrystalStatisticsReport({ experimentId: 'EXP-P1' });
+    const manifest = await buildFrozenCrystalManifest({
+      experimentId: 'EXP-P1',
+      observedAt: OBSERVED_AT,
+      artifact: { id: 'EXP-P1/crystal-vP1', contentHash: stats.frozenHash, commitmentHash: stats.frozenHash, frozenAt: '2026-01-03T00:00:00.000Z', signedBy: ['operator-ref'], receiptId: null },
+    });
+    expect(manifest.derivedTopology).not.toBeNull();
+    expect(manifest.derivedTopology!.derivedFromFrozenMemberSet).toBe(true);
+    expect(manifest.derivedTopology!.computedAt).toBe(OBSERVED_AT);
+    expect(manifest.derivedTopology!.algorithmVersion).toBe(INTRA_CRYSTAL_TOPOLOGY_ALGORITHM_VERSION);
+    expect(Array.isArray(manifest.derivedTopology!.edges)).toBe(true);
+  });
+
+  it('REFUSES to serve members or topology as the frozen set when the live corpus has DRIFTED from the persisted hash — no silent substitution', async () => {
+    const { buildFrozenCrystalManifest } = await import('@/services/research/crystalFrozenManifest');
+    const manifest = await buildFrozenCrystalManifest({
+      experimentId: 'EXP-P1',
+      observedAt: OBSERVED_AT,
+      artifact: {
+        id: 'EXP-P1/crystal-vP1',
+        // A hash that does NOT match what the live (mocked) corpus produces —
+        // simulating "the corpus moved since freeze".
+        contentHash: 'a'.repeat(64),
+        commitmentHash: 'a'.repeat(64),
+        frozenAt: '2026-01-03T00:00:00.000Z',
+        signedBy: ['operator-ref'],
+        receiptId: 'receipt-freeze',
+      },
+    });
+    expect(manifest.verifiedAgainstFreeze).toBe(false);
+    expect(manifest.members).toBeNull();
+    expect(manifest.derivedTopology).toBeNull();
+    expect(manifest.verificationDetail).toMatch(/does NOT reproduce the frozen contentHash/);
+    // The live hash IS still reported, so a reader can see the two values
+    // and judge the drift themselves rather than trusting a bare boolean.
+    expect(manifest.recomputedLiveHash).not.toBe('');
+    expect(manifest.recomputedLiveHash).not.toBe(manifest.frozenContentHash);
+  });
+
+  it('never exposes creatorAliasCommitment or any other identity-adjacent field not requested for review', async () => {
+    const { runCrystalStatisticsReport } = await import('@/services/research/crystalStatistics');
+    const { buildFrozenCrystalManifest } = await import('@/services/research/crystalFrozenManifest');
+    const stats = await runCrystalStatisticsReport({ experimentId: 'EXP-P1' });
+    const manifest = await buildFrozenCrystalManifest({
+      experimentId: 'EXP-P1',
+      observedAt: OBSERVED_AT,
+      artifact: { id: 'EXP-P1/crystal-vP1', contentHash: stats.frozenHash, commitmentHash: stats.frozenHash, frozenAt: '2026-01-03T00:00:00.000Z', signedBy: ['operator-ref'], receiptId: null },
+    });
+    const serialized = JSON.stringify(manifest.members);
+    expect(serialized).not.toContain('creatorAliasCommitment');
+    expect(serialized).not.toContain('commit-abc');
+    expect(serialized).not.toContain('commit-def');
+  });
+
+  it('recovers domain membership regardless of CURRENT status — a member merged as a duplicate (status: superseded) since freeze is NOT excluded from frozen-membership recovery (EXP-P1 retrospective artifact-recovery fix, 2026-08-30)', async () => {
+    const { listInvariants } = await import('@/services/invariants/store');
+    const { commit } = await import('@/services/research/review/deterministic');
+    const { readEvidenceProvenance } = await import('@/services/research/experimentalPopulations');
+    const { crystalDomainForExperiment } = await import('@/services/research/crystalDomains');
+    const { buildFrozenCrystalManifest } = await import('@/services/research/crystalFrozenManifest');
+
+    const SUPERSEDED_MEMBER = {
+      ...FIXTURE_INVARIANTS[0],
+      id: 'inv-003',
+      statement: 'Duplicate of inv-001, merged away as a duplicate after this crystal froze.',
+      status: 'superseded',
+    };
+    const corpus = [...FIXTURE_INVARIANTS, SUPERSEDED_MEMBER];
+    const crystalDomain = crystalDomainForExperiment('EXP-P1')?.domain ?? 'constitutional-reasoning';
+    const membersForHash = [...corpus]
+      .map((inv) => ({
+        id: inv.id,
+        statement: inv.statement,
+        namespace: inv.namespace,
+        semanticType: inv.semanticType,
+        status: inv.status,
+        evidenceProvenance: readEvidenceProvenance(inv.provenance),
+        provenance: inv.provenance,
+      }))
+      .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    const frozenHash = commit({ crystalDomain, invariantCount: corpus.length, members: membersForHash });
+
+    vi.mocked(listInvariants).mockResolvedValueOnce(corpus as never);
+    // listInvariants' mock call history accumulates across this whole test
+    // file (no per-test reset) — snapshot the count first so we can identify
+    // THIS invocation's own first call, not some earlier test's.
+    const callsBefore = vi.mocked(listInvariants).mock.calls.length;
+
+    const manifest = await buildFrozenCrystalManifest({
+      experimentId: 'EXP-P1',
+      observedAt: OBSERVED_AT,
+      artifact: { id: 'EXP-P1/crystal-vP1', contentHash: frozenHash, commitmentHash: frozenHash, frozenAt: '2026-01-03T00:00:00.000Z', signedBy: ['operator-ref'], receiptId: null },
+    });
+
+    // Pins the fix: the manifest's OWN membership-recovery query (the first
+    // listInvariants call it makes, before the knownLimitations computation
+    // below invokes the readiness/statistics reports' own separately-filtered
+    // queries) must never carry a status filter — membership is a durable
+    // fact of `invariant_contexts`, independent of a member's current,
+    // mutable `status`.
+    expect(vi.mocked(listInvariants).mock.calls[callsBefore]?.[0]).not.toHaveProperty('status');
+    expect(manifest.verifiedAgainstFreeze).toBe(true);
+    expect(manifest.memberCount).toBe(3);
+    expect(manifest.members).toHaveLength(3);
+    expect(manifest.members!.map((m) => m.frozenRecord.id)).toContain('inv-003');
+    expect(manifest.members!.find((m) => m.frozenRecord.id === 'inv-003')?.frozenRecord.statusAtFreeze).toBe(
+      'superseded',
+    );
+  });
+
+  it('when verification fails, names status-drifted members as a DIAGNOSTIC (never a claim about their status at the freeze instant) rather than an opaque mismatch', async () => {
+    const { listInvariants } = await import('@/services/invariants/store');
+    const { buildFrozenCrystalManifest } = await import('@/services/research/crystalFrozenManifest');
+
+    const SUPERSEDED_MEMBER = { ...FIXTURE_INVARIANTS[0], id: 'inv-003', status: 'superseded' };
+    vi.mocked(listInvariants).mockResolvedValueOnce([...FIXTURE_INVARIANTS, SUPERSEDED_MEMBER] as never);
+
+    const manifest = await buildFrozenCrystalManifest({
+      experimentId: 'EXP-P1',
+      observedAt: OBSERVED_AT,
+      artifact: {
+        id: 'EXP-P1/crystal-vP1',
+        contentHash: 'a'.repeat(64),
+        commitmentHash: 'a'.repeat(64),
+        frozenAt: '2026-01-03T00:00:00.000Z',
+        signedBy: ['operator-ref'],
+        receiptId: null,
+      },
+    });
+
+    expect(manifest.verifiedAgainstFreeze).toBe(false);
+    expect(manifest.memberCount).toBe(3);
+    expect(manifest.verificationDetail).toMatch(/non-freeze-eligible status/);
+    expect(manifest.verificationDetail).toMatch(/superseded/);
+    expect(manifest.verificationDetail).toMatch(/not independently recorded anywhere durable/);
+  });
+
+  it('legacyContentVerification is wired end-to-end: the EXP-P1 legacy pattern (clean seed/provenance evidence, only a status-drifted member) reports scientific-content-verified while verifiedAgainstFreeze stays false', async () => {
+    const { listInvariants } = await import('@/services/invariants/store');
+    const { buildFrozenCrystalManifest } = await import('@/services/research/crystalFrozenManifest');
+
+    const SUPERSEDED_MEMBER = { ...FIXTURE_INVARIANTS[0], id: 'inv-003', status: 'superseded' };
+    vi.mocked(listInvariants).mockResolvedValueOnce([...FIXTURE_INVARIANTS, SUPERSEDED_MEMBER] as never);
+
+    const manifest = await buildFrozenCrystalManifest({
+      experimentId: 'EXP-P1',
+      observedAt: OBSERVED_AT,
+      artifact: {
+        id: 'EXP-P1/crystal-vP1',
+        contentHash: 'a'.repeat(64),
+        commitmentHash: 'a'.repeat(64),
+        frozenAt: '2026-01-03T00:00:00.000Z',
+        signedBy: ['operator-ref'],
+        receiptId: null,
+      },
+    });
+
+    expect(manifest.verifiedAgainstFreeze).toBe(false);
+    expect(manifest.legacyContentVerification.byteExact).toBe(false);
+    expect(manifest.legacyContentVerification.state).toBe('scientific-content-verified');
+    expect(manifest.legacyContentVerification.immaterialDriftFields).toEqual(['status']);
+    expect(manifest.legacyContentVerification.frozenAt).toBe('2026-01-03T00:00:00.000Z');
+    expect(manifest.legacyContentVerification.memberCount).toBe(3);
+    expect(manifest.legacyContentVerification.blockingGaps).toEqual([]);
+  });
+
+  it('honestly discloses that freeze-ceremony fields (rationale, population, exclusions) were never persisted, rather than recomputing them as if they were', async () => {
+    const { runCrystalStatisticsReport } = await import('@/services/research/crystalStatistics');
+    const { buildFrozenCrystalManifest } = await import('@/services/research/crystalFrozenManifest');
+    const stats = await runCrystalStatisticsReport({ experimentId: 'EXP-P1' });
+    const manifest = await buildFrozenCrystalManifest({
+      experimentId: 'EXP-P1',
+      observedAt: OBSERVED_AT,
+      artifact: { id: 'EXP-P1/crystal-vP1', contentHash: stats.frozenHash, commitmentHash: stats.frozenHash, frozenAt: '2026-01-03T00:00:00.000Z', signedBy: ['operator-ref'], receiptId: null },
+    });
+    expect(manifest.freezeDisclosure.captured).toBe(false);
+    expect(manifest.freezeDisclosure.reason).toMatch(/never persisted|not linked/i);
+    expect(manifest.domainBoundary.length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * `scope: 'membership-only'` (2026-09-04, Track 2 programme-state
+ * composition-cost repair) — `resolveFrozenPredecessorContext`
+ * (crystalCohortMembership.ts) only ever reads `recoveredInvariants`; it
+ * never read `knownLimitations` or `derivedTopology`, yet the 'full' default
+ * computed the crystal's readiness report (its own O(n²) duplicate-detection
+ * + inferential-capacity passes) via THREE separate paths inside this one
+ * function (a direct call, plus `runCrystalStatisticsReport`'s OWN internal
+ * readiness call) and an extra intra-crystal edge fetch for `derivedTopology`
+ * — all discarded by that caller. These canaries pin: (1) the bounded scope
+ * produces IDENTICAL verification/membership results to 'full', (2) it does
+ * measurably fewer substrate reads, and (3) every EXISTING caller (which
+ * never sets `scope`) is completely unaffected.
+ */
+describe('buildFrozenCrystalManifest — scope: "membership-only" (2026-09-04 composition-cost repair)', () => {
+  it('defaults to "full" when scope is omitted — every existing caller unaffected', async () => {
+    const { runCrystalStatisticsReport } = await import('@/services/research/crystalStatistics');
+    const { buildFrozenCrystalManifest } = await import('@/services/research/crystalFrozenManifest');
+    const stats = await runCrystalStatisticsReport({ experimentId: 'EXP-P1' });
+    const manifest = await buildFrozenCrystalManifest({
+      experimentId: 'EXP-P1',
+      observedAt: OBSERVED_AT,
+      artifact: { id: 'EXP-P1/crystal-vP1', contentHash: stats.frozenHash, commitmentHash: stats.frozenHash, frozenAt: '2026-01-03T00:00:00.000Z', signedBy: ['operator-ref'], receiptId: null },
+    });
+    expect(manifest.scope).toBe('full');
+    expect(manifest.derivedTopology).not.toBeNull();
+  });
+
+  it('"membership-only" verifies the SAME hash and serves the SAME recoveredInvariants as "full"', async () => {
+    const { runCrystalStatisticsReport } = await import('@/services/research/crystalStatistics');
+    const { buildFrozenCrystalManifest } = await import('@/services/research/crystalFrozenManifest');
+    const stats = await runCrystalStatisticsReport({ experimentId: 'EXP-P1' });
+    const artifact = { id: 'EXP-P1/crystal-vP1', contentHash: stats.frozenHash, commitmentHash: stats.frozenHash, frozenAt: '2026-01-03T00:00:00.000Z', signedBy: ['operator-ref'], receiptId: null };
+
+    const full = await buildFrozenCrystalManifest({ experimentId: 'EXP-P1', observedAt: OBSERVED_AT, artifact });
+    const bounded = await buildFrozenCrystalManifest({ experimentId: 'EXP-P1', observedAt: OBSERVED_AT, artifact, scope: 'membership-only' });
+
+    expect(bounded.scope).toBe('membership-only');
+    expect(bounded.verifiedAgainstFreeze).toBe(full.verifiedAgainstFreeze);
+    expect(bounded.recomputedLiveHash).toBe(full.recomputedLiveHash);
+    expect(bounded.recoveredInvariants.map((r) => r.id).sort()).toEqual(full.recoveredInvariants.map((r) => r.id).sort());
+    expect(bounded.memberCount).toBe(full.memberCount);
+    expect(bounded.legacyContentVerification.state).toBe(full.legacyContentVerification.state);
+  });
+
+  it('"membership-only" reports honest empty placeholders, never a guessed value, for the two skipped analyses', async () => {
+    const { runCrystalStatisticsReport } = await import('@/services/research/crystalStatistics');
+    const { buildFrozenCrystalManifest } = await import('@/services/research/crystalFrozenManifest');
+    const stats = await runCrystalStatisticsReport({ experimentId: 'EXP-P1' });
+    const manifest = await buildFrozenCrystalManifest({
+      experimentId: 'EXP-P1',
+      observedAt: OBSERVED_AT,
+      artifact: { id: 'EXP-P1/crystal-vP1', contentHash: stats.frozenHash, commitmentHash: stats.frozenHash, frozenAt: '2026-01-03T00:00:00.000Z', signedBy: ['operator-ref'], receiptId: null },
+      scope: 'membership-only',
+    });
+    expect(manifest.knownLimitations).toEqual([]);
+    expect(manifest.derivedTopology).toBeNull();
+    // The hash-verification machinery itself is UNCHANGED — never bounded away.
+    expect(manifest.verifiedAgainstFreeze).toBe(true);
+    expect(manifest.members).not.toBeNull();
+  });
+
+  it('makes measurably fewer substrate reads than "full" — the actual cost this scope exists to remove', async () => {
+    const { listInvariants, listEdgesForInvariants } = await import('@/services/invariants/store');
+    const { runCrystalStatisticsReport } = await import('@/services/research/crystalStatistics');
+    const { buildFrozenCrystalManifest } = await import('@/services/research/crystalFrozenManifest');
+    const stats = await runCrystalStatisticsReport({ experimentId: 'EXP-P1' });
+    const artifact = { id: 'EXP-P1/crystal-vP1', contentHash: stats.frozenHash, commitmentHash: stats.frozenHash, frozenAt: '2026-01-03T00:00:00.000Z', signedBy: ['operator-ref'], receiptId: null };
+
+    vi.mocked(listInvariants).mockClear();
+    vi.mocked(listEdgesForInvariants).mockClear();
+    await buildFrozenCrystalManifest({ experimentId: 'EXP-P1', observedAt: OBSERVED_AT, artifact });
+    const fullInvariantCalls = vi.mocked(listInvariants).mock.calls.length;
+    const fullEdgeCalls = vi.mocked(listEdgesForInvariants).mock.calls.length;
+
+    vi.mocked(listInvariants).mockClear();
+    vi.mocked(listEdgesForInvariants).mockClear();
+    await buildFrozenCrystalManifest({ experimentId: 'EXP-P1', observedAt: OBSERVED_AT, artifact, scope: 'membership-only' });
+    const boundedInvariantCalls = vi.mocked(listInvariants).mock.calls.length;
+    const boundedEdgeCalls = vi.mocked(listEdgesForInvariants).mock.calls.length;
+
+    // 'full' computes readiness (its own listInvariants) directly, PLUS
+    // runCrystalStatisticsReport's internal readiness call, PLUS
+    // statistics' own re-fetch — several listInvariants round trips for one
+    // manifest build. 'membership-only' makes exactly the ONE call this
+    // function's own hash-verification genuinely needs.
+    expect(boundedInvariantCalls).toBe(1);
+    expect(boundedInvariantCalls).toBeLessThan(fullInvariantCalls);
+    // 'full' fetches intra-crystal edges at least once (readiness's own
+    // scope-'full' edge fetch, plus derivedTopology's own fetch);
+    // 'membership-only' fetches none.
+    expect(boundedEdgeCalls).toBe(0);
+    expect(boundedEdgeCalls).toBeLessThan(fullEdgeCalls);
+  });
+});

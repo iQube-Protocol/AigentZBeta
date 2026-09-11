@@ -1,0 +1,141 @@
+{
+  "schema_version": "0.1.0",
+  "application_type": "citizen_passport",
+  "application_id": "app_citizen_001",
+  "created_at": "2026-06-10T15:00:00Z",
+  "submitted_at": "2026-06-10T15:05:00Z",
+  "applicant": {
+    "applicant_kind": "human",
+    "identity_state_requested": "anonymous",
+    "public_display_preference": "persona_handle_only"
+  },
+  "persona": {
+    "persona_id": "persona_abc123",
+    "persona_handle": "sovereign-being-001",
+    "display_name": "Sovereign Being 001",
+    "persona_public_key": "pubkey_example",
+    "recovery_email_provided": false,
+    "recovery_phone_provided": false
+  },
+  "identity": {
+    "kybe_did_binding": {
+      "kybe_did": {
+        "did": "did:kybe:example123",
+        "did_method": "kybe",
+        "didqube_id": "didqube_001"
+      },
+      "binding_status": "created",
+      "proof_of_control_reference": "proof_ctrl_001",
+      "individuality_claim": "unique_human"
+    },
+    "root_did_binding": {
+      "root_did_status": "not_created",
+      "reputation_inheritance_enabled": true,
+      "kybe_did_continuity_anchor": "did:kybe:example123"
+    }
+  },
+  "proof_of_personhood": {
+    "weak_proof": {
+      "proof_type": "captcha",
+      "proof_strength": "weak_human_presence",
+      "provider": "passport_bureau_captcha",
+      "completed_at": "2026-06-10T15:04:00Z",
+      "status": "completed",
+      "privacy_notes": "Weak proof confirms human presence but not uniqueness."
+    },
+    "individuality_anchor": {
+      "anchor_type": "kybe_did",
+      "kybe_did": "did:kybe:example123",
+      "individuality_claim": "unique_human",
+      "proof_notes": "KybeDID provides continuity and individuality anchor."
+    }
+  },
+  "optional_private_details": {
+    "self_custody_blakqube_ref": {
+      "storage_model": "self_custody_encrypted_file",
+      "storage_provider": "autodrive",
+      "encrypted_payload_ref": {
+        "content_id": "autodrive_cid_example_001",
+        "content_hash": "sha256-encrypted-payload-example",
+        "created_at": "2026-06-10T15:03:00Z"
+      },
+      "encryption_profile": {
+        "encryption_location": "client_side_before_upload",
+        "algorithm": "AES-256-GCM",
+        "key_custody": "holder_controlled",
+        "key_derivation_profile": "passphrase_v0.1",
+        "key_recovery_enabled": false,
+        "key_recovery_method": "none"
+      },
+      "holder_key_control": {
+        "holder_controls_decryption_key": true,
+        "bureau_controls_decryption_key": false,
+        "sysadmin_controls_decryption_key": false,
+        "third_party_key_custodian": null
+      },
+      "system_plaintext_access": {
+        "passport_bureau_access": false,
+        "registry_access": false,
+        "supabase_access": false,
+        "sysadmin_access": false
+      },
+      "disclosure_flags": {
+        "contains_name": false,
+        "contains_address": false,
+        "contains_phone": false,
+        "contains_email": false,
+        "contains_jurisdiction": false,
+        "contains_sensitive_status": false,
+        "contains_support_needs": true
+      },
+      "access_policy_ref": "access_policy_anon_citizen_v0.1"
+    },
+    "name_provided": false,
+    "address_provided": false,
+    "phone_provided": false,
+    "email_provided": false,
+    "jurisdiction_provided": false,
+    "recovery_email_provided": false,
+    "recovery_phone_stubbed": false
+  },
+  "being_declarations": {
+    "support_needs": [
+      "housing_orientation",
+      "immigration_orientation"
+    ],
+    "statelessness_declared": false,
+    "refugee_or_asylum_context_declared": false,
+    "housing_insecurity_declared": true,
+    "immigration_support_requested": true,
+    "housing_support_requested": true,
+    "legal_information_requested": true,
+    "emergency_or_safety_context_declared": false
+  },
+  "passport_request": {
+    "requested_passport_type": "citizen",
+    "requested_grade": "anonymous_citizen",
+    "requested_visibility": "public_metadata_private_payload",
+    "public_registry_listing_requested": true,
+    "passport_scope_requested": [
+      "identity_continuity",
+      "reputation_continuity",
+      "being_services"
+    ]
+  },
+  "consents": {
+    "passport_terms_accepted": true,
+    "privacy_terms_accepted": true,
+    "registry_pending_record_consent": true,
+    "blackqube_private_storage_consent": true,
+    "self_custody_acknowledgements": {
+      "private_data_not_stored_in_supabase_acknowledged": true,
+      "bureau_cannot_decrypt_private_payload_acknowledged": true,
+      "sysadmins_cannot_recover_private_payload_acknowledged": true,
+      "loss_of_key_risk_acknowledged": true,
+      "optional_email_recovery_scope_acknowledged": true
+    },
+    "optional_recovery_warning_acknowledged": true,
+    "legal_advice_boundary_acknowledged": true
+  },
+  "receipts": []
+}

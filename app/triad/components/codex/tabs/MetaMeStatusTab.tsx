@@ -17,6 +17,7 @@ import { personaFetch } from "@/utils/personaSpine";
 import {
   ALIGNMENT_LABEL,
   SPHERE_LABEL,
+  explainOverallAlignment,
   type AlignmentState,
   type PersonalGuideData,
 } from "@/types/experienceGuide";
@@ -116,6 +117,9 @@ export function MetaMeStatusTab({ personaId }: { personaId?: string }) {
         <div className={`px-4 py-3 rounded-lg border ${ALIGNMENT_BG[guide.alignmentState]}`}>
           <p className="text-xs text-slate-300/80 mb-0.5">Alignment</p>
           <p className="text-base font-semibold text-slate-100">{ALIGNMENT_LABEL[guide.alignmentState]}</p>
+          <p className="text-[11px] text-slate-300/70 mt-0.5">
+            {explainOverallAlignment(guide.sphereAlignment)} Averaging means the headline reflects your whole posture — a single acute sphere is still visible in the matrix but doesn't dominate this status.
+          </p>
           {guide.focusIntent && (
             <p className="text-xs text-slate-300/80 mt-1">Focus: {guide.focusIntent}</p>
           )}

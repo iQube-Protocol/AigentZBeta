@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-23-DERIVED-READINESS-PROJECTION-NEVER-FROZEN-STATE-001",
+  "statement": "A UI-facing readiness/progress projection composed from several independent, already-resolved constitutional facts (e.g. eligibility, standing, authority, confidential-execution assurance) MUST be implemented as a pure, read-only derivation over those facts — never as a new frozen constitutional state, and never persisted as if it were one. Each composed field MUST resolve independently (never collapsed into one boolean or one generic UNRESOLVED), and a field gated on infrastructure that does not yet exist (e.g. a live attested deployment) MUST report an honest 'pending'/'not-required' rather than being fabricated as 'ready' to make the surface look complete. A caller that bypasses the projection and reads the underlying facts directly MUST get the identical answer.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "A UX/architecture-boundary discipline: distinguishes a derived presentation projection (cheap to add, cheap to change, no independent source of truth) from a genuine new constitutional state (would require its own settlement/receipt mechanism, its own migration, its own place in the state machine). Collapsing several independent readiness facts into one generic UNRESOLVED for display purposes is itself a defect class — it destroys the layered information the operator needs to know WHICH prerequisite is actually blocking.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/runtime-readiness-projection.test.ts",
+      "assertion": "deriveRuntimeReadinessProjection resolves eligibility/standing/authority/confidentialExecution independently across representative context combinations (unresolved/ready/not-ready/pending/not-required each reachable on their own); a fully-ready eligibility+standing+authority context still reports confidentialExecution: pending for a REQUIRED-attestation service rather than fabricating ready; a NOT_REQUIRED-attestation service reports not-required rather than pending.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/financialServices/runtimeReadinessProjection.ts",
+      "defect": "Pre-Vela, a Confidential Runtime request resolved a generic UNRESOLVED with no indication of which prerequisite (eligibility, standing, authority, or the Vela attestation itself) was actually the blocker, matching the operator's own framing that generic UNRESOLVED destroys layered readiness visibility.",
+      "resolutionId": "RES-2026-08-23-FSVC-CROSS-AGENT-STATE-AND-RUNTIME-TIER-SPLIT-001",
+      "evidence": [
+        "services/financialServices/runtimeReadinessProjection.ts",
+        "services/financialServices/discovery.ts",
+        "tests/runtime-readiness-projection.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-23-FSVC-CROSS-AGENT-STATE-AND-RUNTIME-TIER-SPLIT-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "Complements CI-2026-08-23-PROJECTION-GATED-ON-EXECUTION-REACHABILITY-001 (a caller must gate an expensive/fallible computation on the callee's own declared need for it) — this invariant instead governs the SHAPE of a cheap, read-only, UI-facing composite once computed: independence of fields, and honesty under infrastructure that does not yet exist.",
+    "The 'never fabricate ready' half of this invariant is a direct application of the No-Guessing rule to a UI-readiness context rather than a data-value context — the failure mode being guarded against is an operator being told a gate is clear when the actual gating infrastructure (Vela Live attestation) has not shipped."
+  ]
+}

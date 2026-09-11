@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-01",
+  "resolutionId": "RES-2026-09-01-TRACK2-FAIL-SOFT-SWALLOWED-001",
+  "capability": "exp-p1-track2-corpus-admission",
+  "milestone": "EXP-P1 / Track 2 — Review & Admit oscillation (live regression, post Review & Admit preparation work)",
+  "problem": "The SAME EXP-P1 Track 2 objective rendered two mutually contradictory canonical states across a refresh/run/reload sequence: 34 admitted + 18 awaiting review (Review & Admit, correct) alternating with 0 discovered + 0 admitted (Discover Sources — not started, false) — while Stages 3-8 stayed shown complete and the acquisition-domain's 8 ratified+verified institutions stayed visible throughout. The live DB was queried read-only and found STABLE and CORRECT the entire time (campaign_domain='financial-services': total 71, admitted 34, pending_review 18; corpus_institutional_registry: 8 ratified+verified) — so the two cohorts were never actually different data; one projection of the SAME stable substrate was simply wrong.",
+  "observedFailure": [
+    "`listCandidateSources` (services/corpusScout/provenance.ts) and `listCandidates` (services/invariants/discoveryEngine.ts) both wrote `if (error) return [];` — a genuine Supabase query failure (a statement timeout, a dropped connection, an RLS error) was silently indistinguishable from a genuinely empty corpus. Live Postgres logs for this project show real, recent `canceling statement due to statement timeout` events in the incident window (2026-08-31 into 2026-09-01).",
+      "This defeated TWO already-written, already-tested fail-soft safeguards that assumed the opposite contract: `researchProgrammeOrchestrator.ts`'s `loadTrack2ProgrammeState` wraps every call to these functions in `.catch(() => null)`, documented as 'Best-effort, fail-soft. `null` becomes `unknown`, never `complete`' — a catch that can never fire if the wrapped function never throws. `track2Population.ts`'s `resolveTrack2Population` wraps `listCandidateSources` in its own try/catch specifically to report a field as `unreadable` rather than a false zero ('a zero that means unknown is precisely the dishonesty this work exists to remove') — that catch was equally dead code.",
+    "The false empty reading cascaded through `track2Programme.ts`'s existing (and otherwise correct) derivation: Stage 1 (Discover Sources) read `not-started` instead of `unknown`; because `unblockedStageIds` requires every EARLIER stage to be `complete` or `partially-complete` before a later one is unblocked, Stage 1 reading `not-started` knocked Stage 2 (Review & Admit, genuinely `partially-complete` with 18 real pending sources) OUT of `unblockedStageIds`; `firstPendingDecision` then found no candidate at all (Stage 2 excluded by the unblocked-stage filter, Stage 1 excluded because it is not human-gated) and returned `null`; the advance loop's own fallback then reported the exact contradictory text observed live: 'no machine-runnable act is unblocked — the programme is at discover-sources', alongside the UNAFFECTED `acquisitionSourceUniverse` signal (a different table, a different query) still correctly reporting '8 ratified and verified institution(s) are ready'.",
+    "The Research Copilot's 'Track 2 — you are here' headline (components/composer/IRLResearchCopilotTab.tsx) rendered `programme.currentStageId`'s label directly — the projection's own 'lowest-ordinal stage that is not complete' bookkeeping value, not the operator-facing 'what needs your attention' signal the architecture already computes separately as `pendingDecision`/`firstPendingDecision`. Once the swallow above made Stage 1 falsely `not-started`, this headline flipped from 'Review & Admit' to 'Discover Sources' even though `pendingDecision` — when it existed — always correctly named Stage 2, never Stage 1 (Stage 1 is deliberately excluded from `HUMAN_GATED_STAGE_IDS`).",
+    "The mount-time preview refresh loop (`IRLResearchCopilotTab.tsx`'s per-objective GET) already had a documented 'never clear an already-loaded preview on a failed fetch' discipline, but that discipline only covered a FAILED fetch (network/parse error) — a 200 OK carrying an honest 'this signal is unreadable' answer (now correctly produced once the throw-fix above lands) was still adopted wholesale, so a genuinely pending human judgment (Review & Admit, 18 sources) could still transiently vanish from the Copilot during a real but transient substrate read failure."
+  ],
+  "rootCauses": [
+    "A shared, low-level substrate reader (`listCandidateSources`, and separately `listCandidates` — the same shape, in a different module) silently converted a Postgres query ERROR into a confidently-empty, successfully-resolved `[]`, rather than propagating the failure so callers built to distinguish 'unreadable' from 'genuinely empty' could do so. This is the SAME defect class RES-2026-08-03-TRACK2-STAGE-CADENCE-001 named for a different function: 'a nested failure result was returned faithfully and never inspected.'",
+    "A single scalar (`Track2Programme.currentStageId`, 'the lowest-ordinal stage that is not complete') was consumed by a UI surface as if it answered a DIFFERENT question ('what should the operator look at next') that the architecture had already built a distinct, correct signal for (`pendingDecision`). The two were never meant to be interchangeable — Stage 1 legitimately reads `not-started` far more often than it is actually the operator's next act, by design (`buildAcquisitionPendingDecision`'s own header names this explicitly for the acquisition-bridge case).",
+    "A client-side 'never clear on failure' discipline was written to cover only ONE way a read can degrade (the fetch itself failing) and not the other (a successful fetch honestly reporting an unreadable signal) — the same failure mode, arriving through a different transport."
+  ],
+  "resolution": [
+    "`listCandidateSources` (services/corpusScout/provenance.ts) now throws on a Supabase query error instead of returning `[]`. Every existing caller either already had a `.catch(() => [])` (crystalAcquisitionJob.ts — unchanged behaviour, now genuinely reachable instead of dead code), a `.catch(() => null)` (researchProgrammeOrchestrator.ts — now the documented fail-soft-to-unknown contract actually engages), an explicit try/catch expecting a throw (track2Population.ts's `resolveTrack2Population` — now genuinely reachable), or no wrapper at all (three Corpus Scout API routes — an uncaught throw there becomes an honest 500 via Next's route-handler default, strictly more correct than a false 200 claiming zero candidates).",
+    "`listCandidates` (services/invariants/discoveryEngine.ts) gets the identical fix for the identical reason — every Track 2 caller reads it through the same `.catch(() => null)` contract in `loadTrack2ProgrammeState`.",
+    "`IRLResearchCopilotTab.tsx`'s 'Track 2 — you are here' headline now prefers `decision.stageLabel` (the pending decision, when one exists) over the raw `currentStageId`-derived label — the same distinction `track2Programme.ts`'s own header and `firstPendingDecision`'s own comments already draw, now honoured at the ONE place a UI surface was collapsing it back into a single scalar.",
+    "The mount-time preview refresh loop's existing 'never clear an already-loaded preview' discipline is extended to also skip adopting a fresh read whose `unreadableSignals` names a signal this preview depends on (`corpus_candidate_sources`, `discovery_candidates`, or the promoted cohort) — a pending human judgment no longer transiently vanishes during a real-but-transient substrate read failure, matching the operator's own durable-pending-decision principle (§5 of the diagnostic brief, extending the precedent already set for Classify Provenance and targeted acquisition approval)."
+  ],
+  "rejectedApproaches": [
+    "Force Stage 1 to render `complete` or hide it whenever Stage 2+ show progress — this was explicitly the wrong fix named in the diagnostic brief ('Fix the derivation semantics,' not 'force stage 1 green'), and it would have hidden the real defect (the swallowed error) behind a cosmetic patch rather than closing it.",
+    "Patch `track2Programme.ts`'s `currentStageId`/`unblockedStageIds` derivation to special-case Stage 1 — the derivation is already correct GIVEN an honest signal; the defect was that the signal itself was dishonest. Changing the (correct) consumer to compensate for a (broken) producer would have been the parallel-implementation-of-a-workaround pattern this codebase's `inv.engineering.037` forbids.",
+    "Add a client-side retry/backoff around the Track 2 GET call as the primary fix — this would mask the same defect probabilistically rather than closing it; the throw-fix is unconditionally correct regardless of how often the underlying query actually fails.",
+    "Auto-admit the 18 pending sources, or trigger another acquisition round, to make the UI move — explicitly forbidden by the diagnostic brief (§14) and never considered: this is a state-projection defect, not a data or governance gap."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-01-FAIL-SOFT-MUST-THROW-001"
+  ],
+  "canaries": [
+    "tests/corpus-scout-list-projection.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "subsystems-disagreed",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/corpus-scout-list-projection.test.ts",
+      "tests/research-programme-orchestrator.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "Operator live-surface screenshot sequence, 2026-09-01 — EXP-P1 / Track 2 Review & Admit oscillating between '34 admitted / 18 pending' and '0 discovered / 0 admitted' across refresh / Run until you need me / reload",
+      "Supabase project bsjhfvctmduxhohtllly, postgres_logs: recurring 'canceling statement due to statement timeout' events, 2026-08-31T14:36 through 2026-09-01T07:00 — the failure class this fix guards against, confirmed live and recent in the incident window",
+      "Supabase project bsjhfvctmduxhohtllly, read-only diagnostic query: corpus_candidate_sources WHERE campaign_domain='financial-services' — total 71, admitted 34, pending_review 18 (stable, matches the CORRECT screenshots exactly); corpus_institutional_registry WHERE domain='financial-services' AND status='ratified' AND verification_status='verified' — count 8 (matches every screenshot, including the contradictory ones, confirming this signal was never the broken one)"
+    ]
+  },
+  "sourceDocs": [],
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  }
+}

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { StorageAdapterFactory } from "@/services/content/storageAdapter";
 import { createClient } from "@supabase/supabase-js";
+// CVR-002 — additive consequence tiering for Studio productions.
+// Best-effort + failure-isolated: never changes how images are generated.
+import { tierStudioArtifact } from "@/services/composer/studioArtifactTiering";
 
 export const runtime = "nodejs";
 
@@ -389,6 +392,21 @@ export async function POST(request: NextRequest) {
       },
     };
 
+    // CVR-002 tiering (additive, never throws): a completed live image set is
+    // operational 'multimedia' and persists as an ArtifactRecord; a simulated /
+    // failed set is disposable and NEVER persisted. Existing fields unchanged.
+    const tiering = await tierStudioArtifact({
+      kind: live.length > 0 ? "studio.image.set.completed" : "studio.image.set.simulated",
+      title: prompts[0].prompt.slice(0, 120),
+      prompt: prompts.map((item) => item.prompt).join("\n\n"),
+      provider: provider_id,
+      model: live.find((item) => item.model)?.model ?? null,
+      outputs: results.map((item) => ({
+        orientation: item.orientation,
+        url: item.image_url || null,
+      })),
+    });
+
     return NextResponse.json({
       ok: live.length > 0,
       provider: provider_id,
@@ -396,6 +414,7 @@ export async function POST(request: NextRequest) {
       mode: simulated.length > 0 && live.length === 0 ? "simulation" : "live",
       images: results,
       receipt,
+      ...tiering,
       fallback_reason:
         simulated.length > 0 && live.length === 0
           ? simulated.map((item) => `${item.orientation}: ${item.error}`).join(" | ")

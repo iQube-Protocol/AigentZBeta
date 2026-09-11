@@ -61,6 +61,14 @@
       "items": [
         "items/35-mainnet-deployment-registry.md"
       ]
+    },
+    {
+      "id": "col_polity_alpha_pricing",
+      "title": "Polity Alpha Pricing",
+      "description": "Canonical commercial architecture — tier definitions, service↔tier matrix, archetype label composition, code reconciliation, and build sequencing for the freemium/subscription pricing launch.",
+      "items": [
+        "items/36-polity-alpha-pricing-framework.md"
+      ]
     }
   ]
 }

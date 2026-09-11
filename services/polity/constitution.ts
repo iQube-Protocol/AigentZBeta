@@ -1,0 +1,181 @@
+/**
+ * Polity Core — constitutional source of legitimacy (machine-readable).
+ *
+ * This is the single typed accessor over the ratified constitutional
+ * frameworks that govern autonomous agents. Option A (autonomous agent
+ * deployment) enforcement MUST read its rules from here rather than
+ * hard-coding constants, so that every Agent Passport binds to an explicit,
+ * versioned constitution / charter / delegation framework and a constitutional
+ * mismatch is detectable.
+ *
+ * Authority may be delegated. Sovereignty may not. The chain of legitimacy is
+ * Polity → Citizen → Delegation → Agent. An agent exercises delegated
+ * authority but never creates new authority.
+ *
+ * Human-readable counterparts live in codexes/packs/polity-core/items/*.md and
+ * are surfaced by the Polity Core cartridge.
+ */
+
+import constitutionV1 from './frameworks/constitution.v1.json';
+import agentCharterV1 from './frameworks/agent-charter.v1.json';
+import delegationFrameworkV1 from './frameworks/delegation-framework.v1.json';
+import standingCharterV1 from './frameworks/standing-charter.v1.json';
+import metacommonsCharterV1 from './frameworks/metacommons-charter.v1.json';
+import founderOfficeCharterV1 from './frameworks/founder-office-charter.v1.json';
+import ventureQubeSpecV1 from './frameworks/ventureqube-spec.v1.json';
+import polityPapersCommentaryV1 from './frameworks/polity-papers-commentary.v1.json';
+import constitutionAgenticPolityV1 from './frameworks/constitution-agentic-polity.v1.json';
+import autodriveCids from './frameworks/autodrive-cids.json';
+
+export type RevocationState =
+  | 'active'
+  | 'paused'
+  | 'suspended'
+  | 'revoked'
+  | 'quarantined'
+  | 'destroyed';
+
+export const AGENT_IDENTITY_CLASS = 'ADID' as const;
+
+/** The current ratified versions an Agent Passport must bind to. */
+export const CURRENT_CONSTITUTIONAL_VERSIONS = {
+  constitutionVersion: constitutionV1.version,
+  agentCharterVersion: agentCharterV1.version,
+  delegationFrameworkVersion: delegationFrameworkV1.version,
+} as const;
+
+export const REVOCATION_STATES = agentCharterV1.revocation.states as RevocationState[];
+export const TERMINAL_REVOCATION_STATES =
+  agentCharterV1.revocation.terminalStates as RevocationState[];
+
+export function getConstitution() {
+  return constitutionV1;
+}
+export function getAgentCharter() {
+  return agentCharterV1;
+}
+export function getDelegationFramework() {
+  return delegationFrameworkV1;
+}
+export function getStandingCharter() {
+  return standingCharterV1;
+}
+export function getMetacommonsCharter() {
+  return metacommonsCharterV1;
+}
+/**
+ * The Founder Office Charter — a sub-metaCommons constitutional artefact. It is
+ * not part of the Agent Passport binding triple (constitution + agent-charter +
+ * delegation); it is downstream of the metaCommons and calibrated by Standing.
+ */
+export function getFounderOfficeCharter() {
+  return founderOfficeCharterV1;
+}
+/**
+ * The VentureQube Specification — a WORK-IN-PROGRESS constitutional primitive
+ * (ClusterQube specialization). Recorded in Polity Core for legibility while it
+ * is built; NOT ratified, NOT in the Agent Passport binding triple, and NOT
+ * published to Autodrive until canonized. Engineering SoT is types/ventureQube.ts.
+ */
+export function getVentureQubeSpec() {
+  return ventureQubeSpecV1;
+}
+
+/**
+ * The Polity Paper series as constitutional COMMENTARY — interpretive,
+ * authoritative, and cross-referenced from the charters (PoWP, PoTS, Time
+ * Sovereignty, Experience Sovereignty, …). Not ratified law and not in the
+ * Agent Passport binding triple. The `series[].papers[]` index is populated by
+ * scripts/ingest-polity-papers.mjs; the `concepts` block gives agents direction
+ * even before the full papers are ingested.
+ */
+export function getPolityPapersCommentary() {
+  return polityPapersCommentaryV1;
+}
+
+/**
+ * The Constitution of the Agentic Polity — the foundational constitutional text
+ * (4th paper of the Polity series), elevated to ratified status in Polity Core.
+ * NOTE: the operative binding triple still references constitution.v1.json;
+ * adding this to CURRENT_CONSTITUTIONAL_VERSIONS re-binds every Agent Passport
+ * and is a deliberate governance act, not done here.
+ */
+export function getConstitutionOfAgenticPolity() {
+  return constitutionAgenticPolityV1;
+}
+
+/**
+ * Autodrive (Autonomys) CID records proving content-addressed immutability of
+ * the published frameworks. Empty until `scripts/publish-polity-core.mjs` runs.
+ */
+export function getAutodriveImmutability() {
+  return autodriveCids;
+}
+
+/** The full machine-readable framework bundle (served by the API route). */
+export function getConstitutionalFramework() {
+  return {
+    currentVersions: CURRENT_CONSTITUTIONAL_VERSIONS,
+    constitution: constitutionV1,
+    agentCharter: agentCharterV1,
+    delegationFramework: delegationFrameworkV1,
+    standingCharter: standingCharterV1,
+    metacommonsCharter: metacommonsCharterV1,
+    founderOfficeCharter: founderOfficeCharterV1,
+    // WIP — recorded for legibility; not ratified, not in the binding triple.
+    ventureQubeSpec: ventureQubeSpecV1,
+    // The Constitution of the Agentic Polity (ratified foundational text) +
+    // the Polity Paper series as constitutional commentary (interpretive).
+    constitutionOfAgenticPolity: constitutionAgenticPolityV1,
+    polityPapersCommentary: polityPapersCommentaryV1,
+    autodrive: autodriveCids,
+  };
+}
+
+/**
+ * The constitutional binding an Agent Passport must embed at issuance
+ * (Constitution / Agent Charter / Delegation Framework versions). Sponsor
+ * identity + revocation authority are supplied by the caller at issuance time.
+ */
+export function getAgentPassportBinding() {
+  return { ...CURRENT_CONSTITUTIONAL_VERSIONS };
+}
+
+/**
+ * Returns true when an Agent Passport's embedded versions match the current
+ * ratified versions. A mismatch must trigger automatic suspension
+ * (agentCharter.constitutionalBinding.onMismatch).
+ */
+export function isConstitutionallyCurrent(binding: {
+  constitutionVersion?: string;
+  agentCharterVersion?: string;
+  delegationFrameworkVersion?: string;
+} | null | undefined): boolean {
+  if (!binding) return false;
+  return (
+    binding.constitutionVersion === CURRENT_CONSTITUTIONAL_VERSIONS.constitutionVersion &&
+    binding.agentCharterVersion === CURRENT_CONSTITUTIONAL_VERSIONS.agentCharterVersion &&
+    binding.delegationFrameworkVersion ===
+      CURRENT_CONSTITUTIONAL_VERSIONS.delegationFrameworkVersion
+  );
+}
+
+export interface AgentClassConstraintInput {
+  hasKybeDid?: boolean;
+  passportClass?: string | null;
+  isHuman?: boolean;
+}
+
+/**
+ * Enforces the Phase-1 ADID invariants on a prospective autonomous agent:
+ * no kybe DID, never human, never a citizen passport. Returns the list of
+ * violations (empty = compliant). Option A deployment must reject any
+ * non-empty result.
+ */
+export function checkAgentClassConstraints(input: AgentClassConstraintInput): string[] {
+  const violations: string[] = [];
+  if (input.hasKybeDid) violations.push('agent_must_not_have_kybe_did');
+  if (input.isHuman) violations.push('agent_must_not_present_as_human');
+  if (input.passportClass === 'citizen') violations.push('agent_cannot_hold_citizen_passport');
+  return violations;
+}

@@ -78,7 +78,7 @@ const client = initAgentiqClient({
 **IMPORTANT**: This key is required for decrypting agent keys.
 
 ```
-AGENT_KEY_ENCRYPTION_SECRET=e35c7d79651daadd8723ff952c90fe55c567143065e1159d5e683ff3c9703fda
+AGENT_KEY_ENCRYPTION_SECRET=<REDACTED-2026-07-30-treat-as-compromised-rotate-before-use>
 ```
 
 **Stored in**:
@@ -165,7 +165,7 @@ AGENT_KEY_ENCRYPTION_SECRET=e35c7d79651daadd8723ff952c90fe55c567143065e1159d5e68
 3. **App Settings** → **Environment variables**
 4. Add:
    ```
-   AGENT_KEY_ENCRYPTION_SECRET = e35c7d79651daadd8723ff952c90fe55c567143065e1159d5e683ff3c9703fda
+   AGENT_KEY_ENCRYPTION_SECRET = <REDACTED-2026-07-30-treat-as-compromised-rotate-before-use>
    ```
 5. **Save** and redeploy
 

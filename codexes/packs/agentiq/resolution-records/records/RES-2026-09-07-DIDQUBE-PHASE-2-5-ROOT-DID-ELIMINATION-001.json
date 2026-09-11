@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-07",
+  "resolutionId": "RES-2026-09-07-DIDQUBE-PHASE-2-5-ROOT-DID-ELIMINATION-001",
+  "capability": "didqube-identity-resolution",
+  "milestone": "DiDQube Phase 2.5 (operator ruling #5, moved ahead of Phase 3/4) — eliminate personas.root_did as an authoritative identity source, per the DiDQube Canonical Resolver execution plan's Phase 0 inventory finding that 2 of 3 live agent_persona rows were already unanchored as a direct result.",
+  "problem": "services/agents/provisionAgentPersona.ts resolved the sponsoring citizen's delegation anchor (agent_persona.delegation_user_root_id) by reading personas.root_did for the sponsor's persona id, then matching it against root_identity.did_uri. personas.root_did is a semantically overloaded legacy column (passportPrincipal.ts's own SUPERSEDED comment: only one write site — bindBureauIdentity — ever wrote a genuine root_identity.did_uri into it; every other persona-creation path writes a disposable, persona-level identifier instead, e.g. did:fio:<handle>). The walk therefore only worked by coincidence for personas that happened to go through the Bureau path, and an allowUnanchored escape hatch silently provisioned agent_persona rows with a NULL delegation_user_root_id whenever it failed — live-DB-confirmed: 2 of 3 agent_persona rows (67%) were unanchored as a direct result. app/api/homecoming/agent/stand-up/route.ts independently hand-rolled a second copy of the identical broken walk (both the real POST path and its GET preflight preview), and app/api/admin/identity/sync-persona-evm-addresses/route.ts actively perpetuated the column's ambiguity by writing synthetic did:fio:<handle> placeholders into it on every run.",
+  "observedFailure": [
+    "Live-DB query (DiDQube Phase 0 inventory, 2026-09-07): select count(*) filter (where delegation_user_root_id is null) from agent_persona -> 2 of 3 rows unanchored.",
+    "provisionAgentPersona.ts's walk required an exact string match between personas.root_did and root_identity.did_uri; any sponsor persona created via a non-Bureau path (personaService.ts, /api/persona/create, /api/identity/persona/create-with-fio, /api/wallet/persona, batch-import scripts) carries a disposable identifier there instead, so the match fails for the majority of real personas even when the sponsor genuinely has a resolvable root_identity via auth_user_id.",
+    "app/api/homecoming/agent/stand-up/route.ts's GET preflight independently re-implemented the same broken personas.root_did -> root_identity lookup as a 'preview', duplicating the exact defect class rather than sharing one corrected walk (inv.engineering.036/037)."
+  ],
+  "rootCauses": [
+    "Identity resolution was authored against an assumed link (personas.root_did as a reliable pointer to root_identity) rather than the actual canonical chain the platform's own Passport/Bureau flow establishes (auth_user_id -> root_identity -> kybe_identity), which passportPrincipal.ts already exports as resolveRootPrincipalForAuthUser and which services/passport/legacyPassportLinkageRepair.ts already uses correctly as its own reference pattern.",
+    "Persona membership (which persona does the caller control?) and principal identity (which human/root does the delegation anchor to?) were conflated into one lookup keyed on the sponsor persona's own row, instead of being resolved as two separate questions — the caller's own authenticated auth_user_id for identity, persona ownership for authorization only.",
+    "The allowUnanchored escape hatch existed to route around the old walk's known failure mode rather than fix the walk itself, so every caller that hit the common (non-Bureau-persona) case silently degraded to an unanchored delegation instead of surfacing the defect."
+  ],
+  "resolution": [
+    "services/agents/provisionAgentPersona.ts: removed the personas.root_did -> root_identity.did_uri read entirely. The delegation anchor is now resolved via resolveRootPrincipalForAuthUser(sponsorAuthUserId) — composed from services/identity/passportPrincipal.ts, not re-derived (inv.engineering.036/037). sponsorPersonaId is now authorization/provenance only (the existing 'does this persona sponsor the agent?' check, unchanged). allowUnanchored is removed; a human-sponsored call that cannot resolve now fails closed (409) instead of silently provisioning unanchored. isPlatformAuthority (mirroring sponsorPolityAgent's own flag) replaces it for the one case principal-first resolution cannot cover: machine-to-machine platform sponsorship with no human auth session at all.",
+    "app/api/homecoming/agent/stand-up/route.ts: both the POST handler and its GET preflight now resolve the caller's own auth_user_id via getCallerIdentityContext and pass/reuse it through resolveRootPrincipalForAuthUser — the SAME walk in both the real call and its preview, so the preview can never diverge from what POST actually does. Never reads personas.root_did.",
+    "app/api/identity/persona/agent/route.ts: added getCallerIdentityContext, passes the caller's own auth_user_id as sponsorAuthUserId.",
+    "app/api/ops/agents/provision-platform-agent/route.ts: passes isPlatformAuthority: true (no human auth session exists on this CRON_TRIGGER_TOKEN machine-to-machine path) instead of the removed allowUnanchored.",
+    "app/api/admin/identity/sync-persona-evm-addresses/route.ts: removed the write that populated personas.root_did with a synthetic did:fio:<handle> placeholder on every run — this write never produced a genuine root_identity.did_uri link, and once every authoritative reader was fixed above, was pure dead weight perpetuating the column's ambiguity for zero remaining benefit.",
+    "Read sites re-examined and confirmed already-safe (no change needed): services/standing/agentStandingPersona.ts and services/agents/provisionAigentMePersona.ts/provisionAgentWalletPersona.ts use personas.root_did purely as a self-referential match key for an AGENT's OWN already-resolved agent_root_identity.did_uri (never to resolve a human sponsor's identity) — structurally distinct from the defect class being eliminated; redesigning that CRM-bridge mechanism is Standing/reputation Phase 4 territory (its own dry-run reconciliation), not Phase 2.5. app/api/identity/persona/[id]/route.ts's read (agent-rename propagation) is the same safe pattern and is never serialized to the client (toIdentitySafePersona's allowlist excludes root_did). app/api/wallet/identity/references/route.ts's read is informational display-grouping only, never an authority/ownership decision. services/passport/bureauIdentityService.ts's internal lookupExistingBinding call (inside bindBureauIdentity) is a safe self-consistency read of its own prior write for the same auth account.",
+    "services/agents/repairDelegationAnchor.ts (the existing backfill mechanism for the 2 already-unanchored live rows) was confirmed already correct — it resolves via resolvePassportExplicitAnchor(sponsor_passport_id), never personas.root_did. No code change needed; running it against the 2 known unanchored rows requires live database access this environment does not have and is left for the operator via the existing POST /api/homecoming/agent/repair-anchor route."
+  ],
+  "rejectedApproaches": [
+    "Keeping allowUnanchored as a general escape hatch and only adding principal-first resolution as an alternative path — rejected per explicit operator ruling: the escape hatch existed only to route around a walk that principal-first resolution structurally fixes for any real Bureau-bound citizen (every Passport-issued root_identity row is anchored to an auth_user_id); keeping it would let the defect keep degrading data quality silently.",
+    "Redesigning services/standing/agentStandingPersona.ts's personas.root_did write (the CRM Standing bridge) in this same pass — rejected after close reading: that write is a self-referential match key for an agent's OWN already-resolved identity via the existing sync_persona_to_crm_persona trigger, not the fuzzy-sponsor-resolution defect class; the operator's own plan scopes Standing/reputation reconciliation as Phase 4, highest-care, requiring its own dry-run reconciliation report before any write changes — forcing it into Phase 2.5 would violate that explicit sequencing.",
+    "Leaving services/passport/bureauIdentityService.ts's exported resolveRootDidCommitment (consumed by services/constitutional/constitutionalAgreement.ts for cross-persona agreement-authorization comparison) unaddressed without flagging it — considered, but this is a genuinely consequential (execution-gating) use of personas.root_did NOT named in the Phase 0 inventory's original table (which classified the read site as 'Medium — needs confirmation it's genuinely a fallback' without knowing about this downstream consumer). Rejected leaving it silently unflagged; recorded as an unresolvedRisk below instead, since a rushed fix to constitutional-agreement authorization without the same verification rigor as the rest of this pass would be irresponsible, and no persona-to-principal walk exists yet for an ARBITRARY (not-necessarily-the-current-caller) persona id."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-23-CANONICAL-IDENTITY-CHAIN-OVER-FUZZY-MATCH-001"
+  ],
+  "canaries": [
+    "tests/provision-agent-persona-principal-first.test.ts",
+    "tests/agent-homecoming.test.ts",
+    "tests/sync-persona-evm-addresses-no-root-did-write.test.ts",
+    "tests/legacy-passport-linkage-principal-first.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/provision-agent-persona-principal-first.test.ts",
+      "tests/agent-homecoming.test.ts",
+      "tests/sync-persona-evm-addresses-no-root-did-write.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "services/agents/provisionAgentPersona.ts",
+    "app/api/homecoming/agent/stand-up/route.ts",
+    "app/api/identity/persona/agent/route.ts",
+    "app/api/ops/agents/provision-platform-agent/route.ts",
+    "app/api/admin/identity/sync-persona-evm-addresses/route.ts",
+    "codexes/packs/agentiq/updates/2026-09-07_didqube-canonical-resolver-execution-plan.md"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "unresolvedRisks": [
+    "services/passport/bureauIdentityService.ts's exported resolveRootDidCommitment(personaId) is consumed by services/constitutional/constitutionalAgreement.ts to compare the FORMING persona's RootDID commitment against the AUTHORIZING persona's at agreement-authorization time ('equality is what lets a different persona under the same RootDID authorize what a different persona formed') — a genuinely consequential (execution-gating) use of personas.root_did NOT eliminated in this pass. This is MORE serious than the DiDQube Phase 0 inventory's original classification of this read site ('Medium — needs confirmation it's genuinely a fallback, not primary'), which did not have visibility into this downstream consumer. Fixing it requires a persona-id -> principal walk that does not cleanly exist yet (unlike the current-caller's-own-auth_user_id pattern used everywhere else in this fix, constitutionalAgreement.ts needs to resolve an ARBITRARY persona's principal, not necessarily the current caller's). Recommend as the immediate next follow-up, scoped and reviewed on its own — not bundled into this pass.",
+    "The 2 existing live agent_persona rows already unanchored by the old defect (Phase 0 inventory) are not backfilled by this pass — services/agents/repairDelegationAnchor.ts already exists and is confirmed correct for this exact purpose, but running it requires live database access this environment does not have. The operator should invoke the existing POST /api/homecoming/agent/repair-anchor route for the affected agentRootIds.",
+    "Full-suite regression check (npx vitest run) after this pass: 17 failed files / 65 failed tests, 644 passed files / 10595 passed tests — matches the DiDQube Phase 2 implementation record's own documented baseline (17/65) exactly; zero new failures introduced, and none of the 17 pre-existing failing files touch any file this pass changed."
+  ]
+}

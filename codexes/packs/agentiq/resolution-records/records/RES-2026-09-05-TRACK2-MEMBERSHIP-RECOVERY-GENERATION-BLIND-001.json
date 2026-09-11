@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-05",
+  "resolutionId": "RES-2026-09-05-TRACK2-MEMBERSHIP-RECOVERY-GENERATION-BLIND-001",
+  "capability": "exp-p1-track2-crystal-cohort-membership",
+  "milestone": "EXP-P1 / Track 2 — immediately after the Stage 8 successor-cohort assignment (receipt b28284b6-7b26-4362-b89b-c866fa690967, 2026-09-05T10:06:41Z) documented in codexes/packs/agentiq/updates/2026-09-05_exp-p1-stage8-successor-assignment-and-generation-gap.md",
+  "problem": "resolveFrozenPredecessorContext / buildFrozenCrystalManifest recover 'the frozen predecessor generation's membership' by reading invariant_contexts for the crystal domain with no status filter and no time/generation boundary of any kind. The moment new successor material is Stage-8-assigned into the SAME domain, it becomes indistinguishable from the original frozen batch to this read, and isSuccessorScopedCandidate then misclassifies every newly-assigned successor member as already-frozen predecessor history rather than current successor construction work — silently collapsing the successor-cohort view every other Track 2 stage and relationship route depends on.",
+  "observedFailure": [
+    "Live Supabase project bsjhfvctmduxhohtllly, domain 'financial-risk-value-systems': invariant_contexts now holds 68 rows. Joining to invariant_contexts.created_at (read-only SQL) splits them into exactly two clusters with no other distinguishing column: 15 rows at 2026-08-04T21:27:49.xxx (the vP1 predecessor batch — 11 status='validated', 4 status='superseded') and 53 rows at 2026-09-05T10:06:41.303889 (the just-executed Stage 8 successor assignment named in the 2026-09-05 update doc, receipt b28284b6-7b26-4362-b89b-c866fa690967).",
+    "services/research/crystalFrozenManifest.ts:340-346 issues `listInvariants({domain: crystalDomain, limit: input.fetchLimit ?? 500})`. Confirmed by direct code reading: this query carries an intentionally-absent status filter (a 2026-08-30 fix, for an unrelated reason — recovering members later merged/superseded since freeze) and NO created_at / generation / version filter of any kind. `recoveredInvariants` is populated from this read unconditionally — per the field's own doc comment, 'regardless of verifiedAgainstFreeze' — so it is not even gated by the hash-match check the rest of the manifest uses to decide whether to trust the read as 'the frozen set'.",
+    "services/research/crystalCohortMembership.ts:76-106 (resolveFrozenPredecessorContext) maps ALL of `manifest.recoveredInvariants` into `frozenGenerationMemberIds` with no further filtering. As of the 2026-09-05T10:06:41 assignment this set now contains all 68 live domain members (both clusters), not the 11-15 the frozen vP1 artifact's contentHash actually committed to.",
+    "services/research/crystalCohortMembership.ts:118-128 (isSuccessorScopedCandidate) excludes a promoted candidate from the successor-scoped view whenever its resolved invariant id is a member of `frozenGenerationMemberIds`. All 53 just-assigned successor members are now misclassified as frozen-predecessor material by this predicate, so `successorScopedCandidates` in researchProgrammeOrchestrator.ts's `loadTrack2ProgrammeState` — the SAME shared array Stage 3/4's counts, Stage 6 validate, Stage 7 relationship-edge-counting, and the review-and-promote queue all read — collapsed from 58 successor members down to 5 the instant the Stage 8 assignment ran, with no error, warning, or state-machine signal marking the drop."
+  ],
+  "rootCauses": [
+    "invariant_contexts (the crystal-domain membership table) carries no version/generation column — schema confirmed directly (information_schema.columns): id, invariant_id, domain, interpretation, applicability_conditions, retrieval_tags, created_at only. Crystal generation (vP1 vs v2) exists ONLY as a naming convention on research_objects.object_id ('EXP-P1/crystal-vP<N>'), completely decoupled from the membership rows any domain-scoped query actually reads. This is the exact schema gap the 2026-09-05 update doc's own 'Architectural gap captured' section already named for Stage 8's `populated = invariantCount > 0` completion signal — this record establishes that the SAME gap independently produces a second, more severe symptom in the successor-scope predicate every other Track 2 stage shares.",
+    "buildFrozenCrystalManifest's hash-verification design treats byte-exact reproduction of the frozen contentHash as the gate on whether the manifest's per-member DETAIL (`members`) may be trusted as the frozen set — but `recoveredInvariants`, the raw domain-scoped population the hash was computed FROM, is returned unconditionally, before and regardless of that gate, by explicit design (serving a legitimate need: letting a caller assess the recovered population even when the hash mismatches). A membership-only caller (resolveFrozenPredecessorContext) consumed exactly this unconditional, ungated field as if it WERE the verified frozen set.",
+    "isSuccessorScopedCandidate was designed and has only ever been exercised (2026-08-30 through this record's date) while the crystal domain held only its original vP1 predecessor batch — no successor material had ever been assigned into the domain before this session's own Stage 8 act. 'Is this candidate's resolved invariant already present in the domain-recovered set' was, by construction, equivalent to 'is it in the vP1 predecessor set' for every observation that existed until now. The predicate's correctness silently depended on an unstated invariant (no successor material has yet been assigned into the shared domain) that the very assignment act documented alongside this record falsified — two pieces of work, each correct in isolation, incompatible in composition."
+  ],
+  "resolution": [
+    "Read services/research/crystalCohortMembership.ts, services/research/crystalFrozenManifest.ts, and the resolveSuccessorConstructionCohort / isSuccessorScopedCandidate call sites in services/research/researchProgrammeOrchestrator.ts end to end to confirm the reported mechanism from the code itself rather than taking a relaying session's summary on faith, per this repo's mandatory resolution/invariant preflight.",
+    "Independently verified against the live Supabase project (read-only: a count query plus a join of invariant_contexts to invariants ordered by invariant_contexts.created_at) that the domain now contains exactly the predicted two clusters (15 rows @ 2026-08-04T21:27:49, 53 rows @ 2026-09-05T10:06:41.303889, 68 total) with no column other than the unread invariant_contexts.created_at distinguishing them.",
+    "Per explicit operator instruction, did NOT implement a fix. This resolution record and its candidate invariant capture the confirmed defect, its root cause, and two candidate remediation shapes for operator review (see the candidate invariant's notes); no repair was built unilaterally.",
+    "No invariant text, provenance classification, protocol threshold, the 40% guard, remediation profile, or the EXP-P1 namespace boundary was read for modification, edited, or otherwise touched — only read-only SQL queries and file reads were performed, and no corpus expansion (new invariant acquisition) was attempted."
+  ],
+  "rejectedApproaches": [
+    "Implementing the generation/cohort-marker fix unilaterally in this pass — explicitly out of scope per operator instruction. The 2026-09-05 update doc this defect was found alongside already names this as a real design decision requiring operator sign-off on approach (a schema-level generation column vs. a session-scoped/derived disclosure), not a mechanical repair an agent should choose unilaterally.",
+    "Writing a canary test that fails now and is expected to remain failing until a fix lands — rejected for this record specifically: a permanently-red test committed to the suite before its fix exists is the 'a test encoded the defect instead of detecting it' failure mode (RESOLUTION_TRIGGERS #3) this same loop exists to prevent, and this session was not authorized to build the fix that would let such a test go green. The live-database evidence above is offered in its place; `canaries` is left honestly empty on the candidate invariant rather than populated with an untestable placeholder.",
+    "Inventing an ad hoc runtime subtraction (e.g. re-deriving 'the vP1 set' from invariant creation timestamps rather than invariant_contexts assignment timestamps) as a quick patch — considered and rejected: any repair invented in this pass without operator sign-off on the generation-marker design already flagged in the source update doc risks conflicting with whichever schema/marker design the operator eventually chooses, producing a second, possibly-contradictory repair later (the same 'workaround replaced later' pattern RESOLUTION_TRIGGERS #9 exists to name, avoided here by not building the workaround at all)."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-05-MEMBERSHIP-RECOVERY-MUST-BOUND-GENERATION-001"
+  ],
+  "canaries": [],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "invariant-incomplete-or-misscoped",
+  "evidence": {
+    "commits": [],
+    "tests": [],
+    "receipts": [
+      "b28284b6-7b26-4362-b89b-c866fa690967"
+    ],
+    "incidentRefs": [
+      "Coordinator-relayed handoff, 2026-09-05: reported a live, not-yet-fixed-or-written-up defect in resolveFrozenPredecessorContext's unconditional domain-scoped membership recovery, discovered while reconciling Track 2 readiness immediately after the Stage 8 successor assignment.",
+      "Supabase project bsjhfvctmduxhohtllly, read-only diagnostic query, 2026-09-05: `invariant_contexts` joined to `invariants`, `WHERE domain = 'financial-risk-value-systems'`, ordered by `invariant_contexts.created_at` — confirms exactly two clusters (15 @ 2026-08-04T21:27:49.159374+00 through 21:27:50.558868+00; 53 @ 2026-09-05T10:06:41.303889+00), 68 total, no other distinguishing column present in the table's schema.",
+      "codexes/packs/agentiq/updates/2026-09-05_exp-p1-stage8-successor-assignment-and-generation-gap.md — the same-day update doc documenting the Stage 8 assignment act itself and the 'Crystal generations are not represented in invariant_contexts' architectural gap this record's defect is a direct, more specific consequence of."
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-05_exp-p1-stage8-successor-assignment-and-generation-gap.md"
+  ],
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  }
+}

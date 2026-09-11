@@ -62,26 +62,36 @@ function assertUniqueStrings(values: string[] | undefined, label: string) {
 }
 
 describe("pack registry", () => {
-  it("maps Agentiq collections into tabs", async () => {
-    const packRoot = path.join(process.cwd(), "codexes", "packs", "aigency");
+  it("maps pack collections into tabs (metame pack)", async () => {
+    const packRoot = path.join(process.cwd(), "codexes", "packs", "metame");
     const collections = await readJson<CollectionsFile>(path.join(packRoot, "collections.json"));
 
     const codexes = await loadPackCodexes();
-    const agentiq = codexes.find((codex) => codex.id === "agentiq-codex");
+    const metame = codexes.find((codex) => codex.id === "metame-codex");
 
-    expect(agentiq).toBeTruthy();
-    expect(agentiq?.slug).toBe("agentiq");
-    expect(agentiq?.tabs.length).toBe(collections.collections.length);
+    expect(metame).toBeTruthy();
+    expect(metame?.slug).toBe("metame");
+    expect(metame?.tabs.length).toBe(collections.collections.length);
 
     collections.collections.forEach((collection) => {
-      expect(agentiq?.tabs.some((tab) => tab.label === collection.title)).toBe(true);
+      expect(metame?.tabs.some((tab) => tab.label === collection.title)).toBe(true);
     });
   });
 
+  it("suppresses AgentiQ pack auto-registration (hand-curated cartridge is canonical)", async () => {
+    // Dual-source pattern (CLAUDE.md, 2026-05-26): AGENTIQ_CARTRIDGE /
+    // AGENTIQ_OS_CARTRIDGE in data/codex-configs.ts are the canonical
+    // registrations; the pack-generated duplicates are skip-listed in
+    // loadPackCodexes and getPackCodexById.
+    const codexes = await loadPackCodexes();
+    expect(codexes.some((codex) => codex.id === "agentiq-codex")).toBe(false);
+    expect(codexes.some((codex) => codex.id === "agentiq-os-codex")).toBe(false);
+    expect(await getPackCodexById("agentiq-codex")).toBeNull();
+  });
+
   it("loads pack metadata for a specific codex id", async () => {
-    const codex = await getPackCodexById("agentiq-codex");
+    const codex = await getPackCodexById("metame-codex");
     expect(codex).toBeTruthy();
-    expect(codex?.metadata.tags?.length).toBeGreaterThan(0);
     expect(codex?.permissions.view).toContain("*");
   });
 });

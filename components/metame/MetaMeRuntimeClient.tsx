@@ -12,6 +12,7 @@ import {
   type ShellInboundMessage,
 } from "@metame/iframe-bridge";
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
+import { logRuntimeEvent } from "@/utils/runtimeSessionDiagnostics";
 // Dynamic import — keeps SmartWalletDrawer (large component pulling LibraryShelf,
 // PurchaseFlow, SmartTriadProvider, etc.) out of the runtime's main chunk. Static
 // imports of this component into the deep runtime chain have triggered chunk-load
@@ -25,6 +26,7 @@ import { PersonaIQubeDrawer } from "@/components/iqube/PersonaIQubeDrawer";
 import { IdentityIQubeDrawer } from "@/components/iqube/IdentityIQubeDrawer";
 import { MemoryIQubeDrawer } from "@/components/iqube/MemoryIQubeDrawer";
 import { ConnectionsIQubeDrawer } from "@/components/iqube/ConnectionsIQubeDrawer";
+import { RuntimeQubeTalkDrawer } from "@/components/metame/runtime/RuntimeQubeTalkDrawer";
 import { PreviewFrame } from "@/components/preview/PreviewFrame";
 import { DevicePreviewSwitcher, type DeviceType } from "@/components/preview/DevicePreviewSwitcher";
 import { useToast } from "@/components/ui/toaster";
@@ -52,6 +54,7 @@ import {
   type LlmProviderId,
 } from "@/services/metame/agentLlmOrchestra";
 import {
+  Award,
   BookOpen,
   Bot,
   ChevronDown,
@@ -69,6 +72,7 @@ import {
   Pencil,
   PlayCircle,
   FileText,
+  Radio,
   RefreshCw,
   RotateCcw,
   Send,
@@ -82,19 +86,24 @@ import {
   Sun,
   Moon,
   Tv,
+  User,
   Users,
   X,
 } from "lucide-react";
 import { MetaMeSettingsPanel, loadMetaMeSettings, type LeadAgent } from "@/components/metame/MetaMeSettingsPanel";
 import { RuntimeTakeoverBanner } from "@/components/metame/RuntimeTakeoverBanner";
 import { RuntimeCapsuleRemixEditor } from "@/components/metame/runtime/RuntimeCapsuleRemixEditor";
+import { InlineExperienceRenderer } from "@/components/metame/runtime/InlineExperienceRenderer";
 import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal";
 import { InviteModal } from "@/components/shared/InviteModal";
 import { useActivePersona } from "@/app/hooks/useActivePersona";
+import { personaFetch } from "@/utils/personaSpine";
 import { useRuntimeTakeover } from "@/app/hooks/useRuntimeTakeover";
+import { getRuntimeContextPreference, setRuntimeContextPreference, RUNTIME_CONTEXT_PREF_KEY } from "@/utils/runtimeContextPreference";
 import { CODEX_DEFINITIONS } from "@/data/codex-configs";
 import type { ScreenFraction, SmartContentQube } from "@/types/smartContent";
 import type { RuntimeCapsuleRecord } from "@/types/runtimeCapsules";
+import { OWN_SURFACE_IFRAME_ALLOW } from '@/components/ui/overlayLayers';
 
 function getAccessTokenFromStorage(): string | null {
   if (typeof window === "undefined") return null;
@@ -199,7 +208,7 @@ type RuntimeEditorState = {
 
 type RuntimeCapsule = SmartContentQube & {
   runtimeSource: RuntimeContentSource;
-  runtimeMenuIntent?: "make" | "play";
+  runtimeMenuIntent?: "be" | "make" | "play" | "earn" | "share";
   runtimeCodexSlug?: string;
   runtimeCodexInitialTab?: string;
   runtimeLaunchHref?: string;
@@ -288,7 +297,10 @@ const SOURCE_PRIORITY_BY_INTENT: Record<RuntimeIntent, RuntimeContentSource[]> =
 };
 
 const RUNTIME_AGENTS: RuntimeAgent[] = [
-  { id: "aigent-z", label: "Aigent Z", colorClass: "text-cyan-300" },
+  // aigentMe replaces the prior "Aigent Z" entry. Same id space —
+  // resolved through services/metame/agentLlmOrchestra where "aigent-z"
+  // is aliased to "aigent-me" so internal references continue to work.
+  { id: "aigent-me", label: "aigentMe", colorClass: "text-cyan-300" },
   { id: "aigent-kn0w1", label: "Kn0w1", colorClass: "text-emerald-300" },
   { id: "aigent-moneypenny", label: "MoneyPenny", colorClass: "text-violet-300" },
   { id: "aigent-nakamoto", label: "Nakamoto", colorClass: "text-amber-300" },
@@ -296,7 +308,7 @@ const RUNTIME_AGENTS: RuntimeAgent[] = [
 ];
 
 const AGENT_PERSONA_KEY: Record<string, string> = {
-  "aigent-z": "z",
+  "aigent-me": "me",
   "aigent-kn0w1": "kn0w1",
   "aigent-moneypenny": "moneypenny",
   "aigent-nakamoto": "nakamoto",
@@ -540,7 +552,11 @@ function menuPromptFromActionId(actionId: string): string | null {
   // Earn sub-actions
   if (normalized === "earn-goal") return "Show me my onboarding journey goals and first tasks.";
   // Share sub-actions
-  if (normalized === "share-message") return "Send a direct message via QubeTalk.";
+  // "share-message" is deliberately NOT handled here — it is registered in
+  // DRAWER_ACTION_HANDLERS below, which dispatches straight to the real
+  // QubeTalk workbench and returns before this function would ever run for
+  // that action id. Handling it here too would resurrect the exact
+  // two-meanings-for-"Message" gap this bridge was built to close.
   if (normalized === "share-invite") return "Invite someone to a shared QubeTalk environment.";
   return null;
 }
@@ -1391,6 +1407,27 @@ function resolveRuntimeExperienceBundleLabel(content: RuntimeCapsule): string | 
   return null;
 }
 
+// Reward/cost rails for a capsule, read from the experience config. Costs are
+// typically Q¢ and rewards $KNYT, but either rail is honoured via *_asset. Q¢
+// renders USD-primary ($1 = 100 Q¢); $KNYT renders as a token count. Surfaced
+// read-only as a high-level thumbnail badge; detail lives in the task runner.
+function formatRuntimeRailValue(amount: number, asset: string): string {
+  if (!Number.isFinite(amount) || amount <= 0) return "";
+  const normalized = asset.replace(/\s/g, "").toUpperCase();
+  if (normalized === "KNYT" || normalized === "$KNYT") return `${amount} $KNYT`;
+  return `$${(amount / 100).toFixed(2)}`;
+}
+
+function resolveRuntimeRewardCost(content: RuntimeCapsule): { costLabel: string; rewardLabel: string } {
+  const wr = asRecord(content.configuration?.wallet_rewards) ?? {};
+  const costAsset = typeof wr.unlock_asset === "string" ? wr.unlock_asset : "Q¢";
+  const rewardAsset = typeof wr.reward_asset === "string" ? wr.reward_asset : "Q¢";
+  return {
+    costLabel: formatRuntimeRailValue(Number(wr.unlock_price || 0), costAsset),
+    rewardLabel: formatRuntimeRailValue(Number(wr.reward_amount || 0), rewardAsset),
+  };
+}
+
 function defaultRuntimeIntentForCapsule(content: RuntimeCapsule): RuntimeIntent {
   const quickActions = deriveRuntimeExperienceQuickActions(content, content.runtimeContentKind === "video" ? "watch" : "read");
   if (quickActions.some((action) => action.kind === "watch")) return "watch";
@@ -1962,7 +1999,16 @@ export default function MetaMeRuntimeClient() {
   const selectedExperienceArticleDraft = parseRuntimeArticleDraft(searchParams?.get("experienceArticleDraft"));
   const runtimeIntentParam = coerceRuntimeIntent(searchParams?.get("runtimeIntent"));
   const runtimeQuickLinkParam = coerceRuntimeIntent(searchParams?.get("runtimeQuickLink"));
-  const runtimeAdminUrlOverride = searchParams?.get("runtimeAdmin") === "1" || searchParams?.get("admin") === "1";
+  // SECURITY (2026-08-27 addendum to the IRL OS containment pass — see
+  // docs/security/2026-08-27_irl-os-containment-breach-audit.md): a
+  // `?runtimeAdmin=1`/`?admin=1` URL parameter previously OR'd directly into
+  // `runtimeAdminMode` below, creating client-controlled admin/canEdit state
+  // for any caller who appended the param — the same defect class found and
+  // fixed in useCodexEmbedAuthBridge, discovered by the same broader-use
+  // audit. `runtimeAdminMode` is now derived exclusively from `personaIsAdmin`
+  // (the canonical, server-resolved persona flag) below; a same-origin
+  // producer (e.g. ComposerStudio's own preview launcher) may still SET this
+  // param on an outbound URL, but nothing reads it as authority anymore.
   const runtimeContentKindParam = searchParams?.get("contentKind");
   const runtimeActiveCodexId = searchParams?.get("activeCodexId");
   const runtimeActiveCodexName = searchParams?.get("activeCodexName");
@@ -1986,7 +2032,14 @@ export default function MetaMeRuntimeClient() {
   const shellOriginRef = useRef<string | null>(null);
   const shellContextRef = useRef<{ tenant_id?: string; persona_id?: string }>({});
   const runtimeReadyPostedRef = useRef(false);
-  // Stable conversation ID for the lifetime of this runtime session
+  // Stable conversation ID for the lifetime of this runtime session.
+  // NOTE (QubeTalk Fast-Follow): this is a client-only, per-mount analytics
+  // tag used SOLELY by the /api/iqube/memory write below — it has no
+  // relationship to a QubeTalk ConversationQube.id (a durable, server-side
+  // resolved communication context; types/qubetalk.ts's QubeTalkConversation).
+  // Do NOT equate the two. If Runtime ever needs to record "this session was
+  // focused on a specific QubeTalk conversation," use a separate, explicit
+  // field (e.g. qubeTalkConversationId state) rather than repurposing this ref.
   const conversationIdRef = useRef<string>(
     typeof crypto !== "undefined" ? crypto.randomUUID() : `conv-${Date.now()}`
   );
@@ -1999,10 +2052,10 @@ export default function MetaMeRuntimeClient() {
   // URL override below to decide between RuntimeCapsuleAdminEditor (pricing
   // layer) and RuntimeCapsuleRemixEditor.
   const [personaIsAdmin, setPersonaIsAdmin] = useState(false);
-  // Final dispatch flag: URL forces admin mode if explicitly set, otherwise
-  // falls back to the persona's admin status. Admins navigating to the runtime
-  // without an explicit ?admin=1 still get the pricing layer.
-  const runtimeAdminMode = runtimeAdminUrlOverride || personaIsAdmin;
+  // SECURITY (2026-08-27 addendum): resolved EXCLUSIVELY from the canonical
+  // server-resolved persona flag — never a URL override (see this file's
+  // earlier comment on the now-removed `runtimeAdminUrlOverride`).
+  const runtimeAdminMode = personaIsAdmin;
 
   // Sync from PersonaContext whenever it changes — covers the standalone
   // page case where no SHELL_READY arrives. Shell-supplied persona_id
@@ -2151,6 +2204,7 @@ export default function MetaMeRuntimeClient() {
       }
     }
 
+    logRuntimeEvent("MetaMeRuntimeClient:aigentMe-init", { ctxPersonaId, ctxHydrated });
     void resolvePersona();
 
     // Watch for auth state changes (sign in / sign out) and re-resolve.
@@ -2162,6 +2216,7 @@ export default function MetaMeRuntimeClient() {
         if (cancelled) return;
         const supabase = createClient(url, anonKey);
         unsub = supabase.auth.onAuthStateChange((event) => {
+          logRuntimeEvent("MetaMeRuntimeClient:onAuthStateChange", { authEvent: event });
           if (event === "SIGNED_OUT") {
             // Clear local component state but DO NOT remove the
             // localStorage currentPersonaId. Supabase emits SIGNED_OUT
@@ -2182,6 +2237,7 @@ export default function MetaMeRuntimeClient() {
             setActivePersonaId(null);
             // Intentionally NOT calling localStorage.removeItem here.
           } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
+            logRuntimeEvent("MetaMeRuntimeClient:aigentMe-reinit", { source: `auth-event:${event}` });
             void resolvePersona();
           }
         });
@@ -2254,7 +2310,31 @@ export default function MetaMeRuntimeClient() {
   const [playMenuOpen, setPlayMenuOpen] = useState(false);
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [connectionsDrawerOpen, setConnectionsDrawerOpen] = useState(false);
-  const [walletInitialTab, setWalletInitialTab] = useState<"wallet" | "tasks" | "rewards" | "payments">("wallet");
+  // QubeTalk Fast-Follow (Runtime fan-out) — the People + Conversations
+  // workbench (RuntimeQubeTalkDrawer). qubeTalkDrawerTab is a one-shot
+  // seed for which tab to land on (e.g. the Share seam opening straight
+  // into Conversations), not a durable QubeTalk conversation reference —
+  // NEVER conflate this with conversationIdRef below, which is an
+  // unrelated, inert per-mount analytics tag.
+  const [qubeTalkDrawerOpen, setQubeTalkDrawerOpen] = useState(false);
+  const [qubeTalkDrawerTab, setQubeTalkDrawerTab] = useState<"people" | "conversations" | "publishing" | "engagement">("people");
+  // Content in context when Message was invoked (§9: Share -> Message,
+  // content-scoped) — reuses the SAME `active` capsule-content resolution
+  // "share"/"invite" already use below; null when Message was invoked with
+  // no specific content in context, in which case QubeTalkInboxTab simply
+  // shows its normal pending-share-free composer.
+  const [qubeTalkPendingShareArtifact, setQubeTalkPendingShareArtifact] = useState<{ artifactType: string; artifactId: string; title?: string } | null>(null);
+  // Content in context when Publish was invoked (Publishing + Engagement §4:
+  // Share -> Publish) — pre-fills the Publishing tab's draft form.
+  const [qubeTalkPendingPublishArtifact, setQubeTalkPendingPublishArtifact] = useState<{ title: string; body?: string | null; sourceContentRef?: string | null } | null>(null);
+  const [walletInitialTab, setWalletInitialTab] = useState<"wallet" | "tasks" | "rewards" | "payments" | "reputation" | "library">("wallet");
+  // Shell deep-link envelope state — see MENU_ACTION handler. One-shot
+  // seeds for `SmartWalletDrawer.initialAuthMode` and
+  // `initialPersonaFlow`. Reset to `undefined` after the drawer
+  // consumes them so a subsequent default-open (e.g. "Wallet" without
+  // a deep_link) doesn't re-trigger Sign Up / wizard.
+  const [walletInitialAuthMode, setWalletInitialAuthMode] = useState<"signin" | "signup" | undefined>(undefined);
+  const [walletInitialPersonaFlow, setWalletInitialPersonaFlow] = useState<"create-wizard" | "quick-add" | undefined>(undefined);
   const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
 
   // Runtime social-sharing modal state. Smart-action 'Share' button on
@@ -2285,11 +2365,11 @@ export default function MetaMeRuntimeClient() {
     (runtimeActivePersonaSurface as RuntimeSurfaceWithFio | null)?.ownFioHandle ??
     null;
 
-  // LAUNCH OVERRIDE (KNYT activation campaign): default lead agent on arrival
-  // is Kn0w1 (KNYT-aligned), not Aigent Z. Reverts to RUNTIME_AGENTS[0]
-  // (Aigent Z / metaMe) post-launch.
+  // Default lead agent on arrival is aigentMe — the user's personal
+  // aigent wired to their metaMe cartridge. Persisted selection
+  // (settings sync) wins for returning users.
   const [selectedAgent, setSelectedAgent] = useState<RuntimeAgent>(
-    RUNTIME_AGENTS.find((a) => a.id === "aigent-kn0w1") ?? RUNTIME_AGENTS[0]
+    RUNTIME_AGENTS.find((a) => a.id === "aigent-me") ?? RUNTIME_AGENTS[0]
   );
   const [showAgentSelector, setShowAgentSelector] = useState(false);
   const [showModelSelector, setShowModelSelector] = useState(false);
@@ -2310,11 +2390,69 @@ export default function MetaMeRuntimeClient() {
   });
 
   const staticProviderMap = useMemo<Record<string, AgentProviderOption[]>>(() => getStaticAgentLlmProviders(), []);
-  // LAUNCH OVERRIDE (KNYT activation campaign): runtime takeover defaults to
-  // 'knyt' on arrival, so the welcome banner shows the KNYT WORLD takeover
-  // (amber badge, KNYT-specific CTAs) instead of the bare metaMe state.
-  // Reverts to 'metame' post-launch.
-  const [runtimeContext, setRuntimeContext] = useState<'metame' | 'knyt'>('knyt');
+  // Runtime takeover context. Default is 'metame' (the sovereign surface).
+  // Persisted via getRuntimeContextPreference (localStorage) and the server-side
+  // GET /api/runtime/settings/context. Admins can flip to 'knyt' from the
+  // Runtime Settings tab or the in-runtime Play-menu toggle.
+  const [runtimeContext, setRuntimeContext] = useState<'metame' | 'knyt'>(getRuntimeContextPreference);
+
+  // Server-side preference sync — covers cross-origin (thin client on metame.live
+  // vs admin tab on dev-beta). Falls back to localStorage when the API is unavailable.
+  useEffect(() => {
+    let cancelled = false;
+    void fetch('/api/runtime/settings/context', { cache: 'no-store' })
+      .then(async (res) => {
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        const ctx = data?.context;
+        if ((ctx === 'metame' || ctx === 'knyt') && !cancelled) {
+          setRuntimeContext(ctx);
+          setRuntimeContextPreference(ctx);
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  // Live-sync with the persisted preference: if the admin toggle (in a sibling
+  // document / embed) flips the default, the browser-native `storage` event
+  // updates the running surface without a reload. Wires to the existing
+  // setRuntimeContext mechanism — does not rebuild takeover logic.
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key !== RUNTIME_CONTEXT_PREF_KEY) return;
+      const next = e.newValue === 'metame' || e.newValue === 'knyt' ? e.newValue : null;
+      if (next) setRuntimeContext(next);
+    }
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  // Single entry point for changing the runtime takeover context. Persists
+  // to localStorage (same-browser) AND server (cross-origin/cross-session).
+  // Every toggle — admin or consumer — persists so the setting survives
+  // refresh. The server-side GET on load picks it up for cross-origin cases.
+  const persistRuntimeContext = useCallback((ctx: 'metame' | 'knyt') => {
+    setRuntimeContext(ctx);
+    setRuntimeContextPreference(ctx);
+    void fetch('/api/runtime/settings/context', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ context: ctx }),
+    }).then(async (res) => {
+      if (!res.ok) {
+        const detail = await res.text().catch(() => '');
+        console.error('[runtime-context] PUT failed', res.status, detail);
+      }
+    }).catch((err) => {
+      console.error('[runtime-context] PUT network error', err);
+    });
+    try {
+      window.dispatchEvent(
+        new StorageEvent('storage', { key: RUNTIME_CONTEXT_PREF_KEY, newValue: ctx }),
+      );
+    } catch { /* StorageEvent constructor unavailable — sibling-doc sync still works */ }
+  }, []);
 
   // ─── Runtime Takeover ────────────────────────────────────────────────────────
   // Derive the active takeover cartridge slug from runtimeContext.
@@ -2406,6 +2544,7 @@ export default function MetaMeRuntimeClient() {
     slug: string;
     title: string;
     initialTab?: string;
+    autoActivate?: string;
   } | null>(null);
   // Tracks when the cartridge overlay was last opened — used to guard against race-condition
   // closes where CARTRIDGE_OVERLAY_CLOSE or a close-signal arrives within the same message
@@ -2645,6 +2784,31 @@ export default function MetaMeRuntimeClient() {
   const activeCodexPanelMessageIdsRef = useRef<Set<string>>(new Set());
   const pendingRuntimeEventsRef = useRef<Array<{ type: RuntimeInboundType; payload: Record<string, unknown> }>>([]);
   const activeCapsuleId = selectedCapsuleLocal || selectedCapsuleId;
+  // QubeTalk Fast-Follow §9 — resolve "the content in context right now,"
+  // reusing the SAME logic the "share"/"invite" MENU_ACTION handlers use
+  // further below. Unlike those, Message deliberately does NOT fall back to
+  // capsuleContents[0]: an invocation with no genuinely active capsule is
+  // NOT content-scoped, and per §9 must enter normal conversation flow
+  // rather than attach an arbitrary item.
+  const resolveActiveShareArtifact = useCallback((): { artifactType: string; artifactId: string; title?: string } | null => {
+    const active = activeCapsuleId ? capsuleContents.find((c) => c.id === activeCapsuleId) : null;
+    if (!active) return null;
+    return { artifactType: active.runtimeContentKind || 'runtime-content', artifactId: active.id, title: active.title };
+  }, [activeCapsuleId, capsuleContents]);
+  // Share -> Publish (Publishing + Engagement, §4): the SAME "content in
+  // context" resolution as Message above, mapped into PublicationQube's
+  // create shape. Falls back to capsuleContents[0] (unlike Message) — a
+  // deliberate "Publish" invocation always needs SOME content to draft
+  // from, unlike Message which can legitimately be content-free.
+  const resolveActivePublishArtifact = useCallback((): { title: string; body?: string | null; sourceContentRef?: string | null } | null => {
+    const active = (activeCapsuleId && capsuleContents.find((c) => c.id === activeCapsuleId)) || capsuleContents[0] || null;
+    if (!active) return null;
+    return {
+      title: active.title || 'Untitled',
+      body: active.description ?? null,
+      sourceContentRef: `${active.runtimeContentKind || 'runtime-content'}:${active.id}`,
+    };
+  }, [activeCapsuleId, capsuleContents]);
   const relayCloseCodexToNestedFrames = useCallback(() => {
     if (typeof window === "undefined") return;
 
@@ -2874,7 +3038,15 @@ export default function MetaMeRuntimeClient() {
     const loadChannels = async () => {
       setChannelsLoading(true);
       try {
-        const res = await fetch("/api/qubetalk/channels?tenant_id=metame");
+        // Spine endpoint since 2026-07-28 (the anonymous-read leak): the tenant
+        // is DERIVED from the caller server-side, so `?tenant_id=metame` is gone
+        // — a filter the caller chooses was never an authorization. personaFetch
+        // is mandatory here (CLAUDE.md): raw fetch attaches no Bearer and this
+        // surface would silently render its empty state for a signed-in user.
+        const res = await personaFetch("/api/qubetalk/channels", {
+          cache: "no-store",
+          personaIdHint: activePersonaId ?? undefined,
+        });
         const data = await res.json();
         if (mounted && data?.success && Array.isArray(data.channels)) {
           setChannels(data.channels);
@@ -2889,7 +3061,7 @@ export default function MetaMeRuntimeClient() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [activePersonaId]);
 
   const refreshRuntime = useCallback(async () => {
     await fetchRuntimeData();
@@ -3006,7 +3178,7 @@ export default function MetaMeRuntimeClient() {
               className="w-full border-0"
               style={{ height: frameHeight }}
               loading="lazy"
-              allow="microphone; clipboard-read; clipboard-write"
+              allow={OWN_SURFACE_IFRAME_ALLOW}
             />
           </div>
           <p className="text-[11px] text-slate-400">
@@ -3125,30 +3297,12 @@ export default function MetaMeRuntimeClient() {
 
       if (content.runtimeSource === "experience") {
         const heroImage = resolveCapsuleCoverImage(content);
-        const previewMedia = content.runtimePreviewMediaUri || null;
-        const mediaImage = !isLikelyVideoUri(previewMedia) ? previewMedia || heroImage : heroImage;
-        const { videoStyle, imageStyle } = resolveSmartMediaPanelStyles(activeDevice, intent);
-        const provider = detectExperienceProviderFromAssetUri(previewMedia || heroImage || content.runtimeLaunchHref || null);
-        const makeBundle = asRecord(content.configuration?.make_bundle);
-        const isVideoBundleOrKind =
-          makeBundle?.presetId === "video_article_bundle" ||
-          content.runtimeContentKind === "video";
-        const primaryKind = (isLikelyVideoUri(previewMedia) || isVideoBundleOrKind) ? "video" : "image";
         const experienceKinds = deriveRuntimeExperienceKinds(content);
-        const styleLabel = inferRuntimeExperienceStyle(content);
-        const experienceContext = resolveRuntimeExperienceContext(content);
-        const sourceExperienceHref = content.runtimeAuthoringHref
-          ? withQueryParam(withQueryParam(content.runtimeAuthoringHref, "device", activeDevice), "from", "runtime")
+        const resolvedExpId = resolveRuntimeExperienceId(content);
+        const consumerExperienceHref = resolvedExpId
+          ? `/studio/composer/experience/${encodeURIComponent(resolvedExpId)}?from=runtime&device=${encodeURIComponent(activeDevice)}`
           : null;
-        const consumerExperienceHref = content.runtimeLaunchHref
-          ? safeLaunchHref(withQueryParam(content.runtimeLaunchHref, "device", activeDevice))
-          : null;
-        const receiptHref = sourceExperienceHref ? withQueryParam(sourceExperienceHref, "focus", "receipt") : null;
-        const regenerateHref = sourceExperienceHref ? withQueryParam(sourceExperienceHref, "action", "regenerate") : null;
         const articleDraft = resolveRuntimeArticleDraft(content);
-        const quickActions = deriveRuntimeExperienceQuickActions(content, intent);
-        const mediaAnchorId = `experience-${content.id}-media`;
-        const articleAnchorId = `experience-${content.id}-article`;
         return (
           <div
             data-embed-panel
@@ -3197,238 +3351,42 @@ export default function MetaMeRuntimeClient() {
             ) : null}
 
             {(() => {
-              // Diagnostic — surfaces which editor branch fired and why.
-              if (typeof window !== 'undefined') {
-                console.log('[MetaMeRuntime] dispatch', {
-                  capsuleId: content.id,
-                  runtimeAdminMode,
-                  runtimeAdminUrlOverride,
-                  personaIsAdmin,
-                  activePersonaId,
-                  personaResolving,
-                });
-              }
-              return runtimeAdminMode ? (
-                <RuntimeCapsuleAdminEditor
-                  content={content}
-                  onComplete={(override) =>
-                    setRuntimeExperienceOverrides((prev) => ({
-                      ...prev,
-                      [resolveRuntimeExperienceId(content) ?? content.id]: override,
-                    }))
-                  }
-                />
-              ) : (
-                <RuntimeCapsuleRemixEditor
-                  personaId={activePersonaId}
-                  personaResolving={personaResolving}
-                  sourceExperienceId={resolveRuntimeExperienceId(content) ?? content.id}
-                  initialTitle={content.title || ""}
-                  initialPrompt={articleDraft?.prompt || content.description || ""}
-                  sourceImageUrl={resolveCapsuleCoverImage(content) || null}
-                  sourceDescription={content.description || null}
-                  onSignInRequest={() => setWalletDrawerOpen(true)}
-                  onConnectWallet={() => { setWalletInitialTab("wallet"); setWalletDrawerOpen(true); }}
-                />
+              const resolvedExpIdForRunner = resolveRuntimeExperienceId(content) ?? content.id;
+              return (
+                <>
+                  <InlineExperienceRenderer
+                    experienceId={resolvedExpIdForRunner}
+                    personaId={activePersonaId}
+                    canEdit={runtimeAdminMode}
+                  />
+                  {runtimeAdminMode ? (
+                    <RuntimeCapsuleAdminEditor
+                      content={content}
+                      onComplete={(override) =>
+                        setRuntimeExperienceOverrides((prev) => ({
+                          ...prev,
+                          [resolvedExpIdForRunner]: override,
+                        }))
+                      }
+                    />
+                  ) : (
+                    <RuntimeCapsuleRemixEditor
+                      personaId={activePersonaId}
+                      personaResolving={personaResolving}
+                      sourceExperienceId={resolvedExpIdForRunner}
+                      initialTitle={content.title || ""}
+                      initialPrompt={articleDraft?.prompt || content.description || ""}
+                      sourceImageUrl={resolveCapsuleCoverImage(content) || null}
+                      sourceDescription={content.description || null}
+                      onSignInRequest={() => setWalletDrawerOpen(true)}
+                      onConnectWallet={() => { setWalletInitialTab("wallet"); setWalletDrawerOpen(true); }}
+                    />
+                  )}
+                </>
               );
             })()}
 
-            <div id={mediaAnchorId} className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
-              <ExperienceBlockHeader
-                kind={primaryKind}
-                provider={provider}
-                title={primaryKind === "video" ? "Video Generation" : "Image Generation"}
-                mobileTitle={primaryKind === "video" ? "Video" : "Image"}
-                rightActions={
-                  <div className="flex items-center gap-1">
-                    <div
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400"
-                      title={styleLabel}
-                    >
-                      <ExperienceStyleIcon style={styleLabel} className="h-5 w-5" />
-                    </div>
-                    {embedMode && receiptHref ? (
-                      <a
-                        href={receiptHref}
-                        target="_top"
-                        rel="noopener noreferrer"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-white/5 hover:text-cyan-200"
-                        title="Open receipt details"
-                      >
-                        <FileText className="h-5 w-5" />
-                      </a>
-                    ) : null}
-                    {embedMode && regenerateHref ? (
-                      <a
-                        href={regenerateHref}
-                        target="_top"
-                        rel="noopener noreferrer"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-white/5 hover:text-cyan-200"
-                        title="Open source experience to regenerate"
-                      >
-                        <RefreshCw className="h-5 w-5" />
-                      </a>
-                    ) : null}
-                    {embedMode && consumerExperienceHref ? (
-                      <a
-                        href={consumerExperienceHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-white/5 hover:text-cyan-200"
-                        title="Pop out experience"
-                      >
-                        <SquareArrowOutUpRight className="h-5 w-5" />
-                      </a>
-                    ) : null}
-                  </div>
-                }
-              />
-
-              <div className="p-4 pt-3 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-medium uppercase tracking-widest text-slate-400">
-                    {primaryKind === "video" ? "video" : "preview"}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-200">
-                      Last generated
-                    </div>
-                    <div className="flex items-center gap-1 text-[10px] text-emerald-300">
-                      <Eye className="h-3 w-3" />
-                      Live
-                    </div>
-                  </div>
-                </div>
-
-                {isLikelyVideoUri(previewMedia) ? (
-                  <video
-                    src={previewMedia || undefined}
-                    poster={heroImage || undefined}
-                    controls
-                    className="w-full rounded-xl border border-white/10 bg-slate-950 object-cover"
-                    style={videoStyle}
-                  />
-                ) : mediaImage ? (
-                  <img
-                    src={mediaImage}
-                    alt={content.title}
-                    className="w-full rounded-xl border border-white/10 object-cover"
-                    style={imageStyle}
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 p-2 text-[11px] text-amber-100">
-                    Asset unavailable for this ExperienceQube.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <p className="text-[11px] text-slate-400">
-              Rendering the published experience media directly in runtime to avoid nested iframe shells.
-            </p>
-
-            {!embedMode && experienceContext ? (
-              <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/5 p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80">Active Experience</div>
-                    <div className="mt-1 text-sm font-semibold text-white">
-                      {typeof experienceContext.inferenceContext?.experienceName === "string"
-                        ? experienceContext.inferenceContext.experienceName
-                        : content.title}
-                    </div>
-                    {typeof experienceContext.inferenceContext?.experienceDescription === "string" &&
-                    experienceContext.inferenceContext.experienceDescription.trim() ? (
-                      <div className="mt-1 text-xs text-slate-300">
-                        {experienceContext.inferenceContext.experienceDescription}
-                      </div>
-                    ) : null}
-                  </div>
-                  <div className="flex flex-wrap items-center justify-end gap-1.5">
-                    {Array.isArray(experienceContext.allowedActions)
-                      ? experienceContext.allowedActions.map((action) => (
-                          <span
-                            key={`${content.id}-${action}`}
-                            className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-200"
-                          >
-                            {action}
-                          </span>
-                        ))
-                      : null}
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            {!embedMode ? (
-              <div className="flex flex-wrap items-center gap-2">
-                {quickActions.map((action) => {
-                  if (action.kind === "watch") {
-                    return (
-                      <a
-                        key={`${content.id}-${action.kind}`}
-                        href={`#${mediaAnchorId}`}
-                        className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-500/10 px-3 py-1.5 text-xs text-cyan-100 transition hover:bg-cyan-500/20"
-                      >
-                        <PlayCircle className="h-4 w-4" />
-                        {action.label}
-                      </a>
-                    );
-                  }
-                  if (action.kind === "read") {
-                    return (
-                      <a
-                        key={`${content.id}-${action.kind}`}
-                        href={`#${articleAnchorId}`}
-                        className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-slate-100 transition hover:bg-white/10"
-                      >
-                        <BookOpen className="h-4 w-4" />
-                        {action.label}
-                      </a>
-                    );
-                  }
-                  if (action.kind === "listen") {
-                    return (
-                      <a
-                        key={`${content.id}-${action.kind}`}
-                        href={`#${articleAnchorId}`}
-                        className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-slate-100 transition hover:bg-white/10"
-                      >
-                        <Headphones className="h-4 w-4" />
-                        {action.label}
-                      </a>
-                    );
-                  }
-                  return (
-                    <button
-                      key={`${content.id}-${action.kind}`}
-                      type="button"
-                      // Smart-action 'Share' opens the Qriptopian
-                      // SocialSharingModal instead of pushing the legacy
-                      // QubeTalk channel-list panel into the chat.
-                      onClick={() => setRuntimeShareItem({
-                        id: content.id,
-                        title: content.title,
-                        description: content.description || undefined,
-                        section: content.runtimeContentKind || undefined,
-                        type: content.runtimeContentKind === 'article' ? 'text' : undefined,
-                      })}
-                      className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-slate-100 transition hover:bg-white/10"
-                    >
-                      <Share2 className="h-4 w-4" />
-                      {action.label}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : null}
-
-            {(content.runtimeContentKind === "article" || articleDraft) && articleDraft ? (
-              <RuntimeArticlePanel articleDraft={articleDraft} anchorId={articleAnchorId} />
-            ) : null}
-
-            {embedMode && (() => {
+            {embedMode && runtimeAdminMode && (() => {
               const makeBundle = asRecord(content.configuration?.make_bundle);
               const blockKinds = Array.isArray(makeBundle?.blockKinds) ? makeBundle.blockKinds as string[] : [];
               const blockStatuses = asRecord(makeBundle?.block_statuses);
@@ -3542,10 +3500,12 @@ export default function MetaMeRuntimeClient() {
       const heroImage = resolveCapsuleCoverImage(content);
       const experienceKinds = deriveRuntimeExperienceKinds(content);
       const bundleLabel = resolveRuntimeExperienceBundleLabel(content);
+      const { costLabel, rewardLabel } = resolveRuntimeRewardCost(content);
       const { headline, summary } = resolveRuntimeExperienceSummary(content);
       const quickActions = deriveRuntimeExperienceQuickActions(content, intent);
-      const consumerExperienceHref = content.runtimeLaunchHref
-        ? withQueryParam(content.runtimeLaunchHref, "device", activeDevice)
+      const resolvedExpId = resolveRuntimeExperienceId(content);
+      const consumerExperienceHref = resolvedExpId
+        ? `/studio/composer/experience/${encodeURIComponent(resolvedExpId)}?from=runtime&device=${encodeURIComponent(activeDevice)}`
         : null;
       return (
         <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-4">
@@ -3556,6 +3516,17 @@ export default function MetaMeRuntimeClient() {
               <div className="mt-1 text-sm text-slate-300 line-clamp-3">{summary}</div>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-1.5">
+              {rewardLabel ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-200" title={`Earn ${rewardLabel}`}>
+                  <Award className="h-3 w-3" />
+                  {rewardLabel}
+                </span>
+              ) : null}
+              {costLabel ? (
+                <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-200" title={`Unlock ${costLabel}`}>
+                  {costLabel}
+                </span>
+              ) : null}
               {bundleLabel ? (
                 <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-200">
                   {bundleLabel}
@@ -3902,8 +3873,9 @@ export default function MetaMeRuntimeClient() {
               const authoringExperienceHref = content.runtimeAuthoringHref
                 ? withQueryParam(withQueryParam(content.runtimeAuthoringHref, "device", activeDevice), "from", "runtime")
                 : null;
-              const consumerExperienceHref = content.runtimeLaunchHref
-                ? withQueryParam(content.runtimeLaunchHref, "device", activeDevice)
+              const resolvedExpId = resolveRuntimeExperienceId(content);
+              const consumerExperienceHref = resolvedExpId
+                ? `/studio/composer/experience/${encodeURIComponent(resolvedExpId)}?from=runtime&device=${encodeURIComponent(activeDevice)}`
                 : null;
               const receiptHref = authoringExperienceHref
                 ? withQueryParam(authoringExperienceHref, "focus", "receipt")
@@ -4002,7 +3974,7 @@ export default function MetaMeRuntimeClient() {
                         {embedMode && content.runtimeSource === "experience" && (receiptHref || regenerateHref) ? (
                           <span className="mx-0.5 h-3 w-px bg-white/20" aria-hidden="true" />
                         ) : null}
-                        {embedMode && content.runtimeSource === "experience" && receiptHref ? (
+                        {embedMode && runtimeAdminMode && content.runtimeSource === "experience" && receiptHref ? (
                           <a
                             href={receiptHref}
                             target="_top"
@@ -4014,7 +3986,7 @@ export default function MetaMeRuntimeClient() {
                             <FileText className="h-3.5 w-3.5" />
                           </a>
                         ) : null}
-                        {embedMode && content.runtimeSource === "experience" && regenerateHref ? (
+                        {embedMode && runtimeAdminMode && content.runtimeSource === "experience" && regenerateHref ? (
                           <a
                             href={regenerateHref}
                             target="_top"
@@ -4030,14 +4002,17 @@ export default function MetaMeRuntimeClient() {
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            if (consumerExperienceHref) {
+                            // Consumers (non-admin) render inline only — the external
+                            // /studio/composer/experience page is a platform route that
+                            // 404s on the thin-client origin. Admins keep the pop-out.
+                            if (consumerExperienceHref && runtimeAdminMode) {
                               window.open(consumerExperienceHref, "_blank", "noopener,noreferrer");
                             } else {
                               launchCapsule(content);
                             }
                           }}
                           className="rounded-full border border-white/15 bg-slate-900/50 p-1.5 text-white/55 hover:text-white/80"
-                          title="Open in new window"
+                          title={runtimeAdminMode ? "Open in new window" : "Open experience"}
                         >
                           <SquareArrowOutUpRight className="h-3.5 w-3.5" />
                         </button>
@@ -4771,7 +4746,7 @@ export default function MetaMeRuntimeClient() {
 
       if (raw.type === "RUNTIME_CONTEXT_CHANGE") {
         const ctx = (rawPayload.context ?? (raw as Record<string, unknown>).context) === "knyt" ? "knyt" : "metame";
-        setRuntimeContext(ctx as "metame" | "knyt");
+        persistRuntimeContext(ctx as "metame" | "knyt");
         return;
       }
     }
@@ -4992,19 +4967,76 @@ export default function MetaMeRuntimeClient() {
             : typeof payload.item_id === "string"
               ? payload.item_id
               : null;
+        // Deep-link envelope (added 2026-05-31) — shell-dispatched
+        // MENU_ACTION payloads may include `deep_link` to route the
+        // wallet drawer to a specific tab + intent, or open the
+        // persona create-wizard. Optional; legacy dispatches without
+        // it keep working unchanged.
+        //
+        // Contract (mirrors the docs the shell team consumes):
+        //   payload.deep_link = {
+        //     module: 'wallet' | 'persona';
+        //     tab?:   'wallet' | 'tasks' | 'reputation' | 'rewards' | 'library';
+        //     intent?: 'signin' | 'signup';            // wallet only
+        //     flow?:  'create-wizard' | 'quick-add';   // persona only
+        //   }
+        //
+        // Unknown `tab` values silently fall back to 'wallet' so a
+        // typo doesn't leave the drawer in a broken state.
+        const deepLink = (payload?.deep_link && typeof payload.deep_link === 'object')
+          ? payload.deep_link as { module?: string; tab?: string; intent?: string; flow?: string }
+          : undefined;
+        const ALLOWED_WALLET_TABS = new Set(['wallet', 'tasks', 'reputation', 'rewards', 'library', 'payments']);
+        const openWalletWithDeepLink = () => {
+          const tab = deepLink?.tab && ALLOWED_WALLET_TABS.has(deepLink.tab)
+            ? (deepLink.tab as 'wallet' | 'tasks' | 'reputation' | 'rewards' | 'library' | 'payments')
+            : 'wallet';
+          setWalletInitialTab(tab);
+          // Honour the `intent` field — drawer's `initialAuthMode` prop
+          // seeds the Sign In / Sign Up tab pair when unauthenticated.
+          // Clears on every open so a plain "Wallet" tap doesn't reuse
+          // a stale Sign Up intent from a prior Sign Up click.
+          const intent = deepLink?.intent === 'signin' || deepLink?.intent === 'signup'
+            ? deepLink.intent
+            : undefined;
+          setWalletInitialAuthMode(intent);
+          // No persona flow on wallet dispatches.
+          setWalletInitialPersonaFlow(undefined);
+          setWalletDrawerOpen(true);
+        };
+        const openPersonaWithDeepLink = () => {
+          // Persona deep links route to the wallet drawer with the
+          // matching `initialPersonaFlow` so it auto-launches the right
+          // modal (PersonaSetupWizard for "create-wizard",
+          // PersonaQuickAddModal for "quick-add"). Both flows render
+          // INSIDE the wallet drawer — see SmartWalletDrawer's
+          // useEffect on `open`. Falls through to the persona picker
+          // bottom-sheet when no flow is supplied (legacy behaviour).
+          const flow = deepLink?.flow === 'create-wizard' || deepLink?.flow === 'quick-add'
+            ? deepLink.flow
+            : undefined;
+          if (flow) {
+            setWalletInitialTab('wallet');
+            setWalletInitialAuthMode(undefined);
+            setWalletInitialPersonaFlow(flow);
+            setWalletDrawerOpen(true);
+            return;
+          }
+          setPersonaPickerOpen(true);
+        };
         const DRAWER_ACTION_HANDLERS: Record<string, () => void> = {
-          wallet:      () => setWalletDrawerOpen(true),
+          wallet:      openWalletWithDeepLink,
           settings:    () => setSettingsDrawerOpen(true),
           connections: () => setConnectionsDrawerOpen(true),
           memory:      () => setMemoryDrawerOpen(true),
           identity:    () => setIdentityIQubeOpen(true),
-          persona:     () => setPersonaPickerOpen(true),
+          persona:     openPersonaWithDeepLink,
           // Make sub-actions — open cartridge overlays
           "make-create-design": () => setActiveCartridgeOverlay({ slug: 'metame',   title: 'metaMe Studio', initialTab: 'metame-studio'   }),
           "make-build":         () => setActiveCartridgeOverlay({ slug: 'aigentiq', title: 'AgentiQ OS',    initialTab: 'agentiq-os'       }),
           "make-remix":         () => setActiveCartridgeOverlay({ slug: 'aigentiq', title: 'iQube Registry', initialTab: 'registry-supply' }),
           // Play sub-actions
-          "play-knyt": () => { setRuntimeContext('knyt'); refreshTakeover("toggle"); },
+          "play-knyt": () => { persistRuntimeContext('knyt'); refreshTakeover("toggle"); },
           // Share — opens the canonical Qriptopian SocialSharingModal,
           // pre-populated with the active capsule (if any) or a generic
           // 'metaMe' share. Falls back to the active runtime context
@@ -5041,6 +5073,35 @@ export default function MetaMeRuntimeClient() {
             const url = typeof window !== 'undefined' ? window.location.href : '';
             if (navigator.share) { void navigator.share({ title: 'Join me on metaMe', text: 'Explore your metaMe journey', url }); }
             else { void navigator.clipboard?.writeText(url); }
+          },
+          // QubeTalk Fast-Follow §10 (deep-link cleanup): a parent shell can
+          // dispatch MENU_ACTION { action_id: 'share-message' | 'share-people' }
+          // directly (bypassing the in-app Share dropdown entirely). Before
+          // this, that action_id fell through to menuPromptFromActionId and
+          // only produced a CHAT PROMPT — a second, weaker meaning for
+          // "Message" than the in-app button (which opens the real
+          // workbench). Registering both here means EVERY path that can
+          // dispatch a share-message/share-people action_id — the in-app
+          // button (see its own onClick above) and any external deep link —
+          // converges on the exact same drawer-opening call.
+          "share-message": () => {
+            setQubeTalkPendingShareArtifact(resolveActiveShareArtifact());
+            setQubeTalkDrawerTab("conversations");
+            setQubeTalkDrawerOpen(true);
+          },
+          "share-people": () => {
+            setQubeTalkDrawerTab("people");
+            setQubeTalkDrawerOpen(true);
+          },
+          // Same convergence for Publishing + Engagement's deep-link forms.
+          "share-publish": () => {
+            setQubeTalkPendingPublishArtifact(resolveActivePublishArtifact());
+            setQubeTalkDrawerTab("publishing");
+            setQubeTalkDrawerOpen(true);
+          },
+          "share-engagement": () => {
+            setQubeTalkDrawerTab("engagement");
+            setQubeTalkDrawerOpen(true);
           },
         };
         if (menuActionId && menuActionId in DRAWER_ACTION_HANDLERS) {
@@ -5110,7 +5171,7 @@ export default function MetaMeRuntimeClient() {
 
       if (message.type === "RUNTIME_CONTEXT_CHANGE") {
         const ctx = payload.context === "knyt" ? "knyt" : "metame";
-        setRuntimeContext(ctx);
+        persistRuntimeContext(ctx);
         // Trigger the copilot to reframe within the new context.
         // The prevRuntimeContextRef effect fires after the state update and triggers refreshTakeover.
         void handlePrompt(
@@ -5187,7 +5248,7 @@ export default function MetaMeRuntimeClient() {
     postRuntimeEvent,
     resetRuntime,
     setActiveCartridgeOverlay,
-    setRuntimeContext,
+    persistRuntimeContext,
     showWelcome,
     thinShellMode,
     relayCloseCodexToNestedFrames,
@@ -5442,7 +5503,7 @@ export default function MetaMeRuntimeClient() {
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
                     <Headphones className="h-3.5 w-3.5 text-cyan-400" />Listen
                   </button>
-                  <button type="button" onClick={() => { setRuntimeContext('knyt'); handleRuntimeMenuIntent("play", "I'd like to explore my KNYT journey."); setPlayMenuOpen(false); }}
+                  <button type="button" onClick={() => { persistRuntimeContext('knyt'); handleRuntimeMenuIntent("play", "I'd like to explore my KNYT journey."); setPlayMenuOpen(false); }}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
                     <Moon className="h-3.5 w-3.5 text-cyan-400" />KNYT
                   </button>
@@ -5496,9 +5557,25 @@ export default function MetaMeRuntimeClient() {
               <>
                 <div className="fixed inset-0 z-[45]" onClick={() => setShareMenuOpen(false)} />
                 <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[46] flex flex-col gap-1 bg-slate-900/95 border border-white/10 rounded-xl p-2 shadow-2xl backdrop-blur-xl min-w-[130px]">
-                  <button type="button" onClick={() => { handleRuntimeMenuIntent("share", "Send a direct message via QubeTalk."); setShareMenuOpen(false); }}
+                  {/* QubeTalk Fast-Follow: "Message" now genuinely routes into
+                      the QubeTalk workbench (it previously only opened the
+                      generic SocialSharingModal despite already saying
+                      "via QubeTalk" in its prompt copy — reconciled, not
+                      replaced: Invite/Refer below are untouched). */}
+                  <button type="button" onClick={() => { setQubeTalkPendingShareArtifact(resolveActiveShareArtifact()); setQubeTalkDrawerTab("conversations"); setQubeTalkDrawerOpen(true); setShareMenuOpen(false); }}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
                     <Send className="h-3.5 w-3.5 text-slate-400" />Message
+                  </button>
+                  <button type="button" onClick={() => { setQubeTalkDrawerTab("people"); setQubeTalkDrawerOpen(true); setShareMenuOpen(false); }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                    <User className="h-3.5 w-3.5 text-slate-400" />People
+                  </button>
+                  {/* Publishing + Engagement (§4: Share -> Publish) — creates/uses
+                      a PublicationQube, never routed through generic message
+                      semantics. */}
+                  <button type="button" onClick={() => { setQubeTalkPendingPublishArtifact(resolveActivePublishArtifact()); setQubeTalkDrawerTab("publishing"); setQubeTalkDrawerOpen(true); setShareMenuOpen(false); }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                    <Radio className="h-3.5 w-3.5 text-slate-400" />Publish
                   </button>
                   <button type="button" onClick={() => { handleRuntimeMenuIntent("share", "Invite someone to a shared QubeTalk environment."); setShareMenuOpen(false); }}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
@@ -5607,7 +5684,7 @@ export default function MetaMeRuntimeClient() {
                       className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
                       <Headphones className="h-3.5 w-3.5 text-cyan-400" />Listen
                     </button>
-                    <button type="button" onClick={() => { setRuntimeContext('knyt'); handleRuntimeMenuIntent("play", "I'd like to explore my KNYT journey."); setPlayMenuOpen(false); }}
+                    <button type="button" onClick={() => { persistRuntimeContext('knyt'); handleRuntimeMenuIntent("play", "I'd like to explore my KNYT journey."); setPlayMenuOpen(false); }}
                       className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
                       <Moon className="h-3.5 w-3.5 text-cyan-400" />KNYT
                     </button>
@@ -5662,9 +5739,23 @@ export default function MetaMeRuntimeClient() {
               <>
                 <div className="fixed inset-0 z-[45]" onClick={() => setShareMenuOpen(false)} />
                 <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[46] flex flex-col gap-1 bg-slate-900/95 border border-white/10 rounded-xl p-2 shadow-2xl backdrop-blur-xl min-w-[130px]">
-                  <button type="button" onClick={() => { handleRuntimeMenuIntent("share", "Send a direct message via QubeTalk."); setShareMenuOpen(false); }}
+                  {/* QubeTalk Fast-Follow: "Message" now genuinely routes into
+                      the QubeTalk workbench (see the mobile variant above for
+                      the same reconciliation — Invite/Refer below untouched). */}
+                  <button type="button" onClick={() => { setQubeTalkPendingShareArtifact(resolveActiveShareArtifact()); setQubeTalkDrawerTab("conversations"); setQubeTalkDrawerOpen(true); setShareMenuOpen(false); }}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
                     <Send className="h-3.5 w-3.5 text-slate-400" />Message
+                  </button>
+                  <button type="button" onClick={() => { setQubeTalkDrawerTab("people"); setQubeTalkDrawerOpen(true); setShareMenuOpen(false); }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                    <User className="h-3.5 w-3.5 text-slate-400" />People
+                  </button>
+                  {/* Publishing + Engagement (§4: Share -> Publish) — creates/uses
+                      a PublicationQube, never routed through generic message
+                      semantics. */}
+                  <button type="button" onClick={() => { setQubeTalkPendingPublishArtifact(resolveActivePublishArtifact()); setQubeTalkDrawerTab("publishing"); setQubeTalkDrawerOpen(true); setShareMenuOpen(false); }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                    <Radio className="h-3.5 w-3.5 text-slate-400" />Publish
                   </button>
                   <button type="button" onClick={() => { handleRuntimeMenuIntent("share", "Invite someone to a shared QubeTalk environment."); setShareMenuOpen(false); }}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
@@ -5862,11 +5953,20 @@ export default function MetaMeRuntimeClient() {
       />
       <SmartWalletDrawer
         open={walletDrawerOpen}
-        onClose={() => setWalletDrawerOpen(false)}
+        onClose={() => {
+          setWalletDrawerOpen(false);
+          // Clear the one-shot deep-link seeds so a subsequent open
+          // (e.g. native "Wallet" tile, no deep_link envelope)
+          // doesn't re-trigger Sign Up / wizard.
+          setWalletInitialAuthMode(undefined);
+          setWalletInitialPersonaFlow(undefined);
+        }}
         variant="overlay"
         agent={{ id: activePersonaId || selectedAgent.id, name: selectedAgent.label }}
         personaId={activePersonaId || undefined}
         initialTab={walletInitialTab}
+        initialAuthMode={walletInitialAuthMode}
+        initialPersonaFlow={walletInitialPersonaFlow}
       />
       {/* metaMe Settings — left-entering drawer (Be tab sub-item) */}
       {settingsDrawerOpen ? (
@@ -6199,6 +6299,17 @@ export default function MetaMeRuntimeClient() {
                 <button
                   type="button"
                   onClick={() => {
+                    signalRuntimeBusy("quick_link:get_passport", { autoClearMs: 0 });
+                    setActiveCartridgeOverlay({ slug: 'metame-codex', title: 'Passport', initialTab: 'polity-passport' });
+                  }}
+                  className="flex items-center gap-1.5 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-[11px] text-violet-200/80 hover:border-violet-500/40 hover:text-violet-100 transition-colors backdrop-blur-sm"
+                >
+                  <Fingerprint className="h-3 w-3 shrink-0" />
+                  Get my Polity Passport
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
                     signalRuntimeBusy("quick_link:set_up_experience", { autoClearMs: 0 });
                     setActiveCartridgeOverlay({ slug: 'metame-codex', title: 'Set up ExperienceModel', initialTab: 'aigent-me' });
                   }}
@@ -6236,11 +6347,20 @@ export default function MetaMeRuntimeClient() {
       ) : null}
       <SmartWalletDrawer
         open={walletDrawerOpen}
-        onClose={() => setWalletDrawerOpen(false)}
+        onClose={() => {
+          setWalletDrawerOpen(false);
+          // Clear the one-shot deep-link seeds so a subsequent open
+          // (e.g. native "Wallet" tile, no deep_link envelope)
+          // doesn't re-trigger Sign Up / wizard.
+          setWalletInitialAuthMode(undefined);
+          setWalletInitialPersonaFlow(undefined);
+        }}
         variant="overlay"
         agent={{ id: activePersonaId || selectedAgent.id, name: selectedAgent.label }}
         personaId={activePersonaId || undefined}
         initialTab={walletInitialTab}
+        initialAuthMode={walletInitialAuthMode}
+        initialPersonaFlow={walletInitialPersonaFlow}
       />
       <SocialSharingModal
         isOpen={!!runtimeShareItem}
@@ -6320,10 +6440,10 @@ export default function MetaMeRuntimeClient() {
       {activeCartridgeOverlay != null && (
         <div className="absolute inset-0 z-[60]">
           <iframe
-            src={`/triad/embed/codex/${activeCartridgeOverlay.slug}?theme=dark&closable=0${activeCartridgeOverlay.initialTab ? `&tab=${encodeURIComponent(activeCartridgeOverlay.initialTab)}` : ''}`}
+            src={`/triad/embed/codex/${activeCartridgeOverlay.slug}?theme=dark&closable=0${activeCartridgeOverlay.initialTab ? `&tab=${encodeURIComponent(activeCartridgeOverlay.initialTab)}` : ''}${activeCartridgeOverlay.autoActivate ? `&autoActivate=${encodeURIComponent(activeCartridgeOverlay.autoActivate)}` : ''}`}
             title={`${activeCartridgeOverlay.title} Cartridge`}
             className="h-full w-full border-0"
-            allow="microphone; clipboard-read; clipboard-write"
+            allow={OWN_SURFACE_IFRAME_ALLOW}
           />
         </div>
       )}
@@ -6353,6 +6473,19 @@ export default function MetaMeRuntimeClient() {
       <MemoryIQubeDrawer open={memoryDrawerOpen} onClose={() => setMemoryDrawerOpen(false)} />
       {/* Connections iQube drawer */}
       <ConnectionsIQubeDrawer open={connectionsDrawerOpen} onClose={() => setConnectionsDrawerOpen(false)} />
+      {/* QubeTalk Fast-Follow — Runtime's People + Conversations workbench.
+          Consumes the SAME ContactGraph/QubeTalk services aigentMe's
+          PeopleLayout/ConversationsLayout consume — one capability, two
+          presentations (never a RuntimeContacts/AigentMeContacts split). */}
+      <RuntimeQubeTalkDrawer
+        open={qubeTalkDrawerOpen}
+        onClose={() => setQubeTalkDrawerOpen(false)}
+        initialTab={qubeTalkDrawerTab}
+        pendingShareArtifact={qubeTalkPendingShareArtifact}
+        onShareArtifactHandled={() => setQubeTalkPendingShareArtifact(null)}
+        pendingPublishArtifact={qubeTalkPendingPublishArtifact}
+        onPublishArtifactHandled={() => setQubeTalkPendingPublishArtifact(null)}
+      />
       {/* Persona picker — bottom sheet when no iqube_type specified */}
       {personaPickerOpen && (
         <>

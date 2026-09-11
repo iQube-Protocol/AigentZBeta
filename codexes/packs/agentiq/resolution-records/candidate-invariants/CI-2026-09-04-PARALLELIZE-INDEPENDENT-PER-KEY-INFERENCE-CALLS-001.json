@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "When a preparation step groups N items into K distinct keys (e.g. by shared evidence signature) specifically to avoid K separate model/inference calls degenerating into N, the remaining K calls must still run CONCURRENTLY when they are provably independent of one another (no call reads another's result) — deduplicating N down to K removes redundant work, but K calls run sequentially still pays K times the real inference latency in series, an unbounded tail as K grows with corpus size.",
+    "This is distinct from, and does not replace, deduplication/batching fixes for the DETERMINISTIC half of a preparation (DB reads, in-memory joins) — those and this concurrency fix are two independent cost drivers that can coexist in the same function; fixing one does not fix the other, and a profiling pass must check both.",
+    "Do not add a concurrency limiter or queue for this shape unless the realistic K is documented as potentially large — for a small, bounded K (a handful of distinct keys, as is typical for 'distinct signatures in one classification cohort'), plain `Promise.all` is the correct, minimal fix; a limiter here is machinery in place of a fix and violates the no-over-engineering discipline.",
+    "Every per-key exception/failure-classification semantic that existed under the sequential version must be preserved EXACTLY under the parallelized version — a failure on one key must still resolve to the SAME reported cause for that key alone, and must never corrupt or block another key's independent result. Isolating a per-key THROW (as opposed to a value-reported failure) is a separate, optional improvement and must not be silently folded into a pure concurrency fix."
+  ],
+  "canaries": [
+    {
+      "path": "tests/provenance-cohort-preparation-concurrency.test.ts",
+      "assertion": "Resolving K distinct signatures, each requiring two sequential per-signature calls with an artificial delay, costs close to ONE signature's total latency (well under half of K times that latency) rather than scaling with K — a wall-clock measurement that a call-count-only assertion cannot distinguish from the sequential defect; and a failure injected on some signatures never corrupts or blocks the independent, successful result of the others, with every failure resolving to the exact same reported exception cause as before parallelization.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "candidateId": "CI-2026-09-04-PARALLELIZE-INDEPENDENT-PER-KEY-INFERENCE-CALLS-001",
+  "statement": "When a preparation step deduplicates N inputs into K distinct keys to bound the number of expensive per-key model/inference calls, and those K calls are provably independent of one another, they must be issued concurrently (e.g. via Promise.all, without an added concurrency limiter unless K is documented as potentially large) rather than sequentially — deduplication alone does not remove the tail latency of K calls run in series, and a call-count assertion alone cannot detect a regression back to sequential execution; a wall-clock or explicit-overlap assertion is required to guard it.",
+  "scope": "local",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-09-04-TRACK2-CLASSIFY-PROVENANCE-FRONTIER-REGRESSION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/provenanceCohortPreparation.ts — prepareProvenanceCohort's per-distinct-signature suggestClassification+suggestProvenanceClass resolution loop",
+      "defect": "After the 2026-09-03 fix deduplicated N unclassified invariants down to K distinct source-document signatures (avoiding N separate model calls), the K per-signature suggestion calls still ran in a sequential for...of loop — each a real callSovereign inference round-trip. The live EXP-P1 corpus's K=7 meant seven serialized inference calls inside one 60s-budget HTTP request, the dominant cause of the observed HTTP 504 on GET .../provenance-cohort.",
+      "resolutionId": "RES-2026-09-04-TRACK2-CLASSIFY-PROVENANCE-FRONTIER-REGRESSION-001",
+      "evidence": [
+        "tests/provenance-cohort-preparation-concurrency.test.ts"
+      ]
+    }
+  ],
+  "family": "engineering",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
+}

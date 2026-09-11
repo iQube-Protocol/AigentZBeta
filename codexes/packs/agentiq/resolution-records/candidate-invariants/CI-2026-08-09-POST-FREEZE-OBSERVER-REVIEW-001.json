@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "Sibling, not a corollary, of CI-2026-08-03-REVIEW-EVIDENCE-NOT-RATIFICATION-001 (reviewer findings are evidence, never ratification): that rule bounds what a reviewer's finding MAY DO; this rule bounds how MULTIPLE reviewers' decisions are STRUCTURED. Left unparented rather than mis-parented.",
+    "The generic IRL-REVIEW-001 capability (services/research/review/) is canaried to name no crystal/experiment instance — the module this invariant governs (services/research/crystalObserverReview.ts) therefore lives beside crystalFreezeCeremony.ts/crystalDomains.ts, not inside that directory, even though it reuses review/deterministic.ts's commit() and review/types.ts's ReviewRefusal.",
+    "`resolveObserverRound`'s never-average rule extends adjudication.ts's R1/R2 discipline (\"never average labels, confidence scores or textual rationales\") to N observers: a single changes_requested always blocks acceptance, regardless of how many other observers accepted."
+  ],
+  "canaries": [
+    {
+      "path": "tests/post-freeze-observer-review.test.ts",
+      "assertion": "buildObserverReviewPackage refuses a non-frozen artifact and a frozen artifact missing a hash; resolveObserverRound is 'pending' with one of two assigned observers decided, 'accepted' only once BOTH accept under 'all-assigned', and 'changes_requested' blocks regardless of the other observer's acceptance; a third+ observer is added as another entry in the same decisions array rather than a new reviewer slot; crystalObserverReview.ts never imports freezeArtifact; the decision route never imports freezeArtifact/upsertArtifact/canonize/publishResult; the change-proposal route provisions the superseding artifact at 'draft' only, never 'frozen'.",
+      "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/validation-programme-journey.test.ts",
+      "assertion": "the state route imports the real Observer Review round store (getObserverRound) rather than the automated R1/R2 pipeline's listReviews; the Crystal Review stage's permittedActions include submit-observer-decision alongside comment/recommend-change/contest-finding, never a governance verb.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "candidateId": "CI-2026-08-09-POST-FREEZE-OBSERVER-REVIEW-001",
+  "statement": "A capability admitting N independent human observer principals against one hash-bound package under an explicit acceptance policy is a distinct mechanism from a fixed-slot automated adjudication pipeline; multiplicity must never be obtained by widening the automation pipeline's slots, and a request for change must never mutate the object under observation — it produces a governed proposal that, if accepted, opens a fresh round against a new candidate version.",
+  "scope": "local",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-08-09-POST-FREEZE-OBSERVER-REVIEW-001"
+  ],
+  "occurrences": [
+    {
+      "site": "app/api/journey/validation-programme/state/route.ts — Crystal Review stage completion evidence",
+      "defect": "`reviewDecisionSubmitted` checked the caller's ref against the automated dual-model pipeline's `r1Decisions`/`r2Decisions` — a mechanism an external human observer could never genuinely satisfy by doing what the stage actually asks (assess an already-frozen crystal and record a decision).",
+      "resolutionId": "RES-2026-08-09-POST-FREEZE-OBSERVER-REVIEW-001",
+      "evidence": [
+        "tests/validation-programme-journey.test.ts"
+      ]
+    }
+  ],
+  "family": "engineering",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": ["irl"],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
+}
