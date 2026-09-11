@@ -12,7 +12,9 @@
  *   - membership/role/access basis    → services/passport/participationAccess.ts
  *   - phase/stage/protocol/observer   → services/research/experimentLifecycleState.ts
  *   - reviewer countersignature       → services/research/reviewerAgreement.ts
- *   - documents (Stage-0-excluded)    → services/research/irlExperimentPathScope.ts
+ *   - documents (Stage-0-excluded,
+ *     review-grant gated)             → services/research/irlExperimentPathScope.ts +
+ *                                        resolveExperimentReviewGrant (participationAccess.ts)
  *   - reciprocal artifact exchange    → services/research/reciprocalExchange.ts
  *   - milestones / blockers           → services/experiments/workspaceTracking.ts
  *   - scientific activity trail       → services/research/experimentLifecycleState.ts
@@ -39,6 +41,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   getParticipantResearchWorkspaceAccess,
   resolveWorkspaceRole,
+  resolveExperimentReviewGrant,
   type ParticipantWorkspaceAccessBasis,
 } from '@/services/passport/participationAccess';
 import {
@@ -208,10 +211,27 @@ export async function resolveSelectedWorkspaceState(
       if (label) stageEvidence[label] = evidenceEntry;
     }
 
-    documents = (await listIrlPackDocumentsForExperiment(experimentId)).map((path) => ({
-      path,
-      url: `${origin}/api/codex/packs/irl/file?path=${encodeURIComponent(path)}`,
-    }));
+    // PER-ARTIFACT AUTHORIZATION PARITY (2026-09-11, message 3 item 7 /
+    // Progressive Surface acceptance requirement): `documents` must be
+    // populated ONLY for a caller who can ALSO retrieve every one of those
+    // paths through their canonical route,
+    // `GET /api/codex/packs/[packId]/file`. That route gates the `irl` pack
+    // on admin OR `resolveExperimentReviewGrant` (REVIEW_VIEW_READABLE_ROLES
+    // only) — a STRICTER check than this resolver's own primary gate
+    // (`getParticipantResearchWorkspaceAccess`, role-AGNOSTIC — ANY active
+    // research-lab grant scoped to the workspace/experiment). Without this
+    // check, a workspace member holding a real grant in a role outside
+    // REVIEW_VIEW_READABLE_ROLES (e.g. a non-reviewer participant role) would
+    // see documents listed here and get a 403 opening every one of them —
+    // exactly the defect this parity gate closes. Never widens the file
+    // route; only narrows what this resolver claims is retrievable.
+    const canReadDocuments = persona.isAdmin || Boolean(await resolveExperimentReviewGrant(admin, persona.personaId, experimentId));
+    documents = canReadDocuments
+      ? (await listIrlPackDocumentsForExperiment(experimentId)).map((path) => ({
+          path,
+          url: `${origin}/api/codex/packs/irl/file?path=${encodeURIComponent(path)}`,
+        }))
+      : [];
 
     const agreement = await reviewerAgreementStatus(admin, { personaId: persona.personaId, experimentId });
     const callerObserverStatus = await resolveCallerObserverStatus(admin, experimentId, persona.personaId);

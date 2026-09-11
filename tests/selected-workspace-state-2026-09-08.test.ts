@@ -212,6 +212,32 @@ describe('GET /api/participation/workspace-state', () => {
     expect(body.state.reviewState.agreement.authorizationStatus).toBe('not-authorized');
   });
 
+  // PER-ARTIFACT AUTHORIZATION PARITY (2026-09-11, message 3 item 7 /
+  // Progressive Surface acceptance requirement): "every artifact surfaced in
+  // an experiment dossier/projection must be retrievable by the same
+  // principal through its canonical authorization path" —
+  // GET /api/codex/packs/[packId]/file, which gates the `irl` pack on admin
+  // OR `resolveExperimentReviewGrant` (REVIEW_VIEW_READABLE_ROLES ONLY: never
+  // a role-agnostic workspace-membership check). Without the resolver's own
+  // matching gate, a workspace member holding a real research-lab grant in a
+  // role OUTSIDE that list (e.g. 'research-participant' — the exact role the
+  // OCSGA test above already uses for plain membership) would see `documents`
+  // populated here and then 403 on every single one when actually opened.
+  it('a workspace member with a NON-review-readable role sees documents as EMPTY — not populated-then-403', async () => {
+    mockGetActivePersona.mockResolvedValue(persona({ personaId: 'participant-1', isAdmin: false }));
+    grantRows = [{ role: 'research-participant', allowed_experiments: [EXP_P1_EXPERIMENT_ID] }];
+    researchObjectRows = [FROZEN_CRYSTAL_ROW];
+    const res = await workspaceStateGET(makeRequest(`https://x.test/api/participation/workspace-state?workspaceId=${EXP_P1_WORKSPACE_ID}`));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // The primary gate is role-agnostic — this caller DOES see the workspace.
+    expect(body.state.accessBasis).toBe('membership');
+    expect(body.state.role).toBe('research-participant');
+    // But documents — every one of which requires resolveExperimentReviewGrant
+    // to actually fetch — are empty, not silently offering unreachable links.
+    expect(body.state.documents).toEqual([]);
+  });
+
   it('a NOT-yet-frozen experiment resolves pre-freeze-review honestly (no fixture rows at all)', async () => {
     mockGetActivePersona.mockResolvedValue(persona({ personaId: 'p1', isAdmin: true }));
     researchObjectRows = [];
@@ -277,6 +303,46 @@ describe('GET /api/participation/workspace-state', () => {
     const body = await res.json();
     expect(body.state.capabilities.exchangeAvailable).toBe(true);
     expect(body.state.exchangeIds).toEqual(['exch-1']);
+  });
+
+  // The full four-principal-shape acceptance matrix (admin / scoped-member /
+  // wrong-scope / anonymous), repeated for OCSGA specifically — the resolver's
+  // primary gate is one shared code path for both experiments (NO_HARDCODED
+  // rule, this file's own header), but a shared code path is an argument for
+  // why it SHOULD hold, not a substitute for asserting it does on the second
+  // real instance too.
+  it('401s an anonymous caller against OCSGA — same gate as EXP-P1', async () => {
+    mockGetActivePersona.mockResolvedValue(null);
+    const res = await workspaceStateGET(makeRequest(`https://x.test/api/participation/workspace-state?workspaceId=${OCSGA_WORKSPACE_ID}`));
+    expect(res.status).toBe(401);
+  });
+
+  it('403s a caller scoped to a DIFFERENT experiment only against OCSGA — wrong scope', async () => {
+    mockGetActivePersona.mockResolvedValue(persona({ personaId: 'p5', isAdmin: false }));
+    grantRows = [{ role: 'reviewer', allowed_experiments: [EXP_P1_EXPERIMENT_ID] }];
+    const res = await workspaceStateGET(makeRequest(`https://x.test/api/participation/workspace-state?workspaceId=${OCSGA_WORKSPACE_ID}`));
+    expect(res.status).toBe(403);
+  });
+
+  it('an admin resolves OCSGA state — same admin bypass as EXP-P1, no experiment-specific branch', async () => {
+    mockGetActivePersona.mockResolvedValue(persona({ personaId: 'p1', isAdmin: true }));
+    exchangeRows = [];
+    const res = await workspaceStateGET(makeRequest(`https://x.test/api/participation/workspace-state?workspaceId=${OCSGA_WORKSPACE_ID}`));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.state.accessBasis).toBe('admin');
+    expect(body.state.experimentId).toBeNull();
+  });
+
+  // CROSS-EXPERIMENT LEAKAGE: a grant scoped to ONE experiment must never
+  // resolve the OTHER's state, in either direction — the symmetric case to
+  // the two wrong-scope tests above (EXP-P1-scoped caller denied OCSGA), now
+  // OCSGA-scoped caller denied EXP-P1.
+  it('403s an OCSGA-scoped caller requesting EXP-P1 — no cross-experiment leakage in the other direction', async () => {
+    mockGetActivePersona.mockResolvedValue(persona({ personaId: 'p6', isAdmin: false }));
+    grantRows = [{ role: 'reviewer', allowed_experiments: [OCSGA_WORKSPACE_ID] }];
+    const res = await workspaceStateGET(makeRequest(`https://x.test/api/participation/workspace-state?workspaceId=${EXP_P1_WORKSPACE_ID}`));
+    expect(res.status).toBe(403);
   });
 
   it('milestones/blockers project from the real experiment_workspace_items table, honestly empty when nothing was seeded', async () => {

@@ -85,8 +85,22 @@ export interface WorkspaceCapabilitiesPanelProps {
 
 const PANEL = "rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm";
 
-export function DocumentRow({ doc }: { doc: WorkspaceDocument }) {
-  const [open, setOpen] = useState(false);
+export function DocumentRow({
+  doc,
+  autoOpen,
+  highlighted,
+}: {
+  doc: WorkspaceDocument;
+  /** Auto-expand on mount — the navigation contract's `selectedArtifactId`
+   *  (message 3 item 9) landed here: the caller navigated to THIS document
+   *  specifically, so it opens without a second click. */
+  autoOpen?: boolean;
+  /** Visual marker for the same navigated-to document — distinct from
+   *  `autoOpen` because a caller could highlight without forcing content to
+   *  load, though every current use passes both together. */
+  highlighted?: boolean;
+}) {
+  const [open, setOpen] = useState(Boolean(autoOpen));
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -105,8 +119,16 @@ export function DocumentRow({ doc }: { doc: WorkspaceDocument }) {
     }
   }, [open, content, loading, doc.url]);
 
+  // Load content immediately when auto-opened — `toggle`'s own lazy-load
+  // only fires from a click, so a navigated-to document would otherwise
+  // render expanded but empty until the caller clicked it again.
+  useEffect(() => {
+    if (autoOpen) void toggle();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900/40">
+    <div className={`rounded-lg border bg-slate-900/40 ${highlighted ? "border-violet-500/50 ring-1 ring-violet-500/30" : "border-slate-800"}`}>
       <button
         type="button"
         onClick={toggle}

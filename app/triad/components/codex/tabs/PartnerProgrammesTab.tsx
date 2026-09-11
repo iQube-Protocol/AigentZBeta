@@ -393,6 +393,36 @@ type SelectedWorkspaceLiveState =
   | { kind: "denied" }
   | { kind: "error" };
 
+/**
+ * The progressive navigation contract (message 3 item 9, 2026-09-11): the
+ * shared object every named cross-surface flow reads and writes, so a hop
+ * from one Workspace surface to another (Experiments → Pipeline, Pipeline →
+ * Review, Review → Working Materials, …) carries WHY it happened and HOW to
+ * get back — never a bare `setSurface` that drops that context.
+ *
+ * Deliberately additive, not a replacement for `activeId`/`surface` (which
+ * already ARE `workspaceId`/the current surface — extending those two,
+ * per the operator's "prefer extending... rather than creating parallel
+ * state" instruction, means this object holds only the THREE fields that
+ * had no existing home: `selectedArtifactId`, `selectedStage`,
+ * `returnSurface`). A surface with nothing to say about them just ignores
+ * the fields — no cost to any surface that hasn't opted in yet.
+ */
+interface WorkspaceNavContext {
+  /** A document path (Working Materials/Review's projected documents) or
+   *  Locker itemId the caller navigated TO — the target surface highlights
+   *  or auto-expands it rather than requiring a second lookup. */
+  selectedArtifactId: string | null;
+  /** A template stage label (Pipeline's own stage names) the caller
+   *  navigated FROM/for — Review reads this to know which stage's
+   *  countersignature/reviewer-kit context to lead with. */
+  selectedStage: string | null;
+  /** The surface a "← Back" affordance returns to — set by the ORIGINATING
+   *  surface's forward action, cleared by the destination once followed. */
+  returnSurface: SubSurface | null;
+}
+const EMPTY_NAV_CONTEXT: WorkspaceNavContext = { selectedArtifactId: null, selectedStage: null, returnSurface: null };
+
 /** Live derivation state — 'unwired' renders the honest "Not yet wired". */
 type AgreementsState =
   | { kind: "loading" }
@@ -803,10 +833,18 @@ function PipelinePanel({
   ws,
   tracking,
   liveState,
+  onNavigate,
 }: {
   ws: WorkspaceView;
   tracking?: TrackingState;
   liveState?: SelectedWorkspaceLiveState;
+  /** The progressive navigation contract's forward-action entry point
+   *  (message 3 item 9) — Pipeline's OWN named flow, "Open in Review", is a
+   *  separate affordance from the evidence-disclosure toggle below (message
+   *  3 item 3: "separate disclosure vs. forward affordances"). Optional so
+   *  a caller that has nothing to navigate to (no navContext plumbed) still
+   *  renders the panel unchanged — same as every other optional prop here. */
+  onNavigate?: (target: SubSurface, opts?: { selectedStage?: string; returnSurface?: SubSurface }) => void;
 }) {
   if (!ws.lifecycle) {
     return (
@@ -880,13 +918,13 @@ function PipelinePanel({
                       : "border-slate-800 bg-slate-900/40"
                 }`}
               >
-                {/* Disclosure (evidence) and forward navigation (going to the
-                    stage's OWN home surface) are kept as separate affordances
-                    — message 3 item 3: "separate disclosure vs. forward
-                    affordances", never one control doing both. This row is
-                    disclosure-only; the stage's forward destination is the
-                    named surface itself (Review/Working Materials/etc.),
-                    reached via the tier-3 submenu, not from inside Pipeline. */}
+                {/* Disclosure (evidence) and forward navigation are kept as
+                    separate affordances — message 3 item 3: "separate
+                    disclosure vs. forward affordances", never one control
+                    doing both. This button is disclosure-only; the Review
+                    stage's own forward action ("Open in Review →") renders
+                    as a sibling control inside the expanded evidence panel
+                    below, never merged into this toggle. */}
                 <button
                   type="button"
                   onClick={() => canDisclose && setExpandedStage(isExpanded ? null : stage)}
@@ -934,6 +972,21 @@ function PipelinePanel({
                     )}
                     {evidence.protocolMissing.length > 0 && (
                       <p>Protocol missing: <span className="text-amber-300">{evidence.protocolMissing.join(", ")}</span></p>
+                    )}
+                    {/* The Review stage's OWN forward action — a SIBLING
+                        control to the disclosure toggle above, not a second
+                        job for the same button (message 3 item 3). Only the
+                        Review-mapped stage carries this: it's the one stage
+                        whose native home (the Review surface's reviewer kit +
+                        countersignature) is reachable from here at all. */}
+                    {onNavigate && stage === "Review" && (
+                      <button
+                        type="button"
+                        onClick={() => onNavigate("review", { selectedStage: stage, returnSurface: "pipeline" })}
+                        className="mt-1 rounded-md border border-violet-500/40 bg-violet-500/10 px-2 py-1 text-[10px] font-medium text-violet-200 hover:bg-violet-500/20"
+                      >
+                        Open in Review →
+                      </button>
                     )}
                   </div>
                 )}
@@ -1867,10 +1920,30 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
         ? "overview"
         : null;
   const [surface, setSurface] = useState<SubSurface>(menuSurface ?? "overview");
+  // The progressive navigation contract (message 3 item 9) — see
+  // WorkspaceNavContext's own header. A FORWARD action (a named flow between
+  // two surfaces) goes through `navigateToSurface`, which sets both `surface`
+  // and the context together; a bare tier-3 submenu click is a deliberate
+  // fresh navigation (MS-5 — "a deliberate act outranks an ambient
+  // observation") and always resets to EMPTY_NAV_CONTEXT, never carrying
+  // leftover context from wherever the caller was before.
+  const [navContext, setNavContext] = useState<WorkspaceNavContext>(EMPTY_NAV_CONTEXT);
+  function navigateToSurface(target: SubSurface, opts?: Partial<WorkspaceNavContext>) {
+    setSurface(target);
+    setNavContext({
+      selectedArtifactId: opts?.selectedArtifactId ?? null,
+      selectedStage: opts?.selectedStage ?? null,
+      returnSurface: opts?.returnSurface ?? null,
+    });
+  }
   // The tier-3 row keeps this component mounted and swaps the prop, so state
   // initialised once would stick on whichever surface was opened first.
   useEffect(() => {
-    if (menuSurface) setSurface(menuSurface);
+    if (menuSurface) {
+      setSurface(menuSurface);
+      setNavContext(EMPTY_NAV_CONTEXT);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menuSurface]);
   const [collabView, setCollabView] = useState<CollabView>("invitations");
   const [agreements, setAgreements] = useState<AgreementsState>({ kind: "loading" });
@@ -2163,7 +2236,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
           .map((s) => (
           <button
             key={s}
-            onClick={() => setSurface(s)}
+            onClick={() => navigateToSurface(s)}
             className={`rounded-md border px-3 py-1.5 text-xs transition ${
               surface === s
                 ? "border-violet-500/50 bg-violet-500/10 text-violet-200"
@@ -2286,22 +2359,38 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
                       const Icon = WORKSPACE_TYPE_ICON[item.workspaceType];
                       const isActive = item.id === ws.id;
                       return (
-                        <button
+                        <div
                           key={item.id}
-                          onClick={() => setActiveId(item.id)}
                           style={{ paddingLeft: `${item.navDepth * 14}px` }}
-                          className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs transition ${
+                          className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition ${
                             isActive
                               ? "border-violet-500/50 bg-violet-500/10 text-violet-200"
                               : "border-slate-800 bg-slate-900/40 text-slate-300 hover:bg-slate-800/60"
                           }`}
                         >
-                          <Icon className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate font-medium">{item.chipLabel}</span>
-                            {item.phaseLabel && <span className="block truncate text-[10px] text-slate-500">{item.phaseLabel}</span>}
-                          </span>
-                        </button>
+                          <button onClick={() => setActiveId(item.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                            <Icon className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate font-medium">{item.chipLabel}</span>
+                              {item.phaseLabel && <span className="block truncate text-[10px] text-slate-500">{item.phaseLabel}</span>}
+                            </span>
+                          </button>
+                          {/* The Experiments dossier's forward action to Pipeline
+                              (message 3 item 2) — a named flow, not a bare tab
+                              switch: it carries returnSurface so Pipeline can
+                              offer "← Back to Experiments". Only on the active
+                              item — a forward action always acts on what's
+                              already open, never a not-yet-selected row. */}
+                          {isActive && (
+                            <button
+                              onClick={() => navigateToSurface("pipeline", { returnSurface: "experiments" })}
+                              className="shrink-0 rounded-md border border-violet-500/40 bg-violet-500/10 px-2 py-1 text-[10px] font-medium text-violet-200 hover:bg-violet-500/20"
+                              title="View this experiment's pipeline"
+                            >
+                              View pipeline →
+                            </button>
+                          )}
+                        </div>
                       );
                     })}
                   </div>
@@ -2478,11 +2567,25 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
       )}
 
       {/* ── Pipeline (SPEC §7) ── */}
-      {surface === "pipeline" && <PipelinePanel ws={ws} tracking={tracking} liveState={liveState} />}
+      {surface === "pipeline" && <PipelinePanel ws={ws} tracking={tracking} liveState={liveState} onNavigate={navigateToSurface} />}
 
       {/* ── Review — the IRL-REVIEW-001 front end (SPEC §7) ── */}
       {surface === "review" && (
         <div className="space-y-4">
+          {/* The navigation contract's "← Back" affordance (message 3 item
+              9) — set only by a forward action that named Review as its
+              destination (Pipeline's "Open in Review →"); a direct tier-3
+              submenu click leaves this empty, so there is nothing to go
+              back TO. */}
+          {navContext.returnSurface && (
+            <button
+              type="button"
+              onClick={() => navigateToSurface(navContext.returnSurface!)}
+              className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200"
+            >
+              ← Back to {surfaceLabel(navContext.returnSurface, kind)}
+            </button>
+          )}
           <BoundaryNote surface="review" />
           <div className={`${PANEL} p-4`}>
             <h3 className="text-sm font-semibold text-slate-100">Independent Review</h3>
@@ -2520,7 +2623,24 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
               )}
               {liveState.kind === "ready" && liveState.state.documents.length > 0 && (
                 <div className={`${PANEL} p-4`}>
-                  <h3 className="text-sm font-semibold text-slate-100">Reviewer Kit &amp; Protocol</h3>
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-slate-100">Reviewer Kit &amp; Protocol</h3>
+                    {/* Acting on this projected object takes the caller to
+                        its NATIVE home (message 3's projection rule) —
+                        Working Materials, never a promote/freeze act here. */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigateToSurface("working-materials", {
+                          selectedArtifactId: liveState.state.documents[0]?.path ?? null,
+                          returnSurface: "review",
+                        })
+                      }
+                      className="shrink-0 rounded-md border border-violet-500/40 bg-violet-500/10 px-2 py-1 text-[10px] font-medium text-violet-200 hover:bg-violet-500/20"
+                    >
+                      Open in Working Materials →
+                    </button>
+                  </div>
                   <p className="mt-1 text-[11px] text-slate-500">
                     The registered protocol and reviewer documentation for {ws.experimentId} — read
                     inline, never a browser-tab download.
@@ -2569,6 +2689,15 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
       {/* ── Working Materials (SPEC §7, §9) ── */}
       {surface === "working-materials" && (
         <div className="space-y-4">
+          {navContext.returnSurface && (
+            <button
+              type="button"
+              onClick={() => navigateToSurface(navContext.returnSurface!)}
+              className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200"
+            >
+              ← Back to {surfaceLabel(navContext.returnSurface, kind)}
+            </button>
+          )}
           <BoundaryNote surface="working-materials" />
           <div className={`${PANEL} p-4`}>
             <h3 className="text-sm font-semibold text-slate-100">Working Materials</h3>
@@ -2589,9 +2718,10 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
               <h3 className="text-sm font-semibold text-slate-100">Authorized materials — {ws.experimentId}</h3>
               {liveState.state.documents.length > 0 ? (
                 <div className="mt-3 space-y-1.5">
-                  {liveState.state.documents.map((doc) => (
-                    <DocumentRow key={doc.path} doc={doc} />
-                  ))}
+                  {liveState.state.documents.map((doc) => {
+                    const isSelected = navContext.selectedArtifactId === doc.path;
+                    return <DocumentRow key={doc.path} doc={doc} autoOpen={isSelected} highlighted={isSelected} />;
+                  })}
                 </div>
               ) : (
                 <p className="mt-2 text-xs italic text-slate-500">No authorized materials resolved for this caller.</p>
