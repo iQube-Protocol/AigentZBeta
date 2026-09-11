@@ -527,11 +527,24 @@ export default function CodexPanelDynamic({
   // pre-rename dispatchers keep working.
   useEffect(() => {
     const handler = (e: Event) => {
-      const detail = (e as CustomEvent<{ tab?: string }>).detail || {};
+      const detail = (e as CustomEvent<{ tab?: string; subTab?: string }>).detail || {};
       const raw = detail.tab;
       if (typeof raw !== "string") return;
       const target = resolveLegacyTabSlug(raw.trim().toLowerCase());
-      if (target !== activeTabSlug && enabledTabs.some((tab) => tab.slug === target)) {
+      if (!enabledTabs.some((tab) => tab.slug === target)) return;
+      // Optional tier-3 (subTab) target — e.g. AccessionProgressBar's
+      // Experiments step landing on the Workspace tab's `experiments`
+      // subTab, not just the tab itself. Validated loosely here (an
+      // invalid/gated slug just falls through to `activeSubSubTab`'s own
+      // `activeSubTabs[0]` fallback below — never a crash, worst case the
+      // parent tab opens on its first subTab instead).
+      const subTabTarget = typeof detail.subTab === "string" ? detail.subTab.trim().toLowerCase() : null;
+      if (target === activeTabSlug) {
+        // Already on the right parent tab — the tier-3 reset effect (keyed
+        // on activeTabSlug) won't fire, so set it directly.
+        if (subTabTarget) setActiveSubSubTabSlug(subTabTarget);
+      } else {
+        if (subTabTarget) pendingSubSubTabSlugRef.current = subTabTarget;
         setActiveTabSlug(target);
       }
     };
@@ -619,6 +632,10 @@ export default function CodexPanelDynamic({
   // Third-tier (sub-sub-tab) active slug, keyed by parent tab slug. Resets
   // when the user navigates to a different parent tab.
   const [activeSubSubTabSlug, setActiveSubSubTabSlug] = useState<string | null>(null);
+  // A tier-3 target requested by a `codex:navigate-tab` dispatch alongside a
+  // parent-tab change in the SAME event — consumed once by the reset effect
+  // below, which would otherwise clobber it back to null on the same commit.
+  const pendingSubSubTabSlugRef = useRef<string | null>(null);
   // Fourth-tier (sub-sub-sub-tab) active slug — surfaces when a tier-3 tab
   // has its own subTabs (e.g. metaMe's Order of Metayé → Admin → KNYT
   // admin sub-items, where Order of Metayé is the single-tab parent group
@@ -693,9 +710,15 @@ export default function CodexPanelDynamic({
   }, [activeSubSubTabSubTabs, activeSubSubSubTabSlug]);
 
   // When the parent active tab changes, reset the third-tier slug so the
-  // next parent opens at its first subTab.
+  // next parent opens at its first subTab — UNLESS a `codex:navigate-tab`
+  // dispatch explicitly requested one (e.g. AccessionProgressBar's
+  // Experiments step landing on Workspace's `experiments` subTab), in which
+  // case that pending request wins over the default "open at the first
+  // subTab" behavior. Consumed once (set back to null) so a later plain
+  // tab change still resets normally.
   useEffect(() => {
-    setActiveSubSubTabSlug(null);
+    setActiveSubSubTabSlug(pendingSubSubTabSlugRef.current);
+    pendingSubSubTabSlugRef.current = null;
     setActiveSubSubSubTabSlug(null);
   }, [activeTabSlug]);
 
@@ -1342,7 +1365,12 @@ export default function CodexPanelDynamic({
                 onboarding step tabs; observes real state and pulls the user
                 along (Welcome → Passport → Delegate → Access → Experiments). */}
             {activeTab && (
-              <AccessionProgressBar codexId={codexId} activeSlug={activeTab.slug} personaId={resolvedPersonaId} />
+              <AccessionProgressBar
+                codexId={codexId}
+                activeSlug={activeTab.slug}
+                activeSubSlug={activeSubSubTab?.slug}
+                personaId={resolvedPersonaId}
+              />
             )}
             {activeTab && (
               <SubHeaderSlotContext.Provider value={subHeaderSlotEl}>
