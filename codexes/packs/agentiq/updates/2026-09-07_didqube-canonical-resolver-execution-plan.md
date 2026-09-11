@@ -1147,7 +1147,13 @@ state rather than aborting the call. Not yet wired into any live route/UI surfac
 "lowest urgency... nothing else in the plan depends on it," the seam exists for the next real caller to
 use, rather than forcing an unrelated refactor of Factor's own already-correct Horizen/Registry reads.
 
-### Phase 4 — PARTIAL, NOT closed (2026-09-07, status corrected 2026-09-08)
+### Phase 4 — PARTIAL as of 2026-09-07/08; both open gaps revisited and closed on their own terms 2026-09-08
+
+**This section is kept as the historical record of the 2026-09-07/08 status correction below —
+do not delete it. See "The two open gaps that made Phase 4 partial — both revisited 2026-09-08" and
+"Phase 4 status after 2026-09-08" further down for the current, superseding status: item 5's gate
+was checked and found not met (no migration made, a legitimate closure) and item 7's seam was wired
+into a first real caller. Item 6 remains out of scope, unchanged.**
 
 **Correction (2026-09-08): this section previously read "Phase 4 — CLOSED" and implied 6-of-6
 sub-items were fully done. That was wrong and is corrected here — do not cite this phase as
@@ -1179,32 +1185,69 @@ generalizes rather than being an artifact of the first migration.
 question it needs, with its own tests proving the relevant acceptance criteria (cross-agent isolation,
 no silent Standing transfer on wallet/token change, etc.).
 
-#### The two open gaps that make Phase 4 partial (not reopened for further work)
+#### The two open gaps that made Phase 4 partial — both revisited 2026-09-08
 
-Recorded here with source references only — no new investigation performed. These are why Phase 4
-is partial rather than closed; per the operator's own gate, this status correction alone does not
-authorize reopening either item for further implementation work.
+Recorded here with source references. Per the operator's own gate, the status correction above did
+not by itself authorize reopening either item — each was only actually revisited after performing
+the specific confirmation the gate required.
 
-1. **Standing's write path (`resolveCanonicalAgentPersonaId`) remains legacy-bound and uncanaried.**
-   Item 5 built a read-only dry-run reconciliation (`services/standing/didQubeReconciliation.ts`,
+1. **Standing's write path (`resolveCanonicalAgentPersonaId`) — CONFIRMED NOT legacy-bound in a way
+   that matters; left unchanged, gate not met (2026-09-08).** Item 5 built a read-only dry-run
+   reconciliation (`services/standing/didQubeReconciliation.ts`,
    `app/api/ops/journey/standing-didqube-reconciliation/route.ts`) that confirmed zero live
    discrepancies, but deliberately left the write path
    (`services/standing/agentStandingPersona.ts::resolveCanonicalAgentPersonaId`, still keyed off the
    deprecated `personas.root_did` column) unchanged and unprotected by any canary against the
    `root_did`-authoritative-read pattern Phase 2.5 otherwise eliminated elsewhere. Source:
-   `RES-2026-09-07-DIDQUBE-PHASE-4-STANDING-CONSUMER-MIGRATION-001.json` → `unresolvedRisks[1]`.
-   Per the operator's own gate on this note: Phase 4 is reopened for this item only if the write
-   path is confirmed to actually be legacy-bound in a way that matters (not merely that it reads a
-   deprecated column with no live discrepancy) — that confirmation has not been performed here.
+   `RES-2026-09-07-DIDQUBE-PHASE-4-STANDING-CONSUMER-MIGRATION-001.json` → `unresolvedRisks[1]`. The
+   operator's own gate required confirming the write path is legacy-bound *in a way that matters*
+   before reopening it for further work. That confirmation was performed 2026-09-08
+   (`RES-2026-09-08-DIDQUBE-PHASE-4-STANDING-WRITE-PATH-GATE-NOT-MET-001.json`): every one of the
+   function's 5 real call sites supplies `agentRootDid` from `resolveAgentAdmissionState(...)
+   .agentRootDid`, which itself reads `agent_root_identity.did_uri` directly — never from
+   `personas.root_did`, never client-supplied. `agent_root_identity.did_uri` is `UNIQUE NOT NULL`
+   and, confirmed by grepping every `.update()` call against that table tree-wide, is never mutated
+   after its one-time insert — there is no rotation/reissuance/supersession-writing code path for an
+   agent's RootDID at all today (unlike citizens' `root_identity`). So `personas.root_did =
+   agentRootDid` is a self-referential idempotency key over an immutable, uniquely-constrained value
+   that cannot resolve the wrong agent (a `UNIQUE` collision is structurally impossible) and cannot
+   go stale relative to a value that never changes — structurally distinct from the "resolve an
+   arbitrary human sponsor's identity via the deprecated column" defect class Phase 2.5 eliminated,
+   exactly as Phase 2.5's own table already classified this file. **The gate is not met; no
+   migration was made; the code is unchanged.** The reconciliation route remains the correct tool for
+   the DIFFERENT, still-open ordering risk named in `unresolvedRisks[0]` of the source resolution (a
+   future newly-sponsored agent whose Standing identity is provisioned before its DiDQube container
+   is bound) — that risk is untouched by this confirmation and is not a rotation/staleness concern.
 
-2. **Registry/Horizen's external-presence seam (`resolveAgentExternalPresence`) is not yet wired
-   into any live surface.** Item 7 built the DiDQube-first ordering seam
+2. **Registry/Horizen's external-presence seam (`resolveAgentExternalPresence`) — WIRED into a real
+   caller (2026-09-08).** Item 7 built the DiDQube-first ordering seam
    (`services/horizen/agentDiDQubeExternalPresence.ts`) as a standalone, correct, but currently
-   unconsumed capability — no route or UI calls it yet. A future caller must still be checked to
-   confirm it actually calls this seam rather than reading Horizen/Registry state directly and
-   reintroducing the gap this resolution closed. Source:
+   unconsumed capability — no route or UI called it yet. Source:
    `RES-2026-09-07-DIDQUBE-PHASE-4-REGISTRY-HORIZEN-CONSUMER-MIGRATION-001.json` →
-   `unresolvedRisks[1]`.
+   `unresolvedRisks[1]`. Closed 2026-09-08
+   (`RES-2026-09-08-DIDQUBE-PHASE-4-REGISTRY-HORIZEN-SEAM-WIRED-001.json`) by a new, additive
+   read-only ops/diagnostic route, `GET /api/ops/agents/[agentRuntimeId]/external-presence`
+   (dual-auth, mirroring `standing-didqube-reconciliation`'s own shape) — the first real production
+   caller, resolving the agent's `agent_root_identity.id` via `resolveAgentAdmissionState` and
+   passing it to the seam (never a raw `did_uri` string). Two existing Horizen/Registry-reading
+   surfaces were surveyed and deliberately NOT migrated onto the seam:
+   `services/factor/useCaseZeroReadinessProjection.ts` (Factor's own reads, already correct, per
+   this plan's own instruction not to force-migrate them) and
+   `services/marketa/activation/agentBenchReadModel.ts` (Agent Bench — a purely descriptive
+   dashboard row-builder, never a prepare/approval/execution gate per ruling #8's classification, so
+   forcing the new ordering onto it would be an unmotivated refactor of an already-working consumer,
+   not a bug fix). 6 new tests (`tests/agent-external-presence-route.test.ts`) prove the route
+   reaches the seam with the resolved id, never calls it when no `agent_root_identity` row exists,
+   and surfaces an unresolved/conflicted DiDQube honestly.
+
+**Phase 4 status after 2026-09-08:** items 1 (Factor), 2 (Aegis), 3 (CTP), 4 (DCIR,
+boundary-aligned/non-consuming), and 7 (Registry/Horizen, now wired) are closed with no known
+residual gap. Item 5 (Standing) is closed on its own terms — the write-path gate was checked and
+found not met, which is a legitimate closure, not a deferral. Item 6 (DVN receipt commitment
+fields) remains explicitly OUT OF SCOPE pending its own required standalone operator approval. That
+is **6 of 7 items closed** (1, 2, 3, 4, 5, 7), with item 6 intentionally excluded pending separate
+approval — Phase 4 may now be described as closed for every item within this plan's own current
+authorization, but item 6 itself is NOT done and must not be cited as such.
 
 ### Phase 5 — Trust hardening and cleanup (brief §12-§13)
 *Only after Phase 3's behavior has been live and stable.*
@@ -1213,12 +1256,49 @@ authorize reopening either item for further implementation work.
    canonicalized-data signature, public verification endpoint, revocation/supersession resolution, key
    rotation without invalidating historical credentials) — this is a real cryptographic subsystem, not
    a schema change; treat it as its own sub-plan with its own review, not a checklist line.
+   **Scoped, not implemented, 2026-09-08**:
+   `codexes/packs/agentiq/updates/2026-09-08_didqube-phase5-vc-verification-subplan.md` — a four-phase
+   sub-plan (stable issuer DID + versioned verification method; revocation/supersession wired into
+   verification; a public verification endpoint; a key-rotation runbook), grounded in the real Phase 3
+   signing/verification code that already ships (`services/passport/passportCredential.ts`,
+   `passportCredentialSigningProviders.ts`, `passportCredentialVerification.ts`). No code was changed
+   for this item.
 2. Verify zero remaining authoritative reads/writes of `personas.root_did` — this was moved ahead to
    Phase 2.5 per ruling #5 (not left as Phase 5 cleanup); this step is verification only (grep + the
    canary added in Phase 2.5), confirming no regression crept back in during Phases 3-4.
+   **Verification performed 2026-09-08**: grepped every literal `'root_did'` reference tree-wide (92
+   files match the broader substring `root_did`, which also catches unrelated columns/values —
+   `agent_root_did`, `root_did_public_ref`, `sponsor_passport_id`-adjacent code, and a `rootDid` field
+   in an unrelated client-side SDK payload parser; the literal DB-column string `'root_did'` narrows to
+   12 files). Every hit classifies as: (a) a T0-exposure canary asserting the field must NEVER appear
+   in a forbidden-field list (`tests/sanitize-receipt-metadata.test.ts`,
+   `tests/passport-passkey.test.ts`, `tests/governance-ratification.test.ts`,
+   `tests/experiment-workspace.test.ts` — 4 files, all pre-existing, all passing, unrelated to
+   authoritative resolution); (b) a self-referential agent-identity match site already classified safe
+   by Phase 2.5's own table (`services/passport/bureauIdentityService.ts`'s `lookupExistingBinding`
+   self-consistency read; `services/agents/provisionAgentWalletPersona.ts`;
+   `scripts/ctp-acceptance-aletheon-mansameta.ts`, an acceptance script using the identical pattern) —
+   `resolveRootDidCommitment` in the same file is confirmed STILL unused in production (only named in
+   a doc comment in `services/constitutional/constitutionalAgreement.ts`, matching the Phase 2.5
+   authority closure's own claim); (c) `services/standing/agentStandingPersona.ts` — Gap 1 above, now
+   itself confirmed safe (`RES-2026-09-08-DIDQUBE-PHASE-4-STANDING-WRITE-PATH-GATE-NOT-MET-001`); (d)
+   test files proving the Phase 2.5 fixes (no read/write of `root_did`) hold —
+   `tests/sync-persona-evm-addresses-no-root-did-write.test.ts`,
+   `tests/provision-agent-persona-principal-first.test.ts`,
+   `tests/legacy-passport-linkage-principal-first.test.ts`, `tests/agent-homecoming.test.ts`,
+   `tests/constitutional-agreement-rootdid-authority.test.ts`, `tests/agent-standing-persona.test.ts`;
+   (e) `types/access.ts` (a PROTECTED file, not touched or needing to be) — `'root_did'` there is a
+   string label inside a `DisclosureRequesterContext` field-kind union, not a query. **No genuinely
+   new, unflagged authoritative read or write was found.** No umbrella, tree-wide canary exists that
+   would catch a BRAND NEW file introducing a fresh authoritative `personas.root_did` read/write in the
+   future — each existing fix is protected by its own file-scoped negative-assertion test, not by one
+   registry-wide grep-canary. This gap is noted, not closed with a new enforcement mechanism, per this
+   round's own instruction not to invent a large new mechanism unprompted.
 3. Normalize old schemas / retire legacy fields — **last**, and only after every consumer in Phase 4
    has migrated and been observed correct in production for a real stabilization window. Never remove
-   a legacy field a Phase 4 consumer might still fall back to.
+   a legacy field a Phase 4 consumer might still fall back to. **Remains untouched and explicitly
+   gated, 2026-09-08** — no production stabilization window has occurred, so this item was not
+   attempted; doing so now would be premature per the plan's own text.
 
 ---
 
