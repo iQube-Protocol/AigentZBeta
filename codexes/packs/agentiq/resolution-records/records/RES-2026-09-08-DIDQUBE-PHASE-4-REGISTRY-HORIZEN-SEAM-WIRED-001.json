@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-08",
+  "resolutionId": "RES-2026-09-08-DIDQUBE-PHASE-4-REGISTRY-HORIZEN-SEAM-WIRED-001",
+  "capability": "agent-external-presence-registry-horizen",
+  "milestone": "Closes the second of the two named open gaps in RES-2026-09-07-DIDQUBE-PHASE-4-REGISTRY-HORIZEN-CONSUMER-MIGRATION-001's unresolvedRisks[1] ('resolveAgentExternalPresence is a new, standalone capability not yet wired into any live surface... a future caller must still be checked to confirm it actually calls this seam rather than reading Horizen/Registry state directly'), and one of the two open gaps named in the execution plan's corrected 'Phase 4 -- PARTIAL, NOT closed' section (2026-09-08).",
+  "problem": "services/horizen/agentDiDQubeExternalPresence.ts::resolveAgentExternalPresence was implemented and tested (5 tests, tests/agent-didqube-external-presence.test.ts) on 2026-09-07 but had zero real callers -- no route or UI consumed it. The execution plan's own Phase 4 status correction explicitly named this as one of the two reasons Phase 4 is partial rather than closed: 'a future caller must still be checked to confirm it actually calls this seam rather than reading Horizen/Registry state directly and reintroducing the gap this resolution closed.'",
+  "observedFailure": [
+    "Code inspection (2026-09-08): grep for resolveAgentExternalPresence found zero importers outside its own test file -- confirmed the gap the source resolution's unresolvedRisks[1] described was still open.",
+    "Candidate real callers surveyed: services/factor/useCaseZeroReadinessProjection.ts (Factor's own Horizen/Registry reads -- the execution plan's own text says these are 'already correct' and explicitly instructs not to force-migrate them: 'the seam exists for the next real caller to use, rather than forcing an unrelated refactor of Factor's own already-correct Horizen/Registry reads'); services/marketa/activation/agentBenchReadModel.ts (a descriptive Agent Bench dashboard row-builder that also reads resolveAgentRegistrationState/getAsset directly, without DiDQube-first ordering) -- surveyed and NOT migrated: it is a display/dashboard surface, never a prepare/approval/execution gate (ruling #8's classification), so forcing this seam onto it would be an unrelated refactor of an already-working consumer, exactly what the plan instructs against doing to Factor. Neither candidate qualified as 'a real bug worth fixing via this seam' under the task's own bar (a surface that could show an external identifier for an unresolved/ambiguous identity AS IF it established one)."
+  ],
+  "rootCauses": [
+    "Item 7's own scoping (execution plan, 'lowest urgency, do last; nothing else in the plan depends on it') deliberately built the seam ahead of any consumer needing it, so the gap was a sequencing artifact, not a defect in the seam itself -- exactly as the source resolution's own resolution/rejectedApproaches already stated."
+  ],
+  "resolution": [
+    "New GET /api/ops/agents/[agentRuntimeId]/external-presence (app/api/ops/agents/[agentRuntimeId]/external-presence/route.ts) -- a genuinely NEW, additive, read-only ops/diagnostic route (dual auth: CRON_TRIGGER_TOKEN or requireAdminPersona, mirroring standing-didqube-reconciliation's own shape) rather than a refactor of any existing display surface. Resolves the named agent's admission state to obtain agent_root_identity.id (never a raw did_uri string), then calls resolveAgentExternalPresence(admin, agentRootId, agent) -- the FIRST real production caller of this seam.",
+    "The route enforces DiDQube-first ordering at its OWN boundary too, not only inside the seam: when resolveAgentAdmissionState reports no agent_root_identity row yet, the route reports { didqubeResolved: false, reason: '...' } WITHOUT ever calling resolveAgentExternalPresence -- so a missing anchor never reaches the seam as a null/undefined id that could be misread.",
+    "6 new tests in tests/agent-external-presence-route.test.ts: the dual-auth gate (403 without either credential); a 400 for a non-canonical agentRuntimeId with zero seam calls; the route never calls the seam when agentRootId is null; the headless cron path calls the seam with the resolved agent_root_identity id (asserted positionally, never a did_uri string); an authenticated admin persona session also reaches the seam; and an unresolved/conflicted DiDQube result is surfaced honestly in a 200 rather than hidden."
+  ],
+  "rejectedApproaches": [
+    "Migrating services/factor/useCaseZeroReadinessProjection.ts onto this seam -- rejected per the execution plan's own explicit instruction not to force an unrelated refactor of Factor's already-correct reads; Factor was not touched.",
+    "Migrating services/marketa/activation/agentBenchReadModel.ts (Agent Bench) onto this seam -- surveyed and rejected. It reads resolveAgentRegistrationState/getAsset directly and does not itself perform DiDQube-first ordering, but every field it derives from those reads (registryProvider, onChainAgentId, capabilities, registry.publicationStatus/trustBand) is DESCRIPTIVE dashboard display, never a prepare/approval/execution gate (ruling #8) -- it never treats a Horizen/Registry fact as proof of resolved identity, it only displays what Horizen/Registry themselves report, alongside a SEPARATELY-gated admission/runtime-membership state (admission.sponsorshipRecorded/delegatePassportIssued/delegationActive) that already comes from resolveAgentAdmissionState. Forcing the new ordering onto a working, purely-informational dashboard row-builder would be exactly the kind of unmotivated refactor CLAUDE.md's Extend-Don't-Duplicate and Change Sizing rules argue against, and it does not meet the task's own bar for a 'real bug' (a surface that could present an external identifier as if it established an unresolved/ambiguous identity). Left as a candidate follow-up if a future gating decision is ever added to Agent Bench, not implemented speculatively.",
+    "Wiring the seam into a brand-new UI-facing feature (rather than an ops/diagnostic route) -- rejected as unnecessary scope: the task's own guidance and the source resolution's own framing ('lowest urgency... the seam exists for the next real caller to use') call for a low-risk additive caller, not a new user-facing capability."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-07-DIDQUBE-CONSUMER-RESOLVER-NOT-RAW-ANCHOR-001"
+  ],
+  "canaries": [
+    "tests/agent-external-presence-route.test.ts",
+    "tests/agent-didqube-external-presence.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "milestone-complete",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/agent-external-presence-route.test.ts",
+      "tests/agent-didqube-external-presence.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-07_didqube-canonical-resolver-execution-plan.md",
+    "codexes/packs/agentiq/resolution-records/records/RES-2026-09-07-DIDQUBE-PHASE-4-REGISTRY-HORIZEN-CONSUMER-MIGRATION-001.json",
+    "app/api/ops/agents/[agentRuntimeId]/external-presence/route.ts",
+    "services/horizen/agentDiDQubeExternalPresence.ts"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "unresolvedRisks": [
+    "This is one new, low-traffic ops/diagnostic caller. Agent Bench and any other surface that independently reads resolveAgentRegistrationState/getAsset directly remains unmigrated, by deliberate choice (see rejectedApproaches) -- if a FUTURE change adds a gating decision (prepare/approval/execution) to Agent Bench or any other Horizen/Registry-reading surface, that change must route through resolveAgentExternalPresence rather than reintroducing an ungated direct read; this resolution does not audit every present or future Horizen/Registry read site, only the one gap the source resolution named as open.",
+    "Item 6 (DVN receipt commitment fields) remains explicitly out of scope, unchanged, per the DVN Pipeline Protection PARAMOUNT rule -- not touched by this resolution."
+  ]
+}

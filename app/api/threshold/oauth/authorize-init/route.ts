@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getClient, createPendingHandshake } from '@/services/threshold/gatewaySession';
 import { getService, CONSTITUTIONAL_ROOT_CAPABILITIES } from '@/services/threshold/serviceRegistry';
+import { adoptPendingPersonaSwitchForOAuth } from '@/services/threshold/personaSwitchOAuth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,6 +30,7 @@ export async function POST(req: NextRequest) {
 
   if (!clientId || !redirectUri) return NextResponse.json({ error: 'invalid_request', error_description: 'client_id and redirect_uri required' }, { status: 400 });
   if (!codeChallenge || method !== 'S256') return NextResponse.json({ error: 'invalid_request', error_description: 'PKCE S256 code_challenge required' }, { status: 400 });
+  if (!state.trim()) return NextResponse.json({ error: 'invalid_request', error_description: 'OAuth state required' }, { status: 400 });
 
   // Validate the client + redirect_uri against the registered allowlist.
   const client = await getClient(clientId);
@@ -37,23 +39,41 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid_request', error_description: 'redirect_uri not registered for this client' }, { status: 400 });
   }
 
+  // Persona re-crossing is initiated through an authenticated MCP tool, but
+  // OAuth state + PKCE belong to the MCP HOST (Claude/ChatGPT/etc.), not to the
+  // model calling that tool. If this client has a pending switch intent, adopt
+  // it into this host-generated OAuth flow and bind the REAL state/challenge.
+  // This is what makes the resulting authorization code exchangeable by the
+  // host instead of stranding it with model-invented PKCE material.
+  const adoptedSwitch = await adoptPendingPersonaSwitchForOAuth({
+    clientId,
+    redirectUri,
+    pkceChallenge: codeChallenge,
+    oauthState: state,
+  });
+  if (adoptedSwitch) {
+    return NextResponse.json({
+      handshakeCode: adoptedSwitch.handshakeCode,
+      expiresAt: adoptedSwitch.expiresAt,
+      crossing: {
+        initiatingService: adoptedSwitch.initiatingService,
+        serviceTitle: 'Persona re-crossing',
+        requestedScope: adoptedSwitch.requestedScope,
+        transitionKind: 'persona_switch',
+        targetPersonaPublicRef: adoptedSwitch.targetPrincipalPublicRef,
+      },
+    });
+  }
+
   // Passport-first re-sequencing (PRD-THR-001 §9) + security review Finding 4:
   // the INITIAL client-driven crossing grants constitutional-ROOT navigation
   // authority ONLY. Service-operating capabilities are NEVER folded into this
   // screen from a client-supplied `service` — they are granted exclusively via
-  // the incremental, human-authorized service crossing (request_service_capabilities
-  // → /threshold/enter-service → /api/threshold/service/complete → applyUpgrade),
-  // which is gated on a validated upgrade handshake pinned to the caller's session.
-  // This keeps the advertised two-step consent honest: a self-service "connect my
-  // agent" can never acquire service authority in one click by asserting a service id.
-  // `service` is retained only for the crossing's DISPLAY context (initiatingService).
+  // the incremental, human-authorized service crossing.
   const svc = getService(service);
   const scopeCount = scopeStr.split(/\s+/).filter(Boolean).length;
   const requestedScope = Array.from(new Set([...CONSTITUTIONAL_ROOT_CAPABILITIES]));
   if (scopeCount > CONSTITUTIONAL_ROOT_CAPABILITIES.length) {
-    // The client asked for more than root at the initial crossing — not granted
-    // here by design. Surfaced (not an error) so the agent can route to the
-    // incremental service crossing instead.
     // eslint-disable-next-line no-console
     console.log('[threshold] authorize-init: service scope requested at base crossing — granting root only (Finding 4).');
   }

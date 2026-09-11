@@ -176,8 +176,22 @@ export async function GET(request: NextRequest) {
   const result = await listIQubes(filter);
 
   if (!expand) {
-    // Lightweight response — id-map entries only.
-    return NextResponse.json({ entries: result.entries, total: result.entries.length });
+    // Raw id-map entries include native source ids for private objects. They
+    // are an operator projection, never a public catalogue. Non-admin callers
+    // receive the same public projection used by Companion search.
+    if (persona?.cartridgeFlags?.isAdmin) {
+      return NextResponse.json({ entries: result.entries, total: result.entries.length });
+    }
+    const publicEntries = await Promise.all(
+      result.entries.map((entry) =>
+        resolveIQube(entry.iqube_id, {
+          projection: 'public',
+          allowPrivate: false,
+        }).catch(() => null),
+      ),
+    );
+    const visible = publicEntries.filter((entry) => entry !== null);
+    return NextResponse.json({ entries: visible, total: visible.length });
   }
 
   // Expanded: hydrate each entry through the resolver. The projection

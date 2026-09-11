@@ -11,6 +11,11 @@ const BROWSER_AUTH_ALLOWLIST = new Set([
   // HUMAN authorization act: this route intentionally resolves canonical
   // persona authority before projecting it into a Threshold bearer.
   path.normalize('oauth/complete/route.ts'),
+  // HUMAN persona re-crossing act: this completion route must resolve the
+  // signed-in owner's source and target personas before issuing a fresh,
+  // target-bound Threshold authorization code. It never mutates the existing
+  // MCP session or acts from agent-held authority.
+  path.normalize('persona-switch/complete/route.ts'),
 ]);
 
 function routeFiles(dir: string): string[] {

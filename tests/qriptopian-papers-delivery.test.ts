@@ -6,11 +6,13 @@ vi.mock('@supabase/supabase-js', () => ({
     const query: any = {
       select: () => query,
       eq: () => query,
+      maybeSingle: async () => ({ data: fixture.rows[0] ?? null, error: null }),
       order: async () => ({ data: fixture.rows, error: null }),
     };
     return { from: () => query };
   },
 }));
+vi.mock('pdf-parse', () => ({ default: async () => ({ text: 'Extracted public paper text' }) }));
 
 import { GET } from '@/app/api/codex/qripto/papers/route';
 
@@ -89,5 +91,35 @@ describe('Papers taxonomy and storage identity', () => {
       asset('magazine', { series_scope: 'magazines/1' }), asset('paper')];
     expect((await read()).papers.map((p: any) => p.id)).toEqual(['paper']);
     expect((await read('?group=magazines')).papers.map((p: any) => p.id)).toEqual(['magazine']);
+  });
+
+  it('extracts a publication-classified public PDF by id without returning its storage URL', async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://project.supabase.co';
+    fixture.rows = [asset('paper', {
+      auto_drive_cid: 'https://project.supabase.co/storage/v1/object/public/content-media/paper.pdf',
+    })];
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(Buffer.from('%PDF fixture'), {
+      status: 200,
+      headers: { 'content-type': 'application/pdf' },
+    })));
+    const response = await GET(new Request('https://example.test/api/codex/qripto/papers?read=paper') as any);
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body.document).toMatchObject({
+      id: 'paper',
+      text: 'Extracted public paper text',
+      scope: 'papers/embodiment',
+    });
+    expect(JSON.stringify(body)).not.toContain('storage/v1/object');
+  });
+
+  it('refuses extraction for a private or unclassified record', async () => {
+    fixture.rows = [asset('private', {
+      is_shareable: false,
+      auto_drive_cid: 'https://project.supabase.co/storage/v1/object/public/content-media/private.pdf',
+    })];
+    const response = await GET(new Request('https://example.test/api/codex/qripto/papers?read=private') as any);
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: 'Document is not publicly readable.' });
   });
 });

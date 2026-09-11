@@ -34,8 +34,8 @@ export function projectCartridge(
     iqube_id: rec.iqube_id,
     primitive_type: rec.primitive_type,
     tool_subtype: rec.tool?.tool_subtype,
-    display_name: rec.aigent?.root_agent_id ?? rec.content_qube_id ?? rec.iqube_id,
-    display_description: undefined,
+    display_name: rec.display_name ?? rec.aigent?.root_agent_id ?? rec.content_qube_id ?? rec.iqube_id,
+    display_description: rec.display_description,
     cover_url: undefined,
 
     surface_lifecycle: rec.surface_lifecycle,
@@ -47,5 +47,6 @@ export function projectCartridge(
     caller_can_read: callerCanRead,
 
     cartridge_bindings: rec.cartridge_bindings,
+    cluster: rec.cluster,
   };
 }

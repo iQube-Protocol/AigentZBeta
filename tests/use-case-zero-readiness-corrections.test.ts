@@ -286,6 +286,7 @@ describe('correction 4 — Bankr: mode derived from adapter, not hardcoded from 
       bankrMode: 'fake',
       hasProviderWalletBinding: false,
       providerWalletBinding: null,
+      bindingEffectiveState: 'none',
       tokenLaunchEnabled: true,
       ready: false,
       blockers: [],
@@ -293,9 +294,27 @@ describe('correction 4 — Bankr: mode derived from adapter, not hardcoded from 
     const result = await projectUseCaseZeroReadiness(BASE_INPUT);
     const bankr = findLeg(result.legs, 'bankrBinding');
     expect(bankr.reason).toMatch(/configured=/);
-    expect(bankr.reason).toMatch(/binding active=/);
+    expect(bankr.reason).toMatch(/binding=/);
     expect(bankr.reason).toMatch(/operation supported/);
     expect(bankr.state).toBe('missing');
+  });
+
+  it('correction (2026-09-08): a lifecycle-active but never-verified binding reads as "Simulated binding", never bare "active"', async () => {
+    mocks.assessIssuerReadiness.mockResolvedValue({
+      beneficiaryAgentRuntimeId: 'aigent-factor',
+      bankrConfigured: false,
+      bankrMode: 'fake',
+      hasProviderWalletBinding: true,
+      providerWalletBinding: { id: 'binding-1', status: 'active', verification_evidence: null },
+      bindingEffectiveState: 'active-simulated',
+      tokenLaunchEnabled: true,
+      ready: true,
+      blockers: [],
+    });
+    const result = await projectUseCaseZeroReadiness(BASE_INPUT);
+    const bankr = findLeg(result.legs, 'bankrBinding');
+    expect(bankr.reason).toMatch(/Simulated binding/);
+    expect(bankr.reason).not.toMatch(/binding active=true \(status: active\)/);
   });
 });
 

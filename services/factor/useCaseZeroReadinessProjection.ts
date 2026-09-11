@@ -934,6 +934,20 @@ async function resolveBankrLeg(admin: SupabaseClient, tenantId: string, runtimeA
 
   const mode: ReadinessLegMode = readiness.bankrMode === 'live' ? 'live' : 'simulated';
   const established = readiness.hasProviderWalletBinding && readiness.tokenLaunchEnabled === true;
+  // Effective-state display (2026-09-08 correction): never report the
+  // binding by its bare lifecycle `status` alone — "active" reads as a
+  // confirmed real provider relationship even when nothing was ever
+  // verified. bindingEffectiveState (services/financialServices/providers/
+  // providerWalletBinding.ts::deriveBindingEffectiveState) is the ONE
+  // derived label every consumer must use instead.
+  const bindingLabel =
+    readiness.bindingEffectiveState === 'active-verified'
+      ? 'Verified'
+      : readiness.bindingEffectiveState === 'active-simulated'
+        ? 'Simulated binding (never verified against a real Bankr account)'
+        : readiness.bindingEffectiveState === 'revoked'
+          ? 'Revoked'
+          : 'None';
   return leg({
     key: 'bankrBinding',
     label: 'Bankr/provider binding',
@@ -941,7 +955,7 @@ async function resolveBankrLeg(admin: SupabaseClient, tenantId: string, runtimeA
     mode,
     reason:
       `Provider configured=${readiness.bankrConfigured} (mode: ${readiness.bankrMode}); ` +
-      `binding active=${readiness.hasProviderWalletBinding} (status: ${readiness.providerWalletBinding?.status ?? 'none'}); ` +
+      `binding=${bindingLabel}; ` +
       `operation supported (token launch)=${readiness.tokenLaunchEnabled}.`,
     source: 'services/factor/bankrCapabilityHandlers.ts::assessIssuerReadiness',
     evidenceRefs: readiness.providerWalletBinding ? [readiness.providerWalletBinding.id ?? ''].filter(Boolean) : [],

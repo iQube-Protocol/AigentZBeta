@@ -32,6 +32,18 @@ export interface IrlAdapter {
    *  T2-safe) so a reviewer can independently recompute sha256 and verify the
    *  anchored hash through the Threshold itself. Optional experiment id filter. */
   readResults(experiment?: string): Promise<unknown>;
+  /** Browse the canonical public invariant substrate. Pagination is over the
+   * route's bounded published snapshot (currently capped at 500 records). */
+  listInvariants(input?: { namespace?: string; status?: string; domain?: string; offset?: number; limit?: number }): Promise<unknown>;
+  /** Exact canonical invariant lookup by database id or seed id. */
+  getInvariant(id: string): Promise<unknown>;
+  /** Keyword search over canonical invariant statements. */
+  searchInvariants(query: string, input?: { namespace?: string; status?: string; offset?: number; limit?: number }): Promise<unknown>;
+  /** Resolve the governing invariant ids declared by one registered experiment. */
+  listInvariantsForExperiment(experimentId: string): Promise<unknown>;
+  /** Return recorded supersession plus the public consequence-bearing graph
+   * neighbourhood. This does not claim to be a complete provenance graph. */
+  getInvariantLineage(id: string): Promise<unknown>;
   /** Submit an experiment result under an AUTHORIZED IRL delegation (CFS-042 x409
    *  path — agreement-authorized, no persona Bearer). The agreementId is the
    *  irl:experiment-result:submit agreement from the incremental IRL crossing. */
@@ -209,7 +221,121 @@ export function makeIrlAdapter(origin: string): IrlAdapter {
   // implementation, not a per-adapter fork.
   const get = (path: string) => resilientFetch(`${origin}${path}`);
 
+  type PublicInvariant = Record<string, unknown> & { id?: string; seedId?: string | null };
+  const invariantSnapshot = async (params: URLSearchParams) => {
+    // The canonical public route caps its own snapshot at 500. Fetch that
+    // bounded projection once, then paginate it without adding another store.
+    params.set('limit', '500');
+    const r = await get(`/api/public/irl/invariants?${params.toString()}`);
+    if (!r.ok) return { ok: false as const, error: `invariant registry unavailable (${r.status})` };
+    const rows = ((r.body as { invariants?: unknown })?.invariants ?? []) as PublicInvariant[];
+    return { ok: true as const, rows };
+  };
+  const page = (rows: PublicInvariant[], offset?: number, limit?: number) => {
+    const start = Math.max(0, Number.isFinite(offset) ? Math.floor(offset!) : 0);
+    const size = Math.min(100, Math.max(1, Number.isFinite(limit) ? Math.floor(limit!) : 25));
+    return {
+      invariants: rows.slice(start, start + size),
+      offset: start,
+      limit: size,
+      total: rows.length,
+      hasMore: start + size < rows.length,
+      nextOffset: start + size < rows.length ? start + size : null,
+      snapshotCap: 500,
+    };
+  };
+  const exactInvariant = async (id: string) => {
+    const clean = id.trim();
+    if (!clean) return { ok: false as const, error: 'an invariant id is required' };
+    const params = new URLSearchParams();
+    // Seed ids are the stable public citations used by experiments. The route's
+    // `ids` filter matches database ids, so seed-id lookup uses exact matching
+    // over the bounded canonical snapshot rather than a fuzzy text query.
+    if (!clean.startsWith('inv.')) params.set('ids', clean);
+    const snapshot = await invariantSnapshot(params);
+    if (!snapshot.ok) return snapshot;
+    const invariant = snapshot.rows.find((row) => row.id === clean || row.seedId === clean) ?? null;
+    return invariant
+      ? { ok: true as const, invariant }
+      : { ok: false as const, error: 'invariant_not_found', id: clean };
+  };
+
   return {
+    async listInvariants(input = {}) {
+      const params = new URLSearchParams();
+      if (input.namespace) params.set('namespace', input.namespace);
+      if (input.status) params.set('status', input.status);
+      if (input.domain) params.set('domain', input.domain);
+      const snapshot = await invariantSnapshot(params);
+      if (!snapshot.ok) return snapshot;
+      return {
+        ok: true,
+        ...page(snapshot.rows, input.offset, input.limit),
+        source: 'canonical public IRL invariant registry',
+        paginationBoundary: 'bounded published snapshot',
+      };
+    },
+    async getInvariant(id: string) {
+      const result = await exactInvariant(id);
+      return result.ok
+        ? { ...result, source: 'canonical public IRL invariant registry' }
+        : result;
+    },
+    async searchInvariants(query, input = {}) {
+      const clean = query.trim();
+      if (!clean) return { ok: false, error: 'a search query is required' };
+      const params = new URLSearchParams({ q: clean });
+      if (input.namespace) params.set('namespace', input.namespace);
+      if (input.status) params.set('status', input.status);
+      const snapshot = await invariantSnapshot(params);
+      if (!snapshot.ok) return snapshot;
+      return {
+        ok: true,
+        query: clean,
+        searchMode: 'keyword',
+        ...page(snapshot.rows, input.offset, input.limit),
+        source: 'canonical public IRL invariant registry',
+      };
+    },
+    async listInvariantsForExperiment(experimentId) {
+      const clean = experimentId.trim().toUpperCase();
+      if (!clean) return { ok: false, error: 'an experiment id is required' };
+      const overview = await get('/api/public/irl/research-overview');
+      if (!overview.ok) return { ok: false, error: `research registry unavailable (${overview.status})` };
+      const experiments = ((overview.body as { experiments?: unknown })?.experiments ?? []) as Array<Record<string, unknown>>;
+      const entry = experiments.find((row) => {
+        const experiment = row.experiment as Record<string, unknown> | undefined;
+        return String(experiment?.id ?? '').toUpperCase() === clean;
+      });
+      const experiment = entry?.experiment as Record<string, unknown> | undefined;
+      if (!experiment) return { ok: false, error: 'experiment_not_found', experimentId: clean };
+      const ids = Array.isArray(experiment.governingInvariants)
+        ? experiment.governingInvariants.filter((id): id is string => typeof id === 'string')
+        : [];
+      const resolved = await Promise.all(ids.map((id) => exactInvariant(id)));
+      return {
+        ok: true,
+        experimentId: clean,
+        governingInvariantIds: ids,
+        invariants: resolved.filter((item) => item.ok).map((item) => item.invariant),
+        unresolvedIds: resolved.filter((item) => !item.ok).map((item) => 'id' in item ? item.id : null).filter(Boolean),
+        source: 'canonical research registry governingInvariants → canonical public invariant registry',
+      };
+    },
+    async getInvariantLineage(id) {
+      const exact = await exactInvariant(id);
+      if (!exact.ok) return exact;
+      const invariantId = String(exact.invariant.id ?? '');
+      const field = await get(`/api/public/irl/invariant-field?id=${encodeURIComponent(invariantId)}`);
+      return {
+        ok: true,
+        invariant: exact.invariant,
+        supersedesId: exact.invariant.supersedesId ?? null,
+        fieldNeighborhood: field.ok ? field.body : null,
+        lineageScope: 'recorded supersession plus enables/constrains/contradicts neighbourhood; not a complete provenance graph',
+        source: 'canonical public invariant registry and invariant-field projection',
+      };
+    },
     // The IRL research overview is the shared-artifact index (public).
     async listDocuments() {
       const r = await get('/api/public/irl/research-overview');

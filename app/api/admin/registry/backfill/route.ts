@@ -33,6 +33,10 @@ const VALID_SOURCES: ReadonlyArray<IQubeIdMapSource> = [
   // Intent Chain Orchestrator (2026-06-02) — chain templates register
   // via Factory Ingestion stub per AGENTIQ_INTENT_CHAINS_SPEC.md §6.6
   'code:chainTemplate',
+  'locker_asset',
+  'roomqube',
+  'reciprocal_exchange',
+  'exchange_artifact',
 ];
 
 async function requireAdmin(request: NextRequest) {

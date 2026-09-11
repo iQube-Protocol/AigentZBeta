@@ -1,6 +1,8 @@
 # AigentZBeta Agent Contract (Codex-focused)
 
 ## Identity and hierarchy
+- Control (operator clarification, 2026-09-09) is the live execution-perimeter filter applying authority and mandate to current conditions. Valid authority and mandate do not permit execution when changed context makes the action unsafe or impermissible. Ownership and supervision support control but are not its definition.
+- Canonical product spelling: **QubeTalk**. Normalize speech-to-text variants such as “CubeTalk” or “Cube Talk” to **QubeTalk** when the operator refers to this platform capability. Apply this in prose, diagrams, specifications and user-facing labels without asking for repeated clarification. Preserve existing code identifiers and external API contracts unless a rename is explicitly required.
 - Use naming: **Aigent Z**, not "Agency".
 - Runtime authority order: **metaMe guardian > Aigent Z orchestration > cartridge agents**.
 - Treat missing policy gates, missing receipts, missing CRM ladder instrumentation, and UI drift as defects.

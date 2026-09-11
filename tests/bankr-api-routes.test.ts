@@ -55,6 +55,9 @@ const DRAFT_BODY = {
   chain: 'base',
   tokenName: 'Factor Token',
   tokenSymbol: 'FCTR',
+  // A partner-key Bankr deploy requires feeRecipient even to preflight
+  // (docs.bankr.bot) — 2026-09-08 correction.
+  feeRecipient: '0xE478E454b8c97682CACabe0345bb01AF30900ac1',
 };
 
 async function ratifyAdmissibleFor(launchId: string) {
@@ -182,7 +185,7 @@ describe('launch action dispatch', () => {
     expect(submitRes.status).toBe(200);
     const submitted = await submitRes.json();
     expect(submitted.launch.state).toBe('submitting');
-    expect(submitted.launch.bankr_job_id).toMatch(/^sim-job-/);
+    expect(submitted.launch.bankr_job_id).toMatch(/^sim-activity-/);
 
     const statusRes = await launchAction(req(`/api/moneypenny/factor/bankr/launches/${launchId}/action`, { action: 'inspect_status' }), { params: Promise.resolve({ launchId }) });
     expect(statusRes.status).toBe(200);
