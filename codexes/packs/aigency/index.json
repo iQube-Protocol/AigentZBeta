@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-11T07:21:30.677Z",
+  "last_updated": "2026-09-11T07:51:36.794Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5878406c7cda8480c9ab5531f20696429309264a",
-  "latest_commit_short": "5878406",
-  "latest_commit_title": "Add canonical exchange artifact iQube registry reference",
+  "latest_commit": "96a59cdd6b5205ac5614404c23f7a5e95deabb14",
+  "latest_commit_short": "96a59cd",
+  "latest_commit_title": "Deploy MCP-host-owned persona recross OAuth repair",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "96a59cd",
+      "full_sha": "96a59cdd6b5205ac5614404c23f7a5e95deabb14",
+      "title": "Deploy MCP-host-owned persona recross OAuth repair",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-11T03:49:57-04:00",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-96a59cd.md"
+    },
     {
       "sha": "5878406",
       "full_sha": "5878406c7cda8480c9ab5531f20696429309264a",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T06:02:24Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-de80415.md"
-    },
-    {
-      "sha": "ea936da",
-      "full_sha": "ea936da36cfb7d7a1eaea05b73a9e1ec2493c4f6",
-      "title": "A2 completion: infographic slot + integrated asset selection/upload",
-      "author": "Claude",
-      "timestamp": "2026-09-02T06:07:41Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-ea936da.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

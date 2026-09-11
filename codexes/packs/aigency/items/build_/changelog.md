@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`96a59cd`](https://github.com/iQube-Protocol/AigentZBeta/commit/96a59cdd6b5205ac5614404c23f7a5e95deabb14) [fix] Deploy MCP-host-owned persona recross OAuth repair (Kn0w1, 2026-09-11T03:49:57-04:00)
 - [`5878406`](https://github.com/iQube-Protocol/AigentZBeta/commit/5878406c7cda8480c9ab5531f20696429309264a) [feat] Add canonical exchange artifact iQube registry reference (Kn0w1, 2026-09-11T03:20:00-04:00)
 - [`cf30210`](https://github.com/iQube-Protocol/AigentZBeta/commit/cf302105648fc63cceb2cfc057fe0e1ddfff04ce) [push] Deploy Threshold discovery and persona semantics (Kn0w1, 2026-09-11T03:08:35-04:00)
 - [`2ae34b7`](https://github.com/iQube-Protocol/AigentZBeta/commit/2ae34b7e6cec36d12dc3df0daf9b0527062cab8c) [push] Restore canonical OCSGA constitutional act implementation (Kn0w1, 2026-09-11T02:49:32-04:00)

@@ -5684,3 +5684,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-5878406.md](../build_/COMMITS/COMMIT-5878406.md)
 - Message: Add canonical exchange artifact iQube registry reference
+
+## Commit `96a59cd` — 2026-09-11T03:49:57-04:00
+- Type: `fix`
+- Brief: [COMMIT-96a59cd.md](../build_/COMMITS/COMMIT-96a59cd.md)
+- Message: Deploy MCP-host-owned persona recross OAuth repair
