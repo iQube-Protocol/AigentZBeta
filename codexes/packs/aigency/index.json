@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-11T07:10:18.931Z",
+  "last_updated": "2026-09-11T07:21:30.677Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "cf302105648fc63cceb2cfc057fe0e1ddfff04ce",
-  "latest_commit_short": "cf30210",
-  "latest_commit_title": "Deploy Threshold discovery and persona semantics",
+  "latest_commit": "5878406c7cda8480c9ab5531f20696429309264a",
+  "latest_commit_short": "5878406",
+  "latest_commit_title": "Add canonical exchange artifact iQube registry reference",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5878406",
+      "full_sha": "5878406c7cda8480c9ab5531f20696429309264a",
+      "title": "Add canonical exchange artifact iQube registry reference",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-11T03:20:00-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-5878406.md"
+    },
     {
       "sha": "cf30210",
       "full_sha": "cf302105648fc63cceb2cfc057fe0e1ddfff04ce",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T06:07:41Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-ea936da.md"
-    },
-    {
-      "sha": "40a36b4",
-      "full_sha": "40a36b43ea901a19ddbdea7c6f8c4cc06898f2fb",
-      "title": "Financial-profile compute/manual routes never crash on a missing table",
-      "author": "Claude",
-      "timestamp": "2026-09-02T06:07:58Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-40a36b4.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

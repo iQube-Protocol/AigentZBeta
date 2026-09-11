@@ -5679,3 +5679,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-cf30210.md](../build_/COMMITS/COMMIT-cf30210.md)
 - Message: Deploy Threshold discovery and persona semantics
+
+## Commit `5878406` — 2026-09-11T03:20:00-04:00
+- Type: `feat`
+- Brief: [COMMIT-5878406.md](../build_/COMMITS/COMMIT-5878406.md)
+- Message: Add canonical exchange artifact iQube registry reference
