@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-11T02:11:50.784Z",
+  "last_updated": "2026-09-11T06:51:25.363Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "02af7221babb3c0978e9456bdb56124ee46f8e42",
-  "latest_commit_short": "02af722",
-  "latest_commit_title": "Expose canonical IRL OS public root data",
+  "latest_commit": "2ae34b7e6cec36d12dc3df0daf9b0527062cab8c",
+  "latest_commit_short": "2ae34b7",
+  "latest_commit_title": "Restore canonical OCSGA constitutional act implementation",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "2ae34b7",
+      "full_sha": "2ae34b7e6cec36d12dc3df0daf9b0527062cab8c",
+      "title": "Restore canonical OCSGA constitutional act implementation",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-11T02:49:32-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-2ae34b7.md"
+    },
     {
       "sha": "02af722",
       "full_sha": "02af7221babb3c0978e9456bdb56124ee46f8e42",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T06:10:40Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-b6caadd.md"
-    },
-    {
-      "sha": "5eca8bc",
-      "full_sha": "5eca8bcb0f4005993a6702acf5d8a3d9b17b0ee5",
-      "title": "Import three MoneyPenny donor repos' real docs into docs/specs/moneypenny/",
-      "author": "Claude",
-      "timestamp": "2026-09-02T12:37:43Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5eca8bc.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`2ae34b7`](https://github.com/iQube-Protocol/AigentZBeta/commit/2ae34b7e6cec36d12dc3df0daf9b0527062cab8c) [push] Restore canonical OCSGA constitutional act implementation (Kn0w1, 2026-09-11T02:49:32-04:00)
 - [`02af722`](https://github.com/iQube-Protocol/AigentZBeta/commit/02af7221babb3c0978e9456bdb56124ee46f8e42) [push] Expose canonical IRL OS public root data (Kn0w1, 2026-09-10T22:09:59-04:00)
 - [`1a4268b`](https://github.com/iQube-Protocol/AigentZBeta/commit/1a4268b9bf2829a7379fa124a48c0734592abbc8) [push] Deploy embedded Passport persona spine for Threshold OAuth (Kn0w1, 2026-09-10T20:50:18-04:00)
 - [`6e2d2ce`](https://github.com/iQube-Protocol/AigentZBeta/commit/6e2d2cecfd83686528a986ef9cd8afe1f86c87c6) [push] Embed canonical Passport sign-in in persona recross (Kn0w1, 2026-09-10T20:46:40-04:00)

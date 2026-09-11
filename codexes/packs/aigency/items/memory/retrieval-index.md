@@ -5669,3 +5669,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-02af722.md](../build_/COMMITS/COMMIT-02af722.md)
 - Message: Expose canonical IRL OS public root data
+
+## Commit `2ae34b7` — 2026-09-11T02:49:32-04:00
+- Type: `push`
+- Brief: [COMMIT-2ae34b7.md](../build_/COMMITS/COMMIT-2ae34b7.md)
+- Message: Restore canonical OCSGA constitutional act implementation
