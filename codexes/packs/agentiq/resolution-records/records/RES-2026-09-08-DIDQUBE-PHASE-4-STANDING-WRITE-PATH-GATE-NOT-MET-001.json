@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-08",
+  "resolutionId": "RES-2026-09-08-DIDQUBE-PHASE-4-STANDING-WRITE-PATH-GATE-NOT-MET-001",
+  "capability": "standing-agent-identity-write-path-risk-confirmation",
+  "milestone": "Performs the exact confirmation the execution plan's corrected 'Phase 4 -- PARTIAL, NOT closed' section named as the operator's own gate for reopening Standing's write path: 'Phase 4 is reopened for this item only if the write path is confirmed to actually be legacy-bound in a way that matters (not merely that it reads a deprecated column with no live discrepancy) -- that confirmation has not been performed here.' This record performs that confirmation and records the result: the gate is NOT met, so no migration is undertaken.",
+  "problem": "RES-2026-09-07-DIDQUBE-PHASE-4-STANDING-CONSUMER-MIGRATION-001's unresolvedRisks[1] flagged that services/standing/agentStandingPersona.ts::resolveCanonicalAgentPersonaId reads AND writes the deprecated personas.root_did column, unprotected by any canary against the root_did-authoritative-read pattern Phase 2.5 eliminated elsewhere, and left open whether this constitutes a real, materially-live risk worth migrating onto resolveDiDQube.",
+  "observedFailure": [
+    "Code inspection (2026-09-08) of resolveCanonicalAgentPersonaId: it matches personas rows on root_did = agentRootDid, scoped to (app_origin=CANONICAL_AGENT_STANDING_APP_ORIGIN, auth_profile_id IS NULL). The agentRootDid parameter is NEVER derived inside this function -- every one of its 5 real call sites (grepped: services/financialServices/serviceRequestOrchestrator.ts, services/financialServices/agentEligibilityContext.ts, app/api/journey/agents/[agentRuntimeId]/standing/route.ts, app/api/ops/journey/reconcile-provider-standing-attribution/route.ts, app/api/ops/journey/correct-standing-attribution/route.ts, app/api/ops/agents/provision-platform-agent/route.ts) supplies it from resolveAgentAdmissionState(...).agentRootDid, which itself reads agent_root_identity.did_uri directly (services/journey/agentAdmissionState.ts) -- never from personas.root_did, and never from a client-supplied value.",
+    "Schema inspection: agent_root_identity.did_uri is `text UNIQUE NOT NULL` (supabase/migrations/20260427000001_agent_did_schema.sql). Grepped every `.update(` call against the agent_root_identity table across the tree (14 call sites via `from('agent_root_identity')`): the only fields ever mutated are bound_passport_id, display_name, revocation_state/revocation_state_at, and is_aigent_me -- did_uri is NEVER updated anywhere in this codebase after its one-time insert in services/agents/sponsorPolityAgent.ts. There is no rotation/reissuance mechanism for an agent's RootDID at all (unlike citizens' root_identity, which does rotate).",
+    "DiDQube-resolver-level supersession inspection: the resolver's own 'stable container, no traversal' design (Phase 2 round 2) reads didqubes.lifecycle_state/superseded_by defensively, but grepped every write path in the tree for a mutation of the didqubes table: only one INSERT exists (services/identity/didQubeResolver.ts's own ensureAgentDiDQubeBinding-style insert during first resolution) -- nothing anywhere ever sets lifecycle_state='superseded' or writes superseded_by. Supersession is a defensive read-side allowance for a future state, not a state any current code path produces for an agent DiDQube.",
+    "Given both of the above: the scenario named in the task brief ('after a RootDID supersession/reissuance event, or for an agent whose root_did column was never backfilled') does not have a live trigger. An agent's did_uri is immutable once minted and unique at the database level, so personas.root_did = agentRootDid can never match the WRONG agent_root_identity row (a UNIQUE collision is structurally impossible), and it can never go stale relative to a value that never changes. The worst-case failure mode if a canonical Standing persona's root_did were somehow absent/mismatched is a harmless RE-provisioning (a new canonical persona row, caught by the idempotent app_origin+auth_profile_id scope) -- never a wrong-identity resolution, because the match key IS the agent's own already-resolved anchor value, not an independently-guessed one.",
+    "The live dry-run reconciliation (services/standing/didQubeReconciliation.ts, run 2026-09-07) already found zero discrepancies across all 5 existing canonical agent Standing personas -- consistent with, though not sufficient alone to prove, the structural finding above."
+  ],
+  "rootCauses": [
+    "The concern flagged in the source resolution's unresolvedRisks[1] was correctly cautious in NOT assuming the write path was safe from a single clean dry-run alone -- but the specific failure mode that would make it materially unsafe (a rotating/superseded anchor value causing a stale or wrong match) does not exist for agents in this codebase today: agent RootDIDs are minted once, are UNIQUE at the schema level, and have no supersession-writing code path. The self-referential match-key pattern this file uses (an agent's own already-resolved did_uri, used only to find/create ITS OWN canonical Standing persona) is structurally distinct from the defect class Phase 2.5 eliminated (resolving an ARBITRARY, different human sponsor's identity via the deprecated column) -- exactly as Phase 2.5's own table already classified this file."
+  ],
+  "resolution": [
+    "NO code change made to services/standing/agentStandingPersona.ts. Per the operator's own gate ('Phase 4 is reopened for this item only if the write path is confirmed to actually be legacy-bound in a way that matters'), the confirmation performed here found the write path is NOT legacy-bound in a way that matters: it is a self-referential idempotency key over an immutable, UNIQUE, never-rotated value, with no live or reachable code path that could cause it to resolve a wrong or stale identity. Migrating it onto resolveDiDQube would add resolver overhead and a new failure surface (an additional DB round-trip through Phase 1's tables) to a call that already cannot misresolve, which is exactly the kind of unmotivated change CLAUDE.md's Change Sizing rule ('no defensive code for impossible scenarios') argues against.",
+    "codexes/packs/agentiq/updates/2026-09-07_didqube-canonical-resolver-execution-plan.md's 'Phase 4 -- PARTIAL, NOT closed' section updated (2026-09-08) to record that this specific confirmation was performed and its result, so a future reader does not re-open the same question from scratch without this record.",
+    "The unresolvedRisks[0] item from the source resolution (a future NEWLY sponsored agent whose Standing identity is provisioned before its DiDQube container is bound) remains genuinely open and is NOT addressed by this confirmation -- it is a different risk (an ordering race for a FUTURE agent) from the one this record confirms is not live (a rotation/staleness risk for EXISTING agents' immutable did_uri values). The dry-run reconciliation report (already built, re-runnable on demand) remains the correct tool for catching that ordering race if it ever occurs; this record does not add new automation for it, since it was not asked for and the existing reconciliation route already covers it."
+  ],
+  "rejectedApproaches": [
+    "Migrating resolveCanonicalAgentPersonaId to call resolveDiDQube instead of/alongside the root_did match -- rejected after confirmation, not merely deferred: there is no live or structurally-reachable defect to fix (did_uri is UNIQUE and immutable; no supersession-writing code path exists for agents), and forcing the migration anyway would be exactly the kind of unmotivated rewrite of a working, correct path CLAUDE.md's Extend-Don't-Duplicate and Change Sizing rules argue against. The dry-run reconciliation route remains the correct, already-built tool for detecting a FUTURE case where this assumption stops holding (e.g. if agent DiDQube supersession is ever implemented) -- at that point this file's own self-referential match-key pattern would need to be revisited, not before."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-07-DIDQUBE-CONSUMER-RESOLVER-NOT-RAW-ANCHOR-001"
+  ],
+  "canaries": [
+    "tests/standing-didqube-reconciliation.test.ts",
+    "tests/agent-standing-persona.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "milestone-complete",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/standing-didqube-reconciliation.test.ts",
+      "tests/agent-standing-persona.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-07_didqube-canonical-resolver-execution-plan.md",
+    "codexes/packs/agentiq/resolution-records/records/RES-2026-09-07-DIDQUBE-PHASE-4-STANDING-CONSUMER-MIGRATION-001.json",
+    "services/standing/agentStandingPersona.ts",
+    "services/journey/agentAdmissionState.ts",
+    "supabase/migrations/20260427000001_agent_did_schema.sql"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "unresolvedRisks": [
+    "The source resolution's unresolvedRisks[0] (a future agent whose Standing identity is provisioned before its DiDQube container is bound -- an ORDERING race, not a rotation/staleness risk) is untouched by this confirmation and remains open, to be caught by re-running the existing dry-run reconciliation report, not by this record's finding.",
+    "If agent DiDQube/RootDID supersession is ever implemented in the future (today it structurally does not exist for agents), this record's finding would no longer hold and resolveCanonicalAgentPersonaId's write path would need to be re-examined at that time -- this is a conditional, not a permanent closure of the underlying question, only of the question as posed against the codebase as it exists today (2026-09-08)."
+  ]
+}
