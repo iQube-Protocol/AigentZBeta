@@ -5704,3 +5704,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-0016af6.md](../build_/COMMITS/COMMIT-0016af6.md)
 - Message: Project canonical exchange iQube references through MCP
+
+## Commit `c6adeda` — 2026-09-11T13:28:18-04:00
+- Type: `feat`
+- Brief: [COMMIT-c6adeda.md](../build_/COMMITS/COMMIT-c6adeda.md)
+- Message: feat(codex): redirect legacy article deep links

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-11T09:19:29.680Z",
+  "last_updated": "2026-09-11T17:30:02.167Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "0016af6d0988f8feec1c6b7820200b2397d59f43",
-  "latest_commit_short": "0016af6",
-  "latest_commit_title": "Project canonical exchange iQube references through MCP",
+  "latest_commit": "c6adeda48c909be717a05a70b068a0dd44b44b4d",
+  "latest_commit_short": "c6adeda",
+  "latest_commit_title": "feat(codex): redirect legacy article deep links",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c6adeda",
+      "full_sha": "c6adeda48c909be717a05a70b068a0dd44b44b4d",
+      "title": "feat(codex): redirect legacy article deep links",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-11T13:28:18-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-c6adeda.md"
+    },
     {
       "sha": "0016af6",
       "full_sha": "0016af6d0988f8feec1c6b7820200b2397d59f43",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T00:45:21Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-db79f3c.md"
-    },
-    {
-      "sha": "37c6527",
-      "full_sha": "37c6527d025923c83436d1c1c9455d05fad0e72d",
-      "title": "Add MoneyPenny002 real-source donor audit (MPY2-0b)",
-      "author": "Claude",
-      "timestamp": "2026-09-02T01:15:27Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-37c6527.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
