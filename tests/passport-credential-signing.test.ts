@@ -1,5 +1,7 @@
 /**
  * DiDQube Phase 3 item 5 (2026-09-07): asymmetric VC signing.
+ * Extended for Phase 5.1a/5.1b (2026-09-11, operator ruling): stable Bureau
+ * issuer DID, key-authorization-at-issuance-time, and the lifecycle wrapper.
  *
  * Proves: canonical payload serialization is deterministic regardless of
  * key insertion order; signing falls back to the pre-existing unsigned
@@ -9,15 +11,36 @@
  * case; and — the ruling's explicit tamper matrix — mutating the subject,
  * a claim, the issuance time, the predecessor reference, or the proof
  * metadata each independently invalidates an Ed25519-signed credential.
+ *
+ * FIXTURE CHANGE (2026-09-11, tracked explicitly per task instructions):
+ * `buildPassportCredential`'s `issuer.id` is now `requireBureauIssuerDid()`
+ * (Phase 5.1a) instead of a host-derived string, for EVERY credential it
+ * builds (signed or unsigned-stub) — so every test in this file now needs
+ * `PASSPORT_BUREAU_ISSUER_DID` set, via a new top-level `beforeEach`, or
+ * `buildPassportCredential` throws. No existing assertion's expected value
+ * changed — this is additive test-environment setup only.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { generateKeyPairSync } from 'crypto';
 import { buildPassportCredential, type PassportRecordRow } from '@/services/passport/passportCredential';
-import { canonicalizeCredentialPayload } from '@/services/passport/passportCredentialSigningProviders';
-import { verifyPassportCredential } from '@/services/passport/passportCredentialVerification';
+import {
+  canonicalizeCredentialPayload,
+  buildSignablePayload,
+  signCredentialPayload,
+  requireBureauIssuerDid,
+  evaluateKeyAuthorizationAtTime,
+} from '@/services/passport/passportCredentialSigningProviders';
+import {
+  verifyPassportCredential,
+  verifyPassportCredentialWithLifecycle,
+} from '@/services/passport/passportCredentialVerification';
 
 const HOST = 'https://dev-beta.aigentz.me';
 const KEY_ID = 'test-signing-key-1';
+// Placeholder/example only — never a real production hostname or a
+// fallback default in code (CLAUDE.md's No-Guessing rule). Every real
+// environment configures its own explicit did:web value.
+const TEST_ISSUER_DID = 'did:web:passport.example.test';
 
 const { publicKey, privateKey } = generateKeyPairSync('ed25519');
 const PUBLIC_KEY_B64 = publicKey.export({ type: 'spki', format: 'der' }).toString('base64');
@@ -37,6 +60,12 @@ function clearSigningEnv() {
   delete process.env.PASSPORT_BUREAU_SIGNING_KEYS_JSON;
   delete process.env.PASSPORT_BUREAU_CREDENTIAL_SECRET;
 }
+
+// Applies to EVERY test in this file — buildPassportCredential now requires
+// this unconditionally (see FIXTURE CHANGE note above).
+beforeEach(() => {
+  process.env.PASSPORT_BUREAU_ISSUER_DID = TEST_ISSUER_DID;
+});
 
 afterEach(() => {
   process.env = { ...ORIGINAL_ENV };
@@ -289,5 +318,291 @@ describe('T0 canary: signing/verification modules never leak server-internal ide
     const credential = buildPassportCredential(participantRecord(), HOST);
     const serialized = JSON.stringify(credential);
     expect(serialized).not.toContain(PRIVATE_KEY_B64);
+  });
+});
+
+// ── Phase 5.1a — stable Bureau issuer DID (operator ruling, 2026-09-11) ────
+
+describe('requireBureauIssuerDid — stable issuer identity, never host-derived', () => {
+  it('throws a clear, named error when PASSPORT_BUREAU_ISSUER_DID is unset — fails closed, no host-derived fallback', () => {
+    delete process.env.PASSPORT_BUREAU_ISSUER_DID;
+    expect(() => requireBureauIssuerDid()).toThrow(/PASSPORT_BUREAU_ISSUER_DID/);
+  });
+
+  it('buildPassportCredential itself throws when unconfigured — it never falls back to deriving an issuer id from `host`', () => {
+    delete process.env.PASSPORT_BUREAU_ISSUER_DID;
+    expect(() => buildPassportCredential(participantRecord(), HOST)).toThrow(/PASSPORT_BUREAU_ISSUER_DID/);
+  });
+
+  it('buildPassportCredential sets issuer.id to the configured DID, never to a host-shaped string', () => {
+    clearSigningEnv();
+    const credential = buildPassportCredential(participantRecord(), HOST) as Record<string, any>;
+    expect(credential.issuer.id).toBe(TEST_ISSUER_DID);
+    expect(credential.issuer.id).not.toContain(HOST);
+  });
+});
+
+describe('verifyPassportCredential — issuer dual-path (new stable DID + preserved legacy host-shaped id)', () => {
+  beforeEach(() => {
+    clearSigningEnv();
+    setSigningEnv();
+  });
+
+  /** Builds a well-formed Ed25519-signed credential body directly (bypassing buildPassportCredential) so `created` and `issuer.id` can be fixed to exact test values BEFORE signing — mutating either AFTER signing would just trip the tamper check, not exercise the issuer/temporal logic in isolation. */
+  function craftSignedCredential(opts: { createdIso: string; issuerId?: string; keyId?: string }) {
+    const record = participantRecord();
+    const credentialBody = {
+      '@context': ['https://www.w3.org/ns/credentials/v2'],
+      type: ['VerifiableCredential', 'PolityAgentParticipantPassport'],
+      issuer: { id: opts.issuerId ?? TEST_ISSUER_DID, name: record.issuer_id },
+      validFrom: record.issued_at,
+      validUntil: record.expires_at,
+      credentialSubject: {
+        id: record.root_did_public_ref,
+        passportId: record.passport_id,
+        passportClass: record.passport_class,
+        passportGrade: record.passport_grade,
+        passportStatus: record.participant_status,
+        personaPublicRef: record.persona_public_ref,
+        registryRecordId: record.registry_record_id,
+      },
+      credentialStatus: { type: 'PolityPassportRegistryEntry', statusListUrl: `${HOST}/api/polity-passport/registry` },
+    };
+    const proofPurpose = 'assertionMethod';
+    const signablePayload = buildSignablePayload(credentialBody, { created: opts.createdIso, proofPurpose });
+    const signed = signCredentialPayload(signablePayload);
+    if (!signed) throw new Error('test setup: signing failed — is an active signing key configured?');
+    return {
+      ...credentialBody,
+      proof: {
+        type: signed.suite,
+        created: opts.createdIso,
+        proofPurpose,
+        keyId: signed.keyId,
+        signatureValue: signed.signatureValue,
+      },
+    } as Record<string, any>;
+  }
+
+  it('accepts the CONFIGURED stable issuer DID (new path)', () => {
+    const credential = craftSignedCredential({ createdIso: '2026-01-01T00:00:00.000Z' });
+    const result = verifyPassportCredential(credential);
+    expect(result.valid).toBe(true);
+  });
+
+  it('an Ed25519-signed credential built with the LEGACY host-shaped issuer id still verifies — the dual-path is suite-independent, not just for the HMAC stub', () => {
+    const credential = craftSignedCredential({
+      createdIso: '2026-01-01T00:00:00.000Z',
+      issuerId: `${HOST}/.well-known/polity-passport`,
+    });
+    const result = verifyPassportCredential(credential);
+    expect(result.valid).toBe(true);
+  });
+
+  it('REFUSES an issuer id matching neither the configured DID nor the legacy suffix', () => {
+    const credential = craftSignedCredential({
+      createdIso: '2026-01-01T00:00:00.000Z',
+      issuerId: 'did:web:an-impostor.example',
+    });
+    const result = verifyPassportCredential(credential);
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.reason).toBe('unknown_issuer');
+  });
+});
+
+// ── Phase 5.1a — key-authorization-at-issuance-time (evaluateKeyAuthorizationAtTime) ──
+
+describe('evaluateKeyAuthorizationAtTime — key lifecycle ≠ credential lifecycle (operator ruling, 2026-09-11)', () => {
+  it('a legacy key record (no lifecycle fields at all) is authorized for any issuance time — never break an old code path', () => {
+    const legacyKey = { keyId: 'legacy-key', publicKeyB64: PUBLIC_KEY_B64 };
+    expect(evaluateKeyAuthorizationAtTime(legacyKey, '1990-01-01T00:00:00.000Z')).toEqual({ authorized: true });
+    expect(evaluateKeyAuthorizationAtTime(legacyKey, '2099-01-01T00:00:00.000Z')).toEqual({ authorized: true });
+  });
+
+  describe('validFrom / validUntil — closed interval, both bounds inclusive', () => {
+    const key = {
+      keyId: 'bounded-key',
+      publicKeyB64: PUBLIC_KEY_B64,
+      validFrom: '2026-01-01T00:00:00.000Z',
+      validUntil: '2026-06-01T00:00:00.000Z',
+    };
+
+    it('exactly AT validFrom is authorized', () => {
+      expect(evaluateKeyAuthorizationAtTime(key, '2026-01-01T00:00:00.000Z')).toEqual({ authorized: true });
+    });
+    it('1ms BEFORE validFrom is not yet valid', () => {
+      expect(evaluateKeyAuthorizationAtTime(key, '2025-12-31T23:59:59.999Z')).toEqual({
+        authorized: false,
+        reason: 'key_not_yet_valid',
+      });
+    });
+    it('exactly AT validUntil is authorized', () => {
+      expect(evaluateKeyAuthorizationAtTime(key, '2026-06-01T00:00:00.000Z')).toEqual({ authorized: true });
+    });
+    it('1ms AFTER validUntil is expired', () => {
+      expect(evaluateKeyAuthorizationAtTime(key, '2026-06-01T00:00:00.001Z')).toEqual({
+        authorized: false,
+        reason: 'key_expired',
+      });
+    });
+  });
+
+  describe('revokedAt — hard invalid, never retroactive', () => {
+    const key = { keyId: 'revoked-key', publicKeyB64: PUBLIC_KEY_B64, revokedAt: '2026-03-01T00:00:00.000Z' };
+
+    it('exactly AT revokedAt is already revoked (hard invalid)', () => {
+      expect(evaluateKeyAuthorizationAtTime(key, '2026-03-01T00:00:00.000Z')).toEqual({
+        authorized: false,
+        reason: 'key_revoked_before_issuance',
+      });
+    });
+    it('1ms BEFORE revokedAt remains authorized — revocation is never retroactive', () => {
+      expect(evaluateKeyAuthorizationAtTime(key, '2026-02-28T23:59:59.999Z')).toEqual({ authorized: true });
+    });
+  });
+
+  describe('compromisedAt — UNRESOLVED, never auto-decided', () => {
+    const key = { keyId: 'compromised-key', publicKeyB64: PUBLIC_KEY_B64, compromisedAt: '2026-04-01T00:00:00.000Z' };
+
+    it('exactly AT compromisedAt is UNRESOLVED, not hard-revoked and not hard-valid', () => {
+      expect(evaluateKeyAuthorizationAtTime(key, '2026-04-01T00:00:00.000Z')).toEqual({
+        authorized: 'UNRESOLVED',
+        reason: 'key_signed_during_suspected_compromise_window',
+      });
+    });
+    it('1ms BEFORE compromisedAt remains authorized', () => {
+      expect(evaluateKeyAuthorizationAtTime(key, '2026-03-31T23:59:59.999Z')).toEqual({ authorized: true });
+    });
+  });
+
+  it('revokedAt takes precedence over compromisedAt when both apply at the same instant', () => {
+    const key = {
+      keyId: 'both-key',
+      publicKeyB64: PUBLIC_KEY_B64,
+      compromisedAt: '2026-04-01T00:00:00.000Z',
+      revokedAt: '2026-04-01T00:00:00.000Z',
+    };
+    expect(evaluateKeyAuthorizationAtTime(key, '2026-04-01T00:00:00.000Z')).toEqual({
+      authorized: false,
+      reason: 'key_revoked_before_issuance',
+    });
+  });
+});
+
+describe('verifyPassportCredential — key-authorization-at-issuance-time wired into the Ed25519 branch', () => {
+  const LIFECYCLE_KEY_ID = 'lifecycle-wired-key';
+
+  function setLifecycleKeyEnv(keyOverrides: Record<string, unknown>) {
+    process.env.PASSPORT_BUREAU_ACTIVE_SIGNING_KEY_ID = LIFECYCLE_KEY_ID;
+    process.env.PASSPORT_BUREAU_ED25519_PRIVATE_KEY_B64 = PRIVATE_KEY_B64;
+    process.env.PASSPORT_BUREAU_SIGNING_KEYS_JSON = JSON.stringify([
+      { keyId: LIFECYCLE_KEY_ID, publicKeyB64: PUBLIC_KEY_B64, ...keyOverrides },
+    ]);
+  }
+
+  function craftCredentialSignedAt(createdIso: string) {
+    const record = participantRecord();
+    const credentialBody = {
+      '@context': ['https://www.w3.org/ns/credentials/v2'],
+      type: ['VerifiableCredential', 'PolityAgentParticipantPassport'],
+      issuer: { id: TEST_ISSUER_DID, name: record.issuer_id },
+      validFrom: record.issued_at,
+      validUntil: record.expires_at,
+      credentialSubject: { id: record.root_did_public_ref, passportId: record.passport_id },
+      credentialStatus: { type: 'PolityPassportRegistryEntry', statusListUrl: `${HOST}/api/polity-passport/registry` },
+    };
+    const proofPurpose = 'assertionMethod';
+    const signablePayload = buildSignablePayload(credentialBody, { created: createdIso, proofPurpose });
+    const signed = signCredentialPayload(signablePayload);
+    if (!signed) throw new Error('test setup: signing failed');
+    return {
+      ...credentialBody,
+      proof: { type: signed.suite, created: createdIso, proofPurpose, keyId: signed.keyId, signatureValue: signed.signatureValue },
+    } as Record<string, any>;
+  }
+
+  it('a key revoked BEFORE this credential was signed makes the credential a hard invalid, distinct from a generic signature mismatch', () => {
+    setLifecycleKeyEnv({ revokedAt: '2026-03-01T00:00:00.000Z' });
+    const credential = craftCredentialSignedAt('2026-03-01T00:00:00.000Z');
+    const result = verifyPassportCredential(credential);
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.reason).toBe('key_revoked_before_issuance');
+  });
+
+  it('a key signed WELL BEFORE its later revocation still verifies — rotation/revocation is never retroactive', () => {
+    setLifecycleKeyEnv({ revokedAt: '2026-03-01T00:00:00.000Z' });
+    const credential = craftCredentialSignedAt('2026-01-01T00:00:00.000Z');
+    const result = verifyPassportCredential(credential);
+    expect(result.valid).toBe(true);
+  });
+
+  it('a credential signed during the suspected-compromise window is UNRESOLVED — never hardcoded revoked/invalid', () => {
+    setLifecycleKeyEnv({ compromisedAt: '2026-04-01T00:00:00.000Z' });
+    const credential = craftCredentialSignedAt('2026-04-15T00:00:00.000Z');
+    const result = verifyPassportCredential(credential);
+    expect(result.valid).toBe('UNRESOLVED');
+    if (result.valid === 'UNRESOLVED') {
+      expect(result.reason).toBe('key_signed_during_suspected_compromise_window');
+      expect(result.suite).toBeTruthy();
+      expect(result.keyId).toBe(LIFECYCLE_KEY_ID);
+    }
+  });
+
+  it('a credential signed BEFORE the suspected-compromise window verifies normally', () => {
+    setLifecycleKeyEnv({ compromisedAt: '2026-04-01T00:00:00.000Z' });
+    const credential = craftCredentialSignedAt('2026-01-01T00:00:00.000Z');
+    const result = verifyPassportCredential(credential);
+    expect(result.valid).toBe(true);
+  });
+
+  it('a legacy key entry (no validFrom/validUntil/revokedAt/compromisedAt at all) verifies at any issuance time — the pre-existing signing/verification tests never regress', () => {
+    setLifecycleKeyEnv({});
+    const credential = craftCredentialSignedAt('1999-01-01T00:00:00.000Z');
+    const result = verifyPassportCredential(credential);
+    expect(result.valid).toBe(true);
+  });
+});
+
+// ── Phase 5.1b — verifyPassportCredentialWithLifecycle ─────────────────────
+
+describe('verifyPassportCredentialWithLifecycle — signature check composed with DB-backed lifecycle facts', () => {
+  beforeEach(() => {
+    clearSigningEnv();
+    setSigningEnv();
+  });
+
+  it('valid signature + not revoked + no supersession → presentable', () => {
+    const credential = buildPassportCredential(participantRecord(), HOST);
+    const result = verifyPassportCredentialWithLifecycle(credential, { revoked: false, supersededBy: null });
+    expect(result.signature.valid).toBe(true);
+    expect(result.revoked).toBe(false);
+    expect(result.supersededBy).toBeNull();
+    expect(result.presentable).toBe(true);
+  });
+
+  it('valid signature + revoked → NOT presentable, even though the signature itself is fine', () => {
+    const credential = buildPassportCredential(participantRecord(), HOST);
+    const result = verifyPassportCredentialWithLifecycle(credential, { revoked: true, supersededBy: null });
+    expect(result.signature.valid).toBe(true);
+    expect(result.revoked).toBe(true);
+    expect(result.presentable).toBe(false);
+  });
+
+  it('valid signature + superseded-but-not-revoked → STILL presentable (supersession is a fact for the caller, never a hardcoded verifier opinion)', () => {
+    const credential = buildPassportCredential(participantRecord(), HOST);
+    const result = verifyPassportCredentialWithLifecycle(credential, {
+      revoked: false,
+      supersededBy: 'ppp-successor-0001',
+    });
+    expect(result.supersededBy).toBe('ppp-successor-0001');
+    expect(result.presentable).toBe(true);
+  });
+
+  it('an invalid signature is never presentable regardless of lifecycle facts', () => {
+    const credential = buildPassportCredential(participantRecord(), HOST) as Record<string, any>;
+    credential.credentialSubject.passportGrade = 'tampered';
+    const result = verifyPassportCredentialWithLifecycle(credential, { revoked: false, supersededBy: null });
+    expect(result.signature.valid).toBe(false);
+    expect(result.presentable).toBe(false);
   });
 });

@@ -1,7 +1,12 @@
 /**
  * Polity Passport credential envelope — Phase A of the "what does the agent
  * actually hold" workstream (operator-approved 2026-06-11); signing upgraded
- * to asymmetric (Phase 3 item 5, 2026-09-07).
+ * to asymmetric (Phase 3 item 5, 2026-09-07); issuer identity upgraded to a
+ * stable `did:web` (Phase 5.1a, operator ruling 2026-09-11) — `issuer.id` is
+ * now `requireBureauIssuerDid()`, never the live request `host`. A credential
+ * issued under the OLD host-shaped issuer id (anything issued before this
+ * change) is never mutated or re-issued; it remains verifiable under
+ * `passportCredentialVerification.ts`'s preserved legacy issuer check.
  *
  * Builds a W3C-VC-shaped credential from a polity_passport_records row.
  * Issued LAZILY at claim time (GET /api/polity-passport/credential/[passportId])
@@ -23,7 +28,11 @@
  * ever re-signed or mutated by this upgrade.
  */
 
-import { signCredentialPayload, buildSignablePayload } from '@/services/passport/passportCredentialSigningProviders';
+import {
+  signCredentialPayload,
+  buildSignablePayload,
+  requireBureauIssuerDid,
+} from '@/services/passport/passportCredentialSigningProviders';
 
 export interface PassportRecordRow {
   passport_id: string;
@@ -101,7 +110,11 @@ export function buildPassportCredential(record: PassportRecordRow, host: string)
     '@context': ['https://www.w3.org/ns/credentials/v2'],
     type: ['VerifiableCredential', credentialType(record.passport_class)],
     issuer: {
-      id: `${host}/.well-known/polity-passport`,
+      // Stable, environment-independent DID (Phase 5.1a, operator ruling
+      // 2026-09-11) — NEVER derived from `host`. `host` remains in use
+      // below only for `credentialStatus.statusListUrl`, a legitimately
+      // environment-specific SERVICE endpoint, not the issuer's identity.
+      id: requireBureauIssuerDid(),
       name: record.issuer_id,
     },
     validFrom: record.issued_at ?? undefined,
