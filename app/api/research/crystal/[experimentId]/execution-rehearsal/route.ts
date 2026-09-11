@@ -32,6 +32,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { resolveCapability } from '@/services/research/accessCapabilities';
 import {
   startExpP1ExecutionRehearsal,
   stepExpP1ExecutionRehearsal,
@@ -52,10 +54,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ exp
   if (!persona?.personaId) {
     return NextResponse.json({ requestSucceeded: false, error: 'Not authenticated' }, { status: 401 });
   }
-  if (!persona.cartridgeFlags?.isAdmin) {
-    return NextResponse.json({ requestSucceeded: false, error: 'Steward access required' }, { status: 403 });
-  }
   const { experimentId } = await params;
+  // Same gate as /rehearsal's POST: platform admin keeps unconditional
+  // authority (unchanged); a non-admin caller needs an explicit `run`
+  // capability at this experiment's scope (IRL Stewardship Part 2, item 12).
+  if (!persona.cartridgeFlags?.isAdmin) {
+    const admin = getSupabaseServer();
+    const decision = admin
+      ? await resolveCapability(admin, { personaId: persona.personaId, scopeType: 'experiment', scopeRef: experimentId, capability: 'run' })
+      : { allowed: false, reason: 'no-database' };
+    if (!decision.allowed) {
+      return NextResponse.json({ requestSucceeded: false, error: 'Steward access or run capability required' }, { status: 403 });
+    }
+  }
 
   const body = await req.json().catch(() => ({}));
   const action = body?.action === 'step' ? 'step' : 'start';

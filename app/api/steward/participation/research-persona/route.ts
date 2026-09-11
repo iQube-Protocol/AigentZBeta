@@ -3,19 +3,28 @@
  * Persona/handle (IRL Stewardship, item 3). NOT personhood — composes with,
  * never replaces, the Person-Persona-iQube protocol.
  *
- * GET  ?personaId=<id>   → the record (or honest placeholder) for that
- *                          persona. Omit personaId for the caller's OWN.
+ * GET  ?personaId=<id> | ?grantId=<id>   → the record (or honest placeholder)
+ *                          for that persona. Omit both for the caller's OWN.
  *                          A caller may always read their own; reading
  *                          someone else's requires steward authority over at
  *                          least one of that persona's grants.
- * PATCH { personaId?, displayName, handle, privacyMode }
- *                        → create/confirm/edit. personaId omitted or equal
- *                          to the caller's own = the participant's own
+ *
+ *                          `grantId` is the STEWARD-FACING address — the
+ *                          steward UI only ever sees a grantId (never a raw
+ *                          personaId; the grant view's `holderRef` is a
+ *                          one-way commitment, per the Identity & Access
+ *                          Spine's T0 rule). Passing `grantId` resolves the
+ *                          target persona server-side via
+ *                          `getGrantPersonaIds` and is scope-checked against
+ *                          THAT grant directly, never a persona-wide scan.
+ * PATCH { personaId? | grantId?, displayName, handle, privacyMode }
+ *                        → create/confirm/edit. Neither id, or personaId
+ *                          equal to the caller's own = the participant's own
  *                          confirm/edit action (`proposedOnly: false`).
- *                          personaId naming someone else = a steward
- *                          PROPOSING a handle pre-confirmation
- *                          (`proposedOnly: true`) — requires the same
- *                          steward-over-that-persona containment as GET.
+ *                          `grantId` (or a personaId that is not the
+ *                          caller's own) = a steward PROPOSING a handle
+ *                          pre-confirmation (`proposedOnly: true`) —
+ *                          requires the same steward containment as GET.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -29,6 +38,7 @@ import {
   type ResearchPersonaPrivacyMode,
   type ResearchPersonaRecord,
 } from '@/services/passport/researchPersona';
+import { getGrantPersonaIds } from '@/services/passport/participationAccess';
 import { resolveStewardAuthority, grantWithinAuthority } from '@/app/api/steward/participation/_lib/resolveStewardAuthority';
 
 export const dynamic = 'force-dynamic';
@@ -50,21 +60,67 @@ function toClientResearchPersona(
   return rest;
 }
 
+/** Resolve the request's target personaId from either a `grantId` (the
+ *  steward-facing address — never a raw personaId reaches the client) or a
+ *  `personaId` (the owner's own, from their own session). Also resolves
+ *  and checks steward containment when the target is not the caller. */
+async function resolveTarget(
+  req: NextRequest,
+  admin: NonNullable<ReturnType<typeof getSupabaseServer>>,
+  callerPersonaId: string,
+  params: { grantId?: string | null; personaId?: string | null },
+): Promise<{ ok: true; targetPersonaId: string; isSelf: boolean } | { ok: false; error: NextResponse }> {
+  if (params.grantId) {
+    const stewardCheck = await resolveStewardAuthority(req);
+    if ('error' in stewardCheck) return { ok: false, error: stewardCheck.error };
+    const { data: grantRow, error: grantErr } = await admin
+      .from('access_grants')
+      .select('access_domain, allowed_experiments')
+      .eq('id', params.grantId)
+      .maybeSingle();
+    if (grantErr || !grantRow) {
+      return { ok: false, error: NextResponse.json({ ok: false, error: 'Grant not found' }, { status: 404 }) };
+    }
+    const domain = String((grantRow as Record<string, unknown>).access_domain);
+    const scope = ((grantRow as Record<string, unknown>).allowed_experiments as string[] | null) ?? null;
+    const containment = grantWithinAuthority(stewardCheck.authority, domain, scope);
+    if (!containment.ok) {
+      return { ok: false, error: NextResponse.json({ ok: false, error: containment.error }, { status: 403 }) };
+    }
+    const ids = await getGrantPersonaIds(admin, [params.grantId]);
+    const targetPersonaId = ids[params.grantId];
+    if (!targetPersonaId) {
+      return { ok: false, error: NextResponse.json({ ok: false, error: 'Grant not found' }, { status: 404 }) };
+    }
+    return { ok: true, targetPersonaId, isSelf: targetPersonaId === callerPersonaId };
+  }
+
+  const targetPersonaId = params.personaId ?? callerPersonaId;
+  const isSelf = targetPersonaId === callerPersonaId;
+  if (!isSelf) {
+    const stewardCheck = await resolveStewardAuthority(req);
+    if ('error' in stewardCheck) return { ok: false, error: stewardCheck.error };
+    const authorized = await isPersonaWithinAuthority(admin, stewardCheck.authority, targetPersonaId);
+    if (!authorized) {
+      return { ok: false, error: NextResponse.json({ ok: false, error: 'Not authorized for that persona' }, { status: 403 }) };
+    }
+  }
+  return { ok: true, targetPersonaId, isSelf };
+}
+
 export async function GET(req: NextRequest) {
   const persona = await getActivePersona(req);
   if (!persona?.personaId) return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
   const admin = getSupabaseServer();
   if (!admin) return NextResponse.json({ ok: false, error: 'Supabase configuration missing' }, { status: 500 });
 
-  const targetPersonaId = new URL(req.url).searchParams.get('personaId') ?? persona.personaId;
-  const isSelf = targetPersonaId === persona.personaId;
-
-  if (!isSelf) {
-    const stewardCheck = await resolveStewardAuthority(req);
-    if ('error' in stewardCheck) return stewardCheck.error;
-    const authorized = await isPersonaWithinAuthority(admin, stewardCheck.authority, targetPersonaId);
-    if (!authorized) return NextResponse.json({ ok: false, error: 'Not authorized for that persona' }, { status: 403 });
-  }
+  const url = new URL(req.url);
+  const resolved = await resolveTarget(req, admin, persona.personaId, {
+    grantId: url.searchParams.get('grantId'),
+    personaId: url.searchParams.get('personaId'),
+  });
+  if (!resolved.ok) return resolved.error;
+  const { targetPersonaId, isSelf } = resolved;
 
   const record = await getResearchPersona(admin, targetPersonaId);
   const payload = record ?? { ...placeholderResearchPersona(targetPersonaId), isPlaceholder: true as const };
@@ -79,19 +135,17 @@ export async function PATCH(req: NextRequest) {
 
   const body = (await req.json().catch(() => ({}))) as {
     personaId?: string;
+    grantId?: string;
     displayName?: string;
     handle?: string;
     privacyMode?: string;
   };
-  const targetPersonaId = body.personaId ?? persona.personaId;
-  const isSelf = targetPersonaId === persona.personaId;
-
-  if (!isSelf) {
-    const stewardCheck = await resolveStewardAuthority(req);
-    if ('error' in stewardCheck) return stewardCheck.error;
-    const authorized = await isPersonaWithinAuthority(admin, stewardCheck.authority, targetPersonaId);
-    if (!authorized) return NextResponse.json({ ok: false, error: 'Not authorized for that persona' }, { status: 403 });
-  }
+  const resolved = await resolveTarget(req, admin, persona.personaId, {
+    grantId: body.grantId,
+    personaId: body.personaId,
+  });
+  if (!resolved.ok) return resolved.error;
+  const { targetPersonaId, isSelf } = resolved;
 
   if (!body.displayName?.trim()) return NextResponse.json({ ok: false, error: 'displayName is required' }, { status: 400 });
   if (!body.handle?.trim()) return NextResponse.json({ ok: false, error: 'handle is required' }, { status: 400 });

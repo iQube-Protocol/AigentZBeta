@@ -37,8 +37,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { deriveProtocolRatified, getExecutionRun } from '@/services/research/artifacts';
 import { listExecutionRuns } from '@/services/research/artifacts';
+import { resolveCapability } from '@/services/research/accessCapabilities';
 import {
   LARGER_REHEARSAL_TASK_SET,
   PROVISIONAL_REHEARSAL_TASK_SET,
@@ -150,10 +152,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ exp
   if (!persona?.personaId) {
     return NextResponse.json({ requestSucceeded: false, error: 'Not authenticated' }, { status: 401 });
   }
-  if (!persona.cartridgeFlags?.isAdmin) {
-    return NextResponse.json({ requestSucceeded: false, error: 'Steward access required' }, { status: 403 });
-  }
   const { experimentId } = await params;
+  // Platform admin keeps its existing unconditional authority (unchanged
+  // behavior — see the Constitutional Identity & Resource Protocol's
+  // grandfathering rule). A NON-admin caller may now reach this route only
+  // via an explicit, resource-bound `run` capability at this experiment's
+  // scope (IRL Stewardship Part 2, item 12: "Run capability needs stronger
+  // controls") — the SAME fail-closed `resolveCapability` gate the human
+  // steward UI and any MCP/agent surface must share (item 17/18), never a
+  // second, looser check.
+  if (!persona.cartridgeFlags?.isAdmin) {
+    const admin = getSupabaseServer();
+    const decision = admin
+      ? await resolveCapability(admin, { personaId: persona.personaId, scopeType: 'experiment', scopeRef: experimentId, capability: 'run' })
+      : { allowed: false, reason: 'no-database' };
+    if (!decision.allowed) {
+      return NextResponse.json({ requestSucceeded: false, error: 'Steward access or run capability required' }, { status: 403 });
+    }
+  }
 
   const body = await req.json().catch(() => ({}));
   const requestedVersion = typeof body?.taskSetVersion === 'string' ? body.taskSetVersion : 'v1';
