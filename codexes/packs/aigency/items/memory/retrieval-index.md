@@ -5649,3 +5649,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-9aae530.md](../build_/COMMITS/COMMIT-9aae530.md)
 - Message: Add public iQube Card MCP adapter
+
+## Commit `11b6708` — 2026-09-10T20:37:28-04:00
+- Type: `push`
+- Brief: [COMMIT-11b6708.md](../build_/COMMITS/COMMIT-11b6708.md)
+- Message: Deploy Threshold manifest and public iQube discovery

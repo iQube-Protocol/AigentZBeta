@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-11T00:16:04.915Z",
+  "last_updated": "2026-09-11T00:39:18.220Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "9aae5307efebf6322f16bcc35afa350239dfe478",
-  "latest_commit_short": "9aae530",
-  "latest_commit_title": "Add public iQube Card MCP adapter",
+  "latest_commit": "11b67085bc5dba6b76258e93dca006275c9fd0fd",
+  "latest_commit_short": "11b6708",
+  "latest_commit_title": "Deploy Threshold manifest and public iQube discovery",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "11b6708",
+      "full_sha": "11b67085bc5dba6b76258e93dca006275c9fd0fd",
+      "title": "Deploy Threshold manifest and public iQube discovery",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T20:37:28-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-11b6708.md"
+    },
     {
       "sha": "9aae530",
       "full_sha": "9aae5307efebf6322f16bcc35afa350239dfe478",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T12:38:27Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-170c0e0.md"
-    },
-    {
-      "sha": "eda35a4",
-      "full_sha": "eda35a494deca9aeb2d6022465eebc71dc1f060c",
-      "title": "Import authoritative MoneyPenny three-spec handoff + reconciliation crosswalk",
-      "author": "Claude",
-      "timestamp": "2026-09-02T13:03:02Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-eda35a4.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
