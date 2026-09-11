@@ -16,7 +16,23 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { groupAssignableScopesBySeries } from '@/services/research/experimentSeriesGroups';
-import { Award, Check, Copy, Gavel, Loader2, Plus, RefreshCw, ShieldCheck, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  Award,
+  Ban,
+  Check,
+  Copy,
+  Gavel,
+  Loader2,
+  PauseCircle,
+  PlayCircle,
+  Plus,
+  RefreshCw,
+  Settings2,
+  ShieldCheck,
+  UserCog,
+  X,
+} from 'lucide-react';
 // PERSONA-AWARE TRANSPORT (prerequisite fix, 2026-07-27). These routes resolve
 // the caller through `getActivePersona` — they are SPINE endpoints — so the
 // transport must carry persona selection, not merely a Bearer.
@@ -72,6 +88,27 @@ interface GrantRow {
   allowedExperiments: string[] | null;
 }
 interface AppCounts { total: number; pending: number; agentAssisted: number }
+interface ResearchPersonaView {
+  displayName: string;
+  handle: string;
+  privacyMode?: string;
+  isPlaceholder: boolean;
+  confirmedAt?: string | null;
+}
+interface CapabilityRow {
+  id: string;
+  scopeType: string;
+  scopeRef: string;
+  capability: string;
+  status: string;
+  grantedAt: string;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  reason: string | null;
+  receiptId: string | null;
+  isHighRisk: boolean;
+}
+interface CapabilityCatalogue { scopeTypes: string[]; ordinary: string[]; highRisk: string[] }
 
 /**
  * `initialDomain` — the access domain the tab opens on (default 'passport').
@@ -88,6 +125,33 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
   const [invitations, setInvitations] = useState<InvitationRow[]>([]);
   const [grants, setGrants] = useState<GrantRow[]>([]);
   const [applications, setApplications] = useState<AppCounts | null>(null);
+  const [researchPersonas, setResearchPersonas] = useState<Record<string, ResearchPersonaView>>({});
+  const [capabilitiesByGrant, setCapabilitiesByGrant] = useState<Record<string, CapabilityRow[]>>({});
+  const [capabilityCatalogue, setCapabilityCatalogue] = useState<CapabilityCatalogue>({ scopeTypes: [], ordinary: [], highRisk: [] });
+
+  // Manage-access editor — one open at a time, keyed by grantId.
+  const [managingGrantId, setManagingGrantId] = useState<string | null>(null);
+  const [editRole, setEditRole] = useState('');
+  const [editAddScopes, setEditAddScopes] = useState<string[]>([]);
+  const [editRemoveScopes, setEditRemoveScopes] = useState<string[]>([]);
+  const [editExpiresAt, setEditExpiresAt] = useState('');
+  const [editClearExpiry, setEditClearExpiry] = useState(false);
+  const [editReason, setEditReason] = useState('');
+  const [grantBusy, setGrantBusy] = useState<string | null>(null);
+
+  // Edit-persona sub-form.
+  const [personaDisplayName, setPersonaDisplayName] = useState('');
+  const [personaHandle, setPersonaHandle] = useState('');
+  const [personaPrivacyMode, setPersonaPrivacyMode] = useState<'identified' | 'pseudonymous' | 'anonymous'>('pseudonymous');
+  const [personaBusy, setPersonaBusy] = useState(false);
+
+  // Add-capability sub-form.
+  const [capScopeType, setCapScopeType] = useState('');
+  const [capScopeRef, setCapScopeRef] = useState('');
+  const [capCapability, setCapCapability] = useState('');
+  const [capConfirmHighRisk, setCapConfirmHighRisk] = useState(false);
+  const [capBusy, setCapBusy] = useState(false);
+  const [capRevokeBusy, setCapRevokeBusy] = useState<string | null>(null);
   const [activeDomain, setActiveDomain] = useState<string>(initialDomain ?? 'passport');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -124,6 +188,9 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
       setInvitations(data.invitations ?? []);
       setGrants(data.grants ?? []);
       setApplications(data.applications ?? null);
+      setResearchPersonas(data.researchPersonas ?? {});
+      setCapabilitiesByGrant(data.capabilitiesByGrant ?? {});
+      setCapabilityCatalogue(data.capabilityCatalogue ?? { scopeTypes: [], ordinary: [], highRisk: [] });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Load failed');
     } finally {
@@ -300,6 +367,142 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
       setError(e instanceof Error ? e.message : 'Reissue failed');
     } finally {
       setReissueBusy(null);
+    }
+  }, [load]);
+
+  // Grant amendment/suspend/reinstate/revoke — ONE mechanism, the maintenance
+  // path that replaces "revoke and re-invite" (IRL Stewardship item 1-2).
+  const patchGrant = useCallback(async (grantId: string, action: 'amend' | 'suspend' | 'reinstate' | 'revoke', payload?: Record<string, unknown>) => {
+    setGrantBusy(grantId);
+    setError(null);
+    try {
+      const res = await personaFetch(`/api/steward/participation/grants/${grantId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, ...payload }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        setError(data?.error || 'Grant update failed');
+        return;
+      }
+      if (action !== 'amend') setManagingGrantId(null);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Grant update failed');
+    } finally {
+      setGrantBusy(null);
+    }
+  }, [load]);
+
+  const openManageAccess = useCallback((g: GrantRow) => {
+    setManagingGrantId(g.id);
+    setEditRole(g.role);
+    setEditAddScopes([]);
+    setEditRemoveScopes([]);
+    setEditExpiresAt(g.expiresAt ? g.expiresAt.slice(0, 10) : '');
+    setEditClearExpiry(false);
+    setEditReason('');
+    const rp = researchPersonas[g.id];
+    setPersonaDisplayName(rp && !rp.isPlaceholder ? rp.displayName : '');
+    setPersonaHandle(rp && !rp.isPlaceholder ? rp.handle : '');
+    setPersonaPrivacyMode((rp?.privacyMode as 'identified' | 'pseudonymous' | 'anonymous') ?? 'pseudonymous');
+    setCapScopeType('');
+    setCapScopeRef('');
+    setCapCapability('');
+    setCapConfirmHighRisk(false);
+  }, [researchPersonas]);
+
+  const saveGrantAmendment = useCallback(async (g: GrantRow) => {
+    const payload: Record<string, unknown> = { reason: editReason || undefined };
+    if (editRole !== g.role) payload.newRole = editRole;
+    if (editAddScopes.length > 0) payload.addExperiments = editAddScopes;
+    if (editRemoveScopes.length > 0) payload.removeExperiments = editRemoveScopes;
+    if (editClearExpiry) payload.newExpiresAt = null;
+    else if (editExpiresAt) payload.newExpiresAt = new Date(editExpiresAt).toISOString();
+    await patchGrant(g.id, 'amend', payload);
+  }, [editRole, editAddScopes, editRemoveScopes, editClearExpiry, editExpiresAt, editReason, patchGrant]);
+
+  const saveResearchPersona = useCallback(async (grantId: string) => {
+    setPersonaBusy(true);
+    setError(null);
+    try {
+      const res = await personaFetch('/api/steward/participation/research-persona', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          grantId,
+          displayName: personaDisplayName,
+          handle: personaHandle,
+          privacyMode: personaPrivacyMode,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        setError(data?.error || 'Research persona update failed');
+        return;
+      }
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Research persona update failed');
+    } finally {
+      setPersonaBusy(false);
+    }
+  }, [personaDisplayName, personaHandle, personaPrivacyMode, load]);
+
+  const addCapability = useCallback(async (grantId: string) => {
+    if (!capScopeType || !capScopeRef.trim() || !capCapability) return;
+    const isHighRisk = capabilityCatalogue.highRisk.includes(capCapability);
+    if (isHighRisk && !capConfirmHighRisk) return;
+    setCapBusy(true);
+    setError(null);
+    try {
+      const res = await personaFetch('/api/steward/participation/capabilities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          grantId,
+          scopeType: capScopeType,
+          scopeRef: capScopeRef.trim(),
+          capability: capCapability,
+          confirmHighRisk: isHighRisk ? true : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        setError(data?.error || 'Capability grant failed');
+        return;
+      }
+      setCapScopeRef('');
+      setCapCapability('');
+      setCapConfirmHighRisk(false);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Capability grant failed');
+    } finally {
+      setCapBusy(false);
+    }
+  }, [capScopeType, capScopeRef, capCapability, capConfirmHighRisk, capabilityCatalogue, load]);
+
+  const revokeCapabilityRow = useCallback(async (capabilityId: string) => {
+    setCapRevokeBusy(capabilityId);
+    setError(null);
+    try {
+      const res = await personaFetch(`/api/steward/participation/capabilities/${capabilityId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'revoke' }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        setError(data?.error || 'Capability revoke failed');
+        return;
+      }
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Capability revoke failed');
+    } finally {
+      setCapRevokeBusy(null);
     }
   }, [load]);
 
@@ -691,42 +894,329 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
           )}
         </div>
 
-        {/* Access grants — the canonical record */}
+        {/* Access grants — participant-centric cards (IRL Stewardship item 1-2:
+            amend/suspend/reinstate/revoke an EXISTING grant in place; invitation
+            stays bootstrap-only). Research Persona legibility (item 3) and
+            capability-scoped participation (Part 2) sit alongside, never
+            duplicating what the access grant itself already governs. */}
         <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 space-y-2">
           <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-200">
-            <Award className="h-4 w-4 text-emerald-300" /> Access grants
+            <Award className="h-4 w-4 text-emerald-300" /> Participants
           </h3>
           {domainGrants.length === 0 ? (
             <p className="text-xs text-slate-500 italic">No grants in this domain yet.</p>
           ) : (
-            <div className="space-y-1">
-              {domainGrants.map((g) => (
-                <div key={g.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px]">
-                  <code className="font-mono text-cyan-300/80 shrink-0" title="Holder — T2-safe commitment reference">{g.holderRef}</code>
-                  <span className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300 shrink-0">{g.role}</span>
-                  <span className="text-slate-500 shrink-0">via {g.source}</span>
-                  <span className="min-w-0 flex-1" />
-                  {g.receiptId && (
-                    <span className="flex items-center gap-1 text-emerald-400 shrink-0" title={`Receipt ${g.receiptId}`}>
-                      <ShieldCheck className="h-3 w-3" /> receipted
-                    </span>
-                  )}
-                  <span className={`shrink-0 ${g.status === 'active' ? 'text-emerald-300' : 'text-slate-500'}`}>{g.status}</span>
-                  <span className="text-slate-500 shrink-0">{new Date(g.grantedAt).toLocaleDateString()}</span>
-                  {scopesOffered && (
-                    <div className="basis-full flex flex-wrap items-center gap-1 pt-0.5 text-[10px] text-slate-500">
-                      <span className="uppercase tracking-wide">Assigned:</span>
-                      {g.allowedExperiments && g.allowedExperiments.length > 0 ? (
-                        g.allowedExperiments.map((x) => (
-                          <span key={x} className="rounded border border-indigo-500/30 bg-indigo-500/10 px-1.5 py-0.5 text-indigo-300">{x}</span>
-                        ))
-                      ) : (
-                        <span className="text-slate-400">all (unrestricted)</span>
+            <div className="space-y-1.5">
+              {domainGrants.map((g) => {
+                const rp = researchPersonas[g.id];
+                const caps = capabilitiesByGrant[g.id] ?? [];
+                const isManaging = managingGrantId === g.id;
+                const isExpired = Boolean(g.expiresAt && new Date(g.expiresAt).getTime() < Date.now());
+                return (
+                  <div key={g.id} className="rounded-lg bg-white/5 text-[11px]">
+                    <div className="flex flex-wrap items-center gap-2 px-2.5 py-1.5">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate font-medium text-slate-200">
+                            {rp ? rp.displayName : `Researcher ${g.holderRef.slice(0, 8)}`}
+                          </span>
+                          {rp && !rp.isPlaceholder && <span className="shrink-0 text-slate-500">@{rp.handle}</span>}
+                          {rp?.privacyMode && (
+                            <span className="shrink-0 rounded border border-slate-700 px-1 py-0 text-[9px] uppercase tracking-wide text-slate-500">
+                              {rp.privacyMode}
+                            </span>
+                          )}
+                        </div>
+                        <code className="font-mono text-[10px] text-cyan-300/60" title="Holder — T2-safe commitment reference">{g.holderRef}</code>
+                      </div>
+                      <span className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300 shrink-0">{g.role}</span>
+                      {caps.length > 0 && (
+                        <span className="shrink-0 rounded-full border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[10px] text-sky-300">
+                          {caps.length} capabilit{caps.length === 1 ? 'y' : 'ies'}
+                        </span>
+                      )}
+                      {g.receiptId && (
+                        <span className="flex items-center gap-1 text-emerald-400 shrink-0" title={`Receipt ${g.receiptId}`}>
+                          <ShieldCheck className="h-3 w-3" />
+                        </span>
+                      )}
+                      <span
+                        className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] ${
+                          g.status === 'active'
+                            ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                            : g.status === 'suspended'
+                              ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+                              : 'border-slate-600 text-slate-500'
+                        }`}
+                      >
+                        {g.status}
+                      </span>
+                      <span className={`shrink-0 ${isExpired ? 'text-rose-400' : 'text-slate-500'}`}>
+                        {g.expiresAt ? `until ${new Date(g.expiresAt).toLocaleDateString()}` : 'no expiry'}
+                      </span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => (isManaging ? setManagingGrantId(null) : openManageAccess(g))}
+                          className="flex items-center gap-1 rounded border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-300 hover:bg-white/10"
+                        >
+                          <Settings2 className="h-3 w-3" /> Manage access
+                        </button>
+                        {g.status === 'active' && (
+                          <button
+                            title="Suspend — reversible hold"
+                            onClick={() => void patchGrant(g.id, 'suspend')}
+                            disabled={grantBusy === g.id}
+                            className="p-0.5"
+                          >
+                            {grantBusy === g.id ? <Loader2 className="h-3 w-3 animate-spin text-slate-400" /> : <PauseCircle className="h-3.5 w-3.5 text-slate-400 hover:text-amber-300" />}
+                          </button>
+                        )}
+                        {g.status === 'suspended' && (
+                          <button
+                            title="Reinstate"
+                            onClick={() => void patchGrant(g.id, 'reinstate')}
+                            disabled={grantBusy === g.id}
+                            className="p-0.5"
+                          >
+                            {grantBusy === g.id ? <Loader2 className="h-3 w-3 animate-spin text-slate-400" /> : <PlayCircle className="h-3.5 w-3.5 text-slate-400 hover:text-emerald-300" />}
+                          </button>
+                        )}
+                        {(g.status === 'active' || g.status === 'suspended') && (
+                          <button
+                            title="Revoke — permanent"
+                            onClick={() => { if (confirm('Revoke this access grant permanently?')) void patchGrant(g.id, 'revoke'); }}
+                            disabled={grantBusy === g.id}
+                            className="p-0.5"
+                          >
+                            {grantBusy === g.id ? <Loader2 className="h-3 w-3 animate-spin text-slate-400" /> : <Ban className="h-3.5 w-3.5 text-slate-400 hover:text-rose-400" />}
+                          </button>
+                        )}
+                      </div>
+                      {scopesOffered && (
+                        <div className="basis-full flex flex-wrap items-center gap-1 pt-0.5 text-[10px] text-slate-500">
+                          <span className="uppercase tracking-wide">Assigned:</span>
+                          {g.allowedExperiments && g.allowedExperiments.length > 0 ? (
+                            g.allowedExperiments.map((x) => (
+                              <span key={x} className="rounded border border-indigo-500/30 bg-indigo-500/10 px-1.5 py-0.5 text-indigo-300">{x}</span>
+                            ))
+                          ) : (
+                            <span className="text-slate-400">all (unrestricted)</span>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
-                </div>
-              ))}
+
+                    {/* Bounded "Manage access" editor. */}
+                    {isManaging && (
+                      <div className="mx-2.5 mb-2.5 space-y-3 rounded-lg border border-violet-500/20 bg-slate-950/40 p-2.5">
+                        {/* Amend: role / scope / expiry / reason */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                            <Award className="h-3 w-3" /> Amend grant
+                          </div>
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <label className="text-[10px] text-slate-400">
+                              Role
+                              <select
+                                value={editRole}
+                                onChange={(e) => setEditRole(e.target.value)}
+                                className="mt-0.5 w-full rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-[11px] text-slate-100"
+                              >
+                                {(domain?.roles ?? [g.role]).map((r) => (
+                                  <option key={r} value={r}>{r}</option>
+                                ))}
+                              </select>
+                            </label>
+                            <label className="text-[10px] text-slate-400">
+                              New expiry
+                              <input
+                                type="date"
+                                value={editExpiresAt}
+                                disabled={editClearExpiry}
+                                onChange={(e) => setEditExpiresAt(e.target.value)}
+                                className="mt-0.5 w-full rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-[11px] text-slate-100 disabled:opacity-40"
+                              />
+                              <span className="mt-1 flex items-center gap-1">
+                                <input type="checkbox" checked={editClearExpiry} onChange={(e) => setEditClearExpiry(e.target.checked)} className="h-3 w-3 accent-violet-500" />
+                                Clear (no expiry)
+                              </span>
+                            </label>
+                          </div>
+                          {scopesOffered && (
+                            <div>
+                              <div className="mb-1 text-[10px] text-slate-500">
+                                {scopeNoun} — check to add, uncheck an assigned one to remove
+                              </div>
+                              <div className="grid grid-cols-1 gap-1 sm:grid-cols-2 max-h-32 overflow-y-auto">
+                                {assignableScopes.map((exp) => {
+                                  const currentlyAssigned = (g.allowedExperiments ?? []).includes(exp.id);
+                                  const willRemove = editRemoveScopes.includes(exp.id);
+                                  const willAdd = editAddScopes.includes(exp.id);
+                                  const checked = currentlyAssigned ? !willRemove : willAdd;
+                                  return (
+                                    <label key={exp.id} className="flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={checked}
+                                        onChange={() => {
+                                          if (currentlyAssigned) {
+                                            setEditRemoveScopes((prev) => (willRemove ? prev.filter((e) => e !== exp.id) : [...prev, exp.id]));
+                                          } else {
+                                            setEditAddScopes((prev) => (willAdd ? prev.filter((e) => e !== exp.id) : [...prev, exp.id]));
+                                          }
+                                        }}
+                                        className="h-3 w-3 accent-violet-500"
+                                      />
+                                      <span className="truncate">{exp.label}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                          <input
+                            value={editReason}
+                            onChange={(e) => setEditReason(e.target.value)}
+                            placeholder="Reason (recorded on the receipt)"
+                            className="w-full rounded border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] text-slate-100 placeholder:text-slate-500"
+                          />
+                          <button
+                            onClick={() => void saveGrantAmendment(g)}
+                            disabled={grantBusy === g.id}
+                            className="inline-flex items-center gap-1 rounded bg-violet-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+                          >
+                            {grantBusy === g.id ? <Loader2 className="h-3 w-3 animate-spin" /> : null} Save amendment
+                          </button>
+                        </div>
+
+                        {/* Edit persona */}
+                        <div className="space-y-1.5 border-t border-slate-800 pt-2">
+                          <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                            <UserCog className="h-3 w-3" /> Research persona
+                          </div>
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                            <input
+                              value={personaDisplayName}
+                              onChange={(e) => setPersonaDisplayName(e.target.value)}
+                              placeholder="Display name"
+                              className="rounded border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] text-slate-100 placeholder:text-slate-500"
+                            />
+                            <input
+                              value={personaHandle}
+                              onChange={(e) => setPersonaHandle(e.target.value.toLowerCase())}
+                              placeholder="handle"
+                              className="rounded border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] text-slate-100 placeholder:text-slate-500"
+                            />
+                            <select
+                              value={personaPrivacyMode}
+                              onChange={(e) => setPersonaPrivacyMode(e.target.value as 'identified' | 'pseudonymous' | 'anonymous')}
+                              className="rounded border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] text-slate-100"
+                            >
+                              <option value="identified">identified</option>
+                              <option value="pseudonymous">pseudonymous</option>
+                              <option value="anonymous">anonymous</option>
+                            </select>
+                          </div>
+                          <button
+                            onClick={() => void saveResearchPersona(g.id)}
+                            disabled={personaBusy || !personaDisplayName.trim() || !personaHandle.trim()}
+                            className="inline-flex items-center gap-1 rounded border border-slate-700 px-2.5 py-1 text-[11px] text-slate-200 hover:bg-white/10 disabled:opacity-50"
+                          >
+                            {personaBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : null} Save persona
+                          </button>
+                        </div>
+
+                        {/* Capabilities — resource-bound, never implied by role/write/run. */}
+                        <div className="space-y-1.5 border-t border-slate-800 pt-2">
+                          <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                            <ShieldCheck className="h-3 w-3" /> Capabilities
+                          </div>
+                          {caps.length > 0 && (
+                            <div className="space-y-1">
+                              {caps.map((c) => (
+                                <div
+                                  key={c.id}
+                                  className={`flex flex-wrap items-center gap-1.5 rounded px-2 py-1 text-[10px] ${
+                                    c.isHighRisk ? 'border border-rose-500/30 bg-rose-500/5' : 'bg-white/5'
+                                  }`}
+                                >
+                                  {c.isHighRisk && <AlertTriangle className="h-3 w-3 text-rose-400 shrink-0" />}
+                                  <span className={`font-medium ${c.isHighRisk ? 'text-rose-300' : 'text-slate-200'}`}>{c.capability}</span>
+                                  <span className="text-slate-500">@ {c.scopeType}:{c.scopeRef}</span>
+                                  <span className={c.status === 'active' ? 'text-emerald-300' : 'text-slate-500'}>{c.status}</span>
+                                  {c.status === 'active' && (
+                                    <button
+                                      onClick={() => void revokeCapabilityRow(c.id)}
+                                      disabled={capRevokeBusy === c.id}
+                                      className="ml-auto p-0.5"
+                                      title="Revoke capability — takes effect immediately"
+                                    >
+                                      {capRevokeBusy === c.id ? <Loader2 className="h-3 w-3 animate-spin text-slate-400" /> : <X className="h-3 w-3 text-slate-400 hover:text-rose-400" />}
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+                            <select
+                              value={capScopeType}
+                              onChange={(e) => setCapScopeType(e.target.value)}
+                              className="rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-[11px] text-slate-100"
+                            >
+                              <option value="">scope type…</option>
+                              {capabilityCatalogue.scopeTypes.map((s) => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <input
+                              value={capScopeRef}
+                              onChange={(e) => setCapScopeRef(e.target.value)}
+                              placeholder="scope ref (e.g. experiment id)"
+                              className="rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-[11px] text-slate-100 placeholder:text-slate-500"
+                            />
+                            <select
+                              value={capCapability}
+                              onChange={(e) => { setCapCapability(e.target.value); setCapConfirmHighRisk(false); }}
+                              className="rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-[11px] text-slate-100"
+                            >
+                              <option value="">capability…</option>
+                              <optgroup label="Ordinary">
+                                {capabilityCatalogue.ordinary.map((c) => <option key={c} value={c}>{c}</option>)}
+                              </optgroup>
+                              <optgroup label="High-risk">
+                                {capabilityCatalogue.highRisk.map((c) => <option key={c} value={c}>{c}</option>)}
+                              </optgroup>
+                            </select>
+                          </div>
+                          {capCapability && capabilityCatalogue.highRisk.includes(capCapability) && (
+                            <label className="flex items-start gap-1.5 rounded border border-rose-500/30 bg-rose-500/5 p-1.5 text-[10px] text-rose-200">
+                              <input
+                                type="checkbox"
+                                checked={capConfirmHighRisk}
+                                onChange={(e) => setCapConfirmHighRisk(e.target.checked)}
+                                className="mt-0.5 h-3 w-3 accent-rose-500"
+                              />
+                              <span className="flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3 shrink-0" />
+                                &quot;{capCapability}&quot; is high-risk. I confirm this deliberate grant.
+                              </span>
+                            </label>
+                          )}
+                          <button
+                            onClick={() => void addCapability(g.id)}
+                            disabled={
+                              capBusy || !capScopeType || !capScopeRef.trim() || !capCapability ||
+                              (capabilityCatalogue.highRisk.includes(capCapability) && !capConfirmHighRisk)
+                            }
+                            className="inline-flex items-center gap-1 rounded border border-slate-700 px-2.5 py-1 text-[11px] text-slate-200 hover:bg-white/10 disabled:opacity-50"
+                          >
+                            {capBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />} Grant capability
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

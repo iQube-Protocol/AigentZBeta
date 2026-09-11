@@ -35,7 +35,13 @@ import {
 } from '@/services/passport/participationAccess';
 import { resolveStewardAuthority } from '@/app/api/steward/participation/_lib/resolveStewardAuthority';
 import { getResearchPersonasByIds } from '@/services/passport/researchPersona';
-import { isHighRiskCapability, listCapabilitiesForGrant } from '@/services/research/accessCapabilities';
+import {
+  CAPABILITY_SCOPE_TYPES,
+  HIGH_RISK_CAPABILITIES,
+  isHighRiskCapability,
+  listCapabilitiesForGrant,
+  ORDINARY_CAPABILITIES,
+} from '@/services/research/accessCapabilities';
 import { ASSIGNABLE_PILOTS } from '@/services/venture/partnerWorkspace';
 import { ASSIGNABLE_RESEARCH_WORKSPACES } from '@/services/research/researchWorkspace';
 
@@ -203,6 +209,13 @@ export async function GET(req: NextRequest) {
       grants,
       researchPersonas,
       capabilitiesByGrant,
+      // ONE catalogue, reused by the capability editor — never hand-copied
+      // client-side (inv.engineering.036/037).
+      capabilityCatalogue: {
+        scopeTypes: CAPABILITY_SCOPE_TYPES,
+        ordinary: ORDINARY_CAPABILITIES,
+        highRisk: HIGH_RISK_CAPABILITIES,
+      },
       applications,
     },
     { headers: { 'Cache-Control': 'no-store' } },
