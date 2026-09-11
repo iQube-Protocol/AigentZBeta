@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-11T00:39:18.220Z",
+  "last_updated": "2026-09-11T00:49:07.739Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "11b67085bc5dba6b76258e93dca006275c9fd0fd",
-  "latest_commit_short": "11b6708",
-  "latest_commit_title": "Deploy Threshold manifest and public iQube discovery",
+  "latest_commit": "6e2d2cecfd83686528a986ef9cd8afe1f86c87c6",
+  "latest_commit_short": "6e2d2ce",
+  "latest_commit_title": "Embed canonical Passport sign-in in persona recross",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "6e2d2ce",
+      "full_sha": "6e2d2cecfd83686528a986ef9cd8afe1f86c87c6",
+      "title": "Embed canonical Passport sign-in in persona recross",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T20:46:40-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-6e2d2ce.md"
+    },
     {
       "sha": "11b6708",
       "full_sha": "11b67085bc5dba6b76258e93dca006275c9fd0fd",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T12:38:11Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-5418f38.md"
-    },
-    {
-      "sha": "170c0e0",
-      "full_sha": "170c0e0fd4fa74ff33b2b68eea9330ef5a0fc909",
-      "title": "C1: MoneyPenny copilot-left/chips-right shell, reusing SmartTriadCopilotLayer",
-      "author": "Claude",
-      "timestamp": "2026-09-02T12:38:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-170c0e0.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

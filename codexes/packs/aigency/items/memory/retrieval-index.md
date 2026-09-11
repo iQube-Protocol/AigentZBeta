@@ -5654,3 +5654,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-11b6708.md](../build_/COMMITS/COMMIT-11b6708.md)
 - Message: Deploy Threshold manifest and public iQube discovery
+
+## Commit `6e2d2ce` — 2026-09-10T20:46:40-04:00
+- Type: `push`
+- Brief: [COMMIT-6e2d2ce.md](../build_/COMMITS/COMMIT-6e2d2ce.md)
+- Message: Embed canonical Passport sign-in in persona recross
