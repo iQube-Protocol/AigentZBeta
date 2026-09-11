@@ -22,6 +22,12 @@ import { crossingReceipt, welcomePayload, WELCOME_MESSAGE } from './welcome';
 import type { IrlAdapter } from './irlAdapter';
 import type { PublicCartridgeId, PublicKnowledgeAdapter } from './publicKnowledge';
 import type { CompanionInstallBrief } from '../companion/extensionArtifact';
+import type {
+  AccessibleIQubeQuery,
+  getAccessibleIQube,
+  listAccessibleIQubes,
+  readAccessibleIQubeText,
+} from './personaIQubeProjection';
 import { supportedBridgeIds, type NavigatorState } from './constitutionalNavigator';
 import {
   fingerprintExchangeArtifact,
@@ -38,6 +44,8 @@ import {
   type confirmOperatorAssistedArtifactViaMcp,
   type resolveExchangeWriteAuthority,
 } from './mcpConstitutionalActs';
+import { decodeBase64Strict } from './uploadContentAsset';
+import { AGENT_MANIFEST_URI, agentDiscoveryManifest } from './agentManifest';
 
 // ── Context injected by the route (keeps this module I/O-light + testable) ──
 
@@ -82,6 +90,15 @@ export interface GatewayContext {
   /** Begin an incremental service crossing (session upgrade) — returns the human
    *  authorize URL. Injected by the route (creates the upgrade handshake). */
   beginServiceUpgrade?: (service: string, missingCapabilities: string[]) => Promise<{ authorizeUrl: string } | null>;
+  /** Owner-safe persona discovery and preparation of a fresh, human-authorized
+   * persona crossing. It can never mutate the current session directly. */
+  personaRecross?: {
+    getState: () => Promise<unknown>;
+    listAvailable: () => Promise<unknown[] | null>;
+    requestSwitch: (input: { personaPublicRef: string; codeChallenge: string; state: string }) => Promise<
+      { ok: true; authorizeUrl: string; expiresAt: string } | { ok: false; error: string }
+    >;
+  };
   /** Build the Companion install brief (SPEC-MMC-003 §3.2) — the artifact
    *  reference, its integrity values, and the human steps. Injected by the
    *  route because it reads the checked-in extension source from disk; the
@@ -97,6 +114,17 @@ export interface GatewayContext {
    * — see `supportedBridgeIds()` for what's wired.
    */
   resolveNavigatorState?: (opts?: { bridge?: string }) => Promise<NavigatorState | null>;
+  /** Persona-scoped global iQube projection. Each call revalidates the live
+   *  crossing agreement and delegates the resource decision to the Registry
+   *  access spine; this context contains no independent authorization logic. */
+  iqubeProjection?: {
+    list: (query?: AccessibleIQubeQuery) => ReturnType<typeof listAccessibleIQubes>;
+    get: (iqubeId: string) => ReturnType<typeof getAccessibleIQube>;
+    readText: (
+      iqubeId: string,
+      opts?: { offset?: number; limit?: number },
+    ) => ReturnType<typeof readAccessibleIQubeText>;
+  };
   /**
    * MCP-completable constitutional rituals for the OCSGA / Boundary
    * Research Journey Spine (Surface Independence, 2026-08-26) — injected by
@@ -186,6 +214,52 @@ export function listTools() {
         additionalProperties: false,
       },
     },
+    {
+      name: 'list_invariants',
+      description: 'Browse the canonical public IRL invariant registry. Supports namespace, status, and domain filters plus bounded pagination over the published snapshot. Public + read-only; registry visibility does not imply access to restricted experimental evidence.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          namespace: { type: 'string', description: 'Optional canonical invariant namespace.' },
+          status: { type: 'string', description: 'Optional comma-separated invariant status filter.' },
+          domain: { type: 'string', description: 'Optional invariant-context domain.' },
+          offset: { type: 'number', minimum: 0 },
+          limit: { type: 'number', minimum: 1, maximum: 100 },
+        },
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'get_invariant',
+      description: 'Read one canonical public invariant by database id or stable seed id (for example inv.constitutional.018), including its status, version, provenance, Standing and Reach. Public + read-only.',
+      inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'], additionalProperties: false },
+    },
+    {
+      name: 'search_invariants',
+      description: 'Keyword-search canonical public invariant statements, optionally filtered by namespace/status, with bounded pagination. Reports searchMode:"keyword"; it is not semantic search. Public + read-only.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          query: { type: 'string' },
+          namespace: { type: 'string' },
+          status: { type: 'string' },
+          offset: { type: 'number', minimum: 0 },
+          limit: { type: 'number', minimum: 1, maximum: 100 },
+        },
+        required: ['query'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'list_invariants_for_experiment',
+      description: 'Resolve the governing invariant ids declared by a canonical IRL experiment and return their public registry records. This reports governance linkage, not access to the experiment payload. Public + read-only.',
+      inputSchema: { type: 'object', properties: { experimentId: { type: 'string' } }, required: ['experimentId'], additionalProperties: false },
+    },
+    {
+      name: 'get_invariant_lineage',
+      description: 'Return recorded supersession and the public enables/constrains/contradicts neighbourhood for one invariant. The response states its limited lineage scope and never presents this consequence graph as complete provenance. Public + read-only.',
+      inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'], additionalProperties: false },
+    },
     // ── Public knowledge & discovery layer (2026-09-03) — Qriptopian, IRL OS,
     // AgentiQ OS, Polity Core. Public + read-only; no crossing required. Grants
     // no execution authority and reveals no private/restricted content — every
@@ -257,12 +331,87 @@ export function listTools() {
       inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     },
     {
+      name: 'get_persona_state',
+      description:
+        'Report the persona currently bound to this crossing, its owner-safe display/FIO projection, live agreement status, and current scope. Returns T2 references only. A persona change always requires a fresh human authorization.',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    },
+    {
+      name: 'list_available_personas',
+      description:
+        'List only personas visible under the same owner policy as the wallet persona switcher. Returns T2 Polity Public References and safe display metadata; never raw persona, auth-profile, tenant, wallet, key, or service-private identifiers.',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    },
+    {
+      name: 'request_persona_switch',
+      description:
+        'Prepare a short-lived persona re-crossing. This does not switch or mutate the current session. Pass a target T2 personaPublicRef and a fresh OAuth PKCE S256 code challenge; the returned browser URL requires explicit human approval and yields a fresh target-bound authorization code/bearer.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          personaPublicRef: { type: 'string', description: 'T2 Polity Public Reference from list_available_personas.' },
+          codeChallenge: { type: 'string', description: 'Fresh PKCE S256 code challenge (base64url).' },
+          codeChallengeMethod: { type: 'string', enum: ['S256'] },
+          state: {
+            type: 'string',
+            minLength: 1,
+            description: 'Required client-generated OAuth state echoed unchanged to the registered redirect URI.',
+          },
+        },
+        required: ['personaPublicRef', 'codeChallenge', 'codeChallengeMethod', 'state'],
+        additionalProperties: false,
+      },
+    },
+    {
       name: 'get_navigator_state',
       description:
         'The constitutional navigator: answers "what should my principal do next" for a specific bridge/programme, composed from their REAL current state — Passport (usable/not-usable), agent sponsorship + bounded delegation, research-lab and Reciprocal Artifact Exchange grants, and their exact position in that journey (current stage, what evidence is still missing, and why the next stage matters, in the journey\'s own words). This is a NAVIGATOR over the existing journey — it never advances or mutates anything; it only reads and explains. Only ONE bridge is wired in this increment: "ocsga" (the Boundary Research / Reciprocal Artifact Exchange crossing). Omit `bridge` to use the session\'s own initiating service. Requires an authenticated session.',
       inputSchema: {
         type: 'object',
         properties: { bridge: { type: 'string', description: 'Which bridge/journey to resolve against (currently: "ocsga"). Defaults to the session\'s initiating service.' } },
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'list_accessible_iqubes',
+      description:
+        'List iQubes this crossing persona may read, globally across primitive types and cartridge placements. Requires iqube.read. Access is decided per iQube by the canonical Persona Spine and Registry policy; the connected agent cannot select or union personas.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          primitiveType: { type: 'string', enum: ['DataQube', 'ContentQube', 'ToolQube', 'ModelQube', 'AigentQube', 'ClusterQube'] },
+          cartridge: { type: 'string', description: 'Optional placement filter; never treated as the access boundary.' },
+          query: { type: 'string', description: 'Optional case-insensitive metadata filter.' },
+          offset: { type: 'number' },
+          limit: { type: 'number', description: 'Defaults to 25; maximum 100.' },
+          scanOffset: { type: 'number', description: 'Registry scan cursor. Continue with nextScanOffset when scanComplete is false.' },
+        },
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'get_accessible_iqube',
+      description:
+        'Resolve the authorized, agent-safe manifest for one iQube. Requires iqube.read and a live persona+agent crossing agreement. Missing and unauthorized iQubes deliberately return the same response.',
+      inputSchema: {
+        type: 'object',
+        properties: { iqubeId: { type: 'string' } },
+        required: ['iqubeId'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'read_accessible_iqube_text',
+      description:
+        'Read a bounded agent-readable text rendition for an iQube after the same persona-scoped access decision used by native surfaces. Never returns storage URLs, encryption material, or raw identity identifiers. Requires iqube.read.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          iqubeId: { type: 'string' },
+          offset: { type: 'number' },
+          limit: { type: 'number', description: 'Defaults to 8000 characters; maximum 50000.' },
+        },
+        required: ['iqubeId'],
         additionalProperties: false,
       },
     },
@@ -466,6 +615,7 @@ export function listTools() {
 
 export function listResources() {
   return [
+    { uri: AGENT_MANIFEST_URI, name: 'metaMe Agent README / canonical discovery manifest', mimeType: 'application/json' },
     { uri: 'metame://welcome', name: 'Constitutional Welcome & Citizenship Orientation', mimeType: 'application/json' },
     { uri: 'metame://institution/charter', name: 'metaMe Threshold — charter', mimeType: 'text/markdown' },
     { uri: 'metame://onboarding/current', name: 'The crossing — current steps', mimeType: 'text/markdown' },
@@ -521,7 +671,13 @@ export const HANDSHAKE_TOOLS = new Set([
   'begin_handshake',
   'authenticate_principal',
   'get_crossing_status',
+  'get_persona_state',
+  'list_available_personas',
+  'request_persona_switch',
   'get_navigator_state',
+  'list_accessible_iqubes',
+  'get_accessible_iqube',
+  'read_accessible_iqube_text',
   'get_exchange_state',
   'deposit_exchange_artifact',
   'confirm_operator_assisted_artifact',
@@ -551,7 +707,13 @@ export const HANDSHAKE_TOOLS = new Set([
  *  fallback. The remaining HANDSHAKE_TOOLS land in later increments. */
 const AUTHENTICATED_TOOLS = new Set([
   'get_crossing_status',
+  'get_persona_state',
+  'list_available_personas',
+  'request_persona_switch',
   'get_navigator_state',
+  'list_accessible_iqubes',
+  'get_accessible_iqube',
+  'read_accessible_iqube_text',
   'get_exchange_state',
   'deposit_exchange_artifact',
   'confirm_operator_assisted_artifact',
@@ -605,6 +767,50 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
     if (!ctx.irl) return { ...text('The IRL results surface is unavailable on this gateway.'), isError: true };
     const experiment = typeof args.experiment === 'string' ? args.experiment.trim() : undefined;
     return text(await ctx.irl.readResults(experiment));
+  }
+
+  if (name === 'list_invariants') {
+    if (!ctx.irl) return { ...text('The IRL invariant registry is unavailable on this gateway.'), isError: true };
+    return text(await ctx.irl.listInvariants({
+      namespace: typeof args.namespace === 'string' ? args.namespace : undefined,
+      status: typeof args.status === 'string' ? args.status : undefined,
+      domain: typeof args.domain === 'string' ? args.domain : undefined,
+      offset: typeof args.offset === 'number' ? args.offset : undefined,
+      limit: typeof args.limit === 'number' ? args.limit : undefined,
+    }));
+  }
+
+  if (name === 'get_invariant') {
+    if (!ctx.irl) return { ...text('The IRL invariant registry is unavailable on this gateway.'), isError: true };
+    const id = typeof args.id === 'string' ? args.id.trim() : '';
+    if (!id) return { ...text('An invariant id is required.'), isError: true };
+    return text(await ctx.irl.getInvariant(id));
+  }
+
+  if (name === 'search_invariants') {
+    if (!ctx.irl) return { ...text('The IRL invariant registry is unavailable on this gateway.'), isError: true };
+    const query = typeof args.query === 'string' ? args.query.trim() : '';
+    if (!query) return { ...text('A search query is required.'), isError: true };
+    return text(await ctx.irl.searchInvariants(query, {
+      namespace: typeof args.namespace === 'string' ? args.namespace : undefined,
+      status: typeof args.status === 'string' ? args.status : undefined,
+      offset: typeof args.offset === 'number' ? args.offset : undefined,
+      limit: typeof args.limit === 'number' ? args.limit : undefined,
+    }));
+  }
+
+  if (name === 'list_invariants_for_experiment') {
+    if (!ctx.irl) return { ...text('The IRL invariant registry is unavailable on this gateway.'), isError: true };
+    const experimentId = typeof args.experimentId === 'string' ? args.experimentId.trim() : '';
+    if (!experimentId) return { ...text('An experiment id is required.'), isError: true };
+    return text(await ctx.irl.listInvariantsForExperiment(experimentId));
+  }
+
+  if (name === 'get_invariant_lineage') {
+    if (!ctx.irl) return { ...text('The IRL invariant registry is unavailable on this gateway.'), isError: true };
+    const id = typeof args.id === 'string' ? args.id.trim() : '';
+    if (!id) return { ...text('An invariant id is required.'), isError: true };
+    return text(await ctx.irl.getInvariantLineage(id));
   }
 
   if (name === 'inspect_threshold_link') {
@@ -742,6 +948,31 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
       });
     }
 
+    if (name === 'get_persona_state') {
+      if (!ctx.personaRecross) return { ...text('Persona state is unavailable on this gateway.'), isError: true };
+      return text(await ctx.personaRecross.getState());
+    }
+
+    if (name === 'list_available_personas') {
+      if (!ctx.personaRecross) return { ...text('Persona discovery is unavailable on this gateway.'), isError: true };
+      const personas = await ctx.personaRecross.listAvailable();
+      if (!personas) return { ...text('The current persona binding could not be resolved.'), isError: true };
+      return text({ personas, switchRequiresReauthorization: true });
+    }
+
+    if (name === 'request_persona_switch') {
+      if (!ctx.personaRecross) return { ...text('Persona switching is unavailable on this gateway.'), isError: true };
+      if (args.codeChallengeMethod !== 'S256') {
+        return { ...text('codeChallengeMethod must be S256.'), isError: true };
+      }
+      const personaPublicRef = typeof args.personaPublicRef === 'string' ? args.personaPublicRef : '';
+      const codeChallenge = typeof args.codeChallenge === 'string' ? args.codeChallenge : '';
+      const state = typeof args.state === 'string' ? args.state : '';
+      if (!state.trim()) return { ...text('state is required for persona re-crossing.'), isError: true };
+      const result = await ctx.personaRecross.requestSwitch({ personaPublicRef, codeChallenge, state });
+      return result.ok ? text(result) : { ...text(result.error), isError: true };
+    }
+
     if (name === 'get_navigator_state') {
       if (!ctx.resolveNavigatorState) return { ...text('The constitutional navigator is unavailable on this gateway.'), isError: true };
       const bridge = typeof args.bridge === 'string' && args.bridge.trim() ? args.bridge.trim() : undefined;
@@ -756,6 +987,44 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
         note:
           'This is a NAVIGATOR over the journey, not the journey itself — it never advances or authorizes anything. `nextAct` (when present) names the single next stage and who performs it (PRINCIPAL/DELEGATE/EITHER); a constitutional act (Passport, delegation, freeze, signature) is always the principal\'s own — you may explain and prepare it, never perform it.',
       });
+    }
+
+    if (
+      name === 'list_accessible_iqubes' ||
+      name === 'get_accessible_iqube' ||
+      name === 'read_accessible_iqube_text'
+    ) {
+      if (!hasScope(s, 'iqube.read')) {
+        return {
+          ...text(
+            'This action needs the iqube.read projection capability. It grants no content by itself; your principal must authorize it in a fresh Threshold crossing, and every iQube is still evaluated independently.',
+          ),
+          isError: true,
+        };
+      }
+      if (!ctx.iqubeProjection) {
+        return { ...text('The persona-scoped iQube projection is unavailable on this gateway.'), isError: true };
+      }
+      if (name === 'list_accessible_iqubes') {
+        const result = await ctx.iqubeProjection.list({
+          primitiveType: typeof args.primitiveType === 'string' ? args.primitiveType : undefined,
+          cartridge: typeof args.cartridge === 'string' ? args.cartridge : undefined,
+          query: typeof args.query === 'string' ? args.query : undefined,
+          offset: typeof args.offset === 'number' ? args.offset : undefined,
+          limit: typeof args.limit === 'number' ? args.limit : undefined,
+          scanOffset: typeof args.scanOffset === 'number' ? args.scanOffset : undefined,
+        });
+        return result.ok ? text(result) : { ...text(result.error), isError: true };
+      }
+      const iqubeId = typeof args.iqubeId === 'string' ? args.iqubeId.trim() : '';
+      if (!iqubeId) return { ...text('iqubeId is required.'), isError: true };
+      const result = name === 'get_accessible_iqube'
+        ? await ctx.iqubeProjection.get(iqubeId)
+        : await ctx.iqubeProjection.readText(iqubeId, {
+            offset: typeof args.offset === 'number' ? args.offset : undefined,
+            limit: typeof args.limit === 'number' ? args.limit : undefined,
+          });
+      return result.ok ? text(result) : { ...text(result.error), isError: true };
     }
 
     // ── OCSGA / Boundary Research MCP-completable rituals (Surface Independence, 2026-08-26) ──
@@ -1033,6 +1302,10 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
         '.webp': 'image/webp',
         '.gif': 'image/gif',
         '.pdf': 'application/pdf',
+        '.md': 'text/markdown',
+        '.txt': 'text/plain',
+        '.json': 'application/json',
+        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         '.mp4': 'video/mp4',
         '.webm': 'video/webm',
         '.mp3': 'audio/mpeg',
@@ -1044,13 +1317,12 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
       // Decode file (from base64 or already-decoded buffer)
       let fileBytes: ArrayBuffer;
       try {
-        if (fileBase64) {
-          // JSON-RPC path: decode from base64
-          fileBytes = Buffer.from(fileBase64, 'base64').buffer;
-        } else if (file) {
-          // Connector action path: file is already a base64-encoded representation of bytes
-          // (from multipart adapter that encoded the binary before calling)
-          fileBytes = Buffer.from(file, 'base64').buffer;
+        if (fileBase64 || file) {
+          const decoded = decodeBase64Strict(fileBase64 || file || '');
+          fileBytes = decoded.buffer.slice(
+            decoded.byteOffset,
+            decoded.byteOffset + decoded.byteLength,
+          ) as ArrayBuffer;
         } else {
           return {
             ...text('Invalid file parameter.'),
@@ -1133,6 +1405,9 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
 }
 
 export async function readResource(uri: string, ctx: GatewayContext) {
+  if (uri === AGENT_MANIFEST_URI) {
+    return { contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(agentDiscoveryManifest(), null, 2) }] };
+  }
   if (uri === 'metame://welcome') {
     return { contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(welcomePayload(ctx.session), null, 2) }] };
   }

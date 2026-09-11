@@ -697,6 +697,42 @@ export async function resolveExperimentReviewGrant(
 }
 
 /**
+ * The caller's own research-lab role for ONE workspace — generalized
+ * (2026-09-08, canonical selected-workspace resolver) beyond
+ * `resolveExperimentReviewGrant`'s `REVIEW_VIEW_READABLE_ROLES` restriction
+ * and beyond requiring an `experimentId` at all: a workspace with NO bound
+ * experiment (e.g. OCSGA, a cohort/programme container) still has a real
+ * caller role the moment a grant names its `workspaceId` directly in
+ * `allowed_experiments` (the SAME free-text scoping `access_grants` already
+ * uses for workspace ids, not only raw experiment ids — see
+ * `getBoundaryResearchReadableExperiments`'s own workspace/experiment union).
+ * Checks BOTH `workspaceId` and `experimentId` (when bound) so a grant scoped
+ * to either one resolves the same role, matching `canViewResearchWorkspace`'s
+ * own reach rule exactly — never a stricter or looser one.
+ */
+export async function resolveWorkspaceRole(
+  admin: SupabaseClient,
+  personaId: string,
+  workspaceId: string,
+  experimentId: string | null,
+): Promise<{ role: string } | null> {
+  const { data, error } = await admin
+    .from('access_grants')
+    .select('role, allowed_experiments')
+    .eq('persona_id', personaId)
+    .eq('access_domain', 'research-lab')
+    .eq('status', 'active');
+  if (error || !data) return null;
+  for (const row of data) {
+    const role = String((row as { role: string }).role);
+    const allowed = (row as { allowed_experiments?: string[] | null }).allowed_experiments;
+    if (!allowed || allowed.length === 0) return { role };
+    if (allowed.includes(workspaceId) || (experimentId && allowed.includes(experimentId))) return { role };
+  }
+  return null;
+}
+
+/**
  * The LIST form of the single-persona reviewer-scope predicate above — every
  * persona_id holding an ACTIVE research-lab `REVIEWER_INVITATION_ROLE` grant
  * scoped to `experimentId` (via `allowed_experiments` containing it, or

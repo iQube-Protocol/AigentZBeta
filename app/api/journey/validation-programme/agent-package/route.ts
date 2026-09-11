@@ -54,19 +54,31 @@ import {
   VALIDATION_PROGRAMME_EXPERIMENT_ID,
   isExpP1Path,
 } from '@/services/journey/validationProgrammeJourney';
+import { isHeldNonOperativeIrlPath } from '@/services/research/irlExperimentPathScope';
 
 export const dynamic = 'force-dynamic';
 
 const PACKAGE_SCHEMA_VERSION = 'validation-programme-agent-package/v2.0';
 
-/** Reads col_experiments from the real collections.json and returns EXP-P1's own items — never a hand-copied list. */
+/**
+ * Reads col_experiments from the real collections.json and returns EXP-P1's
+ * own OPERATIVE items — never a hand-copied list. Excludes
+ * STAGE-0_HANDOFF.md (2026-09-08, second pass): it sits inside EXP-P1's own
+ * folder but is the separately-held Stage-0/IRE/IPV package (IRE-6, still
+ * unresolved) — presenting it as operative EXP-P1 review material would
+ * misrepresent a held package as an EXP-P1 prerequisite. See
+ * `isHeldNonOperativeIrlPath`'s own header for the full mechanical trace;
+ * the SAME exclusion the generalised `listIrlPackDocumentsForExperiment`
+ * (services/research/irlExperimentPathScope.ts) now applies, kept in one
+ * place rather than two divergent document lists for the same reviewer.
+ */
 async function resolveExpP1DocumentResources(origin: string): Promise<Array<{ path: string; url: string }>> {
   try {
     const raw = await corpusReadPackFile('irl', 'collections.json');
     if (!raw) return [];
     const parsed = JSON.parse(raw) as { collections?: Array<{ id: string; items?: string[] }> };
     const collection = parsed.collections?.find((c) => c.id === 'col_experiments');
-    const items = (collection?.items ?? []).filter(isExpP1Path);
+    const items = (collection?.items ?? []).filter((p) => isExpP1Path(p) && !isHeldNonOperativeIrlPath(p));
     return items.map((p) => ({ path: p, url: `${origin}/api/codex/packs/irl/file?path=${encodeURIComponent(p)}` }));
   } catch {
     return [];

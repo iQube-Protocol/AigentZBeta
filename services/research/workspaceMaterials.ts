@@ -155,6 +155,11 @@ export interface WorkspaceSurfaceAuthority {
  */
 export const WORKSPACE_SURFACE_AUTHORITY: Record<string, WorkspaceSurfaceAuthority> = {
   overview: { surface: 'overview', mayMutateGovernedState: false, mayAdmitToLocker: false },
+  // The full-page rendering of the entitlement-derived experiment estate
+  // (2026-09-08) — a navigator/selector, exactly like the left rail it
+  // mirrors. Selecting a row switches the active workspace; it never mutates
+  // governed state or admits anything to the Locker itself.
+  experiments: { surface: 'experiments', mayMutateGovernedState: false, mayAdmitToLocker: false },
   // The Pipeline RENDERS the stage; advancing one is an act performed by the
   // capability that owns the transition (and receipted there), not by the view
   // that draws it.

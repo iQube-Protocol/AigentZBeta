@@ -86,12 +86,55 @@ Lehigh: Programmes → MFE Capstone (Risk, Value, Price) + CS Capstone
 
 The MFE ordering is constitutional, not cosmetic: **price is established by balancing risk and value**.
 
-## 7 — The eight views
+## 6A — Navigation model (ratified 2026-09-08, REVISED same day)
+
+**Superseded ruling, kept visible rather than silently deleted (epistemic honesty discipline):**
+an earlier pass of this same section ruled that the left rail alone is the experiment navigator and
+that a submenu "Experiments" entry would be a redundant restatement of it (citing the Companion Menu
+System's MS-1, "one navigation"). The operator overrode that ruling the same day, on the same spec:
+**`Experiments` IS a real Workspace view.** The distinction that makes this NOT the MS-1 defect it
+was first read as: the left rail is a compact SELECTOR (pick a workspace, jump to it); the
+`Experiments` view is the FULL-PAGE rendering of the caller's entitled experiment estate FOR the
+currently selected workspace's context — two different jobs, not two navigators over the same job.
+Both still read the SAME canonical resolver
+(`getParticipantResearchWorkspaceAccess`/`GET /api/participation/my-experiments`) — never a second,
+independently-derived or static list — so the parity invariant below still holds.
+
+Two layers, never conflated:
+
+- **Left rail — the entitlement-derived programme/experiment quick selector ("My Experiments").**
+  Built from `getParticipantResearchWorkspaceAccess`. Empty for a caller with zero entitlement
+  reach (no admin flag, no active research-lab grant, no workspace declared `visibility: 'public'`)
+  — an honest empty state, not a broken-looking list. Updates the instant the underlying grant
+  changes: a fresh read of the resolver reflects a new grant or a revocation immediately, with no
+  separate cache to invalidate (see `tests/irl-experiment-membership-workspace.test.ts`'s
+  "revocation … removes every private workspace from the projection immediately").
+- **Workspace submenu — the views of the ONE selected workspace** (§7's nine views, plus the
+  Tier-0 `Administration` space for the two roles the spec grants access authority). Selecting a
+  workspace in the left rail (or a row inside the `Experiments` view) mounts this submenu against
+  that workspace's own state.
+
+**Parity invariant (load-bearing, canary-enforced):** if an experiment is visible in the left rail,
+it must also appear in the `Experiments` view, and both must resolve the SAME selected-workspace
+state via `services/research/selectedWorkspaceState.ts`. Conversely, if the principal cannot
+dereference the workspace, neither surface may advertise it. (A pre-existing, disabled, unrelated
+`Experiments` tab elsewhere in the platform — the admin-only "run the Foundational Series live"
+surface — is a different capability, not a navigator over research workspaces, and is not this
+view.)
+
+Both cartridges that mount a Research Workspace tab (`irl-cartridge`, `irl-os-cartridge`) build it
+through the SAME `buildResearchWorkspaceTab` call — never a hand-copied second tab object — so this
+navigation model cannot silently drift between the internal and public-facing editions (see
+`tests/research-lab-workspace.test.ts`'s "`buildResearchWorkspaceTab` should be CALLED exactly
+twice — once per cartridge").
+
+## 7 — The nine views
 
 | View | What it holds |
 |---|---|
-| **Overview** | purpose, phase, institutions, active roles, next action, blockers, decisions, milestones, recent receipts |
-| **Pipeline** | the lifecycle template's stages, with the current stage marked |
+| **Overview** | purpose, phase, institutions, active roles, next action, blockers, decisions, milestones, recent receipts — sourced from `selectedWorkspaceState` |
+| **Experiments** | the caller's own entitlement-derived experiment estate, full-page — the SAME resolver the left rail reads |
+| **Pipeline** | the lifecycle template's stages, with the current stage marked — LIVE, derived from `selectedWorkspaceState.currentStage`, never a static registry field |
 | **Review** | front end for IRL-REVIEW-001: packages, reviewers, rubric, decisions, contested items, review receipts |
 | **Working Materials** | mutable drafts, notes, source packs, notebooks, code branches, unresolved decisions |
 | **Locker** | frozen, signed, ratified or authoritative artefacts **only** |

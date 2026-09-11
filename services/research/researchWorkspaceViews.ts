@@ -111,6 +111,24 @@ export const RESEARCH_WORKSPACE_VIEWS: ResearchWorkspaceView[] = [
     roles: allRolesExcept(),
   },
   {
+    // ADDED 2026-09-08 (operator instruction, second navigation-model
+    // pass — supersedes the earlier "no redundant Experiments submenu"
+    // ruling made the SAME day, on the same spec, before this instruction
+    // arrived): the left rail is a quick SELECTOR; this view is the FULL
+    // workspace view of the caller's entitled experiment estate, rendered
+    // through the SAME canonical access resolver
+    // (`getParticipantResearchWorkspaceAccess`) the left rail already
+    // reads — never a second, independently-derived or static list. See
+    // `PartnerProgrammesTab.tsx`'s `experiments` surface for the render.
+    id: 'experiments',
+    slug: 'irl-workspace-experiments',
+    label: 'Experiments',
+    icon: 'FlaskConical',
+    description:
+      "The caller's own entitlement-derived experiment estate — the same canonical access resolver as the left rail, in full-page form",
+    roles: allRolesExcept(),
+  },
+  {
     id: 'pipeline',
     slug: 'irl-workspace-pipeline',
     label: 'Pipeline',

@@ -125,6 +125,10 @@ export const CONSTITUTIONAL_ROOT_CAPABILITIES = [
   'services.list',
   'agent-card.self.read',
   'agent-passport.self.read',
+  // Projection authority only: lets the connected agent ask the canonical
+  // Persona Spine + iQube policy resolver for a read decision. It grants no
+  // content by itself; every iQube remains independently persona-gated.
+  'iqube.read',
   'content.asset.upload', // Admin-only capability granted at crossing time when persona.cartridgeFlags.isAdmin
 ] as const;
 

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-05T21:39:23.969Z",
+  "last_updated": "2026-09-11T09:19:29.680Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "72c692dc7b0da25ad53cfd0c9d72ed7052fbfb72",
-  "latest_commit_short": "72c692d",
-  "latest_commit_title": "Add Crystal-wide internal-pilot execution designation (frozen generations are immutable; lineages are evolutionary)",
+  "latest_commit": "0016af6d0988f8feec1c6b7820200b2397d59f43",
+  "latest_commit_short": "0016af6",
+  "latest_commit_title": "Project canonical exchange iQube references through MCP",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,285 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "0016af6",
+      "full_sha": "0016af6d0988f8feec1c6b7820200b2397d59f43",
+      "title": "Project canonical exchange iQube references through MCP",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-11T05:17:49-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0016af6.md"
+    },
+    {
+      "sha": "c96529b",
+      "full_sha": "c96529b3f3ecd2f83461ef4d09764a107c0a746a",
+      "title": "Make persona switch trigger real MCP OAuth reauthorization",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-11T04:56:53-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c96529b.md"
+    },
+    {
+      "sha": "9205129",
+      "full_sha": "92051293c514db24cf263d504c391517196d9024",
+      "title": "Deploy reliable Polity Core public agent orientation",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-11T04:05:25-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-9205129.md"
+    },
+    {
+      "sha": "96a59cd",
+      "full_sha": "96a59cdd6b5205ac5614404c23f7a5e95deabb14",
+      "title": "Deploy MCP-host-owned persona recross OAuth repair",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-11T03:49:57-04:00",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-96a59cd.md"
+    },
+    {
+      "sha": "5878406",
+      "full_sha": "5878406c7cda8480c9ab5531f20696429309264a",
+      "title": "Add canonical exchange artifact iQube registry reference",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-11T03:20:00-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-5878406.md"
+    },
+    {
+      "sha": "cf30210",
+      "full_sha": "cf302105648fc63cceb2cfc057fe0e1ddfff04ce",
+      "title": "Deploy Threshold discovery and persona semantics",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-11T03:08:35-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-cf30210.md"
+    },
+    {
+      "sha": "2ae34b7",
+      "full_sha": "2ae34b7e6cec36d12dc3df0daf9b0527062cab8c",
+      "title": "Restore canonical OCSGA constitutional act implementation",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-11T02:49:32-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-2ae34b7.md"
+    },
+    {
+      "sha": "02af722",
+      "full_sha": "02af7221babb3c0978e9456bdb56124ee46f8e42",
+      "title": "Expose canonical IRL OS public root data",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T22:09:59-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-02af722.md"
+    },
+    {
+      "sha": "1a4268b",
+      "full_sha": "1a4268b9bf2829a7379fa124a48c0734592abbc8",
+      "title": "Deploy embedded Passport persona spine for Threshold OAuth",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T20:50:18-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1a4268b.md"
+    },
+    {
+      "sha": "6e2d2ce",
+      "full_sha": "6e2d2cecfd83686528a986ef9cd8afe1f86c87c6",
+      "title": "Embed canonical Passport sign-in in persona recross",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T20:46:40-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-6e2d2ce.md"
+    },
+    {
+      "sha": "11b6708",
+      "full_sha": "11b67085bc5dba6b76258e93dca006275c9fd0fd",
+      "title": "Deploy Threshold manifest and public iQube discovery",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T20:37:28-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-11b6708.md"
+    },
+    {
+      "sha": "9aae530",
+      "full_sha": "9aae5307efebf6322f16bcc35afa350239dfe478",
+      "title": "Add public iQube Card MCP adapter",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T20:14:20-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-9aae530.md"
+    },
+    {
+      "sha": "4bc6768",
+      "full_sha": "4bc676872be452de677b2c99e6d938604af025a3",
+      "title": "ci: validate Threshold MCP changes",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T19:34:40-04:00",
+      "type": "ci",
+      "brief": "items/build_/COMMITS/COMMIT-4bc6768.md"
+    },
+    {
+      "sha": "0b86c59",
+      "full_sha": "0b86c596ff633f79884174875beb8bc363ce5cf5",
+      "title": "feat(threshold): project canonical public cartridge content",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T19:45:43-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-0b86c59.md"
+    },
+    {
+      "sha": "6a7d8cc",
+      "full_sha": "6a7d8cc70156cd8e0759717e0d56a14c8dd2084b",
+      "title": "Expose canonical public cartridges and agent orientation through Threshold MCP",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T19:54:24-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-6a7d8cc.md"
+    },
+    {
+      "sha": "2029c53",
+      "full_sha": "2029c53c21ce89314f787ed1c26221147fc1fe35",
+      "title": "Expose canonical invariant registry through Threshold MCP",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T18:41:54-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-2029c53.md"
+    },
+    {
+      "sha": "c524acc",
+      "full_sha": "c524acc95684cf1193f720b4d6bc0ab838f4465a",
+      "title": "Deploy Threshold persona recross state and agent discovery manifest",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T18:11:09-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c524acc.md"
+    },
+    {
+      "sha": "d8e74aa",
+      "full_sha": "d8e74aa37fa5325a626144276a0ebd52a52f33d9",
+      "title": "fix: restore threshold gateway and navigator database context",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T13:59:52-04:00",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-d8e74aa.md"
+    },
+    {
+      "sha": "f7a451b",
+      "full_sha": "f7a451bd40b77193bebd9fd8807d02d2d74ef3e7",
+      "title": "fix: remove accidental gateway tool-output preamble",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T13:36:05-04:00",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-f7a451b.md"
+    },
+    {
+      "sha": "93339dc",
+      "full_sha": "93339dc239f8220ca9bcb24c03430efaa80b4db5",
+      "title": "feat: add bounded persona re-crossing",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T09:12:08-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-93339dc.md"
+    },
+    {
+      "sha": "e0f7fde",
+      "full_sha": "e0f7fde76d56fc440e2a4bbd7f1104dce593c03a",
+      "title": "docs: align Vela pilot with team-confirmed baseline",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T08:39:06-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-e0f7fde.md"
+    },
+    {
+      "sha": "298b830",
+      "full_sha": "298b830cce611f993fe1e55aedea9bab20d9a028",
+      "title": "chore: retrigger dev deployment for OCSGA content recovery",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T02:42:05-04:00",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-298b830.md"
+    },
+    {
+      "sha": "194414c",
+      "full_sha": "194414cdc48a0becd53bc9e98ebc1c9ed9ebaa4b",
+      "title": "feat: constitute EXP-P1 and EXP-P2 as ClusterQubes",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-09T20:18:53-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-194414c.md"
+    },
+    {
+      "sha": "9fd55c6",
+      "full_sha": "9fd55c64cec374dca0ad1eadbc689f2ad8f890f4",
+      "title": "feat: recover OCSGA artifacts through persona MCP",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T01:14:13-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-9fd55c6.md"
+    },
+    {
+      "sha": "0a41efd",
+      "full_sha": "0a41efd7a1409a98faeab7d60e6beb5419bc2f8b",
+      "title": "feat: federate Locker and RoomQube access through MCP",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-09T14:48:15-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-0a41efd.md"
+    },
+    {
+      "sha": "8100320",
+      "full_sha": "8100320501aef5077a578fbb789908841b884def",
+      "title": "feat: project persona iQube access through Threshold MCP",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-09T09:27:03-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-8100320.md"
+    },
+    {
+      "sha": "ff034c1",
+      "full_sha": "ff034c1a80265e57913cada5276df60973611c76",
+      "title": "docs: hand off persona iQube MCP projection",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-09T13:22:15-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-ff034c1.md"
+    },
+    {
+      "sha": "3f71b8a",
+      "full_sha": "3f71b8a74fe67453dc3eb45386a4cc2d3ded91f8",
+      "title": "feat: project constitutional pilot docs into Venture Lab and AgentiQ; clarify execution control",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-09T07:57:20-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-3f71b8a.md"
+    },
+    {
+      "sha": "69ced0f",
+      "full_sha": "69ced0ff6cecba12589a6cf7d1eda6d53a1369c4",
+      "title": "docs: apply authority mandate and control to compliance enforcement",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-09T03:29:58-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-69ced0f.md"
+    },
+    {
+      "sha": "495bc4b",
+      "full_sha": "495bc4ba9e308de8e7a358f8c60c4ffed4dc994c",
+      "title": "docs: standardize QubeTalk spelling and record dictation rule",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-09T02:51:16-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-495bc4b.md"
+    },
+    {
+      "sha": "768035a",
+      "full_sha": "768035a79449467151a8c70ed70c24cf7566f946",
+      "title": "docs: capture multi-party constitutional portfolio Vela pilot",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-09T02:43:21-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-768035a.md"
+    },
     {
       "sha": "72c692d",
       "full_sha": "72c692dc7b0da25ad53cfd0c9d72ed7052fbfb72",
@@ -973,285 +1252,6 @@
       "timestamp": "2026-09-02T01:15:27Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-37c6527.md"
-    },
-    {
-      "sha": "a1a3c6b",
-      "full_sha": "a1a3c6be9380829c0b44b1fb79c56755ced6dbdb",
-      "title": "Add manual financial-profile entry (MPY2-2c); close MPY2-0b reconciliation",
-      "author": "Claude",
-      "timestamp": "2026-09-02T03:22:54Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-a1a3c6b.md"
-    },
-    {
-      "sha": "28aa157",
-      "full_sha": "28aa1576bfeb262242987301a5c64f6e13672bfb",
-      "title": "Correct fs-operate label to bare Operate; open MoneyPenny in the same frame",
-      "author": "Claude",
-      "timestamp": "2026-09-02T06:01:57Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-28aa157.md"
-    },
-    {
-      "sha": "de80415",
-      "full_sha": "de8041574b1cc7afd2f895d6332539d85518ad0d",
-      "title": "Close storage/sign + assets-by-category authorization gaps",
-      "author": "Claude",
-      "timestamp": "2026-09-02T06:02:24Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-de80415.md"
-    },
-    {
-      "sha": "ea936da",
-      "full_sha": "ea936da36cfb7d7a1eaea05b73a9e1ec2493c4f6",
-      "title": "A2 completion: infographic slot + integrated asset selection/upload",
-      "author": "Claude",
-      "timestamp": "2026-09-02T06:07:41Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-ea936da.md"
-    },
-    {
-      "sha": "40a36b4",
-      "full_sha": "40a36b43ea901a19ddbdea7c6f8c4cc06898f2fb",
-      "title": "Financial-profile compute/manual routes never crash on a missing table",
-      "author": "Claude",
-      "timestamp": "2026-09-02T06:07:58Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-40a36b4.md"
-    },
-    {
-      "sha": "b6caadd",
-      "full_sha": "b6caadd7564996a26bad84aff326b75a444dbd42",
-      "title": "Add A2 completion / acceptance ledger / MoneyPenny shell audit doc",
-      "author": "Claude",
-      "timestamp": "2026-09-02T06:10:40Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-b6caadd.md"
-    },
-    {
-      "sha": "5eca8bc",
-      "full_sha": "5eca8bcb0f4005993a6702acf5d8a3d9b17b0ee5",
-      "title": "Import three MoneyPenny donor repos' real docs into docs/specs/moneypenny/",
-      "author": "Claude",
-      "timestamp": "2026-09-02T12:37:43Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5eca8bc.md"
-    },
-    {
-      "sha": "277f44e",
-      "full_sha": "277f44e905cedbafeba474eac725bf42b3bfd6a4",
-      "title": "Decouple public-exposure from series='bridge' — require an explicit signal",
-      "author": "Claude",
-      "timestamp": "2026-09-02T12:37:58Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-277f44e.md"
-    },
-    {
-      "sha": "5418f38",
-      "full_sha": "5418f383e8c84edb032331421d26e2308ce6e6c2",
-      "title": "A2 completion: infographic publishes AND renders through the real bridge reader",
-      "author": "Claude",
-      "timestamp": "2026-09-02T12:38:11Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5418f38.md"
-    },
-    {
-      "sha": "170c0e0",
-      "full_sha": "170c0e0fd4fa74ff33b2b68eea9330ef5a0fc909",
-      "title": "C1: MoneyPenny copilot-left/chips-right shell, reusing SmartTriadCopilotLayer",
-      "author": "Claude",
-      "timestamp": "2026-09-02T12:38:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-170c0e0.md"
-    },
-    {
-      "sha": "eda35a4",
-      "full_sha": "eda35a494deca9aeb2d6022465eebc71dc1f060c",
-      "title": "Import authoritative MoneyPenny three-spec handoff + reconciliation crosswalk",
-      "author": "Claude",
-      "timestamp": "2026-09-02T13:03:02Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-eda35a4.md"
-    },
-    {
-      "sha": "9308a08",
-      "full_sha": "9308a08df13c448a201cdfb44ce5ebad026eda59",
-      "title": "Wire MoneyPenny copilot-to-capsule loop (C-02) + corrected AC-C/B/A crosswalk",
-      "author": "Claude",
-      "timestamp": "2026-09-02T13:14:31Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-9308a08.md"
-    },
-    {
-      "sha": "d752499",
-      "full_sha": "d752499c2ea494268a8c644ef5174cbc56aa32ef",
-      "title": "Close SC-04 task/context versioning + complete C-01/C-03 MoneyPenny shell",
-      "author": "Claude",
-      "timestamp": "2026-09-02T13:36:33Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d752499.md"
-    },
-    {
-      "sha": "05a18b6",
-      "full_sha": "05a18b6d10ce29688d4ae8ac25f59431a968784c",
-      "title": "Harden SC-04, deliver full-screen HFT takeover, verify entry continuity",
-      "author": "Claude",
-      "timestamp": "2026-09-02T14:05:39Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-05a18b6.md"
-    },
-    {
-      "sha": "c36e5ed",
-      "full_sha": "c36e5ed7271cb71befe361ede98367601a3a2212",
-      "title": "Build Agent Me entry safely, rebuild B2 Prepare, close /moneypenny compat gap",
-      "author": "Claude",
-      "timestamp": "2026-09-02T18:03:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c36e5ed.md"
-    },
-    {
-      "sha": "506610b",
-      "full_sha": "506610b66020c4a8db2cf2df0f740307eb3ca347",
-      "title": "Close infra handoff, add MoneyPenny educational video (C-15/A3), fix Prepare empty-state gap",
-      "author": "Claude",
-      "timestamp": "2026-09-02T19:18:35Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-506610b.md"
-    },
-    {
-      "sha": "c377577",
-      "full_sha": "c3775774fc3ff51e093b65499d26b7aee5a553be",
-      "title": "Publish real placeholder media, close admin-picker gap, add review/availability split",
-      "author": "Claude",
-      "timestamp": "2026-09-02T23:27:25Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-c377577.md"
-    },
-    {
-      "sha": "bfb5733",
-      "full_sha": "bfb5733e2503d7de0df3ae97675b880982dab44f",
-      "title": "Fix MoneyPenny reader honesty: distinct 503s replace false not-published",
-      "author": "Claude",
-      "timestamp": "2026-09-02T23:56:20Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-bfb5733.md"
-    },
-    {
-      "sha": "95277c7",
-      "full_sha": "95277c77b7f706fc1c52887f4756446f852a4a98",
-      "title": "Close AC-C06 cross-persona-read-denial gap; mark 3 checks blocked-on-access",
-      "author": "Claude",
-      "timestamp": "2026-09-03T00:20:09Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-95277c7.md"
-    },
-    {
-      "sha": "418a4f0",
-      "full_sha": "418a4f0181e3e3a7abd5776880d93d422ada9a16",
-      "title": "Correct MoneyPenny experience coherence: one nav row, restrained Home, role selector",
-      "author": "Claude",
-      "timestamp": "2026-09-03T02:28:58Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-418a4f0.md"
-    },
-    {
-      "sha": "2b4733d",
-      "full_sha": "2b4733d6ca7c0833c5a90ed01cd5395cb94eab79",
-      "title": "Publish real placeholder media, close admin-picker gap, add review/availability split [merge spec/moneypenny-mpy2-3]",
-      "author": "Claude",
-      "timestamp": "2026-09-02T23:27:25Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-2b4733d.md"
-    },
-    {
-      "sha": "8678fc5",
-      "full_sha": "8678fc53c6dbd1ee05542c91a6a512af32f9d336",
-      "title": "Close infra handoff, add MoneyPenny educational video (C-15/A3), fix Prepare empty-state gap [merge spec/moneypenny-mpy2-3]",
-      "author": "Claude",
-      "timestamp": "2026-09-02T19:18:35Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-8678fc5.md"
-    },
-    {
-      "sha": "7e7944f",
-      "full_sha": "7e7944fe9407059e2b0b51c73445e3b613509367",
-      "title": "Build Agent Me entry safely, rebuild B2 Prepare, close /moneypenny compat gap [merge spec/moneypenny-mpy2-3]",
-      "author": "Claude",
-      "timestamp": "2026-09-02T18:03:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7e7944f.md"
-    },
-    {
-      "sha": "d48ae5c",
-      "full_sha": "d48ae5c473bf0cf52b415c74b694a87fc72b430c",
-      "title": "Harden SC-04, deliver full-screen HFT takeover, verify entry continuity",
-      "author": "Claude",
-      "timestamp": "2026-09-02T14:05:39Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d48ae5c.md"
-    },
-    {
-      "sha": "12b8048",
-      "full_sha": "12b8048fc81984be80e1d5bbe9e7376460f25401",
-      "title": "Harden SC-04, deliver full-screen HFT takeover, verify entry continuity [merge spec/moneypenny-mpy2-3]",
-      "author": "Claude",
-      "timestamp": "2026-09-02T14:05:52Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-12b8048.md"
-    },
-    {
-      "sha": "3ce33d2",
-      "full_sha": "3ce33d2e5b67cd4048ff4bbab2db94c1eaa6897b",
-      "title": "Close SC-04 task/context versioning + complete C-01/C-03 MoneyPenny shell",
-      "author": "Claude",
-      "timestamp": "2026-09-02T13:36:33Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-3ce33d2.md"
-    },
-    {
-      "sha": "fb80497",
-      "full_sha": "fb8049782e24092c6ab74d0ee7acab174d275a5a",
-      "title": "Close SC-04 versioning + complete C-01/C-03 MoneyPenny shell [merge spec/moneypenny-mpy2-3]",
-      "author": "Claude",
-      "timestamp": "2026-09-02T13:36:47Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-fb80497.md"
-    },
-    {
-      "sha": "e2ac273",
-      "full_sha": "e2ac27372238cf2fa2faa847233f2f968b12f4b2",
-      "title": "feat(qriptopian): one-card Reading and Research editions for Thresholds 006",
-      "author": "Kn0w1",
-      "timestamp": "2026-09-02T09:17:35-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-e2ac273.md"
-    },
-    {
-      "sha": "51e9e21",
-      "full_sha": "51e9e21c00713d163e5eded8b72425378b3906a4",
-      "title": "Import authoritative MoneyPenny three-spec handoff + reconciliation crosswalk",
-      "author": "Claude",
-      "timestamp": "2026-09-02T13:03:02Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-51e9e21.md"
-    },
-    {
-      "sha": "0790e69",
-      "full_sha": "0790e6957b6f0b22b51d17a364cfd4a2746c9fc9",
-      "title": "Wire MoneyPenny copilot-to-capsule loop (C-02) + corrected AC-C/B/A crosswalk",
-      "author": "Claude",
-      "timestamp": "2026-09-02T13:14:31Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-0790e69.md"
-    },
-    {
-      "sha": "fea3a52",
-      "full_sha": "fea3a52eaae2c3e46463972da7fc646a99505b14",
-      "title": "Wire MoneyPenny copilot-to-capsule loop + corrected AC crosswalk [merge spec/moneypenny-mpy2-3]",
-      "author": "Claude",
-      "timestamp": "2026-09-02T13:14:48Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-fea3a52.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

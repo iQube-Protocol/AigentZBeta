@@ -2,28 +2,45 @@
  * GET /api/participation/workspace-capabilities?workspaceId=...
  *
  * The role-projected capability manifest for ONE research workspace's
- * Overview surface (2026-09-08, IRL OS Workspace consolidation): which
- * existing EXP-P1-Readiness-shaped/document/review capabilities are
- * available for THIS workspace, for THIS caller — never a hardcoded EXP-P1
- * special case. Generalised over any `EXPERIMENT_REGISTRY`-listed experiment
- * via `services/research/irlExperimentPathScope.ts` and
- * `services/research/reviewerAgreement.ts::currentReviewerAgreement`.
+ * Overview surface (2026-09-08, IRL OS Workspace consolidation; generalized
+ * 2026-09-08 second pass). Which existing capabilities are available for
+ * THIS workspace, for THIS caller — never a hardcoded EXP-P1 or OCSGA
+ * special case.
  *
- * FAIL CLOSED: this route independently re-verifies the caller may read this
- * experiment (admin OR `resolveExperimentReviewGrant`) — it does not trust
- * that the caller only asks about workspaces `/api/participation/my-experiments`
- * already showed them. A workspace with no `experimentId` (a programme/cohort
- * container, not a leaf experiment) returns an honest empty capability set,
- * never a 403 — there is nothing experiment-scoped to gate.
+ * GENERALIZED AROUND THE CANONICAL WORKSPACE, NOT AROUND `experimentId`
+ * (operator instruction, second pass): the PRIMARY gate is workspace-level
+ * membership — the SAME `getParticipantResearchWorkspaceAccess` projection
+ * `/api/participation/my-experiments` and `/api/participation/workspace-tracking`
+ * already use. `experimentId` is then just ONE POSSIBLE BINDING on top of
+ * that: when a workspace names one (an `EXPERIMENT_REGISTRY` leaf, e.g.
+ * EXP-P1), it additionally unlocks the experiment-scoped capabilities
+ * (Reviewer Kit documents, Experimental Readiness, Review Agreement) —
+ * requiring, in ADDITION to workspace membership, a
+ * `resolveExperimentReviewGrant` for that specific experiment (never assume
+ * workspace-level membership alone implies experiment-document access). A
+ * workspace with NO `experimentId` (a programme/cohort container, e.g.
+ * OCSGA) is not thereby capability-less: `exchangeAvailable`/`exchangeIds`
+ * resolves the caller's own Reciprocal Artifact Exchange materials keyed
+ * DIRECTLY off the canonical `workspaceId` (via
+ * `parentExperimentId`/`listMyExchanges`), with no experiment binding at
+ * all — the general case this route now actually generalizes to.
+ *
+ * FAIL CLOSED at both layers: a caller who cannot see this workspace at all
+ * (per the canonical membership projection) gets 403 before anything else is
+ * resolved; a caller who CAN see the workspace but lacks a specific
+ * experiment-scoped grant still gets empty (not fabricated) experiment-bound
+ * capabilities, while their workspace-bound capabilities (exchange) still
+ * resolve normally.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
-import { resolveExperimentReviewGrant } from '@/services/passport/participationAccess';
+import { getParticipantResearchWorkspaceAccess, resolveExperimentReviewGrant } from '@/services/passport/participationAccess';
 import { getResearchWorkspace } from '@/services/research/researchWorkspace';
 import { listIrlPackDocumentsForExperiment } from '@/services/research/irlExperimentPathScope';
 import { currentReviewerAgreement } from '@/services/research/reviewerAgreement';
+import { listMyExchanges } from '@/services/research/reciprocalExchange';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 
 export const dynamic = 'force-dynamic';
@@ -54,44 +71,63 @@ export async function GET(req: NextRequest) {
   }
 
   const isAdmin = Boolean(persona.cartridgeFlags?.isAdmin);
-  const experimentId = ws.experimentId ?? null;
 
-  if (!experimentId) {
-    // A programme/cohort container, not a leaf experiment — nothing
-    // experiment-scoped to show. Not an error; not a gate.
-    return NextResponse.json({
-      ok: true,
-      workspaceId,
-      experimentId: null,
-      documents: [],
-      readinessAvailable: false,
-      reviewAgreementAvailable: false,
-    });
-  }
-
+  // PRIMARY GATE — canonical workspace-level membership, workspaceId-first,
+  // never bypassed by an experiment-scoped grant alone (a reviewer scoped to
+  // EXP-P1 has no standing here just because EXP-P1 happens to be readable —
+  // the workspace itself must be in their entitled set, or they must be
+  // admin).
   if (!isAdmin) {
-    const grant = await resolveExperimentReviewGrant(admin, persona.personaId, experimentId);
-    if (!grant) {
-      return NextResponse.json(
-        { ok: false, error: 'Admin or a scoped research-lab reviewer grant for this experiment is required.' },
-        { status: 403 },
-      );
+    const entries = await getParticipantResearchWorkspaceAccess(admin, persona.personaId, false);
+    if (!entries.some((e) => e.workspaceId === workspaceId)) {
+      return NextResponse.json({ ok: false, error: 'Not authorized to read this workspace.' }, { status: 403 });
     }
   }
 
   const origin = resolveRequestOrigin(req);
-  const documentPaths = await listIrlPackDocumentsForExperiment(experimentId);
-  const documents = documentPaths.map((path) => ({
-    path,
-    url: `${origin}/api/codex/packs/irl/file?path=${encodeURIComponent(path)}`,
-  }));
+  const experimentId = ws.experimentId ?? null;
+
+  // EXPERIMENT-BOUND capabilities — only when this workspace names a
+  // registered experiment AND the caller separately holds a grant scoped to
+  // it (workspace membership above is necessary but not sufficient for
+  // these three; see module header).
+  let documents: Array<{ path: string; url: string }> = [];
+  let readinessAvailable = false;
+  let reviewAgreementAvailable = false;
+  if (experimentId) {
+    const experimentGrant = isAdmin || (await resolveExperimentReviewGrant(admin, persona.personaId, experimentId)) !== null;
+    if (experimentGrant) {
+      const documentPaths = await listIrlPackDocumentsForExperiment(experimentId);
+      documents = documentPaths.map((path) => ({
+        path,
+        url: `${origin}/api/codex/packs/irl/file?path=${encodeURIComponent(path)}`,
+      }));
+      readinessAvailable = READINESS_AVAILABLE_EXPERIMENTS.has(experimentId);
+      reviewAgreementAvailable = currentReviewerAgreement(experimentId) !== null;
+    }
+  }
+
+  // WORKSPACE-BOUND capability — Reciprocal Artifact Exchange materials,
+  // keyed DIRECTLY off the canonical workspaceId via `parentExperimentId`
+  // (services/research/reciprocalExchange.ts), no experimentId required at
+  // all. Scoped to the CALLER'S OWN exchanges (`listMyExchanges` is already
+  // persona-scoped) — an admin previewing this workspace sees none unless
+  // they are themselves a party, which is correct: exchange materials are
+  // personal/party-scoped, not workspace-broadcast.
+  let exchangeIds: string[] = [];
+  const myExchanges = await listMyExchanges(admin, persona.personaId);
+  if (myExchanges.ok) {
+    exchangeIds = myExchanges.exchanges.filter((e) => e.parentExperimentId === workspaceId).map((e) => e.id);
+  }
 
   return NextResponse.json({
     ok: true,
     workspaceId,
     experimentId,
     documents,
-    readinessAvailable: READINESS_AVAILABLE_EXPERIMENTS.has(experimentId),
-    reviewAgreementAvailable: currentReviewerAgreement(experimentId) !== null,
+    readinessAvailable,
+    reviewAgreementAvailable,
+    exchangeAvailable: exchangeIds.length > 0,
+    exchangeIds,
   });
 }

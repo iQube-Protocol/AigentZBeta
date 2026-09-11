@@ -12,6 +12,7 @@
  * Admin-gated (the PRD trail is internal documentation).
  */
 
+import { CONSTITUTIONAL_PILOT_DOCUMENTS } from '@/services/knowledge/constitutionalPilotDocuments';
 import { NextRequest, NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
 import { ensureCorpusHydrated, corpusReadFile } from '@/services/knowledge/packCorpusStore';
@@ -198,23 +199,25 @@ export async function GET(request: NextRequest) {
 
   const url = new URL(request.url);
   const docPath = url.searchParams.get('path');
+  const catalog = url.searchParams.get('bundle') === 'constitutional-pilot'
+    ? [...CONSTITUTIONAL_PILOT_DOCUMENTS] : [...DOC_ALLOWLIST];
 
   if (!docPath) {
     // Return the catalog
     return NextResponse.json({
-      docs: [...DOC_ALLOWLIST].sort((a, b) => {
+      docs: catalog.sort((a, b) => {
         const groupOrder = { primary: 0, prd: 1, audit: 2, stage: 3 };
         const ga = groupOrder[a.group];
         const gb = groupOrder[b.group];
         if (ga !== gb) return ga - gb;
         return a.order - b.order;
       }),
-      total: DOC_ALLOWLIST.length,
+      total: catalog.length,
     });
   }
 
   // Allowlist enforcement — path must match an entry exactly.
-  const entry = DOC_ALLOWLIST.find((d) => d.path === docPath);
+  const entry = [...DOC_ALLOWLIST, ...CONSTITUTIONAL_PILOT_DOCUMENTS].find((d) => d.path === docPath);
   if (!entry) {
     return NextResponse.json(
       { error: 'doc_not_in_allowlist', requested: docPath },

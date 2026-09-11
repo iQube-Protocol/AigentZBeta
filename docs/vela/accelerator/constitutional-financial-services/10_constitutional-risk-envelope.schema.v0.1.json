@@ -1,0 +1,942 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "constitutional-risk-envelope.schema.v0.2",
+  "title": "Constitutional Risk / Vela Execution Objects",
+  "description": "Proposed semantic schema for accelerator implementation. Reconcile with existing repo types before adoption; do not duplicate canonical constitutional models. Revision 0.2: private multi-party portfolio and selective participation. Legacy filename retained. Structural validation is insufficient for authority, arithmetic, privacy, coverage or state isolation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "consequenceEnvelope",
+    "riskSlices",
+    "portfolioSnapshot",
+    "participationSchedule"
+  ],
+  "properties": {
+    "consequenceEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "envelopeId",
+        "version",
+        "actionRef",
+        "authorityRef",
+        "mandateRef",
+        "partyHandles",
+        "externalFacts",
+        "executionPurpose",
+        "disclosureClass",
+        "frozenAt",
+        "priorStateRef",
+        "privateOperandRef",
+        "privateParameterSetRef"
+      ],
+      "properties": {
+        "envelopeId": {
+          "type": "string"
+        },
+        "version": {
+          "const": "0.2"
+        },
+        "actionRef": {
+          "type": "string"
+        },
+        "authorityRef": {
+          "type": "string"
+        },
+        "mandateRef": {
+          "type": "string"
+        },
+        "partyHandles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "handle",
+              "scope"
+            ],
+            "properties": {
+              "handle": {
+                "type": "string",
+                "description": "Strongly pseudonymous/semi-anonymous transaction-scoped handle"
+              },
+              "scope": {
+                "type": "string"
+              },
+              "rebindRef": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Reference only; do not expose identity in Vela payload unless required"
+              }
+            }
+          }
+        },
+        "externalFacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "factId",
+              "valueHash",
+              "observedAt",
+              "provenanceRef"
+            ],
+            "properties": {
+              "factId": {
+                "type": "string"
+              },
+              "valueHash": {
+                "type": "string"
+              },
+              "observedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "expiresAt": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "provenanceRef": {
+                "type": "string"
+              },
+              "confidence": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          }
+        },
+        "privateOperandRef": {
+          "type": "string"
+        },
+        "privateParameterSetRef": {
+          "type": "string"
+        },
+        "privateParameterSetHash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "priorStateRef": {
+          "type": "string"
+        },
+        "applicationId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "wasmHash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expectedMeasurementRef": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "executionPurpose": {
+          "type": "string"
+        },
+        "disclosureClass": {
+          "type": "string",
+          "enum": [
+            "MINIMUM_PUBLIC",
+            "ENCRYPTED_USER",
+            "RUNTIME_PRIVATE",
+            "AUTHORIZED_DISCLOSURE"
+          ]
+        },
+        "frozenAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "riskSlices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "riskSliceId",
+          "transitionRef",
+          "riskClass",
+          "currentBearer",
+          "evidenceStatus",
+          "participantAllocations"
+        ],
+        "properties": {
+          "riskSliceId": {
+            "type": "string"
+          },
+          "transitionRef": {
+            "type": "string"
+          },
+          "originRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "controllerRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "principalRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "riskClass": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "probabilityEstimate": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "severityEstimate": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "repairProbability": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "repairSeverity": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "repairTime": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "repairBearerRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expectedRepairBurden": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "maximumExposure": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "currentBearer": {
+            "type": "string"
+          },
+          "mitigationRefs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "coverageRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "premium": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "modelVersion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "confidence": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "evidenceStatus": {
+            "type": "string",
+            "enum": [
+              "KNOWN",
+              "PARTIAL",
+              "UNKNOWN"
+            ]
+          },
+          "evidenceRefs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "participantAllocations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/riskAllocation"
+            }
+          }
+        }
+      }
+    },
+    "coverageQuote": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "quoteId": {
+          "type": "string"
+        },
+        "providerRef": {
+          "type": "string"
+        },
+        "bindingStatus": {
+          "type": "string",
+          "enum": [
+            "SIMULATED_NON_BINDING",
+            "INDICATIVE",
+            "BINDING"
+          ]
+        },
+        "riskSliceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "eligibility": {
+          "type": "string",
+          "enum": [
+            "ELIGIBLE",
+            "INELIGIBLE",
+            "UNRESOLVED"
+          ]
+        },
+        "coverageLimit": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "premium": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "deductible": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "expiresAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "acceptedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "quoteId",
+        "providerRef",
+        "bindingStatus",
+        "riskSliceRefs",
+        "eligibility",
+        "evidenceRefs"
+      ]
+    },
+    "riskOutcome": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "outcomeId": {
+          "type": "string"
+        },
+        "riskSliceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "occurred": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "realizedSeverity": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "repairRequired": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "repairTime": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "repairCost": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "claimRef": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "settlementRef": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "burdenBearerRef": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "calibrationError": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "portfolioSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "portfolioHandle",
+        "assetRef",
+        "decimals",
+        "stateVersion",
+        "stateHash",
+        "participants",
+        "totalContributionMinor",
+        "disclosurePolicyRef",
+        "assemblyVisibility",
+        "executionMode"
+      ],
+      "properties": {
+        "portfolioHandle": {
+          "type": "string",
+          "minLength": 1
+        },
+        "assetRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "decimals": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18
+        },
+        "stateVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stateHash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "participants": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/participant"
+          }
+        },
+        "totalContributionMinor": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "description": "Nonnegative integer minor units; no float arithmetic."
+        },
+        "disclosurePolicyRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "assemblyVisibility": {
+          "enum": [
+            "AUTHORIZED_RUNTIME_VISIBLE",
+            "RUNTIME_BLIND_VERIFIED"
+          ]
+        },
+        "executionMode": {
+          "enum": [
+            "SIMULATED",
+            "LIVE"
+          ]
+        }
+      }
+    },
+    "participationSchedule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scheduleId",
+        "scheduleHash",
+        "actionRef",
+        "requiredCapitalMinor",
+        "deployments",
+        "excludedHandles",
+        "dependencies",
+        "allocationRuleRef",
+        "allocationRuleHash",
+        "roundingRule",
+        "reservationRef",
+        "expiresAt"
+      ],
+      "properties": {
+        "scheduleId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scheduleHash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actionRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requiredCapitalMinor": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "description": "Nonnegative integer minor units; no float arithmetic."
+        },
+        "deployments": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/deployment"
+          }
+        },
+        "excludedHandles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dependency"
+          }
+        },
+        "allocationRuleRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "allocationRuleHash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "roundingRule": {
+          "const": "LARGEST_REMAINDER_HANDLE_ASC"
+        },
+        "reservationRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "participantResults": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/participantResult"
+      }
+    }
+  },
+  "$defs": {
+    "participant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "handle",
+        "authorityRef",
+        "mandateRef",
+        "mandateHash",
+        "consentEvidenceRef",
+        "contributionMinor",
+        "availableMinor",
+        "liquidityFloorMinor",
+        "maximumActionExposureMinor",
+        "requiredCoverageRiskClasses",
+        "permittedOutputRecipients"
+      ],
+      "properties": {
+        "handle": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authorityRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mandateRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mandateHash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "consentEvidenceRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contributionMinor": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "description": "Nonnegative integer minor units; no float arithmetic."
+        },
+        "availableMinor": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "description": "Nonnegative integer minor units; no float arithmetic."
+        },
+        "liquidityFloorMinor": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "description": "Nonnegative integer minor units; no float arithmetic."
+        },
+        "maximumActionExposureMinor": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "description": "Nonnegative integer minor units; no float arithmetic."
+        },
+        "requiredCoverageRiskClasses": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "permittedOutputRecipients": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "deployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "handle",
+        "deployedMinor",
+        "profitWeight",
+        "lossWeight",
+        "serviceFeeWeight",
+        "acceptedTermsRef"
+      ],
+      "properties": {
+        "handle": {
+          "type": "string",
+          "minLength": 1
+        },
+        "deployedMinor": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "description": "Nonnegative integer minor units; no float arithmetic."
+        },
+        "profitWeight": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "description": "Nonnegative integer minor units; no float arithmetic."
+        },
+        "lossWeight": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "description": "Nonnegative integer minor units; no float arithmetic."
+        },
+        "serviceFeeWeight": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "description": "Nonnegative integer minor units; no float arithmetic."
+        },
+        "acceptedTermsRef": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "affectedHandles",
+        "status",
+        "evidenceRefs"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "CUSTODY",
+            "COLLATERAL",
+            "LIQUIDITY",
+            "FEES",
+            "SETTLEMENT",
+            "REPAIR"
+          ]
+        },
+        "affectedHandles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "status": {
+          "enum": [
+            "WITHIN_MANDATES",
+            "BREACH",
+            "UNKNOWN"
+          ]
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "riskAllocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "handle",
+        "maximumAcceptedExposureMinor",
+        "assumptionEvidenceRef",
+        "premiumMinor",
+        "recoveryRuleRef"
+      ],
+      "properties": {
+        "handle": {
+          "type": "string",
+          "minLength": 1
+        },
+        "maximumAcceptedExposureMinor": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "description": "Nonnegative integer minor units; no float arithmetic."
+        },
+        "assumptionEvidenceRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "premiumMinor": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "description": "Nonnegative integer minor units; no float arithmetic."
+        },
+        "recoveryRuleRef": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "participantResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "handle",
+        "requestRef",
+        "scheduleHash",
+        "priorStateHash",
+        "newStateHash",
+        "resultBindingRef",
+        "verdict",
+        "deployedMinor",
+        "investmentPnlMinor",
+        "serviceFeeMinor",
+        "premiumMinor",
+        "repairChargeMinor",
+        "recoveryMinor",
+        "endingBalanceMinor",
+        "evidenceMode",
+        "permittedRecipients"
+      ],
+      "properties": {
+        "handle": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requestRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scheduleHash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "priorStateHash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "newStateHash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resultBindingRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verdict": {
+          "enum": [
+            "ACCEPTABLE",
+            "UNACCEPTABLE",
+            "UNRESOLVED"
+          ]
+        },
+        "deployedMinor": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "description": "Nonnegative integer minor units; no float arithmetic."
+        },
+        "investmentPnlMinor": {
+          "type": "string",
+          "pattern": "^-?(0|[1-9][0-9]*)$"
+        },
+        "serviceFeeMinor": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "description": "Nonnegative integer minor units; no float arithmetic."
+        },
+        "premiumMinor": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "description": "Nonnegative integer minor units; no float arithmetic."
+        },
+        "repairChargeMinor": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "description": "Nonnegative integer minor units; no float arithmetic."
+        },
+        "recoveryMinor": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "description": "Nonnegative integer minor units; no float arithmetic."
+        },
+        "endingBalanceMinor": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "description": "Nonnegative integer minor units; no float arithmetic."
+        },
+        "evidenceMode": {
+          "enum": [
+            "SIMULATED",
+            "OBSERVED"
+          ]
+        },
+        "permittedRecipients": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  },
+  "$comment": "Semantic gates: unique/resolved handles and IDs; sum contributions; positive deployed/weight totals; required capital equals deployment sum; available balances minus deployment respect liquidity floors; all affected mandates/coverage accepted; no unauthorized shared exposure; bind actual private operand and parameter bytes; enforce freshness, signed authority, reservation and state sequencing; conservation, bounded recovery and per-recipient privacy. Legacy numeric risk estimates are analytical observations, not settlement amounts. LIVE is a requested mode, never evidence of live execution."
+}

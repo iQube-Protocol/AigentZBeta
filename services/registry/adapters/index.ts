@@ -13,18 +13,38 @@ import { contentQubeAdapter } from './contentQubeAdapter';
 import { toolQubeAdapter } from './toolQubeAdapter';
 import { aigentQubeAdapter } from './aigentQubeAdapter';
 import { dataQubeAdapter } from './dataQubeAdapter';
+import { lockerAssetAdapter } from './lockerAssetAdapter';
+import { roomQubeAdapter } from './roomQubeAdapter';
+import { researchClusterQubeAdapter } from './researchClusterQubeAdapter';
+import { researchContentQubeAdapter } from './researchContentQubeAdapter';
+import { researchDataQubeAdapter } from './researchDataQubeAdapter';
+import { exchangeClusterQubeAdapter } from './exchangeClusterQubeAdapter';
+import { exchangeArtifactQubeAdapter } from './exchangeArtifactQubeAdapter';
 
 export const REGISTRY_ADAPTERS: ReadonlyArray<RegistryPrimitiveAdapter> = [
   contentQubeAdapter,
+  lockerAssetAdapter,
   toolQubeAdapter,
   aigentQubeAdapter,
   dataQubeAdapter,
+  roomQubeAdapter,
+  researchClusterQubeAdapter,
+  researchContentQubeAdapter,
+  researchDataQubeAdapter,
+  exchangeClusterQubeAdapter,
+  exchangeArtifactQubeAdapter,
   // ModelQubeAdapter — placeholder; no ModelQube source today
-  // ClusterQubeAdapter — placeholder; cluster composition lands in Stage 3+
 ];
 
-const ADAPTER_BY_PRIMITIVE: ReadonlyMap<IQubePrimitiveType, RegistryPrimitiveAdapter> =
-  new Map(REGISTRY_ADAPTERS.map((a) => [a.primitive_type, a]));
+const ADAPTER_BY_PRIMITIVE: ReadonlyMap<IQubePrimitiveType, RegistryPrimitiveAdapter> = (() => {
+  const m = new Map<IQubePrimitiveType, RegistryPrimitiveAdapter>();
+  // First-write wins: ContentQube's native adapter remains the default
+  // primitive enumerator while source dispatch still reaches locker assets.
+  for (const adapter of REGISTRY_ADAPTERS) {
+    if (!m.has(adapter.primitive_type)) m.set(adapter.primitive_type, adapter);
+  }
+  return m;
+})();
 
 const ADAPTER_BY_SOURCE: ReadonlyMap<IQubeIdMapSource, RegistryPrimitiveAdapter> = (() => {
   const m = new Map<IQubeIdMapSource, RegistryPrimitiveAdapter>();
@@ -40,6 +60,11 @@ const ADAPTER_BY_SOURCE: ReadonlyMap<IQubeIdMapSource, RegistryPrimitiveAdapter>
 
 export function adapterForPrimitive(primitive: IQubePrimitiveType): RegistryPrimitiveAdapter | null {
   return ADAPTER_BY_PRIMITIVE.get(primitive) ?? null;
+}
+
+/** Every native source adapter projecting to this primitive. */
+export function adaptersForPrimitive(primitive: IQubePrimitiveType): RegistryPrimitiveAdapter[] {
+  return REGISTRY_ADAPTERS.filter((adapter) => adapter.primitive_type === primitive);
 }
 
 export function adapterForSource(source: IQubeIdMapSource): RegistryPrimitiveAdapter | null {

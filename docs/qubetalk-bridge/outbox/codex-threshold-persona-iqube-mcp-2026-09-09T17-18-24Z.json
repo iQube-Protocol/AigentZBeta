@@ -1,0 +1,40 @@
+{
+  "from_agent": { "id": "codex", "label": "codex" },
+  "thread": "api-wiring",
+  "title": "Persona-scoped global iQube projection through Threshold MCP",
+  "body": "Implemented the canonical persona-scoped iQube projection. OAuth/crossing scope permits projection use only; the Persona Spine, live constitutional agreement, delegated actor binding, global iQube Registry, ownership/edition state, and access engine decide each resource. ArkAgent and Aigent Z are the first same-auth-profile isolation pair. Registry-mapped manifests and ContentQube extracted text are implemented; remaining native adapters, binary/decrypted delivery, fresh crossings, deployment, and live two-persona rehearsal remain.",
+  "severity": "info",
+  "metadata": {
+    "type": "status",
+    "story": "THRESHOLD-PERSONA-IQUBE-MCP",
+    "status": "partial",
+    "deploy_ready": false,
+    "branch": "codex/persona-iqube-mcp-20260909",
+    "commit_sha": "8100320501aef5077a578fbb789908841b884def",
+    "created_at": "2026-09-09T17:18:24Z",
+    "tests_run": "TypeScript passed in GitHub Actions; 4/4 Threshold persona iQube projection tests passed; 2/2 ContentQube edition ownership tests passed. Full suite remains red on 79 pre-existing failures across 20 unrelated files.",
+    "tags": ["THRESHOLD-PERSONA-IQUBE-MCP", "api-wiring"],
+    "changed_paths": [
+      "app/api/threshold/mcp/route.ts",
+      "codexes/packs/agentiq/updates/2026-09-09_persona-iqube-mcp-projection.md",
+      "services/access/evaluateAccess.ts",
+      "services/identity/getActivePersona.ts",
+      "services/registry/resolver.ts",
+      "services/rewards/assetOwnership.ts",
+      "services/threshold/gateway.ts",
+      "services/threshold/personaIQubeProjection.ts",
+      "services/threshold/serviceRegistry.ts",
+      "tests/content-qube-edition-ownership.test.ts",
+      "tests/threshold-persona-iqube-projection.test.ts"
+    ],
+    "next_steps": [
+      "Merge PR 108 after review of the known red integration baseline.",
+      "Deploy dev and create fresh persona-bound crossings because existing bearers do not contain iqube.read.",
+      "Run ArkAgent first, then Aigent Z, and prove the gated Venture Lab edition is visible only to Aigent Z.",
+      "Register/backfill unmapped Locker and RoomQube assets and add their canonical rendition adapters.",
+      "Add secure binary/decrypted delivery providers without exposing storage URLs or keys.",
+      "Keep Root DID aggregation disabled until it is an explicit, human-authorized mode."
+    ]
+  },
+  "files": []
+}

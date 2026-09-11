@@ -81,5 +81,36 @@ export async function GET(req: NextRequest) {
 
   const result = await listMyExchanges(admin, persona.personaId);
   if (!result.ok) return NextResponse.json(result, { status: 500, headers: noStore });
-  return NextResponse.json(result, { headers: noStore });
+
+  // Optional workspace/programme scope (2026-09-08, Workspace capability
+  // generalization) — when a caller's surface (e.g. a Workspace card) only
+  // cares about exchanges tagged to ONE canonical research workspace/programme
+  // (`parentExperimentId`, the same free-text tag `listExchangesByParentExperiment`
+  // filters on), this narrows the caller's own already-scoped list rather than
+  // requiring a second endpoint. Omitted -> unchanged set of exchanges (every
+  // one this persona is a party to).
+  const parentExperimentId = req.nextUrl.searchParams.get('parentExperimentId');
+  const scoped = parentExperimentId
+    ? result.exchanges.filter((e) => e.parentExperimentId === parentExperimentId)
+    : result.exchanges;
+
+  // T0 STRIP (fixed in passing, 2026-09-08 — this list endpoint previously
+  // returned the full `ReciprocalExchangeRecord`, including
+  // initiatorPersonaId/counterpartyPersonaId/inviteCodeHash, unstripped. The
+  // sibling single-exchange view (`getExchangeView`, reciprocalExchange.ts)
+  // already treats these as T0 — "strip them... so no T0 value leaks into a
+  // JSON response" — this list route simply hadn't been given the same
+  // treatment yet. The client's own `ExchangeSummary` type only ever read
+  // id/title/purpose/status/disclosurePolicy/createdAt, so this is a pure
+  // response-shape narrowing, not a behavior change for any real caller.)
+  const exchanges = scoped.map((e) => ({
+    id: e.id,
+    title: e.title,
+    purpose: e.purpose,
+    status: e.status,
+    disclosurePolicy: e.disclosurePolicy,
+    createdAt: e.createdAt,
+  }));
+
+  return NextResponse.json({ ok: true, exchanges }, { headers: noStore });
 }

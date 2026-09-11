@@ -74,7 +74,11 @@ import {
 
 interface JourneyAdapter {
   journey: JourneyDefinition;
-  fetchState: (admin: SupabaseClient, personaId: string, authProfileId: string | null) => Promise<AuthoritativePlatformState>;
+  fetchState: (
+    admin: SupabaseClient,
+    personaId: string,
+    authProfileId: string | null,
+  ) => Promise<{ state: AuthoritativePlatformState; evidenceGaps: string[] }>;
 }
 
 /**
@@ -101,8 +105,8 @@ const JOURNEY_ADAPTERS: Record<string, JourneyAdapter> = {
         authProfileId,
         workspaceId: OCSGA_BOUNDARY_RESEARCH_WORKSPACE_ID,
       }).catch(() => null);
-      const result = await fetchIanAuthoritativePlatformState(personaId, authProfileId);
-      return result.state;
+      const result = await fetchIanAuthoritativePlatformState(personaId, authProfileId, admin);
+      return { state: result.state, evidenceGaps: result.evidenceGaps };
     },
   },
 };
@@ -289,8 +293,9 @@ export async function resolveConstitutionalNavigatorState(
       `No journey adapter is wired for bridge '${bridge}' yet — journey/nextAct stay null rather than guessed. See supportedBridgeIds() for what is covered.`,
     );
   } else {
-    const authState = await adapter.fetchState(admin, personaId, authProfileId);
-    const runtime = resolveJourneyState(adapter.journey, authState);
+    const journeyEvidence = await adapter.fetchState(admin, personaId, authProfileId);
+    evidenceGaps.push(...journeyEvidence.evidenceGaps);
+    const runtime = resolveJourneyState(adapter.journey, journeyEvidence.state);
     const currentStageDef = adapter.journey.stages.find((s) => s.id === runtime.currentStageId) ?? null;
     const currentStageRuntime = runtime.stages.find((s) => s.stageId === runtime.currentStageId) ?? null;
     journeyView = {

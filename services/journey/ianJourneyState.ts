@@ -262,6 +262,7 @@ export async function resolveOrientationEvidence(
 export async function fetchIanAuthoritativePlatformState(
   personaId: string | null,
   authProfileId: string | null,
+  adminOverride?: SupabaseClient | null,
 ): Promise<IanAuthoritativeStateResult> {
   const evidenceGaps: string[] = [];
 
@@ -299,7 +300,11 @@ export async function fetchIanAuthoritativePlatformState(
   let citizenPassportClass: string | null = null;
   let citizenPassportRef: string | null = null;
 
-  const admin = getSupabaseServer();
+  // Threshold already resolves a service-role client at its transport
+  // boundary. Accept that client here so the navigator and exchange tools
+  // read the same database context in the same request. Native journey
+  // routes keep their existing behaviour by omitting the override.
+  const admin = adminOverride ?? getSupabaseServer();
 
   // Merge-aware owned-persona-id roster (2026-08-30, "MCP navigator
   // discovery" repair) — the SAME roster Passport/bound-agent discovery

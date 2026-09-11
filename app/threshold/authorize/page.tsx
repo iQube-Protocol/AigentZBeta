@@ -1,12 +1,16 @@
 /**
  * /threshold/authorize — the human crossing page (PRD-THR-001 §6, Increment 2b).
  *
- * This is the OAuth authorization endpoint the Threshold Companion sends the
- * PERSON to. The human signs in, sees exactly what the crossing asks, and — with
- * one explicit click — authorizes a bounded, revocable delegation to their agent.
- * That click drives the real constitutional acts server-side (form → agent-accept
- * → HUMAN-authorize) and returns the OAuth code to the Companion. The agent never
- * reaches this page; only the human authorizes (Principal–Delegate Separation).
+ * OAuth is only a projection of the canonical Passport/persona spine. Signed-out
+ * operators authenticate here through the SAME PassportConnectPanel used by the
+ * SmartWallet. That ceremony proves control, resolves the principal server-side,
+ * requires explicit persona choice, and establishes the same application-world
+ * persona session. Threshold never creates or persists a parallel identity/persona
+ * selection of its own.
+ *
+ * The OAuth handshake remains alive on this page while authentication runs, so the
+ * server-bound PKCE challenge, state, client and redirect URI are never rebuilt from
+ * a second browser tab or copied through an ad-hoc auth continuation.
  */
 
 'use client';
@@ -14,6 +18,7 @@
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { personaFetch } from '@/utils/personaSpine';
+import { PassportConnectPanel } from '@/components/companion/PassportConnectPanel';
 
 interface Crossing {
   initiatingService: string;
@@ -31,6 +36,20 @@ function AuthorizeInner() {
 
   const redirectUri = params.get('redirect_uri') ?? '';
   const state = params.get('state') ?? '';
+
+  const resolveCanonicalPersonaState = useCallback(async () => {
+    try {
+      // This is the same wallet/persona-spine projection consumed by native
+      // surfaces. Success means the Passport ceremony established a canonical
+      // application-world persona session; OAuth never trusts a local selection.
+      const who = await personaFetch('/api/wallet/active-persona', { cache: 'no-store' });
+      setSignedIn(who.ok);
+      return who.ok;
+    } catch {
+      setSignedIn(false);
+      return false;
+    }
+  }, []);
 
   // 1. Initialise the OAuth crossing (validate client + bind PKCE) and check auth.
   useEffect(() => {
@@ -61,24 +80,26 @@ function AuthorizeInner() {
       } catch {
         if (alive) setError('Could not reach the Threshold gateway.');
       }
-      // Am I signed in? (spine — persona-aware)
-      try {
-        const who = await personaFetch('/api/wallet/active-persona', { cache: 'no-store' });
-        if (alive) setSignedIn(who.ok);
-      } catch {
-        if (alive) setSignedIn(false);
-      }
+      if (alive) await resolveCanonicalPersonaState();
     })();
     return () => {
       alive = false;
     };
-  }, [params]);
+  }, [params, resolveCanonicalPersonaState]);
 
   const authorize = useCallback(async () => {
     if (!handshakeCode) return;
     setBusy(true);
     setError(null);
     try {
+      // Re-resolve immediately before the constitutional act. The selected
+      // persona is therefore whatever the canonical wallet/persona spine says
+      // NOW, not a stale OAuth-local field.
+      if (!(await resolveCanonicalPersonaState())) {
+        setError('Authenticate and select a persona before authorizing this crossing.');
+        setBusy(false);
+        return;
+      }
       const res = await personaFetch('/api/threshold/oauth/complete', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -95,13 +116,11 @@ function AuthorizeInner() {
       setError('Authorization failed.');
       setBusy(false);
     }
-  }, [handshakeCode]);
+  }, [handshakeCode, resolveCanonicalPersonaState]);
 
   const deny = useCallback(() => {
-    // Open-redirect guard (security review Finding 5): only redirect back if the
-    // crossing was validated server-side. `handshakeCode` is set ONLY after
-    // authorize-init confirmed redirect_uri is registered for this client, so an
-    // attacker-supplied redirect_uri (that fails validation) never navigates.
+    // Open-redirect guard: only redirect back if authorize-init already
+    // validated this redirect URI for the client.
     if (!redirectUri || !handshakeCode) return;
     let u: URL;
     try {
@@ -117,7 +136,7 @@ function AuthorizeInner() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900/40 shadow-lg shadow-black/30 backdrop-blur p-6">
+      <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900/40 shadow-lg shadow-black/30 backdrop-blur p-6">
         <div className="text-xs uppercase tracking-widest text-slate-400">metaMe Threshold</div>
         <h1 className="mt-1 text-xl font-semibold">Cross the Threshold</h1>
         <p className="mt-1 text-sm text-slate-400">
@@ -151,9 +170,23 @@ function AuthorizeInner() {
           </div>
         )}
 
-        {signedIn === false && (
-          <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">
-            Sign in to metaMe in this browser, then reload this page to authorize the crossing.
+        {signedIn === false && handshakeCode && (
+          <div className="mt-5 rounded-xl border border-cyan-500/25 bg-cyan-500/5 p-3">
+            <div className="mb-3 text-xs text-slate-400">
+              Authenticate with your existing metaMe Passport and choose the persona for this crossing. This is the same Passport/persona spine used by SmartWallet.
+            </div>
+            <PassportConnectPanel
+              world="application"
+              audience="metame-threshold-oauth"
+              embedded
+              onConnected={() => { void resolveCanonicalPersonaState(); }}
+            />
+          </div>
+        )}
+
+        {signedIn === true && (
+          <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-100">
+            Passport authenticated. The active persona will be resolved from the canonical persona spine when you authorize.
           </div>
         )}
 

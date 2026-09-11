@@ -5549,3 +5549,158 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-72c692d.md](../build_/COMMITS/COMMIT-72c692d.md)
 - Message: Add Crystal-wide internal-pilot execution designation (frozen generations are immutable; lineages are evolutionary)
+
+## Commit `768035a` — 2026-09-09T02:43:21-04:00
+- Type: `docs`
+- Brief: [COMMIT-768035a.md](../build_/COMMITS/COMMIT-768035a.md)
+- Message: docs: capture multi-party constitutional portfolio Vela pilot
+
+## Commit `495bc4b` — 2026-09-09T02:51:16-04:00
+- Type: `docs`
+- Brief: [COMMIT-495bc4b.md](../build_/COMMITS/COMMIT-495bc4b.md)
+- Message: docs: standardize QubeTalk spelling and record dictation rule
+
+## Commit `69ced0f` — 2026-09-09T03:29:58-04:00
+- Type: `docs`
+- Brief: [COMMIT-69ced0f.md](../build_/COMMITS/COMMIT-69ced0f.md)
+- Message: docs: apply authority mandate and control to compliance enforcement
+
+## Commit `3f71b8a` — 2026-09-09T07:57:20-04:00
+- Type: `feat`
+- Brief: [COMMIT-3f71b8a.md](../build_/COMMITS/COMMIT-3f71b8a.md)
+- Message: feat: project constitutional pilot docs into Venture Lab and AgentiQ; clarify execution control
+
+## Commit `ff034c1` — 2026-09-09T13:22:15-04:00
+- Type: `docs`
+- Brief: [COMMIT-ff034c1.md](../build_/COMMITS/COMMIT-ff034c1.md)
+- Message: docs: hand off persona iQube MCP projection
+
+## Commit `8100320` — 2026-09-09T09:27:03-04:00
+- Type: `feat`
+- Brief: [COMMIT-8100320.md](../build_/COMMITS/COMMIT-8100320.md)
+- Message: feat: project persona iQube access through Threshold MCP
+
+## Commit `0a41efd` — 2026-09-09T14:48:15-04:00
+- Type: `feat`
+- Brief: [COMMIT-0a41efd.md](../build_/COMMITS/COMMIT-0a41efd.md)
+- Message: feat: federate Locker and RoomQube access through MCP
+
+## Commit `9fd55c6` — 2026-09-10T01:14:13-04:00
+- Type: `feat`
+- Brief: [COMMIT-9fd55c6.md](../build_/COMMITS/COMMIT-9fd55c6.md)
+- Message: feat: recover OCSGA artifacts through persona MCP
+
+## Commit `194414c` — 2026-09-09T20:18:53-04:00
+- Type: `feat`
+- Brief: [COMMIT-194414c.md](../build_/COMMITS/COMMIT-194414c.md)
+- Message: feat: constitute EXP-P1 and EXP-P2 as ClusterQubes
+
+## Commit `298b830` — 2026-09-10T02:42:05-04:00
+- Type: `chore`
+- Brief: [COMMIT-298b830.md](../build_/COMMITS/COMMIT-298b830.md)
+- Message: chore: retrigger dev deployment for OCSGA content recovery
+
+## Commit `e0f7fde` — 2026-09-10T08:39:06-04:00
+- Type: `docs`
+- Brief: [COMMIT-e0f7fde.md](../build_/COMMITS/COMMIT-e0f7fde.md)
+- Message: docs: align Vela pilot with team-confirmed baseline
+
+## Commit `93339dc` — 2026-09-10T09:12:08-04:00
+- Type: `feat`
+- Brief: [COMMIT-93339dc.md](../build_/COMMITS/COMMIT-93339dc.md)
+- Message: feat: add bounded persona re-crossing
+
+## Commit `f7a451b` — 2026-09-10T13:36:05-04:00
+- Type: `fix`
+- Brief: [COMMIT-f7a451b.md](../build_/COMMITS/COMMIT-f7a451b.md)
+- Message: fix: remove accidental gateway tool-output preamble
+
+## Commit `d8e74aa` — 2026-09-10T13:59:52-04:00
+- Type: `fix`
+- Brief: [COMMIT-d8e74aa.md](../build_/COMMITS/COMMIT-d8e74aa.md)
+- Message: fix: restore threshold gateway and navigator database context
+
+## Commit `c524acc` — 2026-09-10T18:11:09-04:00
+- Type: `push`
+- Brief: [COMMIT-c524acc.md](../build_/COMMITS/COMMIT-c524acc.md)
+- Message: Deploy Threshold persona recross state and agent discovery manifest
+
+## Commit `2029c53` — 2026-09-10T18:41:54-04:00
+- Type: `push`
+- Brief: [COMMIT-2029c53.md](../build_/COMMITS/COMMIT-2029c53.md)
+- Message: Expose canonical invariant registry through Threshold MCP
+
+## Commit `6a7d8cc` — 2026-09-10T19:54:24-04:00
+- Type: `push`
+- Brief: [COMMIT-6a7d8cc.md](../build_/COMMITS/COMMIT-6a7d8cc.md)
+- Message: Expose canonical public cartridges and agent orientation through Threshold MCP
+
+## Commit `0b86c59` — 2026-09-10T19:45:43-04:00
+- Type: `feat`
+- Brief: [COMMIT-0b86c59.md](../build_/COMMITS/COMMIT-0b86c59.md)
+- Message: feat(threshold): project canonical public cartridge content
+
+## Commit `4bc6768` — 2026-09-10T19:34:40-04:00
+- Type: `ci`
+- Brief: [COMMIT-4bc6768.md](../build_/COMMITS/COMMIT-4bc6768.md)
+- Message: ci: validate Threshold MCP changes
+
+## Commit `9aae530` — 2026-09-10T20:14:20-04:00
+- Type: `feat`
+- Brief: [COMMIT-9aae530.md](../build_/COMMITS/COMMIT-9aae530.md)
+- Message: Add public iQube Card MCP adapter
+
+## Commit `11b6708` — 2026-09-10T20:37:28-04:00
+- Type: `push`
+- Brief: [COMMIT-11b6708.md](../build_/COMMITS/COMMIT-11b6708.md)
+- Message: Deploy Threshold manifest and public iQube discovery
+
+## Commit `6e2d2ce` — 2026-09-10T20:46:40-04:00
+- Type: `push`
+- Brief: [COMMIT-6e2d2ce.md](../build_/COMMITS/COMMIT-6e2d2ce.md)
+- Message: Embed canonical Passport sign-in in persona recross
+
+## Commit `1a4268b` — 2026-09-10T20:50:18-04:00
+- Type: `push`
+- Brief: [COMMIT-1a4268b.md](../build_/COMMITS/COMMIT-1a4268b.md)
+- Message: Deploy embedded Passport persona spine for Threshold OAuth
+
+## Commit `02af722` — 2026-09-10T22:09:59-04:00
+- Type: `push`
+- Brief: [COMMIT-02af722.md](../build_/COMMITS/COMMIT-02af722.md)
+- Message: Expose canonical IRL OS public root data
+
+## Commit `2ae34b7` — 2026-09-11T02:49:32-04:00
+- Type: `push`
+- Brief: [COMMIT-2ae34b7.md](../build_/COMMITS/COMMIT-2ae34b7.md)
+- Message: Restore canonical OCSGA constitutional act implementation
+
+## Commit `cf30210` — 2026-09-11T03:08:35-04:00
+- Type: `push`
+- Brief: [COMMIT-cf30210.md](../build_/COMMITS/COMMIT-cf30210.md)
+- Message: Deploy Threshold discovery and persona semantics
+
+## Commit `5878406` — 2026-09-11T03:20:00-04:00
+- Type: `feat`
+- Brief: [COMMIT-5878406.md](../build_/COMMITS/COMMIT-5878406.md)
+- Message: Add canonical exchange artifact iQube registry reference
+
+## Commit `96a59cd` — 2026-09-11T03:49:57-04:00
+- Type: `fix`
+- Brief: [COMMIT-96a59cd.md](../build_/COMMITS/COMMIT-96a59cd.md)
+- Message: Deploy MCP-host-owned persona recross OAuth repair
+
+## Commit `9205129` — 2026-09-11T04:05:25-04:00
+- Type: `push`
+- Brief: [COMMIT-9205129.md](../build_/COMMITS/COMMIT-9205129.md)
+- Message: Deploy reliable Polity Core public agent orientation
+
+## Commit `c96529b` — 2026-09-11T04:56:53-04:00
+- Type: `push`
+- Brief: [COMMIT-c96529b.md](../build_/COMMITS/COMMIT-c96529b.md)
+- Message: Make persona switch trigger real MCP OAuth reauthorization
+
+## Commit `0016af6` — 2026-09-11T05:17:49-04:00
+- Type: `push`
+- Brief: [COMMIT-0016af6.md](../build_/COMMITS/COMMIT-0016af6.md)
+- Message: Project canonical exchange iQube references through MCP

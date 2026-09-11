@@ -233,10 +233,15 @@ describe('point 6 — governing resources resolve to real files', () => {
     expect(src).toMatch(/corpusReadPackFile\('irl', r\.path\)/);
   });
 
-  it('the four EXP-P1-local documentResources are unchanged — still filtered from col_experiments, not hand-listed', () => {
+  it('the EXP-P1-local documentResources are still filtered from col_experiments, not hand-listed, and exclude the held Stage-0 handoff', () => {
     const src = stripComments(readSource(ROUTE));
     expect(src).toMatch(/resolveExpP1DocumentResources/);
-    expect(src).toMatch(/\.filter\(isExpP1Path\)/);
+    // 2026-09-08 (gap 2): the held, non-operative Stage-0/IRE-6 handoff must
+    // never surface as operative EXP-P1 reviewer material even though it is
+    // path-colocated inside the same experiment folder — see
+    // isHeldNonOperativeIrlPath in irlExperimentPathScope.ts. Filter now
+    // composes isExpP1Path with that shared exclusion, not isExpP1Path alone.
+    expect(src).toMatch(/\.filter\(\(p\) => isExpP1Path\(p\) && !isHeldNonOperativeIrlPath\(p\)\)/);
     expect(src).toMatch(/col_experiments/);
   });
 });

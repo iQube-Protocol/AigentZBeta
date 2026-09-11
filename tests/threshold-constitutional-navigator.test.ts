@@ -170,8 +170,30 @@ describe('resolveConstitutionalNavigatorState — the T0->T2 reverse-lookup seam
     expect(mockLoadUsableCitizenPassportForAuthProfile).toHaveBeenCalledWith(NOOP_ADMIN, FAKE_AUTH_PROFILE_ID);
     expect(mockGetGrantedExperiments).toHaveBeenCalledWith(NOOP_ADMIN, FAKE_PERSONA_ID);
     expect(mockListMyExchanges).toHaveBeenCalledWith(NOOP_ADMIN, [FAKE_PERSONA_ID]);
-    expect(mockFetchIanAuthoritativePlatformState).toHaveBeenCalledWith(FAKE_PERSONA_ID, FAKE_AUTH_PROFILE_ID);
+    expect(mockFetchIanAuthoritativePlatformState).toHaveBeenCalledWith(
+      FAKE_PERSONA_ID,
+      FAKE_AUTH_PROFILE_ID,
+      NOOP_ADMIN,
+    );
     expect(state.resolvable).toBe(true);
+  });
+
+  it('uses the gateway-injected database client for journey evidence and carries its gaps forward', async () => {
+    mockFetchIanAuthoritativePlatformState.mockResolvedValue({
+      state: { stages: {}, receiptRefs: {} },
+      evidenceGaps: ['journey evidence read failed closed'],
+      activeExchangeId: null,
+      citizenPassportUsable: false,
+    });
+
+    const state = await resolveConstitutionalNavigatorState(NOOP_ADMIN, fakeSession(), { bridge: 'ocsga' });
+
+    expect(mockFetchIanAuthoritativePlatformState).toHaveBeenCalledWith(
+      FAKE_PERSONA_ID,
+      FAKE_AUTH_PROFILE_ID,
+      NOOP_ADMIN,
+    );
+    expect(state.evidenceGaps).toContain('journey evidence read failed closed');
   });
 
   it('fails HONESTLY (resolvable:false, a named reason) when the public ref does not resolve to a real persona', async () => {

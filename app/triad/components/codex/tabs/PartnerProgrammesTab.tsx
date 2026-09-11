@@ -96,7 +96,8 @@ import { PassportBureauStewardTab } from "./PassportBureauStewardTab";
 import { useParticipationAccess } from "@/app/hooks/useParticipationAccess";
 import { scopesGrantedIn } from "@/services/passport/participationTabGate";
 import { useResearchWorkspaceAccess } from "@/app/hooks/useResearchWorkspaceAccess";
-import { WorkspaceCapabilitiesPanel } from "@/components/research/WorkspaceCapabilitiesPanel";
+import { WorkspaceCapabilitiesPanel, DocumentRow } from "@/components/research/WorkspaceCapabilitiesPanel";
+import { ReviewerAgreementPanel } from "@/components/research/ReviewerAgreementPanel";
 
 // Peer exchange is client-only (clipboard/personaFetch) — same lazy pattern
 // as LockerTab's own mount of it.
@@ -153,6 +154,11 @@ const SUB_SURFACES = [
   // Collaborate, not new capabilities — the spec makes them first-class
   // surfaces because the boundary between the mutable workspace and the
   // authoritative record has to be visible in the navigation to be real.
+  // `experiments` (2026-09-08, second navigation-model pass — SPEC §6A's own
+  // "Superseded ruling" note): the full-page rendering of the caller's
+  // entitlement-derived experiment estate, via the SAME resolver the left
+  // rail reads.
+  "experiments",
   "pipeline",
   "review",
   "working-materials",
@@ -273,6 +279,7 @@ const SUB_LABELS: Record<SubSurface, string> = {
   evidence: "Evidence",
   communicate: "Communicate",
   administration: "Administer",
+  experiments: "Experiments",
   pipeline: "Pipeline",
   review: "Review",
   "working-materials": "Working Materials",
@@ -323,6 +330,37 @@ type TrackingState =
   | { kind: "loading" }
   | { kind: "ready"; nextMilestone: TrackedMilestone | null; openBlockers: TrackedBlocker[] }
   | { kind: "unwired" };
+
+/**
+ * The canonical (principal + selectedWorkspaceId) resolved object
+ * (2026-09-08 — services/research/selectedWorkspaceState.ts's own header has
+ * the full design rationale). Overview's Health/Current Phase/Next Milestone/
+ * Technical Blockers cards, Pipeline's stage marker, and Review/Working
+ * Materials' document lists ALL read this ONE fetch — none of them
+ * independently infers the fact a sibling surface already resolved.
+ */
+interface SelectedWorkspaceLiveStateReady {
+  workspaceId: string;
+  experimentId: string | null;
+  role: string | null;
+  currentPhase: string | null;
+  currentStage: string | null;
+  nextMilestone: { title: string; dueDate: string | null } | null;
+  blockers: { title: string; detail: string | null }[];
+  pendingHumanDecisions: string[];
+  documents: { path: string; url: string }[];
+  capabilities: {
+    readinessAvailable: boolean;
+    reviewAgreementAvailable: boolean;
+    exchangeAvailable: boolean;
+    documentsAvailable: boolean;
+  };
+}
+type SelectedWorkspaceLiveState =
+  | { kind: "loading" }
+  | { kind: "ready"; state: SelectedWorkspaceLiveStateReady }
+  | { kind: "denied" }
+  | { kind: "error" };
 
 /** Live derivation state — 'unwired' renders the honest "Not yet wired". */
 type AgreementsState =
@@ -472,6 +510,13 @@ function asWorkspaceKind(value: string | undefined): WorkspaceKind {
  */
 interface WorkspaceView {
   id: string;
+  /** The single EXPERIMENT_REGISTRY member this workspace is scoped to, when
+   *  it names one (SPEC-IRL-WORKSPACE-001 — `ResearchWorkspace.experimentId`).
+   *  Null for a venture workspace (no such concept) or a research
+   *  programme/cohort container that convenes no single experiment. Drives
+   *  the canonical selected-workspace resolver fetch (2026-09-08) — never
+   *  re-derived, only passed through from the registry. */
+  experimentId: string | null;
   /** Selector chip text. */
   chipLabel: string;
   /** Caption beside the Command Center heading. */
@@ -523,6 +568,7 @@ interface WorkspaceView {
 function ventureView(ws: PartnerWorkspace): WorkspaceView {
   return {
     id: ws.id,
+    experimentId: null,
     chipLabel: `${ws.partnerName} · Series ${ws.series}`,
     contextLabel: `${ws.partnerName} Pilot Series ${ws.series} · AgentiQ/metaMe partnership`,
     counterpartyValue: ws.partnerName,
@@ -564,6 +610,7 @@ function researchView(ws: ReturnType<typeof listResearchWorkspaces>[number]): Wo
   const template = getLifecycleTemplate(ws.lifecycleTemplateId);
   return {
     id: ws.id,
+    experimentId: ws.experimentId ?? null,
     chipLabel: label,
     contextLabel: `${label} · Invariant Research Lab`,
     // The counterparty of a research workspace is the institution(s) it is a
@@ -721,7 +768,15 @@ function BoundaryNote({ surface }: { surface: string }) {
  * (`lifecycleStageIndex` returns -1 for exactly this, and "we do not know" and
  * "it is at the beginning" must not read alike).
  */
-function PipelinePanel({ ws, tracking }: { ws: WorkspaceView; tracking?: TrackingState }) {
+function PipelinePanel({
+  ws,
+  tracking,
+  liveState,
+}: {
+  ws: WorkspaceView;
+  tracking?: TrackingState;
+  liveState?: SelectedWorkspaceLiveState;
+}) {
   if (!ws.lifecycle) {
     return (
       <div className={`${PANEL} p-4 text-xs text-slate-400`}>
@@ -730,7 +785,17 @@ function PipelinePanel({ ws, tracking }: { ws: WorkspaceView; tracking?: Trackin
       </div>
     );
   }
-  const current = lifecycleStageIndex(ws.lifecycle, ws.currentStage);
+  // LIVE stage when the canonical resolver has one (an experiment-bound
+  // workspace — see services/research/experimentLifecycleState.ts's own
+  // header for the full derivation) — never the static registry
+  // `ws.currentStage` for such a workspace. Falls back to the registry field
+  // only for a workspace the resolver has genuinely nothing to derive for
+  // (no bound experiment, e.g. a programme container) or while loading.
+  const liveReady = liveState?.kind === "ready" ? liveState.state : null;
+  const resolverBoundToExperiment = Boolean(ws.experimentId);
+  const effectiveStage = resolverBoundToExperiment ? (liveReady?.currentStage ?? null) : ws.currentStage;
+  const stageIsLoading = resolverBoundToExperiment && liveState?.kind === "loading";
+  const current = lifecycleStageIndex(ws.lifecycle, effectiveStage);
   return (
     <div className="space-y-3">
       <BoundaryNote surface="pipeline" />
@@ -738,13 +803,23 @@ function PipelinePanel({ ws, tracking }: { ws: WorkspaceView; tracking?: Trackin
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
           <h3 className="text-sm font-semibold text-slate-100">{ws.lifecycle.label} pipeline</h3>
           <span className="text-[10px] uppercase tracking-wide text-slate-500">
-            {ws.currentStage
-              ? current >= 0
-                ? `Stage ${current + 1} of ${ws.lifecycle.stages.length}`
-                : "Stage not in this template"
-              : "Stage not declared"}
+            {stageIsLoading
+              ? "Loading…"
+              : effectiveStage
+                ? current >= 0
+                  ? `Stage ${current + 1} of ${ws.lifecycle.stages.length}`
+                  : "Stage not in this template"
+                : "Stage not declared"}
           </span>
         </div>
+        {resolverBoundToExperiment && liveReady?.currentPhase && (
+          <p className="mb-3 text-[11px] text-slate-500">
+            Live phase: <span className="text-slate-300">{liveReady.currentPhase}</span>
+            {liveReady.pendingHumanDecisions.length > 0 && (
+              <> — {liveReady.pendingHumanDecisions.join("; ")}</>
+            )}
+          </p>
+        )}
         <ol className="space-y-1.5">
           {ws.lifecycle.stages.map((stage, i) => {
             const isCurrent = i === current;
@@ -1668,6 +1743,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
   const [collabView, setCollabView] = useState<CollabView>("invitations");
   const [agreements, setAgreements] = useState<AgreementsState>({ kind: "loading" });
   const [tracking, setTracking] = useState<TrackingState>({ kind: "loading" });
+  const [liveState, setLiveState] = useState<SelectedWorkspaceLiveState>({ kind: "loading" });
 
   const ws = useMemo(
     () => workspaces.find((w) => w.id === activeId) ?? workspaces[0] ?? null,
@@ -1723,6 +1799,41 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
         });
       } catch {
         if (alive) setTracking({ kind: "unwired" });
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [kind, ws?.id]);
+
+  // The canonical selected-workspace resolver (2026-09-08) — Pipeline's stage
+  // marker and Review/Working Materials' document lists below all read THIS
+  // fetch, never a static registry field or an independent derivation.
+  // Research kind only (venture has no experiment/phase concept).
+  useEffect(() => {
+    if (kind !== "research" || !ws?.id) return;
+    let alive = true;
+    setLiveState({ kind: "loading" });
+    (async () => {
+      try {
+        const res = await personaFetch(
+          `/api/participation/workspace-state?workspaceId=${encodeURIComponent(ws.id)}`,
+          { cache: "no-store" },
+        );
+        if (!alive) return;
+        if (res.status === 403) {
+          setLiveState({ kind: "denied" });
+          return;
+        }
+        if (!res.ok) {
+          setLiveState({ kind: "error" });
+          return;
+        }
+        const data = await res.json();
+        if (data?.ok && data.state) setLiveState({ kind: "ready", state: data.state });
+        else setLiveState({ kind: "error" });
+      } catch {
+        if (alive) setLiveState({ kind: "error" });
       }
     })();
     return () => {
@@ -1837,10 +1948,28 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
           </MetricCard>
           <MetricCard
             label="Current Phase"
-            detail={ws.phaseLabel ? "from the workspace registry" : undefined}
+            detail={
+              kind === "research" && ws.experimentId
+                ? liveState.kind === "ready"
+                  ? "live — services/research/experimentLifecycleState.ts"
+                  : undefined
+                : ws.phaseLabel
+                  ? "from the workspace registry"
+                  : undefined
+            }
             accent={commandAccent}
           >
-            {ws.phaseLabel ?? <NotYetWired />}
+            {kind === "research" && ws.experimentId ? (
+              liveState.kind === "loading" ? (
+                <span className="text-xs text-slate-500">Loading…</span>
+              ) : liveState.kind === "ready" && liveState.state.currentPhase ? (
+                liveState.state.currentPhase
+              ) : (
+                <NotYetWired />
+              )
+            ) : (
+              ws.phaseLabel ?? <NotYetWired />
+            )}
           </MetricCard>
           <MetricCard
             label="Next Milestone"
@@ -1991,6 +2120,66 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
         </div>
       )}
 
+      {/* ── Experiments (2026-09-08, second navigation-model pass) — the
+             FULL-PAGE rendering of the caller's entitlement-derived
+             experiment estate. Reads the SAME `workspaces` array the left
+             rail's `ResearchProgrammeNav` consumes — not a second,
+             independently-derived list — so the parity invariant
+             (SPEC §6A: "if an experiment is visible in the left rail, it must
+             also appear in the Experiments tab, and both must resolve the
+             SAME selected-workspace state") holds by construction: there is
+             only one entitlement projection in this component, `workspaces`,
+             and both surfaces render it. Selecting a row calls the SAME
+             `setActiveId` the left rail uses, so the left rail's own
+             highlight and the main workspace context update identically. */}
+      {surface === "experiments" && kind === "research" && (
+        <div className="space-y-4">
+          {workspaces.length === 0 ? (
+            <div className={`${PANEL} p-4 text-xs text-slate-500`}>
+              No experiments are entitled to this caller yet — no admin flag, no active research-lab
+              grant, and no workspace declared publicly visible. This is the honest empty state, not
+              a broken list.
+            </div>
+          ) : (
+            RESEARCH_NAV_SECTIONS.map((section) => {
+              const items = workspaces.filter((w) => w.navSection === section.id);
+              if (items.length === 0) return null;
+              return (
+                <div key={section.id} className={`${PANEL} p-4`}>
+                  <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    {section.label}
+                  </h3>
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                    {items.map((item) => {
+                      const Icon = WORKSPACE_TYPE_ICON[item.workspaceType];
+                      const isActive = item.id === ws.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => setActiveId(item.id)}
+                          style={{ paddingLeft: `${item.navDepth * 14}px` }}
+                          className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs transition ${
+                            isActive
+                              ? "border-violet-500/50 bg-violet-500/10 text-violet-200"
+                              : "border-slate-800 bg-slate-900/40 text-slate-300 hover:bg-slate-800/60"
+                          }`}
+                        >
+                          <Icon className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate font-medium">{item.chipLabel}</span>
+                            {item.phaseLabel && <span className="block truncate text-[10px] text-slate-500">{item.phaseLabel}</span>}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
       {/* ── Collaborate — the Locker + invitations + peer exchange, scoped to
              the venture-lab access domain (the IRL pattern, venture instance). ── */}
       {surface === "collaborate" && (
@@ -2136,7 +2325,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
       )}
 
       {/* ── Pipeline (SPEC §7) ── */}
-      {surface === "pipeline" && <PipelinePanel ws={ws} tracking={tracking} />}
+      {surface === "pipeline" && <PipelinePanel ws={ws} tracking={tracking} liveState={liveState} />}
 
       {/* ── Review — the IRL-REVIEW-001 front end (SPEC §7) ── */}
       {surface === "review" && (
@@ -2154,6 +2343,59 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
               Reviewers never write to source assets, and review is evidence — not ratification.
             </p>
           </div>
+          {/* Authorized reviewer materials + countersignature state — read
+              from the SAME canonical resolver Overview/Pipeline consume
+              (services/research/selectedWorkspaceState.ts), never a second
+              derivation. Experiment-bound workspaces only. */}
+          {ws.experimentId && (
+            <>
+              {liveState.kind === "loading" && (
+                <div className={`${PANEL} p-4 text-xs text-slate-500`}>Loading reviewer materials…</div>
+              )}
+              {liveState.kind === "ready" && liveState.state.documents.length > 0 && (
+                <div className={`${PANEL} p-4`}>
+                  <h3 className="text-sm font-semibold text-slate-100">Reviewer Kit &amp; Protocol</h3>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    The registered protocol and reviewer documentation for {ws.experimentId} — read
+                    inline, never a browser-tab download.
+                  </p>
+                  <div className="mt-3 space-y-1.5">
+                    {liveState.state.documents.map((doc) => (
+                      <DocumentRow key={doc.path} doc={doc} />
+                    ))}
+                  </div>
+                </div>
+              )}
+              {liveState.kind === "ready" && liveState.state.role && (
+                <div className={`${PANEL} p-4`}>
+                  <h3 className="text-sm font-semibold text-slate-100">Countersignature &amp; current action</h3>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Role: <span className="text-slate-300">{liveState.state.role}</span>
+                    {liveState.state.currentPhase && (
+                      <>
+                        {" "}
+                        · Phase: <span className="text-slate-300">{liveState.state.currentPhase}</span>
+                      </>
+                    )}
+                  </p>
+                  {liveState.state.pendingHumanDecisions.length > 0 ? (
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-amber-300">
+                      {liveState.state.pendingHumanDecisions.map((d) => (
+                        <li key={d}>{d}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-xs italic text-slate-500">No reviewer action currently pending.</p>
+                  )}
+                  {liveState.state.capabilities.reviewAgreementAvailable && (
+                    <div className="mt-3">
+                      <ReviewerAgreementPanel experimentId={ws.experimentId} />
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
           <AreaLinks ws={ws} area="operate" personaId={personaId} isAdmin={isAdmin} forbiddenCodexSlugs={forbiddenCodexSlugs} />
         </div>
       )}
@@ -2170,10 +2412,26 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
               freeze and a content commitment, and this surface cannot perform one.
             </p>
             <p className="mt-2 text-xs italic text-slate-500">
-              A workspace-scoped materials store is not yet wired — the working surfaces below are
-              where this programme&apos;s materials live today.
+              A DEDICATED workspace-scoped materials store is not yet wired — no drafts/notebooks/code
+              branches capability exists for research workspaces today. What IS real and shown below:
+              the caller&apos;s own authorized current material set for this experiment (the registered
+              protocol and reviewer documentation), excluding any held/non-operative package.
             </p>
           </div>
+          {ws.experimentId && liveState.kind === "ready" && (
+            <div className={`${PANEL} p-4`}>
+              <h3 className="text-sm font-semibold text-slate-100">Authorized materials — {ws.experimentId}</h3>
+              {liveState.state.documents.length > 0 ? (
+                <div className="mt-3 space-y-1.5">
+                  {liveState.state.documents.map((doc) => (
+                    <DocumentRow key={doc.path} doc={doc} />
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-xs italic text-slate-500">No authorized materials resolved for this caller.</p>
+              )}
+            </div>
+          )}
           <AreaLinks ws={ws} area="operate" personaId={personaId} isAdmin={isAdmin} forbiddenCodexSlugs={forbiddenCodexSlugs} />
         </div>
       )}

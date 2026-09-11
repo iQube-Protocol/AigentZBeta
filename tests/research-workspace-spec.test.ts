@@ -678,17 +678,20 @@ describe('AC-12 — every workspace has a reachable entrance', () => {
     }
   });
 
-  it('the shipped Workspace subTabs ARE seven of the eight views plus Tier 0, in spec order', async () => {
-    // RE-POINTED 2026-07-29 then 2026-09-08. First, the research half moved
-    // from a `workspace` GROUP of top-level tabs to the `irl-workspace`
+  it('the shipped Workspace subTabs ARE eight of the nine views plus Tier 0, in spec order', async () => {
+    // RE-POINTED 2026-07-29 then 2026-09-08 (twice). First, the research half
+    // moved from a `workspace` GROUP of top-level tabs to the `irl-workspace`
     // TAB's `subTabs`, one tier deeper; the SAME DAY, Locker and Participants
     // were pruned from that subTab row. 2026-09-08 (IRL OS Workspace
     // consolidation) reversed HALF of that prune: Locker is restored as a
     // shipped subTab (Participants stays pruned — see the block comment
     // above `EVERY_VIEW` in tests/research-lab-workspace.test.ts for why).
+    // Same day, second pass: 'Experiments' joined the registry as a NINTH
+    // view (SPEC §6A's "Superseded ruling" note) — shipped like every other
+    // non-Participants view, no separate exclusion needed.
     // The REGISTRY (`RESEARCH_WORKSPACE_VIEWS`) was always UNCHANGED — still
-    // all eight, still spec-exact, asserted by the spec-parity canaries
-    // elsewhere in this file — only the SHIPPED SUBSET differs from it here.
+    // spec-exact, asserted by the spec-parity canaries elsewhere in this file
+    // — only the SHIPPED SUBSET (minus Participants) differs from it here.
     const { IRL_CARTRIDGE } = await import('../data/codex-configs');
     const parent = IRL_CARTRIDGE.tabs.find((t: { id: string }) => t.id === 'irl-workspace') as
       | { subTabs?: Array<{ slug: string; adminOnly?: boolean; participationDomain?: string; participationRoles?: string[] }> }
@@ -743,11 +746,15 @@ describe('spec parity — the document and the implementation say the same thing
     expect(getLifecycleTemplate('capstone')!.stages).toEqual(capstone);
   });
 
-  it('the eight views match the spec’s §7 table, by name', () => {
+  it('the nine views match the spec’s §7 table, by name', () => {
+    // NINE, not eight (2026-09-08, second navigation-model pass): 'Experiments'
+    // was added as a real Workspace view, superseding the same-day earlier
+    // ruling that it would be redundant with the left rail — see SPEC §6A's
+    // own "Superseded ruling" note for the full account.
     const doc = spec();
-    const section = doc.slice(doc.indexOf('## 7 — The eight views'), doc.indexOf('## 8 —'));
+    const section = doc.slice(doc.indexOf('## 7 — The nine views'), doc.indexOf('## 8 —'));
     const named = [...section.matchAll(/^\| \*\*([^*]+)\*\* \|/gm)].map((m) => m[1].trim());
-    expect(named.length, 'the spec §7 table did not parse').toBe(8);
+    expect(named.length, 'the spec §7 table did not parse').toBe(9);
     expect(RESEARCH_WORKSPACE_VIEWS.map((v) => v.label)).toEqual(named);
   });
 
