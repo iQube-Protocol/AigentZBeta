@@ -393,6 +393,44 @@ export async function authorizeReviewerAgreement(
   if (error || !data) {
     return { ok: false, reason: error?.message ?? 'Could not record the agreement authorization.' };
   }
+
+  // Experiment-scoped Locker record (2026-09-11, Progressive Surface pass,
+  // operator item 10: "wire an actual write path so a real countersignature
+  // ... act tags its Locker record"). Fail-soft, exactly like the receipt
+  // creation above — a Locker write failure never blocks the constitutional
+  // act itself; the `reviewer_agreement_authorizations` row above is what's
+  // canonical. Reuses the SAME `addLockerItemForPersona` path every other
+  // Locker write goes through (never a parallel storage write), tagged with
+  // the SAME `[EXP:${experimentId}]` bracket-tag convention
+  // `LockerTab`'s `itemScopeTag` prop already filters on
+  // (services/passport/lockerItems.ts; app/triad/components/codex/tabs/
+  // LockerTab.tsx) — generalizing the existing `[x409:...]` convention
+  // (claim-agreement/route.ts) rather than inventing a second one.
+  try {
+    const { addLockerItemForPersona } = await import('@/services/passport/lockerItems');
+    await addLockerItemForPersona(input.personaId, {
+      displayName: `[EXP:${def.experimentId}] Independent Reviewer Agreement authorized`,
+      contentType: 'application/json',
+      plaintext: JSON.stringify(
+        {
+          agreementId: def.agreementId,
+          agreementVersion: def.version,
+          agreementHash: hash,
+          experimentId: def.experimentId,
+          reviewerRef,
+          authorizedAt: new Date().toISOString(),
+          conflictDeclared: input.conflictDeclared,
+          receiptId,
+        },
+        null,
+        2,
+      ),
+      downloadable: false,
+    });
+  } catch {
+    // Never block a real constitutional act on a Locker-projection failure.
+  }
+
   return { ok: true, authorization: rowToAuthorization(data), alreadyAuthorized: false };
 }
 

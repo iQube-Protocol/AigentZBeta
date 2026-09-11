@@ -30,6 +30,19 @@ interface Props {
    *  the whole multi-view Workspace tab as "on the Experiments step". */
   activeSubSlug?: string;
   personaId?: string;
+  /** Server-resolved platform admin authority (CodexPanelDynamic's own
+   *  `isAdmin`, never a client-side guess). 2026-09-11 fix (Progressive
+   *  Surface pass, operator items 1/2/5/13): before this prop existed, the
+   *  bar derived every step purely from `access_grants`/wallet rows — an
+   *  admin with real platform authority but no such ROW (admin authority is
+   *  a `cartridgeFlags.isAdmin` flag, not a grants-table entry) saw Access
+   *  and Experiments stuck incomplete despite having full reach. Admin
+   *  authority now explicitly completes every mandatory step (never
+   *  Delegate, which stays a citizen-only optional act — an admin acting in
+   *  their platform capacity does not "delegate" to themselves), WITH a
+   *  legible reason shown, never a silently-flipped checkmark (item 13:
+   *  "Admin authority should make the state more legible, not less"). */
+  isAdmin?: boolean;
 }
 
 type StepKey = "welcome" | "passport" | "delegation" | "access" | "experiments";
@@ -42,7 +55,7 @@ function goToTab(slug: string, subTab?: string) {
   }
 }
 
-export function AccessionProgressBar({ codexId, activeSlug, activeSubSlug, personaId }: Props) {
+export function AccessionProgressBar({ codexId, activeSlug, activeSubSlug, personaId, isAdmin }: Props) {
   const prefix = codexId.includes("irl-os") ? "irl-os" : codexId === "irl-cartridge" ? "irl" : null;
 
   const steps = useMemo(() => {
@@ -58,7 +71,18 @@ export function AccessionProgressBar({ codexId, activeSlug, activeSubSlug, perso
       { key: "welcome" as const, label: "Welcome", slug: `${prefix}-welcome` },
       { key: "passport" as const, label: "Passport", slug: `${prefix}-passport-apply` },
       { key: "delegation" as const, label: "Delegate (optional)", slug: `${prefix}-passport-delegation`, optional: true },
-      { key: "access" as const, label: "Access", slug: `${prefix}-passport-locker` },
+      // ROUTED THROUGH THE REAL WORKSPACE TAB (2026-09-11, Progressive
+      // Surface pass, operator item 4: "Access must be restored as a real
+      // destination... clicking it is effectively dead"). The
+      // `${prefix}-passport-locker` tab this step used to target is
+      // `enabled: false` (relocated to Workspace, 2026-09-08 consolidation)
+      // — clicking it silently no-op'd, exactly like the Experiments step's
+      // own pre-2026-09-08 dead link below. The SAME `LockerTab` component
+      // now lives as the Workspace tab's `locker` subTab
+      // (`buildResearchWorkspaceTab` in data/codex-configs.ts,
+      // services/research/researchWorkspaceViews.ts's `locker` view) —
+      // `slug` targets the PARENT tab, `subTab` the tier-3 view within it.
+      { key: "access" as const, label: "Access", slug: `${prefix}-workspace`, subTab: `${prefix}-workspace-locker` },
       // ROUTED THROUGH THE REAL WORKSPACE TAB (2026-09-08, IRL OS Workspace
       // live-state round). The `irl-os-experiment-lab` tab this step used to
       // target is `enabled: false` (disabled pending Phase 2 scope
@@ -138,14 +162,23 @@ export function AccessionProgressBar({ codexId, activeSlug, activeSubSlug, perso
         }
 
         if (!cancelled) {
+          // ADMIN BYPASS (item 13 — "make the state more legible, not less"):
+          // platform admin authority is a `cartridgeFlags.isAdmin` flag, never
+          // an `access_grants` row, so an admin can be genuinely fully-onboarded
+          // while every check above reads false. Passport/Access complete for
+          // admin explicitly; Delegate stays untouched (a citizen-only optional
+          // act, never implied by admin authority); Experiments — see below.
           setDone({
-            welcome: authed || passportDone || accessDone,
-            passport: passportDone,
+            welcome: authed || passportDone || accessDone || Boolean(isAdmin),
+            passport: passportDone || Boolean(isAdmin),
             delegation: delegationDone,
-            access: accessDone,
-            // "Experiments" completes only once results start flowing; keep it
-            // as the destination (available when access is granted).
-            experiments: false,
+            access: accessDone || Boolean(isAdmin),
+            // "Experiments" (item 5): derived from the SAME entitlement signal
+            // Access already is — a research-lab grant (or admin authority) IS
+            // the experiment/workspace entitlement mechanism; there is no
+            // separate "has the caller opened an experiment" state to check.
+            // Never a local-only flag that can drift from real access.
+            experiments: accessDone || Boolean(isAdmin),
           });
         }
       } catch {
@@ -157,8 +190,8 @@ export function AccessionProgressBar({ codexId, activeSlug, activeSubSlug, perso
     return () => { cancelled = true; };
     // activeSlug/activeSubSlug: re-observe on every step-tab hop (state
     // changes as the participant acts); refreshTick: immediate re-observe on
-    // accession:refresh.
-  }, [prefix, onStepTab, personaId, activeSlug, activeSubSlug, refreshTick]);
+    // accession:refresh; isAdmin: the bypass above reads it directly.
+  }, [prefix, onStepTab, personaId, activeSlug, activeSubSlug, refreshTick, isAdmin]);
 
   if (!prefix || !onStepTab) return null;
 

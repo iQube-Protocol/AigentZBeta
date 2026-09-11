@@ -45,10 +45,12 @@ function tabPrefix(): "irl-os" | "irl" {
   }
 }
 
-/** Same-cartridge tab switch — CodexPanelDynamic listens for codex:navigate-tab. */
-function goToTab(slug: string) {
+/** Same-cartridge tab switch — CodexPanelDynamic listens for codex:navigate-tab.
+ *  `subTab` targets a tier-3 view within `slug` (e.g. the Workspace tab's own
+ *  Locker/Experiments views) — see AccessionProgressBar's identical helper. */
+function goToTab(slug: string, subTab?: string) {
   try {
-    window.dispatchEvent(new CustomEvent("codex:navigate-tab", { detail: { tab: slug } }));
+    window.dispatchEvent(new CustomEvent("codex:navigate-tab", { detail: { tab: slug, subTab } }));
   } catch {
     /* non-fatal */
   }
@@ -58,6 +60,7 @@ export function IRLWelcomeTab() {
   const [grants, setGrants] = useState<Grant[] | null>(null);
   const [authed, setAuthed] = useState(false);
   const [passportIssued, setPassportIssued] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -73,6 +76,12 @@ export function IRLWelcomeTab() {
         setAuthed(Boolean(data?.authenticated));
         setGrants(data?.grants ?? []);
         setPassportIssued(Boolean(data?.passportIssued));
+        // 2026-09-11 fix (Progressive Surface pass, operator items 1/2/13):
+        // platform admin authority is a `cartridgeFlags.isAdmin` flag, never
+        // an `access_grants` row — an admin was silently reading as
+        // "not onboarded" and seeing the pre-onboarding setup cards, because
+        // `onboarded` below used to check ONLY `researchGrant`.
+        setIsAdmin(Boolean(data?.isAdmin));
       } catch {
         setGrants([]);
       }
@@ -80,15 +89,21 @@ export function IRLWelcomeTab() {
   }, []);
 
   const researchGrant = (grants ?? []).find((g) => g.accessDomain === "research-lab");
-  const onboarded = Boolean(researchGrant);
+  const onboarded = isAdmin || Boolean(researchGrant);
   const loading = grants === null;
 
   const p = tabPrefix();
   const PARTICIPATION_TAB = `${p}-participation-overview`;
   const APPLY_TAB = `${p}-passport-apply`;
-  const ACCESS_TAB = `${p}-passport-locker`;
+  const WORKSPACE_TAB = `${p}-workspace`;
+  // ROUTED THROUGH THE REAL WORKSPACE TAB (2026-09-11, Progressive Surface
+  // pass, mirroring AccessionProgressBar's identical 2026-09-08/2026-09-11
+  // fixes). Both `${p}-passport-locker` (Access) and `${p}-experiment-lab`
+  // (Experiments/Lab) are `enabled: false` — relocated to Workspace subTabs.
+  // Clicking either used to silently no-op.
+  const ACCESS_SUBTAB = `${p}-workspace-locker`;
+  const EXPERIMENTS_SUBTAB = `${p}-workspace-experiments`;
   const DELEGATION_TAB = `${p}-passport-delegation`;
-  const LAB_TAB = `${p}-experiment-lab`;
   const REPORTS_TAB = `${p}-reports`;
   // The "Set up myself" route must advance to the caller's ACTUAL next
   // incomplete step, not always Apply — a person who already has a passport
@@ -96,13 +111,13 @@ export function IRLWelcomeTab() {
   // 2026-07-20). Sequence: sign in → Passport (Apply) → Access (claim the
   // research-lab invitation in the Locker) → Experiments. Delegation is
   // optional and never gates, so it is not the human-route target.
-  const HUMAN_TAB = !authed
-    ? PARTICIPATION_TAB
+  const HUMAN_TAB: [string, string?] = !authed
+    ? [PARTICIPATION_TAB]
     : !passportIssued
-      ? APPLY_TAB
+      ? [APPLY_TAB]
       : !onboarded
-        ? ACCESS_TAB
-        : LAB_TAB;
+        ? [WORKSPACE_TAB, ACCESS_SUBTAB]
+        : [WORKSPACE_TAB, EXPERIMENTS_SUBTAB];
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -118,11 +133,22 @@ export function IRLWelcomeTab() {
       ) : onboarded ? (
         <>
           <p className="mt-3 text-sm leading-relaxed text-slate-300">
-            You are an active <span className="text-violet-300">{researchGrant?.role.replace(/-/g, " ")}</span> in the
-            Research Lab. Pick up where the work is — review current experiments, run them, and submit results.
+            {researchGrant ? (
+              <>
+                You are an active <span className="text-violet-300">{researchGrant.role.replace(/-/g, " ")}</span> in
+                the Research Lab.
+              </>
+            ) : (
+              // Legible admin-authority state (item 13: "make the state more
+              // legible, not less") — never a silent "Welcome back" with no
+              // explanation for why an admin with no research-lab grant row
+              // is onboarded.
+              <>You hold <span className="text-violet-300">platform administrator</span> authority — full reach across the Research Lab, independent of any individual grant.</>
+            )}{" "}
+            Pick up where the work is — review current experiments, run them, and submit results.
           </p>
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
-            <HomeCard icon={FlaskConical} title="Experiments" body="Run the Foundational Series and acceptance tests." onClick={() => goToTab(LAB_TAB)} />
+            <HomeCard icon={FlaskConical} title="Experiments" body="Run the Foundational Series and acceptance tests." onClick={() => goToTab(WORKSPACE_TAB, EXPERIMENTS_SUBTAB)} />
             <HomeCard icon={BookOpen} title="Publications" body="Read the published, receipted findings reports." onClick={() => goToTab(REPORTS_TAB)} />
             <HomeCard icon={Users} title="Participation" body="Your standing, agreements, and locker." onClick={() => goToTab(PARTICIPATION_TAB)} />
           </div>
@@ -169,7 +195,7 @@ export function IRLWelcomeTab() {
               agent = violet (the page accent), never solid fills. */}
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <button
-              onClick={() => goToTab(HUMAN_TAB)}
+              onClick={() => goToTab(...HUMAN_TAB)}
               className="group flex flex-col items-start gap-1 rounded-2xl border border-emerald-500/40 bg-emerald-500/15 px-5 py-4 text-left shadow-lg shadow-black/30 transition hover:bg-emerald-500/25"
               style={{ backdropFilter: "blur(16px) saturate(140%)" }}
             >

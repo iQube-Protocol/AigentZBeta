@@ -98,6 +98,7 @@ import { scopesGrantedIn } from "@/services/passport/participationTabGate";
 import { useResearchWorkspaceAccess } from "@/app/hooks/useResearchWorkspaceAccess";
 import { WorkspaceCapabilitiesPanel, DocumentRow } from "@/components/research/WorkspaceCapabilitiesPanel";
 import { ReviewerAgreementPanel } from "@/components/research/ReviewerAgreementPanel";
+import { ActivityReceiptCard, type ActivityReceiptData } from "@/components/metame/cards/ActivityReceiptCard";
 
 // Peer exchange is client-only (clipboard/personaFetch) — same lazy pattern
 // as LockerTab's own mount of it.
@@ -386,6 +387,11 @@ interface SelectedWorkspaceLiveStateReady {
    *  DVN receipt ledger... replacing the not-yet-wired state"). */
   activity: { objectId: string; objectKind: string; lifecycleState: string; receiptId: string | null; createdAt: string }[]
     | { available: false; reason: string };
+  /** The GENUINE activity_receipts row backing each activity entry's
+   *  receiptId, keyed by receiptId (2026-09-11 — reuses the canonical
+   *  ActivityReceiptCard/DVN pipeline, never a lookalike). An entry with no
+   *  key here falls back to the bare-fact row. */
+  activityReceipts: Record<string, ActivityReceiptData>;
 }
 type SelectedWorkspaceLiveState =
   | { kind: "loading" }
@@ -1026,21 +1032,38 @@ function PipelinePanel({
 }
 
 /**
- * The Activity surface's real DVN receipt ledger (message 3 item 8) — each
- * row IS the same `ExperimentActivityEntry` `resolveExperimentActivity`
- * already derives from `research_objects`, expandable to its full JSON so
- * an operator can inspect the receiptId/lifecycleState/objectKind pairing
- * without a second, summarized shape hiding the receipt's real fields.
+ * The Activity surface's real DVN receipt ledger (message 3 item 11 —
+ * 2026-09-11 revision: "reuse the canonical DVN/activity receipt source
+ * already used elsewhere... do not create a new IRL-only event model").
+ *
+ * Each `ExperimentActivityEntry` (a research_objects lifecycle row) carries
+ * a `receiptId` that — when it resolves in `activityReceipts` — points at a
+ * GENUINE `activity_receipts` row written by the SAME `writeLifecycleReceipt`
+ * -> `createActivityReceipt` path every other receipted act in the platform
+ * uses. When it resolves, render the canonical `ActivityReceiptCard`
+ * (components/metame/cards/ActivityReceiptCard.tsx — the same component
+ * Standing's Contribution History and Aigent Me's activity feed render) —
+ * never a lookalike card with fabricated DVN/BTC status fields. When it does
+ * NOT resolve (older row, or the receipt lookup found nothing), fall back to
+ * the honest bare-fact row: objectKind/objectId/lifecycleState/timestamp,
+ * expandable to the entry's own JSON — never invented card chrome for data
+ * that isn't there.
  */
 function ActivityLedger({
   entries,
+  receipts,
 }: {
   entries: { objectId: string; objectKind: string; lifecycleState: string; receiptId: string | null; createdAt: string }[];
+  receipts: Record<string, ActivityReceiptData>;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   return (
     <div className="mt-3 space-y-1.5">
       {entries.map((e) => {
+        const receipt = e.receiptId ? receipts[e.receiptId] : undefined;
+        if (receipt) {
+          return <ActivityReceiptCard key={e.objectId} data={receipt} theme="dark" />;
+        }
         const isExpanded = expandedId === e.objectId;
         return (
           <div key={e.objectId} className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
@@ -2528,7 +2551,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
               {liveState.state.activity.length === 0 ? (
                 <p className="mt-2 text-xs italic text-slate-500">No activity recorded yet for this experiment.</p>
               ) : (
-                <ActivityLedger entries={liveState.state.activity} />
+                <ActivityLedger entries={liveState.state.activity} receipts={liveState.state.activityReceipts} />
               )}
             </div>
           )}
