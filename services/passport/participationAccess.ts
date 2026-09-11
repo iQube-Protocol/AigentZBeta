@@ -1014,6 +1014,25 @@ export async function listAccessGrants(admin: SupabaseClient, domain?: AccessDom
   return (data ?? []).map((r) => toAccessGrantView(r as Record<string, unknown>));
 }
 
+/**
+ * SERVER-INTERNAL ONLY: grantId → personaId for a set of grants. The T0
+ * personaId values this returns MUST NEVER reach browser-bound JSON — a
+ * caller uses this only to look up something T2-safe (a research persona
+ * record, a holderRef) keyed by grantId, then discards the map. Mirrors the
+ * same T0 discipline `toAccessGrantView`'s `holderRef` already enforces for
+ * the grant row itself.
+ */
+export async function getGrantPersonaIds(admin: SupabaseClient, grantIds: string[]): Promise<Record<string, string>> {
+  const unique = Array.from(new Set(grantIds));
+  if (unique.length === 0) return {};
+  const { data, error } = await admin.from('access_grants').select('id, persona_id').in('id', unique);
+  const out: Record<string, string> = {};
+  if (!error && data) {
+    for (const r of data as Record<string, unknown>[]) out[String(r.id)] = String(r.persona_id);
+  }
+  return out;
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Grant AMENDMENT — IRL Stewardship, Access Maintenance (2026-10-01, item 1).
 //

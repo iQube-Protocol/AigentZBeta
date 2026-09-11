@@ -29,68 +29,24 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getActivePersona } from '@/services/identity/getActivePersona';
-import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import {
   createAccessInvitation,
   isAccessDomain,
   issuableRoles,
-  resolveInvitationAuthority,
   revokeAccessInvitation,
   scopeWithinAuthority,
-  type InvitationAuthority,
 } from '@/services/passport/participationAccess';
-import { resolveParticipationSelfView } from '@/services/passport/participationSelfView';
+import { resolveStewardAuthority } from '@/app/api/steward/participation/_lib/resolveStewardAuthority';
 import { publicOrigin } from '@/utils/publicOrigin';
 
 export const dynamic = 'force-dynamic';
 
 const MIGRATION = '20260725000000_participation_access.sql';
 
-/**
- * Resolve who is asking and what they may confer. ONE resolution per request,
- * through the spine, from the caller's own grants — nothing here reads the
- * request body.
- */
-async function resolveAuthority(
-  req: NextRequest,
-): Promise<
-  | { error: NextResponse }
-  | { personaId: string; authority: InvitationAuthority; admin: ReturnType<typeof getSupabaseServer> }
-> {
-  const persona = await getActivePersona(req);
-  if (!persona?.personaId) {
-    return { error: NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 }) };
-  }
-  const admin = getSupabaseServer();
-  if (!admin) {
-    return { error: NextResponse.json({ ok: false, error: 'Supabase configuration missing' }, { status: 500 }) };
-  }
-  const isAdmin = persona.cartridgeFlags?.isAdmin === true;
-  // Fails CLOSED: a self-view that cannot be resolved yields no grants, which
-  // yields tier 'none'. "Not answered yet" must never read as "yes".
-  let grants: { accessDomain: string; role: string; allowedScopes: string[] | null }[] = [];
-  try {
-    const selfView = await resolveParticipationSelfView(req, admin, {
-      personaId: persona.personaId,
-      authProfileId: persona.authProfileId,
-    });
-    grants = selfView.grants;
-  } catch {
-    grants = [];
-  }
-  const authority = resolveInvitationAuthority(isAdmin, grants);
-  if (authority.tier === 'none') {
-    return { error: NextResponse.json({ ok: false, error: 'Steward access required' }, { status: 403 }) };
-  }
-  return { personaId: persona.personaId, authority, admin };
-}
-
 export async function POST(req: NextRequest) {
-  const resolved = await resolveAuthority(req);
+  const resolved = await resolveStewardAuthority(req);
   if ('error' in resolved) return resolved.error;
   const { personaId, authority, admin } = resolved;
-  if (!admin) return NextResponse.json({ ok: false, error: 'Supabase configuration missing' }, { status: 500 });
 
   const body = (await req.json().catch(() => ({}))) as {
     domain?: string;
@@ -167,10 +123,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const resolved = await resolveAuthority(req);
+  const resolved = await resolveStewardAuthority(req);
   if ('error' in resolved) return resolved.error;
   const { personaId, authority, admin } = resolved;
-  if (!admin) return NextResponse.json({ ok: false, error: 'Supabase configuration missing' }, { status: 500 });
 
   const body = (await req.json().catch(() => ({}))) as { invitationId?: string; action?: string };
   if (!body.invitationId || body.action !== 'revoke') {

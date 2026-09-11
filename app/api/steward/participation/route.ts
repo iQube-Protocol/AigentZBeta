@@ -22,20 +22,20 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getActivePersona } from '@/services/identity/getActivePersona';
-import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import {
   ASSIGNABLE_EXPERIMENTS,
   DOMAIN_LABELS,
   DOMAIN_ROLES,
+  getGrantPersonaIds,
   isAccessDomain,
   issuableRoles,
   listAccessGrants,
   listAccessInvitations,
-  resolveInvitationAuthority,
   type AccessDomain,
 } from '@/services/passport/participationAccess';
-import { resolveParticipationSelfView } from '@/services/passport/participationSelfView';
+import { resolveStewardAuthority } from '@/app/api/steward/participation/_lib/resolveStewardAuthority';
+import { getResearchPersonasByIds } from '@/services/passport/researchPersona';
+import { isHighRiskCapability, listCapabilitiesForGrant } from '@/services/research/accessCapabilities';
 import { ASSIGNABLE_PILOTS } from '@/services/venture/partnerWorkspace';
 import { ASSIGNABLE_RESEARCH_WORKSPACES } from '@/services/research/researchWorkspace';
 
@@ -61,29 +61,9 @@ const SCOPE_CATALOGUES: Partial<Record<AccessDomain, { id: string; label: string
 };
 
 export async function GET(req: NextRequest) {
-  const persona = await getActivePersona(req);
-  if (!persona?.personaId) return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
-
-  const admin = getSupabaseServer();
-  if (!admin) return NextResponse.json({ ok: false, error: 'Supabase configuration missing' }, { status: 500 });
-
-  const isAdmin = persona.cartridgeFlags?.isAdmin === true;
-  // Fails CLOSED — an unresolvable self-view yields no grants, hence tier
-  // 'none', hence 403. "Not answered yet" must not read as "yes".
-  let selfGrants: { accessDomain: string; role: string; allowedScopes: string[] | null }[] = [];
-  try {
-    const selfView = await resolveParticipationSelfView(req, admin, {
-      personaId: persona.personaId,
-      authProfileId: persona.authProfileId,
-    });
-    selfGrants = selfView.grants;
-  } catch {
-    selfGrants = [];
-  }
-  const authority = resolveInvitationAuthority(isAdmin, selfGrants);
-  if (authority.tier === 'none') {
-    return NextResponse.json({ ok: false, error: 'Steward access required' }, { status: 403 });
-  }
+  const resolved = await resolveStewardAuthority(req);
+  if ('error' in resolved) return resolved.error;
+  const { personaId, authority, admin } = resolved;
 
   const domainParam = new URL(req.url).searchParams.get('domain') ?? undefined;
   const requested = domainParam && isAccessDomain(domainParam) ? domainParam : undefined;
@@ -95,7 +75,7 @@ export async function GET(req: NextRequest) {
   const domain = requested;
 
   // A delegated steward reads only the invitations they issued.
-  const issuerFilter = authority.tier === 'platform' ? undefined : persona.personaId;
+  const issuerFilter = authority.tier === 'platform' ? undefined : personaId;
   const [allInvitations, allGrants] = await Promise.all([
     listAccessInvitations(admin, domain, issuerFilter),
     listAccessGrants(admin, domain),
@@ -111,10 +91,76 @@ export async function GET(req: NextRequest) {
     return gs.length > 0 && gs.some((s) => own.includes(s));
   });
 
+  // Research Persona legibility (item 3) + per-grant capabilities (item 10)
+  // — the steward-participant card needs both alongside the grant itself.
+  // Both maps are keyed by grantId, NEVER by personaId: `getGrantPersonaIds`
+  // is server-internal only (see its own doc comment) and its values are
+  // consumed here, never re-serialised — the client sees a grantId key and
+  // a T2-safe display payload, the same T0→T2 boundary `holderRef` enforces
+  // on the grant view itself.
+  const grantIds = grants.map((g) => g.id);
+  const grantPersonaIds = await getGrantPersonaIds(admin, grantIds);
+  const personasById = await getResearchPersonasByIds(admin, Object.values(grantPersonaIds));
+  const researchPersonas: Record<
+    string,
+    { displayName: string; handle: string; privacyMode?: string; isPlaceholder: boolean; confirmedAt?: string | null }
+  > = {};
+  for (const [grantId, targetPersonaId] of Object.entries(grantPersonaIds)) {
+    const rec = personasById[targetPersonaId];
+    if (!rec) continue;
+    researchPersonas[grantId] =
+      'privacyMode' in rec
+        ? {
+            displayName: rec.displayName,
+            handle: rec.handle,
+            privacyMode: rec.privacyMode,
+            isPlaceholder: rec.isPlaceholder,
+            confirmedAt: rec.confirmedAt,
+          }
+        : { displayName: rec.displayName, handle: rec.handle, isPlaceholder: true };
+  }
+
+  const capabilitiesByGrant: Record<
+    string,
+    {
+      id: string;
+      scopeType: string;
+      scopeRef: string;
+      capability: string;
+      status: string;
+      grantedAt: string;
+      expiresAt: string | null;
+      revokedAt: string | null;
+      reason: string | null;
+      receiptId: string | null;
+      isHighRisk: boolean;
+    }[]
+  > = {};
+  await Promise.all(
+    grantIds.map(async (id) => {
+      const rows = await listCapabilitiesForGrant(admin, id);
+      // `grantedByPersonaId` is intentionally dropped here — T0, never
+      // serialised to browser-bound JSON (Identity & Access Spine).
+      capabilitiesByGrant[id] = rows.map((r) => ({
+        id: r.id,
+        scopeType: r.scopeType,
+        scopeRef: r.scopeRef,
+        capability: r.capability,
+        status: r.status,
+        grantedAt: r.grantedAt,
+        expiresAt: r.expiresAt,
+        revokedAt: r.revokedAt,
+        reason: r.reason,
+        receiptId: r.receiptId,
+        isHighRisk: isHighRiskCapability(r.capability),
+      }));
+    }),
+  );
+
   // Passport application queue — the existing participant-initiated path.
   // PLATFORM ADMIN ONLY: it is an estate-wide queue, not domain-scoped.
   let applications: { total: number; pending: number; agentAssisted: number } | null = null;
-  if (isAdmin) try {
+  if (authority.tier === 'platform') try {
     const { count: total } = await admin
       .from('polity_passport_applications')
       .select('id', { count: 'exact', head: true });
@@ -155,6 +201,8 @@ export async function GET(req: NextRequest) {
       authority: { tier: authority.tier },
       invitations,
       grants,
+      researchPersonas,
+      capabilitiesByGrant,
       applications,
     },
     { headers: { 'Cache-Control': 'no-store' } },
