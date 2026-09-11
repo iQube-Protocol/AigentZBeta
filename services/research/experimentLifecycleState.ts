@@ -199,6 +199,30 @@ export async function resolveExperimentLifecycleState(
   };
 }
 
+/**
+ * The template stage labels genuinely EVIDENCED complete, derived from the
+ * same fields `resolveExperimentLifecycleState` already computed — never a
+ * second, independent judgment. Because the phase machine is a strict,
+ * priority-ordered ladder (a later phase can only be reached once every
+ * earlier phase's own real signal fired), a stage is "complete" exactly when
+ * its OWN gating signal is true, not merely because the current phase is
+ * ordinally later (that would let an ordinal position stand in for evidence
+ * — the Pipeline's own honesty requirement, message 3 item 3: "a stage may
+ * show completed ONLY from canonical lifecycle/artifact/receipt evidence").
+ *
+ * Three phases share the 'Review' template label (pre-freeze substrate
+ * review, awaiting-observer-assignment, post-freeze observer review) — the
+ * label is complete only once the LAST of the three's own condition holds
+ * (observer acceptance), never merely because the crystal froze.
+ */
+export function deriveCompletedTemplateStages(state: ExperimentLifecycleState): string[] {
+  const completed: string[] = [];
+  if (state.observerAcceptance === 'accepted') completed.push('Review');
+  if (state.protocolReady) completed.push('Preregistration');
+  if (state.floorLifecycle !== 'designed') completed.push('Task Construction');
+  return completed;
+}
+
 export interface CallerObserverStatus {
   callerAssigned: boolean;
   callerDecisionStatus: 'not-decided' | 'accepted' | 'changes_requested' | 'unable_to_assess';

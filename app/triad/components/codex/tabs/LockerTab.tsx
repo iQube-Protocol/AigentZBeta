@@ -189,9 +189,22 @@ export const ALL_LOCKER_SECTIONS: LockerSection[] = [
 
 interface LockerTabProps {
   visibleSections?: LockerSection[];
+  /**
+   * Scopes the "Your locker items" list for a Workspace host (message 3
+   * item 6: Locker as experiment-scoped constitutional-record home, via the
+   * EXISTING bracket-tag convention — `claim-agreement/route.ts`'s own
+   * `[x409:${lockerRef}] ${label}` prefix, generalized here rather than a
+   * second/parallel storage mechanism. When set, items whose `displayName`
+   * starts with `[${itemScopeTag}]` sort first under their own heading;
+   * everything else still renders below under "All locker items" — never
+   * dropped, and never leading (message 3 item 6: "not leading an EXP-P1
+   * workspace with unrelated generic items"). `undefined` (the default,
+   * every pre-existing mount) leaves the single unheaded list unchanged.
+   */
+  itemScopeTag?: string;
 }
 
-export function LockerTab({ visibleSections = ALL_LOCKER_SECTIONS }: LockerTabProps = {}) {
+export function LockerTab({ visibleSections = ALL_LOCKER_SECTIONS, itemScopeTag }: LockerTabProps = {}) {
   const [items, setItems] = useState<LockerItem[]>([]);
   const [grants, setGrants] = useState<LockerGrant[]>([]);
   const [agents, setAgents] = useState<SponsoredAgent[]>([]);
@@ -1288,10 +1301,31 @@ export function LockerTab({ visibleSections = ALL_LOCKER_SECTIONS }: LockerTabPr
       </div>
       )}
 
-      {/* Items list */}
-      {visibleSections.includes('lockerItems') && (
+      {/* Items list — scoped items (when itemScopeTag is set) sort first
+          under their own heading; the full list still renders below (never
+          dropped, never leading with unrelated generic items — message 3
+          item 6). */}
+      {visibleSections.includes('lockerItems') && (() => {
+        const scopedPrefix = itemScopeTag ? `[${itemScopeTag}]` : null;
+        const isScopedItem = (item: LockerItem) => Boolean(scopedPrefix) && item.displayName.startsWith(scopedPrefix!);
+        const orderedItems = scopedPrefix
+          ? [...items].sort((a, b) => Number(isScopedItem(b)) - Number(isScopedItem(a)))
+          : items;
+        const anyScoped = scopedPrefix ? items.some(isScopedItem) : false;
+        return (
       <div className="space-y-2">
-        <h3 className="text-sm font-semibold text-slate-200">Your locker items</h3>
+        {!scopedPrefix && <h3 className="text-sm font-semibold text-slate-200">Your locker items</h3>}
+        {scopedPrefix && (
+          <>
+            <h3 className="text-sm font-semibold text-slate-200">Experiment-scoped constitutional records</h3>
+            {!anyScoped && !loading && (
+              <p className="rounded-xl border border-slate-700 bg-slate-900/40 p-3 text-xs italic text-slate-500">
+                No constitutional records are tagged for this experiment yet — a countersignature or
+                freeze act that writes into the Locker would tag its record {scopedPrefix}.
+              </p>
+            )}
+          </>
+        )}
         {loading ? (
           <div className="flex items-center justify-center py-6">
             <Loader2 className="h-4 w-4 animate-spin text-violet-400" />
@@ -1301,11 +1335,17 @@ export function LockerTab({ visibleSections = ALL_LOCKER_SECTIONS }: LockerTabPr
             No items in your locker yet. Upload one above.
           </p>
         ) : (
-          items.map((item) => {
+          orderedItems.map((item, idx) => {
             const itemGrants = grantsByItem[item.itemId] || [];
             const docDef = getDocClassDef(item.documentClass);
+            const scoped = isScopedItem(item);
+            const showAllItemsHeader = Boolean(scopedPrefix) && !scoped && (idx === 0 || isScopedItem(orderedItems[idx - 1]));
             return (
-              <div key={item.itemId} className="rounded-xl border border-slate-700 bg-slate-900/60 p-3">
+              <React.Fragment key={item.itemId}>
+              {showAllItemsHeader && (
+                <h3 className="pt-2 text-sm font-semibold text-slate-200">All locker items</h3>
+              )}
+              <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-3">
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
                   {/* Left column — item details (3/5 width on md+) */}
                   <div className="space-y-2 md:col-span-3">
@@ -1504,12 +1544,13 @@ export function LockerTab({ visibleSections = ALL_LOCKER_SECTIONS }: LockerTabPr
                   </div>
                 </div>
               </div>
+              </React.Fragment>
             );
           })
         )}
       </div>
-
-      )}
+        );
+      })()}
 
       {/* Location tracking — THE LAST SECTION (operator ruling, 2026-07-28).
           It used to be the first thing the holder saw, above their own

@@ -106,6 +106,15 @@ const QubeTalkInboxTab = dynamic(() => import("@/components/composer/QubeTalkInb
   loading: () => <span className="text-[10px] text-slate-400">Loading…</span>,
 });
 
+// The Review surface's LEADING projection of Readiness (message 3 item 4:
+// "Review reordered — Readiness leads, then projected Working Materials").
+// The SAME component the Laboratory's admin-gated dashboard mounts — locked
+// to this workspace's experimentId via `fixedExperimentId`, never forked.
+const ExpP1ReadinessTab = dynamic(() => import("@/components/composer/ExpP1ReadinessTab"), {
+  ssr: false,
+  loading: () => <span className="text-[10px] text-slate-400">Loading readiness…</span>,
+});
+
 const PANEL = "rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm";
 
 const PHASE_LABELS: Record<PartnerWorkspace["phase"], string> = {
@@ -345,6 +354,21 @@ interface SelectedWorkspaceLiveStateReady {
   role: string | null;
   currentPhase: string | null;
   currentStage: string | null;
+  /** Evidence-backed template stage labels (deriveCompletedTemplateStages) —
+   *  Pipeline's ONLY source for marking a stage complete; never derived from
+   *  ordinal position client-side. */
+  completedStages: string[];
+  /** Per-stage evidence for Pipeline's expandable disclosure, keyed by the
+   *  same template stage label as `completedStages`/`currentStage`. */
+  stageEvidence: Record<string, {
+    artifactId: string | null;
+    contentHash: string | null;
+    commitmentHash: string | null;
+    frozenAt: string | null;
+    observerRoundStatus: string | null;
+    protocolPresent: string[];
+    protocolMissing: string[];
+  }>;
   nextMilestone: { title: string; dueDate: string | null } | null;
   blockers: { title: string; detail: string | null }[];
   pendingHumanDecisions: string[];
@@ -355,6 +379,13 @@ interface SelectedWorkspaceLiveStateReady {
     exchangeAvailable: boolean;
     documentsAvailable: boolean;
   };
+  /** The experiment's own scientific-lifecycle receipt trail
+   *  (resolveExperimentActivity) — an array when experimentId is bound, or
+   *  an honest `{available:false, reason}` shape when no such trail exists
+   *  for this workspace (SPEC §7's Activity view — message 3 item 8: "a real
+   *  DVN receipt ledger... replacing the not-yet-wired state"). */
+  activity: { objectId: string; objectKind: string; lifecycleState: string; receiptId: string | null; createdAt: string }[]
+    | { available: false; reason: string };
 }
 type SelectedWorkspaceLiveState =
   | { kind: "loading" }
@@ -796,6 +827,16 @@ function PipelinePanel({
   const effectiveStage = resolverBoundToExperiment ? (liveReady?.currentStage ?? null) : ws.currentStage;
   const stageIsLoading = resolverBoundToExperiment && liveState?.kind === "loading";
   const current = lifecycleStageIndex(ws.lifecycle, effectiveStage);
+  // EVIDENCE-BACKED completion (message 3 item 3): a stage reads emerald
+  // ONLY when the resolver's own `completedStages` — derived from real
+  // freeze/hash/receipt/observer-round signals
+  // (deriveCompletedTemplateStages) — names it, never merely because its
+  // ordinal position is before `current`. A stage before `current` with no
+  // such evidence renders NEUTRAL (grey, "not evidence-backed"), distinct
+  // from both the violet current stage and an emerald evidenced one — three
+  // visually distinct states, not two.
+  const evidencedStages = resolverBoundToExperiment ? (liveReady?.completedStages ?? []) : [];
+  const [expandedStage, setExpandedStage] = useState<string | null>(null);
   return (
     <div className="space-y-3">
       <BoundaryNote surface="pipeline" />
@@ -823,38 +864,78 @@ function PipelinePanel({
         <ol className="space-y-1.5">
           {ws.lifecycle.stages.map((stage, i) => {
             const isCurrent = i === current;
-            const isPast = current >= 0 && i < current;
+            const isEvidenced = evidencedStages.includes(stage);
+            const isPastNoEvidence = !isEvidenced && current >= 0 && i < current;
+            const evidence = liveReady?.stageEvidence?.[stage];
+            const canDisclose = Boolean(evidence) && (isEvidenced || isCurrent);
+            const isExpanded = expandedStage === stage;
             return (
               <li
                 key={stage}
-                className={`flex items-center gap-2.5 rounded-lg border px-3 py-2 ${
+                className={`rounded-lg border px-3 py-2 ${
                   isCurrent
                     ? "border-violet-500/50 bg-violet-500/10"
-                    : "border-slate-800 bg-slate-900/40"
+                    : isEvidenced
+                      ? "border-emerald-500/40 bg-emerald-500/10"
+                      : "border-slate-800 bg-slate-900/40"
                 }`}
               >
-                <span
-                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] ${
-                    isCurrent
-                      ? "bg-violet-500/30 text-violet-100"
-                      : isPast
-                        ? "bg-slate-700 text-slate-300"
-                        : "bg-slate-800 text-slate-500"
-                  }`}
+                {/* Disclosure (evidence) and forward navigation (going to the
+                    stage's OWN home surface) are kept as separate affordances
+                    — message 3 item 3: "separate disclosure vs. forward
+                    affordances", never one control doing both. This row is
+                    disclosure-only; the stage's forward destination is the
+                    named surface itself (Review/Working Materials/etc.),
+                    reached via the tier-3 submenu, not from inside Pipeline. */}
+                <button
+                  type="button"
+                  onClick={() => canDisclose && setExpandedStage(isExpanded ? null : stage)}
+                  disabled={!canDisclose}
+                  className={`flex w-full items-center gap-2.5 text-left ${canDisclose ? "cursor-pointer" : "cursor-default"}`}
                 >
-                  {i + 1}
-                </span>
-                <span
-                  className={`text-xs ${
-                    isCurrent ? "text-violet-100" : isPast ? "text-slate-300" : "text-slate-500"
-                  }`}
-                >
-                  {stage}
-                </span>
-                {isCurrent && (
-                  <span className="ml-auto text-[10px] uppercase tracking-wide text-violet-300">
-                    Current
+                  <span
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] ${
+                      isCurrent
+                        ? "bg-violet-500/30 text-violet-100"
+                        : isEvidenced
+                          ? "bg-emerald-500/30 text-emerald-100"
+                          : isPastNoEvidence
+                            ? "bg-slate-700 text-slate-300"
+                            : "bg-slate-800 text-slate-500"
+                    }`}
+                  >
+                    {isEvidenced ? <Check className="h-3 w-3" /> : i + 1}
                   </span>
+                  <span
+                    className={`text-xs ${
+                      isCurrent ? "text-violet-100" : isEvidenced ? "text-emerald-200" : isPastNoEvidence ? "text-slate-300" : "text-slate-500"
+                    }`}
+                  >
+                    {stage}
+                  </span>
+                  {isCurrent && (
+                    <span className="ml-auto text-[10px] uppercase tracking-wide text-violet-300">Current</span>
+                  )}
+                  {!isCurrent && isEvidenced && (
+                    <span className="ml-auto text-[10px] uppercase tracking-wide text-emerald-300">
+                      {canDisclose ? (isExpanded ? "Hide evidence ▲" : "Evidence ▼") : "Complete"}
+                    </span>
+                  )}
+                </button>
+                {isExpanded && evidence && (
+                  <div className="mt-2 space-y-1 border-t border-slate-800 pt-2 text-[11px] text-slate-400">
+                    {evidence.artifactId && <p>Artifact: <span className="text-slate-300">{evidence.artifactId}</span></p>}
+                    {evidence.contentHash && <p>Content hash: <span className="font-mono text-slate-300">{evidence.contentHash}</span></p>}
+                    {evidence.commitmentHash && <p>Commitment hash: <span className="font-mono text-slate-300">{evidence.commitmentHash}</span></p>}
+                    {evidence.frozenAt && <p>Frozen: <span className="text-slate-300">{evidence.frozenAt}</span></p>}
+                    {evidence.observerRoundStatus && <p>Observer round: <span className="text-slate-300">{evidence.observerRoundStatus}</span></p>}
+                    {evidence.protocolPresent.length > 0 && (
+                      <p>Protocol frozen: <span className="text-slate-300">{evidence.protocolPresent.join(", ")}</span></p>
+                    )}
+                    {evidence.protocolMissing.length > 0 && (
+                      <p>Protocol missing: <span className="text-amber-300">{evidence.protocolMissing.join(", ")}</span></p>
+                    )}
+                  </div>
                 )}
               </li>
             );
@@ -887,6 +968,57 @@ function PipelinePanel({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * The Activity surface's real DVN receipt ledger (message 3 item 8) — each
+ * row IS the same `ExperimentActivityEntry` `resolveExperimentActivity`
+ * already derives from `research_objects`, expandable to its full JSON so
+ * an operator can inspect the receiptId/lifecycleState/objectKind pairing
+ * without a second, summarized shape hiding the receipt's real fields.
+ */
+function ActivityLedger({
+  entries,
+}: {
+  entries: { objectId: string; objectKind: string; lifecycleState: string; receiptId: string | null; createdAt: string }[];
+}) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  return (
+    <div className="mt-3 space-y-1.5">
+      {entries.map((e) => {
+        const isExpanded = expandedId === e.objectId;
+        return (
+          <div key={e.objectId} className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
+            <button
+              type="button"
+              onClick={() => setExpandedId(isExpanded ? null : e.objectId)}
+              className="flex w-full items-center gap-2 text-left"
+            >
+              <span className="rounded-full border border-slate-700 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300">
+                {e.objectKind}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-xs text-slate-200">{e.objectId}</span>
+              <span
+                className={`rounded-full border px-2 py-0.5 text-[10px] ${
+                  e.lifecycleState === "frozen" || e.lifecycleState === "executed"
+                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                    : "border-slate-700 text-slate-400"
+                }`}
+              >
+                {e.lifecycleState}
+              </span>
+              <span className="shrink-0 text-[10px] text-slate-500">{new Date(e.createdAt).toLocaleString()}</span>
+            </button>
+            {isExpanded && (
+              <pre className="mt-2 max-h-48 overflow-y-auto whitespace-pre-wrap break-words rounded bg-slate-900/80 p-2 text-[10px] font-mono text-slate-300">
+                {JSON.stringify(e, null, 2)}
+              </pre>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -2287,14 +2419,35 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
         </div>
       )}
 
-      {/* ── Evidence ── */}
+      {/* ── Evidence / Activity (SPEC §7 names this "Activity" for research
+          kind — SUB_LABELS) ── */}
       {surface === "evidence" && (
         <div className="space-y-4">
+          {/* Real DVN receipt ledger, scoped to this experiment
+              (resolveExperimentActivity via the canonical resolver — message
+              3 item 8: "a real DVN receipt ledger... replacing the
+              not-yet-wired state"). Experiment-bound workspaces only; a
+              non-experiment workspace (or one whose activity is genuinely
+              unmodeled) keeps the honest not-yet-wired copy below. */}
+          {ws.experimentId && liveState.kind === "ready" && Array.isArray(liveState.state.activity) && (
+            <div className={`${PANEL} p-4`}>
+              <h3 className="text-sm font-semibold text-slate-100">Scientific-lifecycle activity — {ws.experimentId}</h3>
+              <p className="mt-1 text-[11px] text-slate-500">
+                Every freeze, protocol-artifact freeze and execution run tagged to this experiment,
+                each carrying the same receiptId the DVN-anchorable lifecycle-transition path writes.
+              </p>
+              {liveState.state.activity.length === 0 ? (
+                <p className="mt-2 text-xs italic text-slate-500">No activity recorded yet for this experiment.</p>
+              ) : (
+                <ActivityLedger entries={liveState.state.activity} />
+              )}
+            </div>
+          )}
           <div className={`${PANEL} p-4`}>
             <p className="text-xs text-slate-400">
-              Workspace evidence is DVN-anchored receipts — the anchor of record. A workspace-scoped
-              receipt filter (receipts tagged to this workspace) is <span className="italic text-slate-500">not yet wired</span>;
-              until it is, the canonical receipt surfaces below are the evidence record.
+              {ws.experimentId && liveState.kind === "ready" && Array.isArray(liveState.state.activity)
+                ? "The ledger above is this experiment's own scientific-lifecycle activity trail. The generic persona activity feed below carries no experimentId tag and cannot be filtered to one workspace — the canonical receipt surfaces below remain the record for everything outside that trail."
+                : "Workspace evidence is DVN-anchored receipts — the anchor of record. A workspace-scoped receipt filter (receipts tagged to this workspace) is not yet wired for this workspace; until it is, the canonical receipt surfaces below are the evidence record."}
             </p>
           </div>
           {/* The joined evidence chain. Renders only for a workspace whose
@@ -2346,11 +2499,24 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
           {/* Authorized reviewer materials + countersignature state — read
               from the SAME canonical resolver Overview/Pipeline consume
               (services/research/selectedWorkspaceState.ts), never a second
-              derivation. Experiment-bound workspaces only. */}
+              derivation. Experiment-bound workspaces only.
+
+              ORDER (message 3 item 4 — "Readiness leads, then projected
+              Working Materials"): Readiness dashboard FIRST (this workspace's
+              overall protocol-ratified gating state), then the Reviewer Kit —
+              a PROJECTION of the same documents Working Materials natively
+              owns (the projection rule: "acting on the object takes the user
+              to its native home" — reading here is fine, promoting/freezing
+              is not, and isn't offered here), then countersignature. */}
           {ws.experimentId && (
             <>
               {liveState.kind === "loading" && (
                 <div className={`${PANEL} p-4 text-xs text-slate-500`}>Loading reviewer materials…</div>
+              )}
+              {liveState.kind === "ready" && liveState.state.capabilities.readinessAvailable && (
+                <div className={`${PANEL} p-4`}>
+                  <ExpP1ReadinessTab personaId={personaId} fixedExperimentId={ws.experimentId as "EXP-P1" | "EXP-P2" | "EXP-P3"} />
+                </div>
               )}
               {liveState.kind === "ready" && liveState.state.documents.length > 0 && (
                 <div className={`${PANEL} p-4`}>
@@ -2442,10 +2608,12 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
           <BoundaryNote surface="locker" />
           <div className={`${PANEL} p-3`}>
             <p className="mb-2 text-[11px] text-slate-500">
-              The holder-owned encrypted Locker (canonical, unfiltered — locker items are
-              holder-scoped, not workspace-scoped).
+              The holder-owned encrypted Locker (canonical — locker items are holder-scoped, not
+              workspace-scoped). {ws.experimentId
+                ? `Constitutional records tagged for ${ws.experimentId} sort first below, via the same [x409:…]-style bracket tag the Locker already uses for contract items (message 3 item 6) — nothing else is filtered out.`
+                : "Unfiltered for this workspace (no bound experiment)."}
             </p>
-            <LockerTab />
+            <LockerTab itemScopeTag={ws.experimentId ? `EXP:${ws.experimentId}` : undefined} />
           </div>
         </div>
       )}

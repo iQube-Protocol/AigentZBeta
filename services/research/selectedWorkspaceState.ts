@@ -51,6 +51,7 @@ import {
   resolveExperimentLifecycleState,
   resolveCallerObserverStatus,
   resolveExperimentActivity,
+  deriveCompletedTemplateStages,
   type ExperimentLifecycleState,
   type CallerObserverStatus,
   type ExperimentActivityEntry,
@@ -89,7 +90,24 @@ export interface SelectedWorkspaceState {
   experimentLifecycle: ExperimentLifecycleState | null;
   currentPhase: string | null;
   currentStage: string | null;
+  /** Template stage labels EVIDENCED complete (deriveCompletedTemplateStages)
+   *  — never merely "earlier in phase order than the current stage". Empty
+   *  for a non-experiment workspace (no phase machine exists to evidence). */
   completedStages: string[];
+  /** Per-stage evidence for the Pipeline's expandable disclosure (message 3
+   *  item 3) — the actual artifact/hash/receipt/round backing a completed or
+   *  current stage, keyed by template stage label. Absent entries mean no
+   *  stage-specific evidence beyond `experimentLifecycle` itself is modeled
+   *  yet (honest, never fabricated). */
+  stageEvidence: Record<string, {
+    artifactId: string | null;
+    contentHash: string | null;
+    commitmentHash: string | null;
+    frozenAt: string | null;
+    observerRoundStatus: string | null;
+    protocolPresent: string[];
+    protocolMissing: string[];
+  }>;
 
   nextMilestone: { title: string; dueDate: string | null } | null;
   blockers: { title: string; detail: string | null }[];
@@ -160,6 +178,8 @@ export async function resolveSelectedWorkspaceState(
   let readinessAvailable = false;
   let reviewState: SelectedWorkspaceState['reviewState'] = null;
   let pendingHumanDecisions: string[] = [];
+  let completedStages: string[] = [];
+  let stageEvidence: SelectedWorkspaceState['stageEvidence'] = {};
   let activity: ExperimentActivityEntry[] | UnmodeledField = {
     available: false,
     reason: 'No workspace-scoped activity trail exists for a workspace with no bound experiment.',
@@ -171,6 +191,22 @@ export async function resolveSelectedWorkspaceState(
     currentStage = experimentLifecycle.stageLabel;
     readinessAvailable = READINESS_AVAILABLE_EXPERIMENTS.has(experimentId);
     activity = await resolveExperimentActivity(experimentId);
+    completedStages = deriveCompletedTemplateStages(experimentLifecycle);
+    const evidenceEntry = {
+      artifactId: experimentLifecycle.artifactId,
+      contentHash: experimentLifecycle.contentHash,
+      commitmentHash: experimentLifecycle.commitmentHash,
+      frozenAt: experimentLifecycle.frozenAt,
+      observerRoundStatus: experimentLifecycle.observerRoundStatus,
+      protocolPresent: experimentLifecycle.protocolPresent,
+      protocolMissing: experimentLifecycle.protocolMissing,
+    };
+    // Every stage this experiment has EVER touched (completed or current)
+    // shares the same underlying evidence object — the Pipeline's disclosure
+    // opens whichever stage the operator expands, keyed by the same label.
+    for (const label of [...completedStages, currentStage]) {
+      if (label) stageEvidence[label] = evidenceEntry;
+    }
 
     documents = (await listIrlPackDocumentsForExperiment(experimentId)).map((path) => ({
       path,
@@ -224,7 +260,8 @@ export async function resolveSelectedWorkspaceState(
       experimentLifecycle,
       currentPhase,
       currentStage,
-      completedStages: [],
+      completedStages,
+      stageEvidence,
       nextMilestone: nextMilestone ? { title: nextMilestone.title, dueDate: nextMilestone.dueDate } : null,
       blockers: openBlockers.map((b) => ({ title: b.title, detail: b.detail })),
       pendingHumanDecisions,
