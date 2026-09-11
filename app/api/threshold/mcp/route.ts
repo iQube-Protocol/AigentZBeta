@@ -53,19 +53,17 @@ async function handleOne(msg: RpcMsg, ctx: GatewayContext): Promise<object | nul
         const name = String(params.name ?? ''); const args = (params.arguments as Record<string, unknown>) ?? {};
         if (name === 'upload_content_asset') return ok(id, await callUploadContentAsset(args, ctx));
         if (isPublicDiscoveryTool(name)) { const result = await callPublicDiscoveryTool(name, args); return ok(id, { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }], ...(result && typeof result === 'object' && 'ok' in result && result.ok === false ? { isError: true } : {}) }); }
-
-        // Persona re-crossing changes the bearer itself. The model may choose the
-        // target persona, but OAuth state + PKCE belong to the MCP HOST. Prepare
-        // the intent, then return the MCP authorization challenge so the host
-        // starts its own OAuth flow. authorize-init adopts that pending intent
-        // and binds the host-generated state/challenge before human approval.
         if (name === 'request_persona_switch' && ctx.session) {
+          // Single-call requests are intercepted by POST below so the HTTP layer
+          // can return a real 401 + WWW-Authenticate challenge. This fallback is
+          // retained for batched/nonstandard clients that preserve MCP tool-result
+          // auth metadata.
           const personaPublicRef = typeof args.personaPublicRef === 'string' ? args.personaPublicRef : '';
           const prepared = await requestPersonaSwitch(ctx.session, { personaPublicRef }, ctx.origin);
           if (!prepared.ok) return ok(id, { isError: true, content: [{ type: 'text', text: prepared.error }] });
           return ok(id, {
             isError: true,
-            content: [{ type: 'text', text: 'Persona switch prepared. Reauthorize this MCP connection to complete a fresh target-persona crossing. The current bearer remains authoritative until the host completes OAuth token exchange.' }],
+            content: [{ type: 'text', text: 'Persona switch prepared. Reauthorize this MCP connection to complete a fresh target-persona crossing.' }],
             _meta: { 'mcp/www_authenticate': [`Bearer resource_metadata="${ctx.origin}/.well-known/oauth-protected-resource"`] },
           });
         }
@@ -100,6 +98,27 @@ export async function POST(request: NextRequest) {
       resolveExchangeAuthority: () => { const admin = getSupabaseServer(); return admin ? resolveExchangeWriteAuthority(admin, session) : Promise.resolve({ ok: false as const, error: 'Platform database is unavailable.' }); },
     } : undefined,
   };
+
+  // A persona switch changes the bearer itself. A successful intent therefore
+  // has to cross the HTTP authorization boundary, not merely return an MCP tool
+  // error with auth metadata (Claude currently does not reliably turn that 200
+  // result into a fresh OAuth ceremony). Prepare the target intent first, then
+  // challenge the HOST with a real 401 so it generates its own state + PKCE.
+  if (session && !Array.isArray(body)) {
+    const msg = body as RpcMsg;
+    const params = (msg.params ?? {}) as Record<string, unknown>;
+    if (msg.method === 'tools/call' && String(params.name ?? '') === 'request_persona_switch') {
+      const args = (params.arguments as Record<string, unknown>) ?? {};
+      const personaPublicRef = typeof args.personaPublicRef === 'string' ? args.personaPublicRef : '';
+      const prepared = await requestPersonaSwitch(session, { personaPublicRef }, origin);
+      if (!prepared.ok) {
+        return cors(NextResponse.json(ok(msg.id, { isError: true, content: [{ type: 'text', text: prepared.error }] })));
+      }
+      const res = cors(NextResponse.json(err(msg.id, -32001, 'Fresh persona OAuth authorization required'), { status: 401 }));
+      res.headers.set('WWW-Authenticate', `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource"`);
+      return res;
+    }
+  }
 
   if (!session) {
     const msgs = Array.isArray(body) ? body : [body];
