@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-11T17:41:40.349Z",
+  "last_updated": "2026-09-11T17:54:56.558Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "a4e41921053eff40c96415dd157a18cba829eefa",
-  "latest_commit_short": "a4e4192",
-  "latest_commit_title": "chore(deploy): publish Threshold 006 deep-link repair",
+  "latest_commit": "534b41340f69b614f4ada0b32676e7907fef0f66",
+  "latest_commit_short": "534b413",
+  "latest_commit_title": "chore(deploy): publish encoded-title routing fix",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "534b413",
+      "full_sha": "534b41340f69b614f4ada0b32676e7907fef0f66",
+      "title": "chore(deploy): publish encoded-title routing fix",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-11T13:53:11-04:00",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-534b413.md"
+    },
     {
       "sha": "a4e4192",
       "full_sha": "a4e41921053eff40c96415dd157a18cba829eefa",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T00:44:55Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-b63c97e.md"
-    },
-    {
-      "sha": "3fdf50d",
-      "full_sha": "3fdf50d2730248a78f044c7a52a88687ec524a62",
-      "title": "Add fs-operate stage; wire fs-prepare to a real reviewed-profile evidence",
-      "author": "Claude",
-      "timestamp": "2026-09-02T00:45:11Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-3fdf50d.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

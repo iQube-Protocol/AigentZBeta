@@ -5714,3 +5714,8 @@ Top-level retrieval anchors for this pack.
 - Type: `chore`
 - Brief: [COMMIT-a4e4192.md](../build_/COMMITS/COMMIT-a4e4192.md)
 - Message: chore(deploy): publish Threshold 006 deep-link repair
+
+## Commit `534b413` — 2026-09-11T13:53:11-04:00
+- Type: `chore`
+- Brief: [COMMIT-534b413.md](../build_/COMMITS/COMMIT-534b413.md)
+- Message: chore(deploy): publish encoded-title routing fix
