@@ -99,6 +99,7 @@ import { useResearchWorkspaceAccess } from "@/app/hooks/useResearchWorkspaceAcce
 import { WorkspaceCapabilitiesPanel, DocumentRow } from "@/components/research/WorkspaceCapabilitiesPanel";
 import { ReviewerAgreementPanel } from "@/components/research/ReviewerAgreementPanel";
 import { ActivityReceiptCard, type ActivityReceiptData } from "@/components/metame/cards/ActivityReceiptCard";
+import { ExperimentDossierPanel } from "@/components/research/ExperimentDossierPanel";
 
 // Peer exchange is client-only (clipboard/personaFetch) — same lazy pattern
 // as LockerTab's own mount of it.
@@ -2420,6 +2421,22 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
                 </div>
               );
             })
+          )}
+          {/* Full experiment/programme dossier (message 5/6, IRL Workspace
+              Experiment Dossier Completion Pass) — a projection over the
+              SAME `resolveExperimentDossier` a machine consumer reads as
+              JSON from `/api/participation/workspace-dossier`; rendered here
+              for the currently active workspace only. Generalizes to any
+              workspace (research or OCSGA) — no experiment-specific
+              branching in this component either. */}
+          {workspaces.length > 0 && (
+            <ExperimentDossierPanel
+              workspaceId={ws.id}
+              personaId={personaId}
+              onOpenDocument={(path) =>
+                navigateToSurface("working-materials", { selectedArtifactId: path, returnSurface: "experiments" })
+              }
+            />
           )}
         </div>
       )}
