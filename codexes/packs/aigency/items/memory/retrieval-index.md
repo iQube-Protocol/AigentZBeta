@@ -5644,3 +5644,8 @@ Top-level retrieval anchors for this pack.
 - Type: `ci`
 - Brief: [COMMIT-4bc6768.md](../build_/COMMITS/COMMIT-4bc6768.md)
 - Message: ci: validate Threshold MCP changes
+
+## Commit `9aae530` — 2026-09-10T20:14:20-04:00
+- Type: `feat`
+- Brief: [COMMIT-9aae530.md](../build_/COMMITS/COMMIT-9aae530.md)
+- Message: Add public iQube Card MCP adapter

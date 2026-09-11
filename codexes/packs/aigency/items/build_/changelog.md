@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`9aae530`](https://github.com/iQube-Protocol/AigentZBeta/commit/9aae5307efebf6322f16bcc35afa350239dfe478) [feat] Add public iQube Card MCP adapter (Kn0w1, 2026-09-10T20:14:20-04:00)
 - [`4bc6768`](https://github.com/iQube-Protocol/AigentZBeta/commit/4bc676872be452de677b2c99e6d938604af025a3) [ci] ci: validate Threshold MCP changes (Kn0w1, 2026-09-10T19:34:40-04:00)
 - [`0b86c59`](https://github.com/iQube-Protocol/AigentZBeta/commit/0b86c596ff633f79884174875beb8bc363ce5cf5) [feat] feat(threshold): project canonical public cartridge content (Kn0w1, 2026-09-10T19:45:43-04:00)
 - [`6a7d8cc`](https://github.com/iQube-Protocol/AigentZBeta/commit/6a7d8cc70156cd8e0759717e0d56a14c8dd2084b) [push] Expose canonical public cartridges and agent orientation through Threshold MCP (Kn0w1, 2026-09-10T19:54:24-04:00)
