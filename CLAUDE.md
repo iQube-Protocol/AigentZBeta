@@ -693,6 +693,93 @@ Supporting docs (in order):
 
 ---
 
+## Constitutional Identity & Resource Protocol (PARAMOUNT, 2026-09-11)
+
+**This protocol is normative for new development and directional for legacy systems. Conformance
+debt is not permission for destructive refactoring.**
+
+Full mapping, current-state audit (file:line citations), and two PROPOSED-not-ratified candidate
+invariants: `codexes/packs/agentiq/updates/2026-09-11_person-persona-iqube-constitutional-protocol-v0.1.md`.
+Machine-readable component classification seed: `codexes/packs/agentiq/retrofit-register.json`.
+
+### Canonical interaction chain
+
+```
+KybeDID → RootDID → Persona → Authority/Delegation → iQube → Action → DVN Receipt → Standing
+```
+
+- KybeDID is the durable personhood-continuity root.
+- RootDID is durable identity continuity.
+- Persona is the contextual activation and interaction boundary.
+- DiDQube owns Person/Identity/Persona resolution and continuity.
+- Authority/Delegation determines under whose mandate a Persona acts.
+- iQube owns or resolves resource-specific access and constitutional policy.
+- RLS enforces underlying storage permissions and must not be weakened to compensate for application projection defects.
+- DVN receipts provide attributable evidence of consequential action.
+- Standing is derived from evidenced action and accrues principally to personhood while retaining Persona/context provenance.
+
+Constitutional action is Persona-attributed, personhood-anchored, resource-governed and receipt-evidenced.
+
+Migration rule: new code MUST follow this model. Existing load-bearing code MUST NOT be destructively rewritten solely for architectural conformity. Prefer adapters, compatibility layers and incremental iQube wrapping. Replace legacy paths only after behavioral equivalence and default-deny authorization parity are proven.
+
+If code appears to conflict with this protocol:
+1. inspect the existing behavior;
+2. determine whether it is load-bearing;
+3. classify the gap;
+4. preserve working behavior;
+5. introduce the smallest protocol-compatible seam;
+6. add the retrofit to the architecture backlog;
+7. migrate only under tests and explicit authorization.
+
+Never silently broaden authorization while reconciling legacy systems.
+
+### Forward compliance, backward compatibility, progressive retrofit
+
+1. **All NEW implementation must conform.** No new cartridge-local definitions of Person, Identity,
+   Persona, delegation, resource-authority, receipt, or Standing-ownership semantics. Reuse the
+   canonical DiDQube/Persona/iQube/DVN/Standing boundaries.
+2. **Existing load-bearing code is grandfathered, not exempt from citation.** `participationAccess.ts`,
+   `selectedWorkspaceState.ts`, existing RLS policies, existing delegation/access resolvers, current
+   registry adapters, and other production-critical authorization paths must not be removed,
+   bypassed, or rewritten solely because they do not yet match this protocol perfectly.
+3. **Retrofit by adapters before replacement.** Wrap existing behavior behind canonical protocol
+   interfaces; introduce thin iQube/resource bindings for legacy content; make existing resolvers
+   providers to the canonical layer before considering replacement; preserve OS-9/default-deny
+   during any migration.
+4. **Migrate only when equivalence is demonstrated:** current semantics documented, protocol-
+   equivalent behavior implemented, authorization-parity tests pass, denial/default-deny tests pass,
+   receipts/auditability preserved, rollback possible.
+5. **Do not confuse identity resolution with resource authorization.** DiDQube owns
+   Person↔Identity↔Persona continuity; iQube/content policy owns resource authority/access; RLS
+   enforces storage-level access; DVN/activity receipts evidence consequential action; Standing
+   consumes attributable evidence and accrues principally to personhood.
+6. **Persona is the activation boundary.** Application code ordinarily acts through the active
+   Persona and its authority/delegation chain — never by spraying raw KybeDID/RootDID through
+   application code.
+7. **Standing attribution must retain lineage.** Evidence is Persona-attributed and personhood-
+   anchored; aggregating Standing to the Person must never destroy the Persona/resource/authority/
+   delegation/receipt lineage that produced it.
+8. **Content must carry or resolve its own constitutional access model.** New research objects,
+   Locker assets, documents, and experiment artifacts should be iQube-addressable or attached to an
+   appropriate ClusterQube/content wrapper from creation.
+9. **Legacy content retrofit is incremental.** Inventory and progressively assign light iQube
+   wrappers when a legacy object is touched by active development, creates an authorization-
+   projection defect, enters a consequential workflow, or can be completed safely in a bounded
+   batch. Do not launch a risky estate-wide bulk migration merely to eliminate technical debt.
+10. **Cartridges consume the protocol, they do not redefine it.** IRL, Venture Lab, MoneyPenny,
+    Horizon, Passport, MCP, aigentMe, and future cartridges may have domain-specific UX/workflows,
+    but Person/Persona/resource/Standing semantics must stay protocol-consistent.
+
+### Retrofit register
+
+`codexes/packs/agentiq/retrofit-register.json` — one entry per component: `component`,
+`current_model`, `target_protocol`, `status` (`compliant | adapter-backed | legacy-load-bearing |
+retrofit-planned | blocked`), `risk`, `adapter_available`, `migration_trigger`, `tests_required`.
+Seeded from the 2026-09-11 architecture audit above. This is a classification record, not a
+migration project — add entries when a new component is classified; do not add work items to it.
+
+---
+
 ## DVN Pipeline Protection — CRITICAL INFRASTRUCTURE (PARAMOUNT)
 
 **The DVN (Decentralised Verification Network) anchoring pipeline is critical infrastructure. Any DVN failure represents a break in the chain-of-provenance for operator actions. Failures MUST be escalated to the operator immediately — they are never silent or acceptable as "transient".**

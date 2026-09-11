@@ -34,6 +34,46 @@
 - At a natural milestone or close of a substantive turn, perform a lightweight scan: did this work surface a candidate invariant, experiment, architecture refinement, or capability? If yes, surface the candidates and proposed classifications before moving on.
 - Canonical rule: `docs/agent-harness/prospective-evolution-capture.md`. Roadmap model: `codexes/packs/irl/foundation/CFS-051A_prospective-evolution-roadmaps.md`. This composes with, but is broader than, the Resolution → Invariant Loop.
 
+## Constitutional Identity & Resource Protocol (PARAMOUNT, 2026-09-11)
+
+**This protocol is normative for new development and directional for legacy systems. Conformance
+debt is not permission for destructive refactoring.** Full audit + citations:
+`codexes/packs/agentiq/updates/2026-09-11_person-persona-iqube-constitutional-protocol-v0.1.md`.
+Retrofit register: `codexes/packs/agentiq/retrofit-register.json`.
+
+Canonical interaction chain:
+
+```
+KybeDID → RootDID → Persona → Authority/Delegation → iQube → Action → DVN Receipt → Standing
+```
+
+- KybeDID is the durable personhood-continuity root.
+- RootDID is durable identity continuity.
+- Persona is the contextual activation and interaction boundary.
+- DiDQube owns Person/Identity/Persona resolution and continuity.
+- Authority/Delegation determines under whose mandate a Persona acts.
+- iQube owns or resolves resource-specific access and constitutional policy.
+- RLS enforces underlying storage permissions and must not be weakened to compensate for application projection defects.
+- DVN receipts provide attributable evidence of consequential action.
+- Standing is derived from evidenced action and accrues principally to personhood while retaining Persona/context provenance.
+
+Constitutional action is Persona-attributed, personhood-anchored, resource-governed and receipt-evidenced.
+
+**Migration rule:** new code MUST follow this model. Existing load-bearing code (`participationAccess.ts`,
+`selectedWorkspaceState.ts`, existing RLS policies, existing delegation/access resolvers, current
+registry adapters, other production-critical authorization paths) MUST NOT be destructively
+rewritten solely for architectural conformity. Prefer adapters, compatibility layers and incremental
+iQube wrapping. Replace legacy paths only after behavioral equivalence and default-deny
+authorization parity are proven.
+
+If code appears to conflict with this protocol: (1) inspect the existing behavior; (2) determine
+whether it is load-bearing; (3) classify the gap; (4) preserve working behavior; (5) introduce the
+smallest protocol-compatible seam; (6) add the retrofit to the architecture backlog; (7) migrate
+only under tests and explicit authorization. Never silently broaden authorization while
+reconciling legacy systems. See `CLAUDE.md` for the full ten-rule forward-compliance/backward-
+compatibility/progressive-retrofit statement — this protocol applies identically to Codex and every
+other agent working this repo.
+
 ## Delivery rules
 - **Golden Rule: Do not recreate what already exists.** Reuse first, extend existing platform/cartridge functionality second, and create new systems only when there is no suitable existing surface, service, schema, connector, or workflow to extend.
 - Make clear in initial implementation plans what will be reused, what will be extended, and what is genuinely new.
