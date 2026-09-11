@@ -43,6 +43,12 @@ interface ReadinessDashboard {
 
 interface ExpP1ReadinessTabProps {
   personaId?: string;
+  /** When set, locks the dashboard to this experiment and hides the picker —
+   *  the Workspace Review surface's projection of Readiness (message 3 item
+   *  4: "Review reordered — Readiness leads"), where the experiment is
+   *  already scoped by the workspace itself and re-offering the picker would
+   *  let a reviewer wander to an experiment they hold no grant for. */
+  fixedExperimentId?: (typeof EXPERIMENT_IDS)[number];
 }
 
 /** Validation Programme v1 registry ids (types/research.ts) — EXP-P1 is the
@@ -61,8 +67,8 @@ const STATUS_CHIP: Record<ReadinessStatus, string> = {
  * Publication) — deliberately NOT rose, so it cannot read as a failure. */
 const EXPECTED_RED_CHIP = "text-slate-400 border-slate-700 bg-slate-800/60";
 
-export default function ExpP1ReadinessTab({ personaId }: ExpP1ReadinessTabProps) {
-  const [experimentId, setExperimentId] = useState<(typeof EXPERIMENT_IDS)[number]>("EXP-P1");
+export default function ExpP1ReadinessTab({ personaId, fixedExperimentId }: ExpP1ReadinessTabProps) {
+  const [experimentId, setExperimentId] = useState<(typeof EXPERIMENT_IDS)[number]>(fixedExperimentId ?? "EXP-P1");
   const [dashboard, setDashboard] = useState<ReadinessDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -114,19 +120,20 @@ export default function ExpP1ReadinessTab({ personaId }: ExpP1ReadinessTabProps)
             </h2>
           </div>
           <div className="flex items-center gap-2">
-            {EXPERIMENT_IDS.map((id) => (
-              <button
-                key={id}
-                onClick={() => setExperimentId(id)}
-                className={`rounded px-2 py-1 text-xs border transition-colors ${
-                  id === experimentId
-                    ? "border-violet-500/50 bg-violet-500/10 text-violet-300 font-semibold"
-                    : "border-slate-800 bg-slate-900/40 text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                {id}
-              </button>
-            ))}
+            {!fixedExperimentId &&
+              EXPERIMENT_IDS.map((id) => (
+                <button
+                  key={id}
+                  onClick={() => setExperimentId(id)}
+                  className={`rounded px-2 py-1 text-xs border transition-colors ${
+                    id === experimentId
+                      ? "border-violet-500/50 bg-violet-500/10 text-violet-300 font-semibold"
+                      : "border-slate-800 bg-slate-900/40 text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  {id}
+                </button>
+              ))}
             <button
               onClick={() => void load()}
               disabled={loading}

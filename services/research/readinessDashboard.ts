@@ -18,6 +18,7 @@ import {
   getArtifact,
   deriveProtocolRatified,
   listExecutionRuns,
+  latestFrozenCrystalArtifact,
 } from '@/services/research/artifacts';
 import { runCrystalReadinessReport } from '@/services/research/crystalReadiness';
 import { deriveOverview } from '@/services/research/lifecycle';
@@ -64,14 +65,16 @@ export async function buildReadinessDashboard(experimentId: string): Promise<Rea
   const crystalArtifactStatus = artifactStatus(artifacts, 'crystal-version');
   let crystalDetail: string;
   if (crystalArtifactStatus === 'green') {
-    // Names the ACTUAL frozen generation, never a hardcoded 'vP1' (operator
-    // report, 2026-09-07: this line kept reading 'Crystal vP1' after vP2 had
-    // already frozen — "the deployed UI... references frozen Crystal vP1").
-    // `currentCrystalArtifactId`/`latestFrozenCrystalArtifact`
-    // (services/research/artifacts.ts) are the only correct resolvers; the
-    // frozen artifact is already IN `artifacts` from the `listArtifacts` call
-    // above, so no second read is needed here.
-    const frozen = artifacts.find((a) => a.kind === 'crystal-version' && a.lifecycle === 'frozen');
+    // Names the ACTUAL LATEST frozen generation, never a hardcoded 'vP1' and
+    // never a raw `.find()` over `artifacts` (2026-09-11 recurrence: with
+    // BOTH crystal-vP1 and crystal-vP2 frozen, `listArtifacts`' ascending-
+    // `updated_at` order made a plain `.find()` return vP1 — the OLDER
+    // generation — even though vP2 had since frozen; this line read "Crystal
+    // vP1 snapshot is frozen" while vP2 was current). `latestFrozenCrystalArtifact`
+    // (services/research/artifacts.ts) is the only resolver that orders by
+    // generation number rather than array position — use it, not a second
+    // ad-hoc `.find()` over the same list.
+    const frozen = await latestFrozenCrystalArtifact(experimentId);
     const generationMatch = frozen?.id.match(/\/crystal-vP(\d+)$/);
     const generationLabel = generationMatch ? `vP${generationMatch[1]}` : 'the current generation';
     crystalDetail =

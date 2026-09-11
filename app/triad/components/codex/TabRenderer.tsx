@@ -130,6 +130,7 @@ import IRLResearchCopilotTab from "@/components/composer/IRLResearchCopilotTab";
 import InvariantFieldExplorerTab from "@/components/composer/InvariantFieldExplorerTab";
 import ExpP1ReadinessTab from "@/components/composer/ExpP1ReadinessTab";
 import { PassportBureauApplyTab } from "./tabs/PassportBureauApplyTab";
+import { IrlOsPassportApplyTab } from "./tabs/IrlOsPassportApplyTab";
 import { PassportBureauStewardTab } from "./tabs/PassportBureauStewardTab";
 import { PassportRegistryTab } from "./tabs/PassportRegistryTab";
 import { LockerTab } from "./tabs/LockerTab";
@@ -348,6 +349,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   InvariantFieldExplorerTab,
   ExpP1ReadinessTab,
   PassportBureauApplyTab,
+  IrlOsPassportApplyTab,
   PassportBureauStewardTab,
   PassportRegistryTab,
   LockerTab,

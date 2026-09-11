@@ -6822,7 +6822,16 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       group: 'participation',
       order: 1,
       type: 'static',
-      config: { component: 'PassportBureauApplyTab' },
+      // Wrapped in IrlOsPassportApplyTab (2026-09-08), not the bare
+      // PassportBureauApplyTab — this tab has no bespoke journey-state
+      // route (unlike Horizen's PilotJourneyTab / Ian's IanJourneyTab) to
+      // seed `initialUsablePassport` from, so the wrapper resolves it
+      // itself via the SAME `/api/passport/usable-status` route
+      // PassportBureauApplyTab's own internal Account-step check already
+      // uses — an already-platform-authenticated caller who already holds a
+      // usable Citizen Passport now sees the recognized-state banner
+      // immediately, instead of the raw class picker (the bug this closes).
+      config: { component: 'IrlOsPassportApplyTab' },
       metadata: { icon: 'FileCheck2', description: 'Apply for a Polity Passport — anonymous citizen personhood (World ID upgrades to verified citizen)', color: 'violet' },
     },
     {

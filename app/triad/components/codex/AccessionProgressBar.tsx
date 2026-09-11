@@ -23,24 +23,30 @@ import { personaFetch } from "@/utils/personaSpine";
 interface Props {
   codexId: string;
   activeSlug: string;
+  /** The tier-3 (subTab) slug currently active under `activeSlug`, when the
+   *  active tab has subTabs — e.g. Workspace's `experiments`/`pipeline`/etc.
+   *  Used so a step whose target is a subTab (Experiments) can tell exactly
+   *  which of the Workspace tab's several views is open, rather than treating
+   *  the whole multi-view Workspace tab as "on the Experiments step". */
+  activeSubSlug?: string;
   personaId?: string;
 }
 
 type StepKey = "welcome" | "passport" | "delegation" | "access" | "experiments";
 
-function goToTab(slug: string) {
+function goToTab(slug: string, subTab?: string) {
   try {
-    window.dispatchEvent(new CustomEvent("codex:navigate-tab", { detail: { tab: slug } }));
+    window.dispatchEvent(new CustomEvent("codex:navigate-tab", { detail: { tab: slug, subTab } }));
   } catch {
     /* non-fatal */
   }
 }
 
-export function AccessionProgressBar({ codexId, activeSlug, personaId }: Props) {
+export function AccessionProgressBar({ codexId, activeSlug, activeSubSlug, personaId }: Props) {
   const prefix = codexId.includes("irl-os") ? "irl-os" : codexId === "irl-cartridge" ? "irl" : null;
 
   const steps = useMemo(() => {
-    if (!prefix) return [] as { key: StepKey; label: string; slug: string; optional?: boolean }[];
+    if (!prefix) return [] as { key: StepKey; label: string; slug: string; subTab?: string; optional?: boolean }[];
     // Ladder order (operator direction 2026-07-20): Passport → Delegate
     // (OPTIONAL) → Access → Experiments. Delegation follows passport issuance
     // (the passport auto-assigns the persona the agent is delegated through)
@@ -53,7 +59,15 @@ export function AccessionProgressBar({ codexId, activeSlug, personaId }: Props) 
       { key: "passport" as const, label: "Passport", slug: `${prefix}-passport-apply` },
       { key: "delegation" as const, label: "Delegate (optional)", slug: `${prefix}-passport-delegation`, optional: true },
       { key: "access" as const, label: "Access", slug: `${prefix}-passport-locker` },
-      { key: "experiments" as const, label: "Experiments", slug: `${prefix}-experiment-lab` },
+      // ROUTED THROUGH THE REAL WORKSPACE TAB (2026-09-08, IRL OS Workspace
+      // live-state round). The `irl-os-experiment-lab` tab this step used to
+      // target is `enabled: false` (disabled pending Phase 2 scope
+      // verification) — clicking it silently no-op'd. The real entitlement-
+      // derived Experiments view now lives as a subTab of the Workspace tab
+      // (`buildResearchWorkspaceTab('irl-os-workspace')`,
+      // services/research/researchWorkspaceViews.ts's `experiments` view) —
+      // `slug` targets the PARENT tab, `subTab` the tier-3 view within it.
+      { key: "experiments" as const, label: "Experiments", slug: `${prefix}-workspace`, subTab: `${prefix}-workspace-experiments` },
     ];
   }, [prefix]);
 
@@ -73,7 +87,13 @@ export function AccessionProgressBar({ codexId, activeSlug, personaId }: Props) 
     return () => window.removeEventListener("accession:refresh", bump);
   }, []);
 
-  const onStepTab = steps.some((s) => s.slug === activeSlug);
+  // A step whose target is a subTab (Experiments) matches only when the
+  // active subTab is exactly that one — the Workspace tab's OTHER views
+  // (Pipeline, Review, …) reaching top-level `slug` equality would otherwise
+  // false-flag as "on the Experiments step" merely for sharing a parent tab.
+  const matchesStep = (s: { slug: string; subTab?: string }) =>
+    s.subTab ? s.subTab === activeSubSlug : s.slug === activeSlug;
+  const onStepTab = steps.some(matchesStep);
 
   useEffect(() => {
     if (!prefix || !onStepTab) return;
@@ -135,19 +155,20 @@ export function AccessionProgressBar({ codexId, activeSlug, personaId }: Props) 
       }
     })();
     return () => { cancelled = true; };
-    // activeSlug: re-observe on every step-tab hop (state changes as the
-    // participant acts); refreshTick: immediate re-observe on accession:refresh.
-  }, [prefix, onStepTab, personaId, activeSlug, refreshTick]);
+    // activeSlug/activeSubSlug: re-observe on every step-tab hop (state
+    // changes as the participant acts); refreshTick: immediate re-observe on
+    // accession:refresh.
+  }, [prefix, onStepTab, personaId, activeSlug, activeSubSlug, refreshTick]);
 
   if (!prefix || !onStepTab) return null;
 
-  const activeIdx = steps.findIndex((s) => s.slug === activeSlug);
+  const activeIdx = steps.findIndex(matchesStep);
   // Auto-advance: the first still-incomplete REQUIRED step is where the
   // participant is pulled next. Optional steps (Delegate) are never a gate, so
   // the pull goes Passport → Access → Experiments; delegation can be done any
   // time but is never required to reach or run experiments.
   const nextStep = steps.find((s) => !s.optional && !done[s.key]);
-  const showContinue = !loading && nextStep && nextStep.slug !== activeSlug;
+  const showContinue = !loading && nextStep && !matchesStep(nextStep);
 
   return (
     <div className="border-b border-slate-800 bg-slate-900/40 px-4 py-2.5">
@@ -167,7 +188,7 @@ export function AccessionProgressBar({ codexId, activeSlug, personaId }: Props) 
                 <div className={`h-px flex-1 ${done[steps[i - 1].key] ? "bg-emerald-500/50" : "bg-slate-700"}`} />
               )}
               <button
-                onClick={() => goToTab(step.slug)}
+                onClick={() => goToTab(step.slug, step.subTab)}
                 className="flex items-center gap-1.5 shrink-0"
                 title={`Go to ${step.label}`}
               >
@@ -204,7 +225,7 @@ export function AccessionProgressBar({ codexId, activeSlug, personaId }: Props) 
         </div>
         {showContinue && nextStep && (
           <button
-            onClick={() => goToTab(nextStep.slug)}
+            onClick={() => goToTab(nextStep.slug, nextStep.subTab)}
             className="flex shrink-0 items-center gap-1 rounded-md border border-violet-400/40 bg-violet-500/15 px-2.5 py-1 text-[11px] font-semibold text-violet-200 hover:bg-violet-500/25"
             title={`Continue to ${nextStep.label}`}
           >
