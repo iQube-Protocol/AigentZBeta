@@ -5689,3 +5689,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-96a59cd.md](../build_/COMMITS/COMMIT-96a59cd.md)
 - Message: Deploy MCP-host-owned persona recross OAuth repair
+
+## Commit `9205129` — 2026-09-11T04:05:25-04:00
+- Type: `push`
+- Brief: [COMMIT-9205129.md](../build_/COMMITS/COMMIT-9205129.md)
+- Message: Deploy reliable Polity Core public agent orientation

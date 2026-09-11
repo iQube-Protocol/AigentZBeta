@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-11T07:51:36.794Z",
+  "last_updated": "2026-09-11T08:07:09.525Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "96a59cdd6b5205ac5614404c23f7a5e95deabb14",
-  "latest_commit_short": "96a59cd",
-  "latest_commit_title": "Deploy MCP-host-owned persona recross OAuth repair",
+  "latest_commit": "92051293c514db24cf263d504c391517196d9024",
+  "latest_commit_short": "9205129",
+  "latest_commit_title": "Deploy reliable Polity Core public agent orientation",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "9205129",
+      "full_sha": "92051293c514db24cf263d504c391517196d9024",
+      "title": "Deploy reliable Polity Core public agent orientation",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-11T04:05:25-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-9205129.md"
+    },
     {
       "sha": "96a59cd",
       "full_sha": "96a59cdd6b5205ac5614404c23f7a5e95deabb14",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T06:01:57Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-28aa157.md"
-    },
-    {
-      "sha": "de80415",
-      "full_sha": "de8041574b1cc7afd2f895d6332539d85518ad0d",
-      "title": "Close storage/sign + assets-by-category authorization gaps",
-      "author": "Claude",
-      "timestamp": "2026-09-02T06:02:24Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-de80415.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
