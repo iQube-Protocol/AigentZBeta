@@ -19,9 +19,9 @@ export const dynamic = 'force-dynamic';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ capabilityId: string }> }) {
   const { capabilityId } = await params;
-  const resolved = await resolveStewardAuthority(req);
-  if ('error' in resolved) return resolved.error;
-  const { personaId, authority, admin } = resolved;
+  const gate = await resolveStewardAuthority(req);
+  if (!gate.ok) return gate.response;
+  const { personaId, authority, admin } = gate;
 
   const body = (await req.json().catch(() => ({}))) as { action?: string; reason?: string };
   if (body.action !== 'revoke') {

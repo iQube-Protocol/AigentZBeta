@@ -72,7 +72,7 @@ async function resolveTarget(
 ): Promise<{ ok: true; targetPersonaId: string; isSelf: boolean } | { ok: false; error: NextResponse }> {
   if (params.grantId) {
     const stewardCheck = await resolveStewardAuthority(req);
-    if ('error' in stewardCheck) return { ok: false, error: stewardCheck.error };
+    if (!stewardCheck.ok) return { ok: false, error: stewardCheck.response };
     const { data: grantRow, error: grantErr } = await admin
       .from('access_grants')
       .select('access_domain, allowed_experiments')
@@ -99,7 +99,7 @@ async function resolveTarget(
   const isSelf = targetPersonaId === callerPersonaId;
   if (!isSelf) {
     const stewardCheck = await resolveStewardAuthority(req);
-    if ('error' in stewardCheck) return { ok: false, error: stewardCheck.error };
+    if (!stewardCheck.ok) return { ok: false, error: stewardCheck.response };
     const authorized = await isPersonaWithinAuthority(admin, stewardCheck.authority, targetPersonaId);
     if (!authorized) {
       return { ok: false, error: NextResponse.json({ ok: false, error: 'Not authorized for that persona' }, { status: 403 }) };

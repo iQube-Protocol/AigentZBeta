@@ -65,10 +65,10 @@ export function isHighRiskCapability(c: string): boolean {
 
 /** A high-risk capability's hard ceiling in the EXISTING role-authority
  *  table — never a new parallel policy. Capabilities with no listed mapping
- *  (ide_ingest, invariant_registry_mutate, protocol_ratify, access_admin)
- *  have no role-authority precedent to intersect against; they are gated by
- *  the capability row alone (still independently, explicitly granted per
- *  scope — the separation from write/run is itself the safeguard). */
+ *  (invariant_registry_mutate, protocol_ratify, access_admin) have no
+ *  role-authority precedent to intersect against; they are gated by the
+ *  capability row alone (still independently, explicitly granted per scope
+ *  — the separation from write/run is itself the safeguard). */
 const HIGH_RISK_ROLE_CEILING: Partial<Record<CapabilityValue, keyof ResearchRoleAuthority>> = {
   freeze_unfreeze: 'mayFreeze',
   canonize: 'mayCanonize',

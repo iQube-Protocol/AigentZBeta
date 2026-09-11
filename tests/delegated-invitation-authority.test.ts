@@ -153,13 +153,25 @@ describe('scope containment — a delegated inviter cannot widen', () => {
 
 describe('the server is the enforcement point, not the surface', () => {
   const ROUTE = 'app/api/steward/participation/invitations/route.ts';
+  // The spine-resolution logic was extracted 2026-10-01 (IRL Stewardship
+  // pass) into a shared helper — a THIRD route (grants/[grantId]) needing
+  // the identical resolution was the trigger to stop hand-copying it
+  // (inv.engineering.036/037). The route now calls the helper rather than
+  // inlining the resolution itself.
+  const AUTHORITY_LIB = 'app/api/steward/participation/_lib/resolveStewardAuthority.ts';
 
-  it('the issue route resolves the caller through the spine and checks the body against it', () => {
+  it('the issue route resolves the caller through the shared steward-authority helper, and checks the body against it', () => {
     const src = stripComments(readSource(ROUTE));
-    expect(src, 'the route does not resolve the caller through the spine').toMatch(/getActivePersona\(req\)/);
-    expect(src, 'the route does not read the caller’s own grants').toMatch(/resolveParticipationSelfView/);
-    expect(src, 'the route does not derive an authority').toMatch(/resolveInvitationAuthority/);
-    // The three refusals, each present.
+    expect(src, 'the route does not resolve the caller through the shared helper').toMatch(/resolveStewardAuthority\(req\)/);
+    const lib = stripComments(readSource(AUTHORITY_LIB));
+    expect(lib, 'the shared helper does not resolve the caller through the spine').toMatch(/getActivePersona\(req\)/);
+    expect(lib, 'the shared helper does not read the caller’s own grants').toMatch(/resolveParticipationSelfView/);
+    expect(lib, 'the shared helper does not derive an authority').toMatch(/resolveInvitationAuthority/);
+    // The gate's own refusal shape — matches the codebase's other
+    // caller-resolution gates (requireChannelAccess, requireReviewAccess):
+    // { ok: true, ... } | { ok: false, response }.
+    expect(src, 'the route does not check the gate result').toMatch(/if \(!gate\.ok\) return gate\.response;/);
+    // The three refusals, each present in the route itself.
     expect(src, 'no domain containment').toMatch(/authority\.domains\.includes\(domain\)/);
     expect(src, 'no role containment').toMatch(/issuableRoles\(domain, authority\.tier\)/);
     expect(src, 'no scope containment').toMatch(/scopeWithinAuthority\(/);
@@ -183,9 +195,9 @@ describe('the server is the enforcement point, not the surface', () => {
 
   it('the read route narrows to the caller’s domains and hides the platform-only queue', () => {
     const src = stripComments(readSource('app/api/steward/participation/route.ts'));
-    expect(src).toMatch(/resolveInvitationAuthority/);
+    expect(src).toMatch(/resolveStewardAuthority/);
     // The application queue is estate-wide — platform admins only.
-    expect(src).toMatch(/if \(isAdmin\) try/);
+    expect(src).toMatch(/if \(authority\.tier === 'platform'\) try/);
     // Only the domains the caller may steward are returned, each with only the
     // roles they may confer, so the surface cannot offer a refused control.
     expect(src).toMatch(/authority\.domains\.map/);

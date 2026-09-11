@@ -44,9 +44,9 @@ export const dynamic = 'force-dynamic';
 const MIGRATION = '20260725000000_participation_access.sql';
 
 export async function POST(req: NextRequest) {
-  const resolved = await resolveStewardAuthority(req);
-  if ('error' in resolved) return resolved.error;
-  const { personaId, authority, admin } = resolved;
+  const gate = await resolveStewardAuthority(req);
+  if (!gate.ok) return gate.response;
+  const { personaId, authority, admin } = gate;
 
   const body = (await req.json().catch(() => ({}))) as {
     domain?: string;
@@ -123,9 +123,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const resolved = await resolveStewardAuthority(req);
-  if ('error' in resolved) return resolved.error;
-  const { personaId, authority, admin } = resolved;
+  const gate = await resolveStewardAuthority(req);
+  if (!gate.ok) return gate.response;
+  const { personaId, authority, admin } = gate;
 
   const body = (await req.json().catch(() => ({}))) as { invitationId?: string; action?: string };
   if (!body.invitationId || body.action !== 'revoke') {

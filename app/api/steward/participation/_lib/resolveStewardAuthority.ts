@@ -9,6 +9,12 @@
  * caller's OWN grants only — nothing here reads the request body. Fails
  * CLOSED: an unresolvable self-view yields no grants, hence tier 'none'.
  * "Not answered yet" must never read as "yes".
+ *
+ * Shape matches the codebase's OTHER caller-resolution gates
+ * (`requireChannelAccess`, `requireReviewAccess`) — `{ ok: true, ... } |
+ * { ok: false, response }` — rather than a second, differently-named
+ * convention (tests/persona-spine-fetch.test.ts's gate proof is keyed to
+ * this exact shape).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -17,22 +23,23 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { resolveInvitationAuthority, type InvitationAuthority } from '@/services/passport/participationAccess';
 import { resolveParticipationSelfView } from '@/services/passport/participationSelfView';
 
-export type ResolvedStewardAuthority = {
+export type StewardAuthorityCaller = {
   personaId: string;
   authority: InvitationAuthority;
   admin: NonNullable<ReturnType<typeof getSupabaseServer>>;
 };
+export type StewardAuthorityGateResult =
+  | { ok: true; personaId: string; authority: InvitationAuthority; admin: StewardAuthorityCaller['admin'] }
+  | { ok: false; response: NextResponse };
 
-export async function resolveStewardAuthority(
-  req: NextRequest,
-): Promise<{ error: NextResponse } | ResolvedStewardAuthority> {
+export async function resolveStewardAuthority(req: NextRequest): Promise<StewardAuthorityGateResult> {
   const persona = await getActivePersona(req);
   if (!persona?.personaId) {
-    return { error: NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 }) };
+    return { ok: false, response: NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 }) };
   }
   const admin = getSupabaseServer();
   if (!admin) {
-    return { error: NextResponse.json({ ok: false, error: 'Supabase configuration missing' }, { status: 500 }) };
+    return { ok: false, response: NextResponse.json({ ok: false, error: 'Supabase configuration missing' }, { status: 500 }) };
   }
   const isAdmin = persona.cartridgeFlags?.isAdmin === true;
   let grants: { accessDomain: string; role: string; allowedScopes: string[] | null }[] = [];
@@ -47,9 +54,9 @@ export async function resolveStewardAuthority(
   }
   const authority = resolveInvitationAuthority(isAdmin, grants);
   if (authority.tier === 'none') {
-    return { error: NextResponse.json({ ok: false, error: 'Steward access required' }, { status: 403 }) };
+    return { ok: false, response: NextResponse.json({ ok: false, error: 'Steward access required' }, { status: 403 }) };
   }
-  return { personaId: persona.personaId, authority, admin };
+  return { ok: true, personaId: persona.personaId, authority, admin };
 }
 
 /**

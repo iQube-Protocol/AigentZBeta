@@ -67,9 +67,9 @@ const SCOPE_CATALOGUES: Partial<Record<AccessDomain, { id: string; label: string
 };
 
 export async function GET(req: NextRequest) {
-  const resolved = await resolveStewardAuthority(req);
-  if ('error' in resolved) return resolved.error;
-  const { personaId, authority, admin } = resolved;
+  const gate = await resolveStewardAuthority(req);
+  if (!gate.ok) return gate.response;
+  const { personaId, authority, admin } = gate;
 
   const domainParam = new URL(req.url).searchParams.get('domain') ?? undefined;
   const requested = domainParam && isAccessDomain(domainParam) ? domainParam : undefined;

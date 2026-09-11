@@ -37,9 +37,9 @@ import { grantWithinAuthority, resolveStewardAuthority } from '@/app/api/steward
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
-  const resolved = await resolveStewardAuthority(req);
-  if ('error' in resolved) return resolved.error;
-  const { personaId, authority, admin } = resolved;
+  const gate = await resolveStewardAuthority(req);
+  if (!gate.ok) return gate.response;
+  const { personaId, authority, admin } = gate;
 
   const body = (await req.json().catch(() => ({}))) as {
     grantId?: string;
