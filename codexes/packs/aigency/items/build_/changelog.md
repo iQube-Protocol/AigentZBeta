@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`c96529b`](https://github.com/iQube-Protocol/AigentZBeta/commit/c96529b3f3ecd2f83461ef4d09764a107c0a746a) [push] Make persona switch trigger real MCP OAuth reauthorization (Kn0w1, 2026-09-11T04:56:53-04:00)
 - [`9205129`](https://github.com/iQube-Protocol/AigentZBeta/commit/92051293c514db24cf263d504c391517196d9024) [push] Deploy reliable Polity Core public agent orientation (Kn0w1, 2026-09-11T04:05:25-04:00)
 - [`96a59cd`](https://github.com/iQube-Protocol/AigentZBeta/commit/96a59cdd6b5205ac5614404c23f7a5e95deabb14) [fix] Deploy MCP-host-owned persona recross OAuth repair (Kn0w1, 2026-09-11T03:49:57-04:00)
 - [`5878406`](https://github.com/iQube-Protocol/AigentZBeta/commit/5878406c7cda8480c9ab5531f20696429309264a) [feat] Add canonical exchange artifact iQube registry reference (Kn0w1, 2026-09-11T03:20:00-04:00)

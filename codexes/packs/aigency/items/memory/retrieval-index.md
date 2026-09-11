@@ -5694,3 +5694,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-9205129.md](../build_/COMMITS/COMMIT-9205129.md)
 - Message: Deploy reliable Polity Core public agent orientation
+
+## Commit `c96529b` — 2026-09-11T04:56:53-04:00
+- Type: `push`
+- Brief: [COMMIT-c96529b.md](../build_/COMMITS/COMMIT-c96529b.md)
+- Message: Make persona switch trigger real MCP OAuth reauthorization
