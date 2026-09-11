@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { decodeContentReference } from '@/services/smartcontent/codexArticleDeepLink';
 
 interface RouteProps {
   params: Promise<{ article: string }>;
@@ -14,6 +15,6 @@ interface RouteProps {
 export default async function CodexArticlePage({ params }: RouteProps) {
   const { article } = await params;
   redirect(
-    `/codex/viewer?id=qripto-codex&tab=essays&article=${encodeURIComponent(article)}`,
+    `/codex/viewer?id=qripto-codex&tab=essays&article=${encodeURIComponent(decodeContentReference(article))}`,
   );
 }
