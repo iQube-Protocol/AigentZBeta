@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resolvePersonaOrTimeout, PERSONA_TIMEOUT_MESSAGE } from '@/app/api/dev-command-center/_lib/persona';
-import { getPersonaSwitchHandshake, issueAuthorizationCode } from '@/services/threshold/gatewaySession';
+import { getPersonaSwitchHandshake } from '@/services/threshold/gatewaySession';
 import { resolveOwnedSwitchTarget, rootScopeForTarget, projectAvailablePersona } from '@/services/threshold/personaRecross';
 import { getActivePersonaByPublicRef } from '@/services/identity/getActivePersona';
-import { formAgreement, acceptAgreement, authorizeAgreement } from '@/services/constitutional/constitutionalAgreement';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const FORBIDDEN_ACTIONS = ['publish', 'commit-funds', 'move-funds', 'delegate-agent', 'disclose-identity-credentials'];
-
+/** Legacy/recovery inspection endpoint. OAuth completion is host-owned. */
 export async function POST(request: NextRequest) {
   const principal = await resolvePersonaOrTimeout(request);
   if (principal.status === 'timeout') return NextResponse.json({ ok: false, error: PERSONA_TIMEOUT_MESSAGE }, { status: 503 });
@@ -22,87 +20,19 @@ export async function POST(request: NextRequest) {
   const handshake = await getPersonaSwitchHandshake(handshakeCode);
   if (!handshake) return NextResponse.json({ ok: false, error: 'persona switch not found or unavailable' }, { status: 404 });
   if (handshake.status !== 'pending') {
-    return NextResponse.json({ ok: false, error: `persona switch is '${handshake.status}', not pending` }, { status: 409 });
+    const recovery = handshake.status === 'authorized'
+      ? 'Human authorization was recorded, but the MCP host did not complete its token exchange. Return to the MCP client and start a fresh persona switch.'
+      : `Persona switch is '${handshake.status}'. Start a fresh switch from the MCP client.`;
+    return NextResponse.json({ ok: false, error: recovery, status: handshake.status }, { status: 409 });
   }
-  if (handshake.expiresAt && new Date(handshake.expiresAt).getTime() < Date.now()) {
-    return NextResponse.json({ ok: false, error: 'persona switch expired' }, { status: 410 });
-  }
-  // Persona switching is a fresh OAuth crossing, never an in-place session
-  // mutation. A missing correlation state makes that crossing unusable for
-  // external clients and must fail closed rather than issuing an uncorrelated
-  // authorization code. Legacy pending rows without state must be restarted.
-  if (!handshake.oauthState?.trim()) {
-    return NextResponse.json({ ok: false, error: 'persona switch state missing; request a fresh crossing' }, { status: 409 });
-  }
+  if (handshake.expiresAt && new Date(handshake.expiresAt).getTime() < Date.now()) return NextResponse.json({ ok: false, error: 'persona switch expired; start a fresh switch from the MCP client' }, { status: 410 });
 
-  const owned = await resolveOwnedSwitchTarget(
-    principal.persona.authProfileId,
-    handshake.sourcePrincipalPublicRef,
-    handshake.targetPrincipalPublicRef,
-  );
+  const owned = await resolveOwnedSwitchTarget(principal.persona.authProfileId, handshake.sourcePrincipalPublicRef, handshake.targetPrincipalPublicRef);
   if (!owned) return NextResponse.json({ ok: false, error: 'source and target are not both available to this principal' }, { status: 403 });
-
   const targetContext = await getActivePersonaByPublicRef(handshake.targetPrincipalPublicRef).catch(() => null);
-  if (!targetContext || targetContext.personaId !== owned.target.id) {
-    return NextResponse.json({ ok: false, error: 'target persona is not active' }, { status: 409 });
-  }
-  const grantedScope = rootScopeForTarget(targetContext.cartridgeFlags.isAdmin);
-  const safe = {
-    source: projectAvailablePersona(owned.source, handshake.sourcePrincipalPublicRef),
-    target: projectAvailablePersona(owned.target, handshake.sourcePrincipalPublicRef),
-    connectedAgent: handshake.agentAlias,
-    requestedScope: grantedScope,
-    switchRequiresReauthorization: true,
-  };
+  if (!targetContext || targetContext.personaId !== owned.target.id) return NextResponse.json({ ok: false, error: 'target persona is not active' }, { status: 409 });
+  const safe = { source: projectAvailablePersona(owned.source, handshake.sourcePrincipalPublicRef), target: projectAvailablePersona(owned.target, handshake.sourcePrincipalPublicRef), connectedAgent: handshake.agentAlias, requestedScope: rootScopeForTarget(targetContext.cartridgeFlags.isAdmin), switchRequiresReauthorization: true, oauthOwner: 'mcp-host' };
   if (action === 'inspect') return NextResponse.json({ ok: true, crossing: safe });
 
-  const agreementId = `thr-${handshakeCode}`;
-  const formed = await formAgreement(owned.target.id, {
-    agreementId,
-    displayLabel: `Threshold persona re-crossing → ${handshake.initiatingService}`,
-    capabilityRef: `threshold:persona-recross:${handshake.initiatingService}`,
-    selectedAgentRef: handshake.agentAlias,
-    delegatedAuthority: {
-      band: 'L2',
-      allowedActions: grantedScope,
-      forbiddenActions: FORBIDDEN_ACTIONS,
-      allowedSurfaces: ['threshold-gateway'],
-      ttlHours: 720,
-      maxActions: 1000,
-      valueCeiling: null,
-    },
-    constraints: ['no-redelegation', 'no-money-movement', 'no-identity-disclosure', 'one-session-one-persona'],
-    verificationRequirements: ['human-authorized', 'fresh-persona-crossing'],
-    settlementTerms: null,
-    governingInvariants: ['PRD-THR-001', 'CFS-043'],
-  });
-  if (!formed.ok) return NextResponse.json({ ok: false, error: `form failed: ${formed.reason}` }, { status: 503 });
-
-  let status = formed.agreement.status;
-  if (status === 'proposed') {
-    const accepted = await acceptAgreement(owned.target.id, {
-      agreementId,
-      acceptorType: 'agent',
-      acceptorId: handshake.agentAlias,
-    });
-    if (!accepted.ok) return NextResponse.json({ ok: false, error: `accept failed: ${accepted.reason}` }, { status: 503 });
-    status = accepted.agreement.status;
-  }
-  if (status !== 'authorized') {
-    const authorized = await authorizeAgreement(owned.target.id, { agreementId });
-    if (!authorized.ok) return NextResponse.json({ ok: false, error: `authorize failed: ${authorized.reason}` }, { status: 403 });
-  }
-
-  const issued = await issueAuthorizationCode({
-    handshakeCode,
-    principalPublicRef: handshake.targetPrincipalPublicRef,
-    agentAlias: handshake.agentAlias,
-    agreementId,
-    grantedScope,
-  });
-  if ('error' in issued) return NextResponse.json({ ok: false, error: issued.error }, { status: 503 });
-  const redirect = new URL(issued.redirectUri);
-  redirect.searchParams.set('code', issued.code);
-  redirect.searchParams.set('state', handshake.oauthState);
-  return NextResponse.json({ ok: true, redirectTo: redirect.toString(), crossing: safe });
+  return NextResponse.json({ ok: false, error: 'Return to the MCP client to continue. Persona re-crossing must use the client-owned OAuth state and PKCE verifier; this browser recovery page cannot authorize it directly.', crossing: safe, reauthorizationRequired: true }, { status: 409 });
 }
