@@ -5709,3 +5709,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-c6adeda.md](../build_/COMMITS/COMMIT-c6adeda.md)
 - Message: feat(codex): redirect legacy article deep links
+
+## Commit `a4e4192` — 2026-09-11T13:39:54-04:00
+- Type: `chore`
+- Brief: [COMMIT-a4e4192.md](../build_/COMMITS/COMMIT-a4e4192.md)
+- Message: chore(deploy): publish Threshold 006 deep-link repair

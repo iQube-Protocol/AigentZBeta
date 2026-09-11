@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-11T17:30:02.167Z",
+  "last_updated": "2026-09-11T17:41:40.349Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c6adeda48c909be717a05a70b068a0dd44b44b4d",
-  "latest_commit_short": "c6adeda",
-  "latest_commit_title": "feat(codex): redirect legacy article deep links",
+  "latest_commit": "a4e41921053eff40c96415dd157a18cba829eefa",
+  "latest_commit_short": "a4e4192",
+  "latest_commit_title": "chore(deploy): publish Threshold 006 deep-link repair",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a4e4192",
+      "full_sha": "a4e41921053eff40c96415dd157a18cba829eefa",
+      "title": "chore(deploy): publish Threshold 006 deep-link repair",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-11T13:39:54-04:00",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-a4e4192.md"
+    },
     {
       "sha": "c6adeda",
       "full_sha": "c6adeda48c909be717a05a70b068a0dd44b44b4d",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T00:45:11Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-3fdf50d.md"
-    },
-    {
-      "sha": "db79f3c",
-      "full_sha": "db79f3cddf0be7b8253e78dd34ecb0084df5f50b",
-      "title": "Harden A2 publish: config-write-first ordering + optimistic concurrency",
-      "author": "Claude",
-      "timestamp": "2026-09-02T00:45:21Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-db79f3c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
