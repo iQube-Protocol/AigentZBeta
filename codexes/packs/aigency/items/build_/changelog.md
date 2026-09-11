@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`1a4268b`](https://github.com/iQube-Protocol/AigentZBeta/commit/1a4268b9bf2829a7379fa124a48c0734592abbc8) [push] Deploy embedded Passport persona spine for Threshold OAuth (Kn0w1, 2026-09-10T20:50:18-04:00)
 - [`6e2d2ce`](https://github.com/iQube-Protocol/AigentZBeta/commit/6e2d2cecfd83686528a986ef9cd8afe1f86c87c6) [push] Embed canonical Passport sign-in in persona recross (Kn0w1, 2026-09-10T20:46:40-04:00)
 - [`11b6708`](https://github.com/iQube-Protocol/AigentZBeta/commit/11b67085bc5dba6b76258e93dca006275c9fd0fd) [push] Deploy Threshold manifest and public iQube discovery (Kn0w1, 2026-09-10T20:37:28-04:00)
 - [`9aae530`](https://github.com/iQube-Protocol/AigentZBeta/commit/9aae5307efebf6322f16bcc35afa350239dfe478) [feat] Add public iQube Card MCP adapter (Kn0w1, 2026-09-10T20:14:20-04:00)

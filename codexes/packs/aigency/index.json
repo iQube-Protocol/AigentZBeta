@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-11T00:49:07.739Z",
+  "last_updated": "2026-09-11T00:52:19.123Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "6e2d2cecfd83686528a986ef9cd8afe1f86c87c6",
-  "latest_commit_short": "6e2d2ce",
-  "latest_commit_title": "Embed canonical Passport sign-in in persona recross",
+  "latest_commit": "1a4268b9bf2829a7379fa124a48c0734592abbc8",
+  "latest_commit_short": "1a4268b",
+  "latest_commit_title": "Deploy embedded Passport persona spine for Threshold OAuth",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1a4268b",
+      "full_sha": "1a4268b9bf2829a7379fa124a48c0734592abbc8",
+      "title": "Deploy embedded Passport persona spine for Threshold OAuth",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T20:50:18-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1a4268b.md"
+    },
     {
       "sha": "6e2d2ce",
       "full_sha": "6e2d2cecfd83686528a986ef9cd8afe1f86c87c6",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T12:37:58Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-277f44e.md"
-    },
-    {
-      "sha": "5418f38",
-      "full_sha": "5418f383e8c84edb032331421d26e2308ce6e6c2",
-      "title": "A2 completion: infographic publishes AND renders through the real bridge reader",
-      "author": "Claude",
-      "timestamp": "2026-09-02T12:38:11Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5418f38.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -5659,3 +5659,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-6e2d2ce.md](../build_/COMMITS/COMMIT-6e2d2ce.md)
 - Message: Embed canonical Passport sign-in in persona recross
+
+## Commit `1a4268b` — 2026-09-10T20:50:18-04:00
+- Type: `push`
+- Brief: [COMMIT-1a4268b.md](../build_/COMMITS/COMMIT-1a4268b.md)
+- Message: Deploy embedded Passport persona spine for Threshold OAuth
