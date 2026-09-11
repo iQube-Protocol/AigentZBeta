@@ -2,9 +2,16 @@
  * Phase A passport credential envelope — claimability gates + T0 canaries.
  * Mirrors the canary pattern from tests/access-spine.test.ts: the serialized
  * envelope must never carry server-internal identifiers.
+ *
+ * FIXTURE CHANGE (Phase 5.1a, 2026-09-11, tracked explicitly): `issuer.id` is
+ * now `requireBureauIssuerDid()` (a configured stable DID) rather than a
+ * host-derived string, for every credential `buildPassportCredential`
+ * builds — so this file now sets `PASSPORT_BUREAU_ISSUER_DID` for every
+ * test via a top-level `beforeEach`/`afterEach`, or the builder throws. No
+ * existing assertion's expected value changed.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import {
   buildPassportCredential,
   isClaimable,
@@ -12,6 +19,19 @@ import {
 } from '../services/passport/passportCredential';
 
 const HOST = 'https://dev-beta.aigentz.me';
+// Placeholder/example only — never a real production hostname or a
+// fallback default in code (CLAUDE.md's No-Guessing rule).
+const TEST_ISSUER_DID = 'did:web:passport.example.test';
+
+const ORIGINAL_ENV = { ...process.env };
+
+beforeEach(() => {
+  process.env.PASSPORT_BUREAU_ISSUER_DID = TEST_ISSUER_DID;
+});
+
+afterEach(() => {
+  process.env = { ...ORIGINAL_ENV };
+});
 
 function participantRecord(overrides: Partial<PassportRecordRow> = {}): PassportRecordRow {
   return {

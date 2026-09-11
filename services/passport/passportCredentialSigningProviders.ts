@@ -35,6 +35,39 @@
  * no real KMS credentials exist to wire, and inventing one would be
  * guessing (CLAUDE.md's No-Guessing rule).
  *
+ * ── ISSUER IDENTITY vs. SIGNING KEYS (Phase 5.1a, operator ruling 2026-09-11) ─
+ *
+ * The Bureau's issuer identity is a STABLE, environment-independent
+ * `did:web:...` string (`PASSPORT_BUREAU_ISSUER_DID`), never derived from
+ * the live request host — the Bureau is a persistent constitutional
+ * institution, not whichever signing key happens to be active. Keys rotate;
+ * the issuer identity does not. `requireBureauIssuerDid()` fails closed
+ * (throws) when unconfigured — there is no host-derived fallback, per
+ * CLAUDE.md's No-Guessing rule. `tryResolveBureauIssuerDid()` is the
+ * non-throwing counterpart verification uses, since a verifier must never
+ * crash on a missing/misconfigured env var — it fails closed via its
+ * returned result instead (see `passportCredentialVerification.ts`).
+ *
+ * ── KEY LIFECYCLE ≠ CREDENTIAL LIFECYCLE (Phase 5.1a/5.1d, operator ruling
+ *    2026-09-11) ──────────────────────────────────────────────────────────
+ *
+ * Rotating a key out of active issuance (`validUntil`) or marking it
+ * compromised (`compromisedAt`) never erases the historical verification
+ * material required to validate credentials legitimately signed while that
+ * key was authorized. `SigningKeyRecord` therefore carries the key's own
+ * validity interval and lifecycle events; `evaluateKeyAuthorizationAtTime`
+ * decides ONLY whether a given key was authorized to sign at a given
+ * instant — it has no opinion on a credential's current DB-backed status
+ * (revoked/superseded), which is a separate, independently-evaluated layer
+ * (see `verifyPassportCredentialWithLifecycle` in the verification module).
+ * A key revoked before it ever signed a given credential makes that
+ * credential's provenance claim false (hard invalid). A key merely
+ * SUSPECTED compromised at signing time is NOT auto-decided either way —
+ * the outcome is `'UNRESOLVED'`, left to the Bureau's adjudication policy,
+ * mirroring `types/confidentialProjection.ts`'s `UNRESOLVED` precedent
+ * ("not an error state — it is the honest representation of 'cannot safely
+ * decide'").
+ *
  * ── LEGACY CREDENTIALS ARE NEVER RE-SIGNED ──────────────────────────────────
  *
  * This module only PRODUCES new signatures. It does not touch, does not
@@ -47,6 +80,32 @@
 import { createHash, createPrivateKey, createPublicKey, sign as cryptoSign, verify as cryptoVerify } from 'crypto';
 
 export const ED25519_SUITE = 'PolityBureauEd25519Signature2026';
+
+/**
+ * The Bureau's stable issuer identity — see the module doc comment's
+ * "ISSUER IDENTITY vs. SIGNING KEYS" section. Fails closed (throws) when
+ * `PASSPORT_BUREAU_ISSUER_DID` is unset. Used at ISSUANCE time only
+ * (`passportCredential.ts`) — a verifier must never crash on missing
+ * config, so verification uses `tryResolveBureauIssuerDid()` instead.
+ */
+export function requireBureauIssuerDid(): string {
+  const value = process.env.PASSPORT_BUREAU_ISSUER_DID;
+  if (!value) {
+    throw new Error(
+      'requireBureauIssuerDid(): missing required env var PASSPORT_BUREAU_ISSUER_DID — ' +
+        'the Bureau issuer DID must be explicitly configured per environment (a stable ' +
+        'did:web identifier on a canonical Bureau-controlled domain), never derived from ' +
+        'the request host. Every environment (dev, prod) sets its own explicit value — ' +
+        'see codexes/packs/agentiq/updates/2026-09-11_didqube-phase5-1a-issuer-did-key-lifecycle.md.',
+    );
+  }
+  return value;
+}
+
+/** Non-throwing counterpart of `requireBureauIssuerDid()` for verification — returns `null` rather than throwing when unconfigured. */
+export function tryResolveBureauIssuerDid(): string | null {
+  return process.env.PASSPORT_BUREAU_ISSUER_DID || null;
+}
 
 export interface SigningResult {
   suite: string;
@@ -77,6 +136,47 @@ export interface SigningKeyRecord {
   keyId: string;
   /** SPKI DER, base64-encoded. Public — safe to publish. */
   publicKeyB64: string;
+  /**
+   * Versioned verification-method identifier, e.g. `${issuerDid}#key-3`
+   * (Phase 5.1a). Optional — absent on entries predating this scheme.
+   * Informational today (not yet consumed for multi-suite dispatch); a
+   * future second suite is the point at which this becomes load-bearing.
+   */
+  verificationMethodId?: string;
+  /**
+   * Explicit per-key suite (Phase 5.1a — "made explicit per-key so a second
+   * suite can coexist"). Every key in this registry today is Ed25519;
+   * absent on legacy entries, which are `ED25519_SUITE` by construction.
+   * Not yet consumed for dispatch — verification still keys off
+   * `proof.type`, since no second suite provider exists yet (would be
+   * guessing per CLAUDE.md's No-Guessing rule).
+   */
+  suite?: string;
+  /**
+   * Key lifecycle bounds (Phase 5.1a/5.1d, operator ruling 2026-09-11): key
+   * lifecycle is NOT credential lifecycle. Rotating a key out (`validUntil`)
+   * or marking it compromised (`compromisedAt`) never erases the historical
+   * verification material for what it legitimately signed while authorized
+   * — see `evaluateKeyAuthorizationAtTime` below.
+   *
+   * LEGACY-SAFE DEFAULT: an entry carrying NONE of these four fields
+   * predates this scheme entirely and is treated as unrestricted (always
+   * authorized) — retroactively imposing a validity window on a
+   * pre-existing key would break verification of credentials it already,
+   * legitimately signed, which is exactly the "never break an old code
+   * path" discipline the legacy HMAC-stub verification branch already
+   * follows. `revokedAt`/`compromisedAt` ARE effective the instant an
+   * operator sets them, even on an otherwise-legacy entry — those two
+   * fields represent a deliberate operator act, not a retroactive default.
+   */
+  validFrom?: string | null;
+  validUntil?: string | null;
+  revokedAt?: string | null;
+  compromisedAt?: string | null;
+}
+
+function isOptionalString(value: unknown): value is string | undefined {
+  return value === undefined || typeof value === 'string';
 }
 
 /**
@@ -84,7 +184,9 @@ export interface SigningKeyRecord {
  * every key this issuer has EVER signed with, active or rotated-out —
  * removing an entry here is how a compromised key is fully revoked (no
  * credential it signed remains verifiable), which is a deliberate,
- * separate operator act, never automatic.
+ * separate operator act, never automatic. Preferred practice (Phase 5.1d):
+ * mark `compromisedAt` rather than removing the entry — full removal is a
+ * harsher, rarely-needed end-state (see the key-rotation runbook).
  */
 export function loadKnownSigningKeys(): SigningKeyRecord[] {
   const raw = process.env.PASSPORT_BUREAU_SIGNING_KEYS_JSON;
@@ -93,15 +195,81 @@ export function loadKnownSigningKeys(): SigningKeyRecord[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(
-      (k): k is SigningKeyRecord => typeof k?.keyId === 'string' && typeof k?.publicKeyB64 === 'string',
+      (k): k is SigningKeyRecord =>
+        typeof k?.keyId === 'string' &&
+        typeof k?.publicKeyB64 === 'string' &&
+        isOptionalString(k?.verificationMethodId) &&
+        isOptionalString(k?.suite) &&
+        isOptionalString(k?.validFrom) &&
+        isOptionalString(k?.validUntil) &&
+        isOptionalString(k?.revokedAt) &&
+        isOptionalString(k?.compromisedAt),
     );
   } catch {
     return [];
   }
 }
 
-function findKnownKey(keyId: string): SigningKeyRecord | null {
+/** Exported for `passportCredentialVerification.ts`'s key-authorization-at-issuance-time check (Phase 5.1a) — verification needs the FULL record (lifecycle fields), not just the crypto-relevant fields `verifyEd25519Signature` looks up on its own. */
+export function findKnownKey(keyId: string): SigningKeyRecord | null {
   return loadKnownSigningKeys().find((k) => k.keyId === keyId) ?? null;
+}
+
+export type KeyAuthorizationOutcome =
+  | { authorized: true }
+  | { authorized: false; reason: 'key_not_yet_valid' | 'key_expired' | 'key_revoked_before_issuance' }
+  | { authorized: 'UNRESOLVED'; reason: 'key_signed_during_suspected_compromise_window' };
+
+/**
+ * Was `key` authorized to sign AT `atIso` (the credential's own `proof.created`
+ * — the instant this specific signing act occurred, not the underlying
+ * Passport row's original `issued_at`, which may predate a lazily-claimed
+ * credential envelope by an arbitrary amount and is not what "was this KEY
+ * allowed to sign right now" must be evaluated against)?
+ *
+ * Check order (mirrors the ruling's own stated model — "signing key
+ * authorized at T" is evaluated before "signature valid"):
+ *   1. `revokedAt` — if `at >= revokedAt`, the key was already revoked at
+ *      this instant: a HARD invalid (`key_revoked_before_issuance`). A key
+ *      revoked AFTER `at` does not retroactively invalidate an earlier,
+ *      legitimate signing.
+ *   2. `compromisedAt` — if `at >= compromisedAt`, the signing act falls in
+ *      the suspected-compromise window: `'UNRESOLVED'`, never auto-decided
+ *      as valid or invalid (Bureau adjudication policy decides, separately
+ *      — see the key-rotation runbook).
+ *   3. `validFrom`/`validUntil` — closed interval, both bounds inclusive
+ *      (`at === validFrom` and `at === validUntil` are both authorized).
+ *      Legacy entries missing these fields are unrestricted — see the
+ *      LEGACY-SAFE DEFAULT note on `SigningKeyRecord`.
+ */
+export function evaluateKeyAuthorizationAtTime(key: SigningKeyRecord, atIso: string): KeyAuthorizationOutcome {
+  const at = Date.parse(atIso);
+
+  if (key.revokedAt) {
+    const revokedAt = Date.parse(key.revokedAt);
+    if (!Number.isNaN(revokedAt) && at >= revokedAt) {
+      return { authorized: false, reason: 'key_revoked_before_issuance' };
+    }
+  }
+  if (key.compromisedAt) {
+    const compromisedAt = Date.parse(key.compromisedAt);
+    if (!Number.isNaN(compromisedAt) && at >= compromisedAt) {
+      return { authorized: 'UNRESOLVED', reason: 'key_signed_during_suspected_compromise_window' };
+    }
+  }
+  if (key.validFrom) {
+    const validFrom = Date.parse(key.validFrom);
+    if (!Number.isNaN(validFrom) && at < validFrom) {
+      return { authorized: false, reason: 'key_not_yet_valid' };
+    }
+  }
+  if (key.validUntil) {
+    const validUntil = Date.parse(key.validUntil);
+    if (!Number.isNaN(validUntil) && at > validUntil) {
+      return { authorized: false, reason: 'key_expired' };
+    }
+  }
+  return { authorized: true };
 }
 
 /**

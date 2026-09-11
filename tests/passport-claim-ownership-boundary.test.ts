@@ -14,7 +14,7 @@
  * handle). See codexes/packs/agentiq/resolution-records/records/
  * RES-2026-09-07-DIDQUBE-PHASE-3-PASSPORT-ID-PRIVACY-CLASSIFICATION-001.json.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { NextRequest } from 'next/server';
 
 const mockGetActivePersona = vi.fn();
@@ -123,13 +123,24 @@ function citizenRecord(overrides: Record<string, unknown> = {}) {
   };
 }
 
+// FIXTURE CHANGE (Phase 5.1a, 2026-09-11, tracked explicitly): the claim
+// route's buildPassportCredential call now requires PASSPORT_BUREAU_ISSUER_DID
+// (a configured stable DID, never host-derived) or it throws. Placeholder
+// value only — never a real hostname (CLAUDE.md's No-Guessing rule).
+const ORIGINAL_ENV = { ...process.env };
+
 beforeEach(() => {
+  process.env.PASSPORT_BUREAU_ISSUER_DID = 'did:web:passport.example.test';
   mockGetActivePersona.mockReset();
   mockGetSupabaseServer.mockReset();
   mockGetCallerIdentityContext.mockReset();
   mockListOwnedPersonaIds.mockReset();
   mockCreateActivityReceipt.mockReset();
   mockCreateActivityReceipt.mockResolvedValue({ id: 'receipt-1' });
+});
+
+afterEach(() => {
+  process.env = { ...ORIGINAL_ENV };
 });
 
 describe('POST /api/polity-passport/credential/[passportId] (claim) — T0-only control cannot authorize a T1-governed operation', () => {

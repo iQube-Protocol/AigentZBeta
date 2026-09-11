@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-11",
+  "resolutionId": "RES-2026-09-11-DIDQUBE-PHASE5-1A-ISSUER-DID-KEY-LIFECYCLE-001",
+  "capability": "polity-passport-issuance",
+  "milestone": "DiDQube Phase 5 item 1 (5.1a-5.1c): stable Bureau issuer DID, key-authorization-at-issuance-time wired into verification, DB-backed lifecycle composition, and a public verification endpoint — executing 2026-09-08_didqube-phase5-vc-verification-subplan.md against explicit operator rulings on its two open decisions.",
+  "problem": "The sub-plan (2026-09-08) named five gaps left after Phase 3's asymmetric signing/verification split: (1) issuer.id was host-derived (`${host}/.well-known/polity-passport`), not a stable identifier independent of dev/prod/region; (2) the known-signing-keys registry had no per-key validity interval, rotation event, or suite declaration -- a rotated-out or compromised key had no formal lifecycle, only presence/absence in a flat list; (3) verifyPassportCredential had zero callers -- no public endpoint let an external party independently verify an issued Passport credential; (4) revocation/supersession were never consulted by verification at all; (5) key rotation had no documented procedure, including no answer for how a suspected-compromised key's ALREADY-ISSUED credentials should be treated.",
+  "observedFailure": [
+    "grep confirmed zero callers of verifyPassportCredential anywhere in app/api -- external counsel/partners had no way to verify a Passport credential independently of the issuer.",
+    "SigningKeyRecord was `{keyId, publicKeyB64}` only -- no way to express 'this key was authorized from T1 to T2' or 'this key is suspected compromised starting at T3', so a rotated or compromised key's historical credentials had no principled temporal check at all, only the crypto signature match.",
+    "issuer.id's EXPECTED_ISSUER_ID_SUFFIX check accepted any host-shaped string ending in the fixed suffix -- a domain change (dev-beta -> production, or a future multi-region Bureau) would silently change every future credential's issuer identity with no stable identifier underneath it."
+  ],
+  "rootCauses": [
+    "Phase 3 (2026-09-07) deliberately scoped the issuer-DID/key-rotation/public-endpoint work OUT as a named follow-on ('Phase C' in the original HMAC-era doc comment, later re-scoped as Phase 5 item 1) -- this is the planned continuation, not a bug fix for an unintentional defect.",
+    "The sub-plan explicitly left two decisions to the operator rather than guessing them (CLAUDE.md's No-Guessing rule): which DID method to use, and whether a compromised key's historical credentials become permanently unverifiable or remain resolvable under a distinct adjudication state. Both rulings arrived 2026-09-11 and are what this resolution implements."
+  ],
+  "resolution": [
+    "services/passport/passportCredentialSigningProviders.ts: requireBureauIssuerDid() (throws, fail-closed, no host-derived fallback) and tryResolveBureauIssuerDid() (non-throwing, for verification) resolve PASSPORT_BUREAU_ISSUER_DID -- a did:web value configured explicitly per environment, per the operator's ruling that the Bureau is a persistent constitutional institution independent of whichever host serves a request.",
+    "SigningKeyRecord extended with verificationMethodId, suite (schema-only for now -- no second suite provider exists), and the four lifecycle fields validFrom/validUntil/revokedAt/compromisedAt. A legacy entry carrying none of the four is treated as unrestricted (always authorized) -- a deliberate, documented legacy-safe default so a pre-existing key's already-legitimate signatures are never retroactively invalidated, mirroring the existing legacy-HMAC-stub verification branch's own discipline.",
+    "evaluateKeyAuthorizationAtTime(key, atIso) (new): revokedAt (at >= revokedAt -> hard invalid, never retroactive for earlier signings), compromisedAt (at >= compromisedAt -> 'UNRESOLVED', never auto-decided per the operator's explicit ruling that compromise adjudication is a Bureau policy decision, not a verifier's), then validFrom/validUntil (closed interval, both bounds inclusive). Wired into passportCredentialVerification.ts's Ed25519 branch BEFORE the cryptographic signature check, mirroring the ruling's own stated ordering (issuer DID valid at T -> signing key authorized at T -> signature valid -> credential status evaluated separately).",
+    "CredentialVerificationResult gained a third branch, {valid:'UNRESOLVED', suite, keyId, reason}, alongside the existing {valid:true}/{valid:false,reason} -- mirrors types/confidentialProjection.ts's UNRESOLVED precedent (an honest 'cannot safely decide' state) rather than overloading the boolean or hardcoding a side.",
+    "verifyPassportCredentialWithLifecycle(credential, {revoked, supersededBy}) (new, in passportCredentialVerification.ts): composes the unchanged, still-DB-free verifyPassportCredential with caller-supplied DB facts, producing {signature, revoked, supersededBy, presentable}. presentable = signature.valid === true && !revoked; supersededBy is surfaced as a fact, never folded into presentable (a policy question for the caller, per the sub-plan's own Phase 5.1b scoping, unchanged).",
+    "POST /api/polity-passport/verify-credential (new): unauthenticated, rate-limited via the existing services/rateLimit/rateLimitService.ts (the same limiter referral/resolve-code uses), resolves a passport's revoked flag and reverse-supersession via two Supabase reads and calls verifyPassportCredentialWithLifecycle. Response is outcome-only (valid/reason/suite/keyId/revoked/superseded/presentable/recordFound) -- never the credential body, never a T0 identifier. `superseded` is deliberately a BOOLEAN, not the raw successor passport_id, per CI-2026-09-07-PASSPORT-ID-PRIVACY-SENSITIVE-NOT-PUBLIC-001 -- a documented, deliberate divergence from the sub-plan's literal 'valid/invalid/revoked/superseded' outcome-summary wording, made to respect an already-established privacy invariant rather than silently reintroducing a passport_id leak into a public, unauthenticated projection.",
+    "Key-rotation runbook (Phase 5.1d): codexes/packs/agentiq/updates/2026-09-11_didqube-phase5-1a-issuer-did-key-lifecycle.md -- routine rotation (add-before-flip, unchanged from the sub-plan) and suspected-compromise handling (mark compromisedAt, never delete; rotate immediately; only revokedAt for a Bureau-adjudicated, confirmed-illegitimate window)."
+  ],
+  "rejectedApproaches": [
+    "Deriving the issuer DID from the live request host at issuance time -- rejected per the operator's explicit ruling and CLAUDE.md's No-Guessing rule: a domain change or multi-region deployment must never silently change the Bureau's issuer identity.",
+    "Hardcoding a fallback/default issuer DID when PASSPORT_BUREAU_ISSUER_DID is unset -- rejected: an unconfigured environment must fail closed (a clear, named error), never silently guess a value, mirroring services/vela/velaConfig.ts's requireEnv pattern.",
+    "Auto-deciding a credential signed during a suspected-compromise window as revoked or as still-valid -- rejected per the operator's explicit ruling: this is a Bureau adjudication-policy question, not something a verifier may decide unilaterally. Modeled as 'UNRESOLVED' instead, mirroring types/confidentialProjection.ts's existing UNRESOLVED precedent.",
+    "Retroactively imposing a validFrom/validUntil window on every pre-existing registry key entry (treating missing fields as 'never valid' or 'validFrom = now') -- rejected: this would have broken verification of every credential a legacy key already, legitimately signed -- exactly the regression class the legacy-HMAC-stub verification branch already guards against.",
+    "Echoing the raw successor passport_id in the new public endpoint's `superseded` field, matching the sub-plan's literal outcome-summary wording -- rejected on review against CI-2026-09-07-PASSPORT-ID-PRIVACY-SENSITIVE-NOT-PUBLIC-001 (passport_id must not enter an unauthenticated public projection); the public endpoint returns a boolean instead, while the more general internal composition function still carries the raw reference for authenticated callers.",
+    "Deleting a compromised key's registry entry outright as the default remediation -- rejected as the DEFAULT (remains available as an explicit, harsher end-state) per the operator's ruling that compromise does not automatically mean 'delete the key' -- preserving the public verification material lets the Bureau adjudicate by issuance time rather than losing all historical provenance at once."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-11-KEY-LIFECYCLE-NOT-CREDENTIAL-LIFECYCLE-001"
+  ],
+  "canaries": [
+    "tests/passport-credential-signing.test.ts",
+    "tests/polity-passport-verify-credential-endpoint.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/passport-credential-signing.test.ts",
+      "tests/polity-passport-verify-credential-endpoint.test.ts",
+      "tests/passport-credential.test.ts",
+      "tests/passport-claim-ownership-boundary.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-08_didqube-phase5-vc-verification-subplan.md",
+    "codexes/packs/agentiq/updates/2026-09-11_didqube-phase5-1a-issuer-did-key-lifecycle.md",
+    "services/passport/passportCredential.ts",
+    "services/passport/passportCredentialSigningProviders.ts",
+    "services/passport/passportCredentialVerification.ts",
+    "app/api/polity-passport/verify-credential/route.ts"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "unresolvedRisks": [
+    "No real environment has PASSPORT_BUREAU_ISSUER_DID configured yet -- until an operator sets it in dev/prod, buildPassportCredential fails closed (throws) rather than issuing any new credential. This is the intended fail-closed behavior, not a regression, but it means issuance is blocked in any environment that has not yet been provisioned with the new env var.",
+    "The `suite` field on SigningKeyRecord is schema-only -- no second suite provider exists, so nothing yet dispatches on it; a future KMS/HSM-backed provider is the point at which this becomes load-bearing, unchanged from Phase 3's own deferral.",
+    "verifyPassportCredentialWithLifecycle's caller (the new public endpoint) treats a not-found Passport row as revoked:false/supersededBy:null with an explicit recordFound:false flag rather than a distinct failure mode -- a reasonable, bounded design choice made in this pass, not something the sub-plan itself specified; worth operator review if a stricter 'unknown passport' response is preferred."
+  ]
+}
