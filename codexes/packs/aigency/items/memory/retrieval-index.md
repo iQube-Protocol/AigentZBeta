@@ -5699,3 +5699,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c96529b.md](../build_/COMMITS/COMMIT-c96529b.md)
 - Message: Make persona switch trigger real MCP OAuth reauthorization
+
+## Commit `0016af6` — 2026-09-11T05:17:49-04:00
+- Type: `push`
+- Brief: [COMMIT-0016af6.md](../build_/COMMITS/COMMIT-0016af6.md)
+- Message: Project canonical exchange iQube references through MCP

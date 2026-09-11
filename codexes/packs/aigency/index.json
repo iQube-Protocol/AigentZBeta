@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-11T08:59:25.038Z",
+  "last_updated": "2026-09-11T09:19:29.680Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c96529b3f3ecd2f83461ef4d09764a107c0a746a",
-  "latest_commit_short": "c96529b",
-  "latest_commit_title": "Make persona switch trigger real MCP OAuth reauthorization",
+  "latest_commit": "0016af6d0988f8feec1c6b7820200b2397d59f43",
+  "latest_commit_short": "0016af6",
+  "latest_commit_title": "Project canonical exchange iQube references through MCP",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "0016af6",
+      "full_sha": "0016af6d0988f8feec1c6b7820200b2397d59f43",
+      "title": "Project canonical exchange iQube references through MCP",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-11T05:17:49-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0016af6.md"
+    },
     {
       "sha": "c96529b",
       "full_sha": "c96529b3f3ecd2f83461ef4d09764a107c0a746a",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T01:15:27Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-37c6527.md"
-    },
-    {
-      "sha": "a1a3c6b",
-      "full_sha": "a1a3c6be9380829c0b44b1fb79c56755ced6dbdb",
-      "title": "Add manual financial-profile entry (MPY2-2c); close MPY2-0b reconciliation",
-      "author": "Claude",
-      "timestamp": "2026-09-02T03:22:54Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-a1a3c6b.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
