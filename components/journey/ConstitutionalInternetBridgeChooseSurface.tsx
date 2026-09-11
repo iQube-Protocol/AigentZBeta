@@ -47,7 +47,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { BookMarked, Compass, Handshake, Mail, Share2, Sparkles, ArrowRight, Landmark } from 'lucide-react';
+import { BookMarked, Bot, Compass, Handshake, Mail, Share2, Sparkles, ArrowRight, Landmark } from 'lucide-react';
 import { SocialSharingModal } from '@/packages/smarttriad/src/SocialSharingModal';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { canonicalPlateImage } from '@/services/artifact/canonicalPlateImages';
@@ -62,10 +62,12 @@ import { FullscreenableFrame } from '@/components/journey/FullscreenableFrame';
 import { BridgeReserveInterestCard } from '@/components/journey/BridgeReserveInterestCard';
 import { DestinationCard } from '@/components/journey/DestinationCard';
 import { BridgeStageCapsuleShell } from '@/components/journey/BridgeStageCapsuleShell';
+import { ConnectClaudeExperience } from '@/components/shared/ConnectClaudeExperience';
+import { checkClaudeAgentConnected, recordClaudeAgentConnected } from '@/components/shared/connectClaudeConnection';
 
 const BOOK_CONCEPT_PLATE = canonicalPlateImage('CIP-006');
 
-type LeftView = 'book' | 'reading' | 'aigentme' | 'irl' | 'partner' | 'mythos';
+type LeftView = 'book' | 'reading' | 'aigentme' | 'irl' | 'partner' | 'mythos' | 'connect-claude';
 
 interface ConstitutionalInternetBridgeChooseSurfaceProps {
   personaId?: string;
@@ -267,6 +269,13 @@ export function ConstitutionalInternetBridgeChooseSurface({
               />
             )}
           </ArtifactMattedFrame>
+        ) : leftView === 'connect-claude' ? (
+          <ConnectClaudeExperience
+            variant="pane"
+            checkConnected={checkClaudeAgentConnected}
+            recordConnected={recordClaudeAgentConnected}
+            context="your Constitutional story"
+          />
         ) : leftView === 'partner' ? (
           <ArtifactMattedFrame>
             {canonicalAssets.partner ? (
@@ -327,6 +336,13 @@ export function ConstitutionalInternetBridgeChooseSurface({
           label="Meet aigentMe"
           active={leftView === 'aigentme'}
           onClick={openAigentMe}
+        />
+
+        <DestinationCard
+          icon={<Bot className="h-4 w-4 text-indigo-300" />}
+          label="Connect Claude"
+          active={leftView === 'connect-claude'}
+          onClick={() => setLeftView('connect-claude')}
         />
 
         <DestinationCard

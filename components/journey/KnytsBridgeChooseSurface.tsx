@@ -114,7 +114,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { Mail, Sparkles, ArrowRight, Handshake, Compass, MessageCircle, Share2, Rocket, ExternalLink } from 'lucide-react';
+import { Bot, Mail, Sparkles, ArrowRight, Handshake, Compass, MessageCircle, Share2, Rocket, ExternalLink } from 'lucide-react';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { SocialSharingModal } from '@/packages/smarttriad/src/SocialSharingModal';
 import { KNYTS_BRIDGE_CAMPAIGN_ID, KNYTS_BRIDGE_CROSSING_JOURNEY } from '@/services/journey/knytsBridgeCrossingJourney';
@@ -131,11 +131,13 @@ import {
   KNYTS_BRIDGE_SECTION_DEFAULTS,
   type KnytsBridgeEditorialSection,
 } from '@/services/journey/knytsBridgeEditorialConfig';
+import { ConnectClaudeExperience } from '@/components/shared/ConnectClaudeExperience';
+import { checkClaudeAgentConnected, recordClaudeAgentConnected } from '@/components/shared/connectClaudeConnection';
 
 const CONTACT_EMAIL = 'info@metame.com';
 const SECTION = 'choose';
 
-type LeftView = 'video' | 'store' | 'ci';
+type LeftView = 'video' | 'store' | 'ci' | 'connect-claude';
 
 interface KnytsBridgeChooseSurfaceProps {
   personaId?: string;
@@ -300,6 +302,13 @@ export function KnytsBridgeChooseSurface({
           <iframe src={storeUrl} title="Explore the KNYT Store" className="h-full w-full border-0" />
         ) : leftView === 'ci' ? (
           <iframe src="/bridge/ci" title="The Constitutional Internet Bridge" className="h-full w-full border-0" />
+        ) : leftView === 'connect-claude' ? (
+          <ConnectClaudeExperience
+            variant="pane"
+            checkConnected={checkClaudeAgentConnected}
+            recordConnected={recordClaudeAgentConnected}
+            context="your Constitutional story"
+          />
         ) : (
           // 'video' — the bridge's default/steady state. Never replaced by
           // an outbound action (Follow Kickstarter included — see header
@@ -445,6 +454,13 @@ export function KnytsBridgeChooseSurface({
           </span>
           <ArrowRight className="h-4 w-4 shrink-0 text-slate-400" />
         </button>
+
+        <DestinationCard
+          icon={<Bot className="h-4 w-4 text-amber-300" />}
+          label="Connect Claude"
+          active={leftView === 'connect-claude'}
+          onClick={() => setLeftView('connect-claude')}
+        />
       </div>
       </BridgeStageCapsuleShell>
 
