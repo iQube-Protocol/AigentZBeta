@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-11T00:52:19.123Z",
+  "last_updated": "2026-09-11T02:11:50.784Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1a4268b9bf2829a7379fa124a48c0734592abbc8",
-  "latest_commit_short": "1a4268b",
-  "latest_commit_title": "Deploy embedded Passport persona spine for Threshold OAuth",
+  "latest_commit": "02af7221babb3c0978e9456bdb56124ee46f8e42",
+  "latest_commit_short": "02af722",
+  "latest_commit_title": "Expose canonical IRL OS public root data",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "02af722",
+      "full_sha": "02af7221babb3c0978e9456bdb56124ee46f8e42",
+      "title": "Expose canonical IRL OS public root data",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-10T22:09:59-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-02af722.md"
+    },
     {
       "sha": "1a4268b",
       "full_sha": "1a4268b9bf2829a7379fa124a48c0734592abbc8",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T12:37:43Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-5eca8bc.md"
-    },
-    {
-      "sha": "277f44e",
-      "full_sha": "277f44e905cedbafeba474eac725bf42b3bfd6a4",
-      "title": "Decouple public-exposure from series='bridge' — require an explicit signal",
-      "author": "Claude",
-      "timestamp": "2026-09-02T12:37:58Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-277f44e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

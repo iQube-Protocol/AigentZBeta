@@ -5664,3 +5664,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-1a4268b.md](../build_/COMMITS/COMMIT-1a4268b.md)
 - Message: Deploy embedded Passport persona spine for Threshold OAuth
+
+## Commit `02af722` — 2026-09-10T22:09:59-04:00
+- Type: `push`
+- Brief: [COMMIT-02af722.md](../build_/COMMITS/COMMIT-02af722.md)
+- Message: Expose canonical IRL OS public root data
