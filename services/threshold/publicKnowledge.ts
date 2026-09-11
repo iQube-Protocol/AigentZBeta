@@ -94,7 +94,23 @@ function summaryFromPackDoc(cartridge: 'polity-core' | 'agentiq-os', doc: PackDo
 }
 async function buildPackCatalogue(cartridge: 'polity-core' | 'agentiq-os', packId: string, legacy: PublicKnowledgeAdapter) {
   const [collections, legacyListing] = await Promise.all([readCollections(packId), legacy.listDocuments(cartridge)]);
-  if (!collections?.collections) return { ok: false as const, error: `Public cartridge catalogue for ${cartridge} is unavailable.` };
+
+  // Polity's three agent-orientation artifacts are an explicit publication
+  // boundary of their own. They must remain discoverable even when the broader
+  // collections catalogue is temporarily missing/stale in the remote corpus.
+  // Previously we returned before appending them, which made an MCP client
+  // incorrectly conclude that Polity Core had no public agent orientation.
+  if (!collections?.collections) {
+    if (cartridge === 'polity-core') {
+      return {
+        ok: true as const,
+        docs: [...POLITY_PUBLIC_AGENT_ARTIFACTS],
+        summaries: POLITY_PUBLIC_AGENT_ARTIFACTS.map((doc) => summaryFromPackDoc(cartridge, doc)),
+      };
+    }
+    return { ok: false as const, error: `Public cartridge catalogue for ${cartridge} is unavailable.` };
+  }
+
   const legacyByPath = new Map<string, PublicDocumentSummary>();
   if (legacyListing.ok) for (const doc of legacyListing.documents ?? []) { const path = pathFromCanonicalLink(doc.canonicalLink); if (path) legacyByPath.set(path, doc); }
   const docs: PackDoc[] = [];
