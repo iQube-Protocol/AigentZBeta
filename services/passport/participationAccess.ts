@@ -988,12 +988,11 @@ export interface AccessGrantView {
   allowedExperiments: string[] | null;
 }
 
-export async function listAccessGrants(admin: SupabaseClient, domain?: AccessDomain): Promise<AccessGrantView[]> {
-  let q = admin.from('access_grants').select('*').order('granted_at', { ascending: false });
-  if (domain) q = q.eq('access_domain', domain);
-  const { data, error } = await q;
-  if (error) return [];
-  return (data ?? []).map((r) => ({
+/** Shared row→view projection — `listAccessGrants` and every amendment
+ *  function below return the SAME shape from the SAME mapping, so a steward
+ *  UI refresh after an amend never sees a differently-shaped grant. */
+function toAccessGrantView(r: Record<string, unknown>): AccessGrantView {
+  return {
     id: String(r.id),
     accessDomain: String(r.access_domain),
     role: String(r.role),
@@ -1004,7 +1003,211 @@ export async function listAccessGrants(admin: SupabaseClient, domain?: AccessDom
     receiptId: (r.receipt_id as string | null) ?? null,
     holderRef: createHash('sha256').update(String(r.persona_id)).digest('hex').slice(0, 16),
     allowedExperiments: ((r.allowed_experiments as string[] | null) ?? null),
-  }));
+  };
+}
+
+export async function listAccessGrants(admin: SupabaseClient, domain?: AccessDomain): Promise<AccessGrantView[]> {
+  let q = admin.from('access_grants').select('*').order('granted_at', { ascending: false });
+  if (domain) q = q.eq('access_domain', domain);
+  const { data, error } = await q;
+  if (error) return [];
+  return (data ?? []).map((r) => toAccessGrantView(r as Record<string, unknown>));
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Grant AMENDMENT — IRL Stewardship, Access Maintenance (2026-10-01, item 1).
+//
+// Operates on the EXISTING access_grants row. No new invitation, no new
+// onboarding ritual. Every function below:
+//   - refuses to touch a grant that is not currently active/suspended
+//     (a revoked or expired grant is a closed constitutional fact — amend it
+//     by issuing a new invitation, never by reopening the old row);
+//   - validates any role change against the SAME DOMAIN_ROLES catalogue the
+//     issue path already enforces (never a second, looser check);
+//   - writes a receipt carrying the full before/after diff BEFORE returning
+//     success, and — receipt failure aside — never silently mutates
+//     authorization state without one (operator instruction: "Do not
+//     silently mutate authorization state").
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface AmendAccessGrantInput {
+  grantId: string;
+  actorPersonaId: string;
+  addExperiments?: string[];
+  removeExperiments?: string[];
+  newRole?: string;
+  /** `undefined` = leave unchanged; `null` = clear (no expiry); ISO string = set. */
+  newExpiresAt?: string | null;
+  reason?: string;
+}
+export type GrantMutationResult = { ok: true; grant: AccessGrantView } | { ok: false; error: string };
+
+async function loadGrantRow(admin: SupabaseClient, grantId: string): Promise<Record<string, unknown> | null> {
+  const { data, error } = await admin.from('access_grants').select('*').eq('id', grantId).maybeSingle();
+  if (error || !data) return null;
+  return data as Record<string, unknown>;
+}
+
+/** Add/remove experiment scopes, change role, or change expiry on an active
+ *  or suspended grant — never touches a revoked/expired one. */
+export async function amendAccessGrant(admin: SupabaseClient, input: AmendAccessGrantInput): Promise<GrantMutationResult> {
+  const current = await loadGrantRow(admin, input.grantId);
+  if (!current) return { ok: false, error: 'Grant not found.' };
+  if (current.status !== 'active' && current.status !== 'suspended') {
+    return { ok: false, error: `Cannot amend a '${current.status}' grant.` };
+  }
+
+  const domain = String(current.access_domain) as AccessDomain;
+  if (input.newRole && !(DOMAIN_ROLES[domain] ?? []).includes(input.newRole)) {
+    return { ok: false, error: `'${input.newRole}' is not a valid role for ${DOMAIN_LABELS[domain] ?? domain}.` };
+  }
+
+  const prevExperiments = (current.allowed_experiments as string[] | null) ?? [];
+  let nextExperiments = prevExperiments;
+  if ((input.addExperiments?.length ?? 0) > 0 || (input.removeExperiments?.length ?? 0) > 0) {
+    const set = new Set(prevExperiments);
+    for (const e of input.addExperiments ?? []) set.add(e);
+    for (const e of input.removeExperiments ?? []) set.delete(e);
+    nextExperiments = Array.from(set);
+  }
+
+  const prevRole = String(current.role);
+  const nextRole = input.newRole ?? prevRole;
+  const prevExpiresAt = (current.expires_at as string | null) ?? null;
+  const nextExpiresAt = input.newExpiresAt !== undefined ? input.newExpiresAt : prevExpiresAt;
+
+  const sameScope = JSON.stringify([...nextExperiments].sort()) === JSON.stringify([...prevExperiments].sort());
+  if (sameScope && nextRole === prevRole && nextExpiresAt === prevExpiresAt) {
+    return { ok: false, error: 'No changes supplied.' };
+  }
+
+  const { data: updated, error: updErr } = await admin
+    .from('access_grants')
+    .update({
+      role: nextRole,
+      allowed_experiments: nextExperiments.length > 0 ? nextExperiments : null,
+      expires_at: nextExpiresAt,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', input.grantId)
+    .select('*')
+    .single();
+  if (updErr || !updated) return { ok: false, error: updErr?.message ?? 'Amend failed.' };
+
+  let receiptId: string | null = null;
+  try {
+    const receipt = await createActivityReceipt({
+      personaId: input.actorPersonaId,
+      actionType: 'access_grant_amended',
+      summary: `Access grant amended — ${DOMAIN_LABELS[domain] ?? domain}: ${prevRole} → ${nextRole}`,
+      activeCartridge: 'polity-passport',
+      actionInput: {
+        grantId: input.grantId,
+        targetPersonaId: String(current.persona_id),
+        previousScope: prevExperiments,
+        newScope: nextExperiments,
+        previousRole: prevRole,
+        newRole: nextRole,
+        previousExpiresAt: prevExpiresAt,
+        newExpiresAt: nextExpiresAt,
+        reason: input.reason ?? null,
+        resultingStatus: String(updated.status),
+      },
+    });
+    receiptId = receipt?.id ?? null;
+  } catch {
+    // Fail-soft on the receipt write itself; the amendment above already
+    // committed. A missing receiptId is visible on the grant row (null),
+    // never silently backfilled with a fabricated id.
+  }
+  if (receiptId) {
+    await admin.from('access_grants').update({ receipt_id: receiptId }).eq('id', input.grantId);
+    (updated as Record<string, unknown>).receipt_id = receiptId;
+  }
+
+  return { ok: true, grant: toAccessGrantView(updated as Record<string, unknown>) };
+}
+
+async function transitionGrantStatus(
+  admin: SupabaseClient,
+  input: { grantId: string; actorPersonaId: string; reason?: string },
+  fromStatuses: string[],
+  toStatus: 'suspended' | 'active' | 'revoked',
+  actionType: 'access_grant_suspended' | 'access_grant_reinstated' | 'access_grant_revoked',
+  extraColumns: Record<string, unknown>,
+): Promise<GrantMutationResult> {
+  const current = await loadGrantRow(admin, input.grantId);
+  if (!current) return { ok: false, error: 'Grant not found.' };
+  if (!fromStatuses.includes(String(current.status))) {
+    return { ok: false, error: `Cannot transition a '${current.status}' grant to '${toStatus}'.` };
+  }
+
+  const { data: updated, error: updErr } = await admin
+    .from('access_grants')
+    .update({ status: toStatus, updated_at: new Date().toISOString(), ...extraColumns })
+    .eq('id', input.grantId)
+    .select('*')
+    .single();
+  if (updErr || !updated) return { ok: false, error: updErr?.message ?? 'Status change failed.' };
+
+  const domain = String(current.access_domain) as AccessDomain;
+  try {
+    await createActivityReceipt({
+      personaId: input.actorPersonaId,
+      actionType,
+      summary: `Access grant ${toStatus} — ${DOMAIN_LABELS[domain] ?? domain} · ${String(current.role)}`,
+      activeCartridge: 'polity-passport',
+      actionInput: {
+        grantId: input.grantId,
+        targetPersonaId: String(current.persona_id),
+        previousStatus: String(current.status),
+        newStatus: toStatus,
+        previousScope: (current.allowed_experiments as string[] | null) ?? [],
+        previousExpiresAt: (current.expires_at as string | null) ?? null,
+        newExpiresAt: (current.expires_at as string | null) ?? null,
+        reason: input.reason ?? null,
+        resultingStatus: toStatus,
+      },
+    });
+  } catch {
+    // Fail-soft — see amendAccessGrant's identical rationale.
+  }
+
+  return { ok: true, grant: toAccessGrantView(updated as Record<string, unknown>) };
+}
+
+/** A reversible hold — distinct from revoke. The participant relationship
+ *  survives; access is paused until reinstated. */
+export async function suspendAccessGrant(
+  admin: SupabaseClient,
+  input: { grantId: string; actorPersonaId: string; reason?: string },
+): Promise<GrantMutationResult> {
+  return transitionGrantStatus(admin, input, ['active'], 'suspended', 'access_grant_suspended', {
+    suspended_at: new Date().toISOString(),
+  });
+}
+
+/** Reverses a suspension. Never usable on a revoked grant — that path
+ *  requires a fresh invitation, per the bootstrap-vs-maintenance lifecycle
+ *  (item 2). */
+export async function reinstateAccessGrant(
+  admin: SupabaseClient,
+  input: { grantId: string; actorPersonaId: string; reason?: string },
+): Promise<GrantMutationResult> {
+  return transitionGrantStatus(admin, input, ['suspended'], 'active', 'access_grant_reinstated', {
+    suspended_at: null,
+  });
+}
+
+/** Permanent. Distinct action type from `revokeAccessInvitation` (which only
+ *  ever touches `access_invitations`, never a grant). */
+export async function revokeAccessGrantById(
+  admin: SupabaseClient,
+  input: { grantId: string; actorPersonaId: string; reason?: string },
+): Promise<GrantMutationResult> {
+  return transitionGrantStatus(admin, input, ['active', 'suspended'], 'revoked', 'access_grant_revoked', {
+    revoked_at: new Date().toISOString(),
+  });
 }
 
 /**

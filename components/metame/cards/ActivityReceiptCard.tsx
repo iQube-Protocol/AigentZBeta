@@ -96,6 +96,14 @@ const ACTION_LABELS: Record<string, string> = {
   experience_model_updated: "ExperienceModel updated",
   session_started: "Session started",
   session_completed: "Session completed",
+  access_grant_amended: "Access grant amended",
+  access_grant_suspended: "Access grant suspended",
+  access_grant_reinstated: "Access grant reinstated",
+  access_grant_revoked: "Access grant revoked",
+  access_grant_capability_granted: "Capability granted",
+  access_grant_capability_revoked: "Capability revoked",
+  research_persona_proposed: "Research persona proposed",
+  research_persona_updated: "Research persona updated",
 };
 
 /**

@@ -604,7 +604,19 @@ export type ActivityActionType =
   // Local only, deliberately NOT in ANCHORABLE_ACTION_TYPES — the DVN
   // consumer/payload migration for DiDQube stays behind its own required
   // standalone approval (execution plan Phase 4 item 6).
-  | 'agent_didqube_container_bound';
+  | 'agent_didqube_container_bound'
+  // IRL Stewardship — Access Maintenance + Research Persona + Capability
+  // model (2026-10-01). Separate types per fact, not one generic
+  // 'access_changed' — see 20261001000300_stewardship_receipt_action_types.sql's
+  // header for the reasoning (mirrors standing_accrued/standing_corrected).
+  | 'access_grant_amended'
+  | 'access_grant_suspended'
+  | 'access_grant_reinstated'
+  | 'access_grant_revoked'
+  | 'access_grant_capability_granted'
+  | 'access_grant_capability_revoked'
+  | 'research_persona_proposed'
+  | 'research_persona_updated';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 
