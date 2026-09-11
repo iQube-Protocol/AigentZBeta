@@ -53,6 +53,11 @@ import {
   listAvailablePersonas,
   requestPersonaSwitch,
 } from '@/services/threshold/personaRecross';
+import {
+  PUBLIC_DISCOVERY_TOOLS,
+  callPublicDiscoveryTool,
+  isPublicDiscoveryTool,
+} from '@/services/threshold/publicIQubeMcp';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -136,17 +141,7 @@ async function callUploadContentAsset(args: Record<string, unknown>, ctx: Gatewa
   }
 
   try {
-    // Strict decode: rejects a data-URL prefix, whitespace, or any non-base64
-    // character loudly instead of silently truncating to whatever Node's
-    // lenient decoder could salvage. A corrupt decode here previously
-    // persisted a garbage buffer all the way to Autonomys with no error
-    // anywhere in the pipeline — the failure only surfaced later, as an
-    // undecodable image on the display side.
     const bytes = decodeBase64Strict(fileBase64 || file || '');
-
-    // Image-bearing roles must be genuine, fully-decodable rasters before
-    // they are ever encrypted and persisted — this is the one point where
-    // the original source is still in hand to validate against.
     await assertDecodableImage(bytes, role);
 
     const receipt = await executeThresholdContentUpload({
@@ -191,20 +186,24 @@ async function handleOne(msg: RpcMsg, ctx: GatewayContext): Promise<object | nul
           capabilities: { tools: {}, resources: {}, prompts: {} },
           serverInfo: SERVER_INFO,
           instructions:
-            'metaMe Threshold Gateway. Read metame://agent-manifest first to reconstruct the constitutional architecture, source precedence, MCP exposure, and access boundaries. Inspect a Threshold Link when present. Only the human authorizes changes of authority.',
+            'metaMe Threshold Gateway. Call get_agent_manifest first (or read metame://agent-manifest) to reconstruct the constitutional architecture, source precedence, MCP exposure, and access boundaries. Inspect a Threshold Link when present. Only the human authorizes changes of authority.',
         });
       case 'ping':
         return ok(id, {});
       case 'tools/list':
-        return ok(id, { tools: listTools() });
+        return ok(id, { tools: [...listTools(), ...PUBLIC_DISCOVERY_TOOLS] });
       case 'tools/call': {
         const name = String(params.name ?? '');
         const args = (params.arguments as Record<string, unknown>) ?? {};
-        // Upload is intercepted at the transport boundary so both MCP and native
-        // connector paths share one authorized execution function. This avoids an
-        // authenticated MCP session making an unauthenticated internal HTTP hop.
         if (name === 'upload_content_asset') {
           return ok(id, await callUploadContentAsset(args, ctx));
+        }
+        if (isPublicDiscoveryTool(name)) {
+          const result = await callPublicDiscoveryTool(name, args);
+          return ok(id, {
+            content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+            ...(result && typeof result === 'object' && 'ok' in result && result.ok === false ? { isError: true } : {}),
+          });
         }
         return ok(id, await callTool(name, args, ctx));
       }
@@ -243,8 +242,6 @@ export async function POST(request: NextRequest) {
     resolveInvitation,
     session,
     irl,
-    // Unauthenticated by design — wired regardless of session, reusing the
-    // SAME irl adapter instance above for its IRL OS branch.
     publicKnowledge: makePublicKnowledgeAdapter({ origin, irl }),
     companionInstall: () => buildCompanionInstallBrief(origin),
     beginServiceUpgrade: session
