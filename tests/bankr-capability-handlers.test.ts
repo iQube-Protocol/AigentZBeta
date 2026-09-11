@@ -52,6 +52,9 @@ const DRAFT_INPUT = {
   chain: 'base',
   tokenName: 'Factor Token',
   tokenSymbol: 'FCTR',
+  // A partner-key Bankr deploy requires feeRecipient even to preflight
+  // (docs.bankr.bot) — 2026-09-08 correction.
+  feeRecipient: FACTOR_SETTLEMENT_ADDRESS,
 };
 
 async function ratifyAdmissibleFor(admin: any, launchId: string, opts: { clearReceiptMockFirst?: boolean } = {}) {
@@ -214,12 +217,12 @@ describe('submitApprovedLaunch — the ONE function that calls Bankr\'s write AP
     ).rejects.toMatchObject({ code: 'not-approved' });
   });
 
-  it('submits an approved launch via the fake Bankr transport, recording a real (simulated) job id', async () => {
+  it('submits an approved launch via the fake Bankr transport, recording a real (simulated) activity id', async () => {
     const admin = makeFakeAdmin();
     const approved = await walkToApproved(admin);
     const submitted = await submitApprovedLaunch(admin, { id: approved.id, tenantId: 'default', actorPersonaId: 'persona-1', idempotencyKey: 'idem-submit-1' });
     expect(submitted.state).toBe('submitting');
-    expect(submitted.bankr_job_id).toMatch(/^sim-job-/);
+    expect(submitted.bankr_job_id).toMatch(/^sim-activity-/);
   });
 
   it('a replayed submission with the same idempotency key returns the same job — never re-submits', async () => {
@@ -350,13 +353,20 @@ describe('inspectDeploymentStatus — read-only against Bankr; never fabricates 
     expect(result.bankr_job_id).toBeNull();
   });
 
-  it('stays in "submitting" — the fake transport never reports a confirmed tx/token, so this never silently confirms', async () => {
+  it('correction (2026-09-08): confirms immediately using Bankr\'s OWN real (synchronous) deploy result — never a fabricated value', async () => {
+    // Bankr's real deploy contract is synchronous: a non-simulateOnly
+    // deploy returns tokenAddress/txHash immediately (docs.bankr.bot),
+    // unlike the OLD invented async-job model this test previously assumed.
+    // Confirming right away is therefore correct, not premature — as long
+    // as every confirmed field is traceable to what the deploy itself
+    // returned, never guessed.
     const admin = makeFakeAdmin();
     const approved = await walkToApproved(admin);
-    await submitApprovedLaunch(admin, { id: approved.id, tenantId: 'default', actorPersonaId: 'persona-1', idempotencyKey: 'idem-status-1' });
+    const submitted = await submitApprovedLaunch(admin, { id: approved.id, tenantId: 'default', actorPersonaId: 'persona-1', idempotencyKey: 'idem-status-1' });
     const result = await inspectDeploymentStatus(admin, { id: approved.id, tenantId: 'default', actorPersonaId: 'persona-1' });
-    expect(result.state).toBe('submitting');
-    expect(result.token_address).toBeNull();
+    expect(result.state).toBe('confirmed');
+    expect(result.token_address).toBeTruthy();
+    expect(result.bankr_job_id).toBe(submitted.bankr_job_id);
   });
 
   it('refuses to inspect deployment status for a launch belonging to a different tenant', async () => {

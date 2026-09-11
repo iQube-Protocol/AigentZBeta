@@ -58,7 +58,23 @@ export interface BankrProviderConfig {
    * one configured, for operator visibility only.
    */
   ipAllowlist: string[];
+  /**
+   * A SEPARATE, deliberate opt-in required in addition to a correctly-
+   * prefixed credential before `createBankrProviderAdapter` will ever
+   * resolve the live transport (2026-09-08 correction — `BANKR_LIVE_MODE_
+   * ENABLED`). Credentials existing is not, by itself, permission to go
+   * live: this flag is the operator's explicit "yes, actually use them."
+   */
+  liveModeEnabled: boolean;
 }
+
+/** Which HTTP header a resolved key must be sent under — derived from the
+ *  key's OWN class (2026-09-08 live-contract alignment, docs.bankr.bot):
+ *  Partner API keys (`bk_ptr_...`, read-only/write) go in `X-Partner-Key`;
+ *  provisioned-wallet user keys (`bk_usr_...`, wallet) go in `X-API-Key`.
+ *  Never `Authorization: Bearer` — that was this codebase's own prior
+ *  guess, not Bankr's documented contract. */
+export type BankrAuthHeader = 'X-Partner-Key' | 'X-API-Key';
 
 export interface BankrRateLimitInfo {
   limit: number | null;
@@ -112,43 +128,75 @@ export interface BankrTransportResponse<T> {
  * requirement depends on (mirrors the Vela adapter's own live/test-transport
  * split, services/vela/velaTestTransport.ts) — application code never
  * branches on live-vs-fake; it calls `BankrProviderAdapter.request()` and
- * the configured transport decides.
+ * the configured transport decides. `authHeader` names which header the
+ * resolved key belongs in (2026-09-08 correction) — the fake transport
+ * ignores it (it never sends real HTTP); the live transport uses it instead
+ * of a hardcoded `Authorization: Bearer`.
  */
 export interface BankrTransport {
   readonly mode: 'live' | 'fake';
-  send<T>(request: BankrTransportRequest, resolvedApiKey: string): Promise<BankrTransportResponse<T>>;
+  send<T>(request: BankrTransportRequest, resolvedApiKey: string, authHeader: BankrAuthHeader): Promise<BankrTransportResponse<T>>;
 }
 
 // ── Domain shapes (Token Launching + Wallet API) ────────────────────────
+
+/** `feeRecipient.type` per Bankr's documented deploy contract — required
+ *  for a partner-key deploy, optional for a user-key one. */
+export interface BankrFeeRecipient {
+  type: 'wallet' | 'x' | 'farcaster' | 'ens';
+  value: string;
+}
 
 export interface BankrTokenLaunchQuoteRequest {
   chain: string;
   tokenName: string;
   tokenSymbol: string;
-  pairedAsset?: string;
+  feeRecipient?: BankrFeeRecipient;
+  /** Base-only, user-key deploys only (docs.bankr.bot) — never sent on a
+   *  partner-key deploy; the adapter enforces this, never merely documents it. */
+  pairedTokenAddress?: string;
+  quoteOnlyFees?: boolean;
+  /** Rejected by Bankr for partner-key deploys — the adapter refuses to
+   *  even send it under a partner key rather than let Bankr's own 4xx be
+   *  the first place this is caught. */
+  degenMode?: boolean;
 }
 
-/** Fee/economic terms Bankr's own API returns at quote/preparation time —
- *  NEVER hardcoded by this codebase (Phase 4 requirement). Captured
- *  verbatim, with retrieval provenance, and bound into the launch spec. */
-export interface BankrTokenLaunchTerms {
+/**
+ * The immediate result of `POST /token-launches/deploy` (2026-09-08
+ * live-contract alignment — replaces the prior, undocumented
+ * `/token-launches/quote` + `/token-launches` submission pair with the
+ * ONE real, documented endpoint, distinguished only by `simulateOnly`).
+ * `simulateOnly: true` (this codebase's "preflight") returns a PREDICTED
+ * `tokenAddress`/`poolId`/`feeDistribution` with `txHash: null` — Bankr's
+ * own docs: "get the predicted token address and fee distribution without
+ * broadcasting a transaction or reserving launch quota." A real deploy
+ * (`simulateOnly: false`) additionally returns `txHash`/`activityId`.
+ * `simulated` is stamped by the ADAPTER from the transport's own mode
+ * (bankrProviderAdapter.ts), never trusted from the raw response.
+ */
+export interface BankrTokenLaunchDeployResult {
+  tokenAddress: string | null;
+  poolId: string | null;
+  txHash: string | null;
+  activityId: string | null;
   chain: string;
-  feeBps: number | null;
-  creatorVestingSupported: boolean;
-  partnerKeySellsFullSupply: boolean;
-  pairedAssetOptions: string[];
+  feeDistribution: Record<string, unknown> | null;
+  simulated: boolean;
   raw: Record<string, unknown>;
-  /** Where these terms came from and when — required for Phase 4's "source
-   *  URL and retrieval timestamp" field. */
   sourceUrl: string;
   retrievedAt: string;
 }
 
-export interface BankrTokenLaunchSubmission {
-  jobId: string;
-  status: string;
-  raw: Record<string, unknown>;
-}
+/** @deprecated Alias kept for the many existing callers ("terms" = the
+ *  preflight/`simulateOnly:true` deploy result) — same shape as
+ *  `BankrTokenLaunchDeployResult`, named for its historical call site
+ *  (`getTokenLaunchQuote`) rather than duplicated. */
+export type BankrTokenLaunchTerms = BankrTokenLaunchDeployResult;
+
+/** The result of a REAL (`simulateOnly: false`) deploy — same fields as the
+ *  preflight result, but `txHash`/`activityId` are populated. */
+export type BankrTokenLaunchSubmission = BankrTokenLaunchDeployResult;
 
 export interface BankrTokenLaunchStatus {
   jobId: string;

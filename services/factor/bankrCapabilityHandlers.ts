@@ -148,20 +148,45 @@ export interface PreflightResult {
   bankrTerms: BankrTokenLaunchTerms;
 }
 
+/** A partner-key deploy requires `feeRecipient` (docs.bankr.bot) — derived
+ *  from the launch's own `fee_recipient` column, never accepted as a
+ *  separate caller input (Factor never invents one; the operator confirms
+ *  it explicitly in the launch specification before this is ever called).
+ *  Throws a clear, domain-level error rather than letting the adapter's
+ *  generic 'invalid-request' surface unhelpfully. */
+function requireFeeRecipient(launch: TokenLaunchRow): { type: 'wallet'; value: string } {
+  if (!launch.fee_recipient) {
+    throw new TokenLaunchError(
+      'fee-recipient-required',
+      `Launch ${launch.id} has no fee_recipient set — a partner-key Bankr deploy (preflight or submission) requires one; confirm it in the launch specification first.`,
+    );
+  }
+  return { type: 'wallet', value: launch.fee_recipient };
+}
+
 /**
  * "Run deterministic preflight/simulation" — quotes Bankr's REAL terms
- * (live or the deterministic fake, never hardcoded), records them onto the
- * draft, and advances the state machine. This IS the deterministic
- * preflight: the fake transport's quote is itself deterministic
- * (bankrTransport.ts), so a rehearsal with no live credentials still
- * produces a real, reproducible preflight result — honestly marked
- * `simulated: true` inside `bankrTerms.raw`.
+ * (live or the deterministic fake, never hardcoded) via a `simulateOnly:
+ * true` deploy call, records them onto the draft, and advances the state
+ * machine. This IS the deterministic preflight: the fake transport's quote
+ * is itself deterministic (bankrTransport.ts), so a rehearsal with no live
+ * credentials still produces a real, reproducible preflight result —
+ * honestly marked `simulated: true` inside `bankrTerms.raw`, with `txHash`/
+ * `activityId` structurally null (Bankr's own contract: simulating never
+ * broadcasts or reserves launch quota).
  */
 export async function preflightLaunch(admin: SupabaseClient, id: string, tenantId: string, actorPersonaId: string): Promise<PreflightResult> {
   const adapter = createBankrProviderAdapter();
   const launch = await getTokenLaunch(admin, id, tenantId);
+  const feeRecipient = requireFeeRecipient(launch);
 
-  const terms = await adapter.getTokenLaunchQuote({ chain: launch.chain, tokenName: launch.token_name, tokenSymbol: launch.token_symbol, pairedAsset: launch.paired_asset ?? undefined });
+  const terms = await adapter.getTokenLaunchQuote({
+    chain: launch.chain,
+    tokenName: launch.token_name,
+    tokenSymbol: launch.token_symbol,
+    feeRecipient,
+    pairedTokenAddress: launch.paired_asset ?? undefined,
+  });
   await recordBankrTerms(admin, id, tenantId, { raw: terms.raw, sourceUrl: terms.sourceUrl, retrievedAt: terms.retrievedAt });
   const preflighted = await transitionState(admin, { id, tenantId, toState: 'preflighted', actorPersonaId });
 
@@ -169,7 +194,7 @@ export async function preflightLaunch(admin: SupabaseClient, id: string, tenantI
     personaId: actorPersonaId,
     activeCartridge: 'moneypenny',
     actionType: 'bankr_launch_preflighted',
-    summary: `Token launch ${id} preflighted against Bankr (${terms.raw.simulated ? 'simulated' : 'live'} terms, fee ${terms.feeBps ?? 'unknown'}bps)`,
+    summary: `Token launch ${id} preflighted against Bankr (${terms.raw.simulated ? 'simulated' : 'live'} terms, predicted token ${terms.tokenAddress ?? 'unknown'})`,
     agentsInvoked: [launch.preparing_agent_runtime_id],
     actionInput: { launchId: id, sourceUrl: terms.sourceUrl, retrievedAt: terms.retrievedAt },
   });
@@ -319,6 +344,7 @@ export async function submitApprovedLaunch(
   }
 
   const adapter = createBankrProviderAdapter();
+  const feeRecipient = requireFeeRecipient(launch);
 
   // Drift is only a meaningful question for an 'approved' row — anything
   // else (not yet approved, or already past submission and replaying) is
@@ -327,7 +353,7 @@ export async function submitApprovedLaunch(
   // domain 'not-approved' error rather than a spurious drift refusal
   // (an unapproved row has no bankr_terms_hash to compare against at all).
   if (launch.state === 'approved') {
-    const freshQuote = await adapter.getTokenLaunchQuote({ chain: launch.chain, tokenName: launch.token_name, tokenSymbol: launch.token_symbol, pairedAsset: launch.paired_asset ?? undefined });
+    const freshQuote = await adapter.getTokenLaunchQuote({ chain: launch.chain, tokenName: launch.token_name, tokenSymbol: launch.token_symbol, feeRecipient, pairedTokenAddress: launch.paired_asset ?? undefined });
     const drift = checkBankrTermsDrift(launch, freshQuote.raw);
     if (drift.driftDetected) {
       await transitionState(admin, { id: input.id, tenantId: input.tenantId, toState: 'revision_required', actorPersonaId: input.actorPersonaId, reason: 'Bankr terms changed since approval — reapproval required before submission.' });
@@ -343,12 +369,12 @@ export async function submitApprovedLaunch(
       chain: launch.chain,
       tokenName: launch.token_name,
       tokenSymbol: launch.token_symbol,
-      feeRecipient: launch.fee_recipient,
-      pairedAsset: launch.paired_asset,
+      feeRecipient,
+      pairedTokenAddress: launch.paired_asset ?? undefined,
     },
     input.idempotencyKey,
   );
-  return submitTokenLaunch(admin, { id: input.id, tenantId: input.tenantId, actorPersonaId: input.actorPersonaId, idempotencyKey: input.idempotencyKey, bankrJobId: submission.jobId });
+  return submitTokenLaunch(admin, { id: input.id, tenantId: input.tenantId, actorPersonaId: input.actorPersonaId, idempotencyKey: input.idempotencyKey, bankrJobId: submission.activityId ?? submission.txHash ?? '' });
 }
 
 /** "Inspect deployment status" — reads Bankr's own job status and, once
