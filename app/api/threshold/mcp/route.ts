@@ -10,7 +10,8 @@ import { buildCompanionInstallBrief } from '@/services/companion/extensionArtifa
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { resolveConstitutionalNavigatorState } from '@/services/threshold/constitutionalNavigator';
 import { getAccessibleIQube, listAccessibleIQubes, readAccessibleIQubeText } from '@/services/threshold/personaIQubeProjection';
-import { getExchangeStateForMcp, depositExchangeArtifactViaMcp, confirmOperatorAssistedArtifactViaMcp, declareArtifactFreezeViaMcp, signExchangeInstrumentViaMcp, establishDelegationViaMcp, resolveExchangeWriteAuthority } from '@/services/threshold/mcpConstitutionalActs';
+import { depositExchangeArtifactViaMcp, confirmOperatorAssistedArtifactViaMcp, declareArtifactFreezeViaMcp, signExchangeInstrumentViaMcp, establishDelegationViaMcp, resolveExchangeWriteAuthority } from '@/services/threshold/mcpConstitutionalActs';
+import { getExchangeStateWithRegistryReferences } from '@/services/threshold/mcpExchangeProjection';
 import { executeThresholdContentUpload, THRESHOLD_UPLOAD_ROLES, decodeBase64Strict, assertDecodableImage } from '@/services/threshold/uploadContentAsset';
 import { getPersonaState, listAvailablePersonas, requestPersonaSwitch } from '@/services/threshold/personaRecross';
 import { PUBLIC_DISCOVERY_TOOLS, callPublicDiscoveryTool, isPublicDiscoveryTool } from '@/services/threshold/publicIQubeMcp';
@@ -54,18 +55,10 @@ async function handleOne(msg: RpcMsg, ctx: GatewayContext): Promise<object | nul
         if (name === 'upload_content_asset') return ok(id, await callUploadContentAsset(args, ctx));
         if (isPublicDiscoveryTool(name)) { const result = await callPublicDiscoveryTool(name, args); return ok(id, { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }], ...(result && typeof result === 'object' && 'ok' in result && result.ok === false ? { isError: true } : {}) }); }
         if (name === 'request_persona_switch' && ctx.session) {
-          // Single-call requests are intercepted by POST below so the HTTP layer
-          // can return a real 401 + WWW-Authenticate challenge. This fallback is
-          // retained for batched/nonstandard clients that preserve MCP tool-result
-          // auth metadata.
           const personaPublicRef = typeof args.personaPublicRef === 'string' ? args.personaPublicRef : '';
           const prepared = await requestPersonaSwitch(ctx.session, { personaPublicRef }, ctx.origin);
           if (!prepared.ok) return ok(id, { isError: true, content: [{ type: 'text', text: prepared.error }] });
-          return ok(id, {
-            isError: true,
-            content: [{ type: 'text', text: 'Persona switch prepared. Reauthorize this MCP connection to complete a fresh target-persona crossing.' }],
-            _meta: { 'mcp/www_authenticate': [`Bearer resource_metadata="${ctx.origin}/.well-known/oauth-protected-resource"`] },
-          });
+          return ok(id, { isError: true, content: [{ type: 'text', text: 'Persona switch prepared. Reauthorize this MCP connection to complete a fresh target-persona crossing.' }], _meta: { 'mcp/www_authenticate': [`Bearer resource_metadata="${ctx.origin}/.well-known/oauth-protected-resource"`] } });
         }
         return ok(id, await callTool(name, args, ctx));
       }
@@ -89,7 +82,7 @@ export async function POST(request: NextRequest) {
     resolveNavigatorState: session ? async (opts) => { const admin = getSupabaseServer(); return admin ? resolveConstitutionalNavigatorState(admin, session, opts) : null; } : undefined,
     iqubeProjection: session ? { list: (query) => listAccessibleIQubes(session, query), get: (iqubeId) => getAccessibleIQube(session, iqubeId), readText: (iqubeId, opts) => readAccessibleIQubeText(session, iqubeId, opts) } : undefined,
     mcpActs: session ? {
-      getExchangeState: () => { const admin = getSupabaseServer(); return admin ? getExchangeStateForMcp(admin, session) : Promise.resolve({ ok: false as const, error: 'Platform database is unavailable.' }); },
+      getExchangeState: () => { const admin = getSupabaseServer(); return admin ? getExchangeStateWithRegistryReferences(admin, session) : Promise.resolve({ ok: false as const, error: 'Platform database is unavailable.' }); },
       depositArtifact: (args) => { const admin = getSupabaseServer(); return admin ? depositExchangeArtifactViaMcp(admin, session, args) : Promise.resolve({ ok: false as const, error: 'Platform database is unavailable.' }); },
       confirmOperatorAssistedArtifact: (args) => { const admin = getSupabaseServer(); return admin ? confirmOperatorAssistedArtifactViaMcp(admin, session, args) : Promise.resolve({ ok: false as const, error: 'Platform database is unavailable.' }); },
       declareFreeze: (args) => { const admin = getSupabaseServer(); return admin ? declareArtifactFreezeViaMcp(admin, session, args) : Promise.resolve({ ok: false as const, error: 'Platform database is unavailable.' }); },
@@ -99,24 +92,13 @@ export async function POST(request: NextRequest) {
     } : undefined,
   };
 
-  // A persona switch changes the bearer itself. A successful intent therefore
-  // has to cross the HTTP authorization boundary, not merely return an MCP tool
-  // error with auth metadata (Claude currently does not reliably turn that 200
-  // result into a fresh OAuth ceremony). Prepare the target intent first, then
-  // challenge the HOST with a real 401 so it generates its own state + PKCE.
   if (session && !Array.isArray(body)) {
-    const msg = body as RpcMsg;
-    const params = (msg.params ?? {}) as Record<string, unknown>;
+    const msg = body as RpcMsg; const params = (msg.params ?? {}) as Record<string, unknown>;
     if (msg.method === 'tools/call' && String(params.name ?? '') === 'request_persona_switch') {
-      const args = (params.arguments as Record<string, unknown>) ?? {};
-      const personaPublicRef = typeof args.personaPublicRef === 'string' ? args.personaPublicRef : '';
+      const args = (params.arguments as Record<string, unknown>) ?? {}; const personaPublicRef = typeof args.personaPublicRef === 'string' ? args.personaPublicRef : '';
       const prepared = await requestPersonaSwitch(session, { personaPublicRef }, origin);
-      if (!prepared.ok) {
-        return cors(NextResponse.json(ok(msg.id, { isError: true, content: [{ type: 'text', text: prepared.error }] })));
-      }
-      const res = cors(NextResponse.json(err(msg.id, -32001, 'Fresh persona OAuth authorization required'), { status: 401 }));
-      res.headers.set('WWW-Authenticate', `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource"`);
-      return res;
+      if (!prepared.ok) return cors(NextResponse.json(ok(msg.id, { isError: true, content: [{ type: 'text', text: prepared.error }] })));
+      const res = cors(NextResponse.json(err(msg.id, -32001, 'Fresh persona OAuth authorization required'), { status: 401 })); res.headers.set('WWW-Authenticate', `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource"`); return res;
     }
   }
 
