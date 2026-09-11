@@ -7,6 +7,7 @@ import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
 import { SmartContentListenButton } from '@/components/shared/SmartContentListenButton';
 import { buildSpeechScript } from '@/services/smartcontent/readableTextForSpeech';
 import { defaultReadingText, resolveReadingEdition, readingAudioId, type EditionReadSource } from '@/services/smartcontent/readingEditions';
+import { resolveContentDeepLink } from '@/services/smartcontent/codexArticleDeepLink';
 
 interface EssayCard {
   id: string;
@@ -27,23 +28,6 @@ interface EssayCard {
 
 interface QriptoEssaysTabProps {
   theme?: 'light' | 'dark';
-}
-
-export function resolveEssayDeepLink(essays: EssayCard[], value: string): EssayCard | undefined {
-  let decoded = value.trim();
-  try {
-    decoded = decodeURIComponent(decoded);
-  } catch {
-    // URLSearchParams may already have decoded a literal percent sign.
-  }
-  const normalized = decoded.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-
-  return essays.find((essay) =>
-    essay.id === decoded ||
-    essay.slug === decoded ||
-    essay.slug === normalized ||
-    essay.title.toLowerCase() === decoded.toLowerCase()
-  );
 }
 
 export function QriptoEssaysTab({ theme = 'dark' }: QriptoEssaysTabProps) {
@@ -86,7 +70,7 @@ export function QriptoEssaysTab({ theme = 'dark' }: QriptoEssaysTabProps) {
     const deepLink = searchParams.get('article');
     if (!deepLink || loading || openedDeepLink.current === deepLink) return;
 
-    const essay = resolveEssayDeepLink(essays, deepLink);
+    const essay = resolveContentDeepLink(essays, deepLink);
     if (!essay) {
       setError(`Threshold essay not found: ${deepLink}`);
       return;
