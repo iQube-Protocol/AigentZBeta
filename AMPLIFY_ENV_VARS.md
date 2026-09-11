@@ -11,12 +11,12 @@ SUPABASE_URL = https://bsjhfvctmduxhohtllly.supabase.co
 
 ### 2. Supabase Service Role Key
 ```
-SUPABASE_SERVICE_ROLE_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzamhmdmN0bWR1eGhvaHRsbGx5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzU0ODI1OCwiZXhwIjoyMDczMTI0MjU4fQ.Ex0TywZI7QD7i3KcGkwK_xsSU9SZqwDBT7nlpaQ59ng
+SUPABASE_SERVICE_ROLE_KEY = <REDACTED-2026-07-30-treat-as-compromised-see-rotation-notice>
 ```
 
 ### 3. Agent Master Encryption Key
 ```
-AGENT_KEY_ENCRYPTION_SECRET = e35c7d79651daadd8723ff952c90fe55c567143065e1159d5e683ff3c9703fda
+AGENT_KEY_ENCRYPTION_SECRET = <REDACTED-2026-07-30-treat-as-compromised-rotate-before-use>
 ```
 
 ---

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { resolveCrmPersona } from '../_lib';
+import { requireMarketaQubeTalkAccess } from '../_lib';
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -22,31 +22,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get current persona from request headers
-    const personaId = request.headers.get('x-persona-id');
-    if (!personaId) {
-      return NextResponse.json(
-        { error: 'Missing persona identification' },
-        { status: 401 }
-      );
-    }
-
-    // Get tenant info for validation
-    const persona = await resolveCrmPersona(supabase, personaId);
-    if (!persona) {
-      return NextResponse.json(
-        { error: 'Invalid persona' },
-        { status: 401 }
-      );
-    }
-
-    // Verify tenant access
-    if (persona.tenant_id !== tenant_id) {
-      return NextResponse.json(
-        { error: 'Access denied: tenant mismatch' },
-        { status: 403 }
-      );
-    }
+    // AUTHENTICATE through the identity spine. `x-persona-id` used to BE the
+    // authentication here — a header the caller writes, trusted by a route that
+    // reads with the service role. See requireMarketaQubeTalkAccess for the
+    // full account; the tenant is derived from the proven caller.
+    const gate = await requireMarketaQubeTalkAccess(request, supabase, tenant_id);
+    if (!gate.ok) return gate.response;
 
     // Fetch channels from database
     const { data: channels, error: channelsError } = await supabase
@@ -109,31 +90,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get current persona from request headers
-    const personaId = request.headers.get('x-persona-id');
-    if (!personaId) {
-      return NextResponse.json(
-        { error: 'Missing persona identification' },
-        { status: 401 }
-      );
-    }
-
-    // Get tenant info for validation
-    const persona = await resolveCrmPersona(supabase, personaId);
-    if (!persona) {
-      return NextResponse.json(
-        { error: 'Invalid persona' },
-        { status: 401 }
-      );
-    }
-
-    // Verify tenant access
-    if (persona.tenant_id !== tenant_id) {
-      return NextResponse.json(
-        { error: 'Access denied: tenant mismatch' },
-        { status: 403 }
-      );
-    }
+    // AUTHENTICATE through the identity spine. `x-persona-id` used to BE the
+    // authentication here — a header the caller writes, trusted by a route that
+    // reads with the service role. See requireMarketaQubeTalkAccess for the
+    // full account; the tenant is derived from the proven caller.
+    const gate = await requireMarketaQubeTalkAccess(request, supabase, tenant_id);
+    if (!gate.ok) return gate.response;
+    const persona = gate.persona;
 
     // Generate channel ID
     const channelId = `ch_${tenant_id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

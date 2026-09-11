@@ -19,6 +19,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
+import { requireChannelAccess } from "@/app/api/qubetalk/_lib/requireChannelAccess";
 import { getWorkflow } from "@/services/workflows/store";
 import { listBindings } from "@/services/workflows/bindingStore";
 import { assertEnvelope } from "@/services/workflows/identityEnvelope";
@@ -39,8 +40,23 @@ export async function POST(request: NextRequest) {
       input?: unknown;
     };
 
-    // Validate envelope
-    const envelope = assertEnvelope(body.envelope);
+    // Validate envelope SHAPE. `assertEnvelope` only checks that tenantId and
+    // personaId are present — it is not, and never was, authentication.
+    const claimed = assertEnvelope(body.envelope);
+
+    // AUTHENTICATE. This route executes a workflow and then posts its output
+    // into a QubeTalk channel. Unauthenticated, an anonymous caller could name
+    // ANY tenantId + personaId in the envelope and both run work and write into
+    // a channel as that identity. The envelope is a CLAIM; the spine is the
+    // authority. `claimed.personaId` is discarded entirely below — a persona a
+    // caller asserts about itself is worth nothing.
+    const gate = await requireChannelAccess(request, claimed.tenantId);
+    if (!gate.ok) return gate.response;
+    const envelope = {
+      ...claimed,
+      tenantId: gate.access.tenantId,
+      personaId: gate.access.personaId,
+    };
 
     if (!body.channelId || typeof body.channelId !== "string") {
       return NextResponse.json({ error: "channelId is required" }, { status: 400 });

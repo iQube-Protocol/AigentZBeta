@@ -1,0 +1,24 @@
+name: apply-moneypenny-aigentqube
+
+# One-off, manually-triggered ops recovery (Horizen Pilot Closure — AigentQube
+# Entrance Gate, 2026-08-09). Applies the DML content of MoneyPenny's two
+# existing AigentQube migrations (idempotent) and reconciles her Horizen
+# registration binding via the canonical resolver.
+on:
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apply MoneyPenny AigentQube + reconcile binding
+        env:
+          CRON_TRIGGER_TOKEN: ${{ secrets.CRON_TRIGGER_TOKEN }}
+        run: |
+          if [ -z "$CRON_TRIGGER_TOKEN" ]; then
+            echo "::error::CRON_TRIGGER_TOKEN secret not set in repo settings"
+            exit 1
+          fi
+          curl -sS --max-time 60 -X POST \
+            -H "x-cron-token: $CRON_TRIGGER_TOKEN" \
+            "https://dev-beta.aigentz.me/api/ops/dvn/apply-moneypenny-aigentqube"

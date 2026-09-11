@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-23-COMPOSITE-KEY-CONSUMER-STATE-ISOLATION-001",
+  "statement": "A UI surface that lets an operator act as, or on behalf of, more than one principal/agent within the SAME mounted component instance MUST key every mutable per-request field (input/intent, in-flight/loading flag, result/outcome, and any error) on the exact composite (principalId, requestSubjectId) pair, never on the request subject alone. A completion handler for an async request MUST write only to the (principalId, requestSubjectId) key captured at the moment the request began — never re-derived from 'whichever principal is selected now' — so a response resolving after the operator switches principals cannot be attributed to the newly selected one. Switching the selected principal MUST NOT clear or reset any other principal's own composite-keyed state; isolation is achieved by keying, never by clearing.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "A state-shape defect: per-request UI state was modeled as if there were exactly one implicit consumer, when the surface actually serves multiple concurrently-selectable principals. The generic shape is any component keyed on 'the thing being acted upon' when it should be keyed on '(who is acting, the thing being acted upon)'.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/service-orchestration-panel-state.test.ts",
+      "assertion": "Nakamoto's Advisor intent/outcome is invisible under a Kn0w1 selection and vice versa; a request whose completion action carries the agentId captured at REQUEST_START writes only under that agentId even if SELECT_AGENT fires an intervening switch before the completion action is dispatched; switching back to Nakamoto restores exactly the state that was present before the switch.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "app/(shell)/moneypenny/components/ServiceOrchestrationPanel.tsx",
+      "defect": "intents/outcomes/requesting/serviceErrors were keyed by serviceId alone; selecting a different consumer agent (Nakamoto <-> Kn0w1) exposed one agent's Advisor/Architect input and result under the other agent's selection, and a request resolving after a switch could write into the newly selected agent's view.",
+      "resolutionId": "RES-2026-08-23-FSVC-CROSS-AGENT-STATE-AND-RUNTIME-TIER-SPLIT-001",
+      "evidence": [
+        "app/(shell)/moneypenny/components/serviceOrchestrationPanelState.ts",
+        "app/(shell)/moneypenny/components/ServiceOrchestrationPanel.tsx",
+        "tests/service-orchestration-panel-state.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-23-FSVC-CROSS-AGENT-STATE-AND-RUNTIME-TIER-SPLIT-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "Directly analogous to a classic multi-tenant cache-key bug (keying on resource id without tenant id); the constitutional stakes here are higher because the 'tenants' are distinct governed agents and the leaked state is confidentiality-bearing (one agent's advisory request/result surfacing under another).",
+    "The discovery/admission-diagnostic view is deliberately NOT covered by this same composite-key pattern — it represents 'the currently selected principal's live eligibility view', a single mutable projection guarded instead by a monotonically increasing generation counter so a stale fetch for a previously selected principal can never overwrite the current one. Both mechanisms serve the same isolation goal via different means suited to different state shapes (per-request history vs. single current view)."
+  ]
+}

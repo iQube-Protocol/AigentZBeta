@@ -9,11 +9,13 @@
 
 import "./globals.css";
 import { Suspense } from "react";
+import ScrollbarActivity from "@/components/ScrollbarActivity";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="h-full">
       <body className="h-full">
+        <ScrollbarActivity />
         <Suspense fallback={null}>{children}</Suspense>
       </body>
     </html>

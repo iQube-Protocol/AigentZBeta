@@ -11,6 +11,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getCallerIdentityContext } from '@/services/wallet/personaRepo';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import {
   activate,
   requestAccess,
@@ -52,7 +54,31 @@ export async function POST(
       return NextResponse.json({ ok: true, activationId: result.activationId }, { headers: { 'Cache-Control': 'no-store' } });
     }
     if (action === 'request') {
-      const result = await requestAccess(context.personaId, activationId);
+      // Threading caller identity through so the admin Access Requests
+      // tab gets a real email + display label on the surfaced row.
+      const caller = await getCallerIdentityContext(request);
+      let displayLabel: string | null = null;
+      try {
+        const admin = getSupabaseServer();
+        if (admin) {
+          const { data: personaRow } = await admin
+            .from('personas')
+            .select('display_label')
+            .eq('id', context.personaId)
+            .maybeSingle();
+          displayLabel = (personaRow as { display_label?: string | null } | null)?.display_label ?? null;
+        }
+      } catch {
+        displayLabel = null;
+      }
+      if (!displayLabel && caller?.email) {
+        displayLabel = caller.email.split('@')[0] ?? null;
+      }
+      const result = await requestAccess(context.personaId, activationId, {
+        authProfileId: context.authProfileId ?? null,
+        email: caller?.email ?? null,
+        displayLabel,
+      });
       if (!result.ok) {
         console.warn(`[activations] request FAILED: ${result.reason}`);
         return NextResponse.json(

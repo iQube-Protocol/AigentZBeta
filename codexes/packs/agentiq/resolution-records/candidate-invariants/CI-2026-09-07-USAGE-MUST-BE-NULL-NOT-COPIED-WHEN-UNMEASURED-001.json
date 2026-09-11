@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "A field named for a MEASUREMENT (what was demonstrably used, cited, or acted upon) must never default to a copy of a DIFFERENT field that only represents an OFFER or CANDIDATE (what was available, selected, or presented) whenever the measurement mechanism does not exist yet. The correct default for 'not yet measured' is a sentinel structurally distinct from any real measured value — `null`, never `[]` (which itself means 'measured: zero') and never a borrowed value from an upstream field.",
+    "The mechanism this invariant requires: (1) the measurement field's type must permit a distinct not-measured sentinel (e.g. `T[] | null`, not just `T[]`); (2) every writer must set that sentinel unless a real extraction/measurement step actually ran; (3) every reader (UI, aggregation, reporting) must branch on the sentinel explicitly, never treat 'field happens to equal another field' as informative, and never gate an UNRELATED display element on the measurement field when the display data actually comes from the offer/candidate field.",
+    "Extends the same-day `CI-2026-09-07-AVAILABLE-VS-SELECTED-VS-GROUNDED-001` (which established that available/selected/grounded must be three distinct fields) one step further: distinctness of FIELDS is not sufficient if one of them is silently defaulted to another's VALUE. The type-level distinction must be paired with a value-level one.",
+    "Discovered via EXP-P1's rehearsal harness: `actuallyGroundedInvariantIds` (meant to capture demonstrated evidence-of-use from a generated response) was implemented as a literal copy of `selectedInvariantIds` (the offered/candidate set), because no model/runtime execution step exists in the harness to source a real measurement from. An operator audit caught this by asking the mechanical question directly rather than trusting the field's name or its doc comment.",
+    "Generalizes beyond EXP-P1: any experimental or production harness with a 'was this candidate actually used/cited/acted upon' field — recommendation-click-through, retrieved-document citation, tool-call argument actually referenced in a response — must apply this same null-vs-copied discipline the moment a real usage-extraction step is not yet wired up."
+  ],
+  "canaries": [
+    {
+      "path": "tests/exp-p1-rehearsal-runner.test.ts",
+      "assertion": "actuallyGroundedInvariantIds is null for every arm on every task the rehearsal harness constructs — never a copy of selectedInvariantIds, never []. The persisted scoringConfiguration also documents this explicitly for a reader of the raw JSON.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/exp-p1-execution-status-ui.test.tsx",
+      "assertion": "the UI's 'N selected (M available)' annotation renders based on selectedInvariantIds/availableInvariantIds, never gated on actuallyGroundedInvariantIds — a null usage field must never hide selection data that IS present.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "candidateId": "CI-2026-09-07-USAGE-MUST-BE-NULL-NOT-COPIED-WHEN-UNMEASURED-001",
+  "statement": "A field representing a DEMONSTRATED-USE measurement (what a generated response actually cited, clicked, or acted upon) must be `null` — never a copied value from an OFFER/CANDIDATE field (what was available, selected, or presented) — whenever no real measurement/extraction step exists to populate it. `null` must be structurally distinct from an empty measured result (`[]`/`0`/etc.) so 'not measured' can never be misread as 'measured: none used'. Every reader of such a field (UI, aggregation, reporting) must branch on the sentinel explicitly, and any UNRELATED display logic must be gated on the real underlying data (e.g. the offer/candidate field), never on the measurement field whose absence would otherwise silently suppress unrelated, still-valid data.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-09-07-EXP-P1-GROUNDED-VS-SELECTED-CONFLATION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/expP1Rehearsal.ts (all four arms), types/research.ts::RehearsalArmTaskResult, components/research/ExpP1ExecutionStatus.tsx::TaskResultsList",
+      "defect": "actuallyGroundedInvariantIds was set to a literal copy of selectedInvariantIds for every arm, because no model/runtime execution or evidence-of-use extraction step exists in this harness — caught only by an operator's direct mechanical audit question, not by the field's own type or documentation. The UI's display gate compounded the risk by reading the same (about-to-be-nulled) field to decide whether to show unrelated selection-size data.",
+      "resolutionId": "RES-2026-09-07-EXP-P1-GROUNDED-VS-SELECTED-CONFLATION-001",
+      "evidence": [
+        "tests/exp-p1-rehearsal-runner.test.ts",
+        "tests/exp-p1-execution-status-ui.test.tsx"
+      ]
+    }
+  ],
+  "family": "constitutional",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
+}

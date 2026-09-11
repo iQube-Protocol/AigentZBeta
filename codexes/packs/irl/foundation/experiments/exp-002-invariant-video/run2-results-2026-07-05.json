@@ -1,0 +1,60 @@
+{
+  "experiment": "EXP-002",
+  "run": 2,
+  "date": "2026-07-05",
+  "provider": "openai",
+  "model": "sora-2",
+  "design": {
+    "segments": 4,
+    "segmentSeconds": 12,
+    "totalSeconds": 48,
+    "semanticNamespace": "constitutional",
+    "styleLayer": "CFS-011 continuity block (7 seed invariants)",
+    "narrativeLayer": "CFS-012 five-beat arc, endpoint-anchored mapping (post terminal-beat fix)",
+    "briefComposition": "distributive round-robin (semantic) x global (style) x sequential (narrative) — CFS-013"
+  },
+  "clipSet": {
+    "sequenceRecordedAt": "2026-07-05T19:06:25Z",
+    "segments": [
+      { "index": 1, "generationId": "video_6a4ae370f6e8819083d49a1af5b9a2700e11ca8d2cf84a6f" },
+      { "index": 2, "generationId": "video_6a4ae370f98c81909dad9adb74c2daab004c33d2e210a554" },
+      { "index": 3, "generationId": "video_6a4ae37108108190918746e9527da7e3059fa8650fbbb9af" },
+      { "index": 4, "generationId": "video_6a4ae370d3dc8190a84ecc5ec74a254d06387ebb300f322e" }
+    ],
+    "persistedAt": "2026-07-05T19:08:51Z to 19:08:54Z (all four, completion-time persistence)"
+  },
+  "timeline": [
+    "All 4 segments generated with distinct invariant-composed per-segment prompts",
+    "Native in-run stitch failed (first-container ffmpeg cold path) — zero loss: clips already persisted, order already recorded in the sequence manifest",
+    "Recovery panel presented the run as a sequence; one-click in-order stitch produced the 48s film"
+  ],
+  "evaluation": {
+    "method": "Operator first-viewing + frame-level review (stills at 0:08, 0:14, 0:29, final segment). Formal independent-evaluator pass (questions a/b/c) remains open.",
+    "findings": [
+      "Complete continuity of narrative, protagonist, settings, and constitutional context across all four independently generated segments",
+      "Bearing mark (compass-rose) persisted across three segments in three DIFFERENT material implementations — necklace (seg 2), lapel pin (segs 3-4), wall banner (seg 4) — and was correctly ABSENT from segment 1, whose narrative context was standing/confirmation (octagonal Confirmed seal instead): motif persistence modulated by narrative appropriateness, the style x narrative field behaviour Law XV predicts",
+      "Character persistence held at CLASS level (same person, consistent presentation) but not INSTANCE level (facial phenotype and apparent age varied between segments) — the v1 Continuity Block's prose-granularity ceiling; evidence for a dedicated identity-continuity invariant class (CFS-011 backlog)",
+      "Content-duration adherence gap: segment 2's spoken content overran its 12s generation window (audio truncates at the 2->3 stitch boundary in an exactly-48s film — stitch preserved durations; composition-layer gap, not a stitch defect)"
+    ]
+  },
+  "sequencingControlArm": {
+    "method": "Same clip set stitched in reversed order (DCBA) — maximum-distance perturbation; operator comparative viewing",
+    "centralPrediction": "CONFIRMED — reversed cut distinctly less coherent (prose flow, narrative assembly) while world, style, and semantic content remain intact: the dissociation signature of inv.constitutional.078",
+    "refinements": [
+      "Temporal correctness is GRADED, not boolean: the reversed film degraded without zeroing — sequencing validity is a coherence field over the space of orderings with the designed sequence as its observed maximum (inv.reasoning.093/.095: sequence is scored, not validated)",
+      "Local coherence survives global sequence violation: adjacent original pairs retained pairwise coherence while the global arc broke — relational correctness is pairwise-local, temporal correctness is global (inv.reasoning.094)",
+      "Constrained resequencing opened as a legitimate compositional operation: a remix finds another coherent trajectory through the same invariant space — invariants fixed, traversal changed (inv.reasoning.096)"
+    ]
+  },
+  "constitutionalReferences": {
+    "laws": ["Law XIV (Constitutional Coherence)", "Law XV (Compositional Fields) + sequencing corollary"],
+    "specs": ["CFS-011 (style invariants)", "CFS-012 (narrative invariants)", "CFS-013 §6-7 (field equation, temporal law)", "CFS-014 (Coherence Engine)"],
+    "seeds": ["inv.constitutional.078", "inv.reasoning.093", "inv.reasoning.094", "inv.reasoning.095", "inv.reasoning.096"]
+  },
+  "openItems": [
+    "Formal independent-evaluator pass over both cuts (questions a/b/c)",
+    "EXP-002b perturbation mapping (adjacent swaps BACD/ACBD/ABDC vs canonical, DCBA as far anchor) — the temporal coherence field's first contour map",
+    "Identity-continuity invariant class ratification (instance-level character persistence)",
+    "Duration-adherence clause in per-segment prompts (segment 2 audio overrun)"
+  ]
+}

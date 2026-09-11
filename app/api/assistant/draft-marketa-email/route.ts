@@ -14,7 +14,17 @@ import { draftMarketaEmail, type DraftMarketaContext } from '@/services/agents/d
 
 export const dynamic = 'force-dynamic';
 
-interface PostBody { prompt?: string; intentId?: string }
+interface PostBody {
+  prompt?: string;
+  intentId?: string;
+  /** See /api/assistant/draft-email for shape — same contract; the
+   *  drafter inlines URLs when the body references them. */
+  relatedArtifacts?: Array<{
+    artifactType?: unknown;
+    title?: unknown;
+    locationUrl?: unknown;
+  }>;
+}
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const context = await getActivePersona(request);
@@ -46,6 +56,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (intent) ctx.intentName = intent.intentName;
     } catch { /* soft-fail */ }
   }
+
+  // Sanitise relatedArtifacts — mirror the draft-email route shape.
+  if (Array.isArray(body.relatedArtifacts) && body.relatedArtifacts.length > 0) {
+    const cleaned = body.relatedArtifacts
+      .map((a) => ({
+        artifactType: typeof a?.artifactType === 'string' ? a.artifactType.trim() : '',
+        title: typeof a?.title === 'string' ? a.title.trim() : '',
+        locationUrl: typeof a?.locationUrl === 'string' ? a.locationUrl.trim() : '',
+      }))
+      .filter(
+        (a) =>
+          a.artifactType.length > 0 &&
+          a.title.length > 0 &&
+          /^https?:\/\//i.test(a.locationUrl),
+      )
+      .slice(0, 5);
+    if (cleaned.length > 0) ctx.relatedArtifacts = cleaned;
+  }
+
   const draft = await draftMarketaEmail({ prompt, context: ctx });
   return NextResponse.json(draft, { headers: { 'Cache-Control': 'no-store' } });
 }

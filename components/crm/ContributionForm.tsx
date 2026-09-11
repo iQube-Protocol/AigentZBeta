@@ -1,18 +1,19 @@
 'use client';
 
 import { useState } from 'react';
-import { 
-  X, 
-  FileText, 
-  MessageSquare, 
-  CheckSquare, 
-  Share2, 
+import {
+  X,
+  FileText,
+  MessageSquare,
+  CheckSquare,
+  Share2,
   ThumbsUp,
   Zap,
   Loader2,
   AlertCircle,
   CheckCircle
 } from 'lucide-react';
+import { personaFetch } from '@/utils/personaSpine';
 
 interface ContributionFormProps {
   tenantId: string;
@@ -60,12 +61,32 @@ export default function ContributionForm({
     setError(null);
 
     try {
+      // PERSONA-PUBLIC-REF-001: when the operator typed the persona in
+      // (initialPersonaId absent), the field holds a Persona Public
+      // Reference, not the internal id — resolve it server-side before
+      // posting. A caller-supplied initialPersonaId is already the real
+      // internal id (threaded programmatically, never typed) and skips
+      // this resolution entirely.
+      let resolvedPersonaId = personaId;
+      if (!initialPersonaId) {
+        const ref = personaId.trim().toLowerCase();
+        if (!/^[0-9a-f]{16}$/.test(ref)) {
+          throw new Error("Enter the persona's public reference (16 hex characters)");
+        }
+        const resolveRes = await personaFetch(`/api/admin/persona/resolve-public-ref?ref=${encodeURIComponent(ref)}`);
+        const resolveData = await resolveRes.json();
+        if (!resolveRes.ok || !resolveData.ok) {
+          throw new Error(resolveData.error || 'Could not resolve that persona public reference');
+        }
+        resolvedPersonaId = resolveData.personaId;
+      }
+
       const response = await fetch('/api/crm/contributions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tenantId,
-          personaId,
+          personaId: resolvedPersonaId,
           contributionType,
           units,
           source,
@@ -136,17 +157,17 @@ export default function ContributionForm({
             </div>
           )}
 
-          {/* Persona ID */}
+          {/* Persona Public Reference — never the internal persona UUID (PERSONA-PUBLIC-REF-001) */}
           {!initialPersonaId && (
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                Persona ID *
+                Persona Public Reference *
               </label>
               <input
                 type="text"
                 value={personaId}
                 onChange={(e) => setPersonaId(e.target.value)}
-                placeholder="Enter persona ID"
+                placeholder="16-character public reference"
                 className="w-full px-4 py-2 bg-slate-800 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 required
               />

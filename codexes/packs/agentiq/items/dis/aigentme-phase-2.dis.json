@@ -1,0 +1,373 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-05-23T00:00:00Z",
+  "source": {
+    "designQubeId": "aigentme-phase-2-right-pane-layouts",
+    "templateRegistry": ["aigentme-split-tab-v1", "right-pane-layout-shell-v1"],
+    "ingestionMethod": "manual"
+  },
+  "tokens": {
+    "colors": {
+      "primary": "violet-500",
+      "secondary": "slate-700",
+      "accent": "violet-300",
+      "surface": "slate-900/40",
+      "text": {
+        "primary": "slate-100",
+        "secondary": "slate-200",
+        "muted": "slate-400"
+      },
+      "border": "slate-700/60"
+    },
+    "typography": {
+      "fontFamily": {
+        "primary": "Inter, system-ui, sans-serif"
+      },
+      "fontSize": {
+        "xs": "11px",
+        "sm": "12px",
+        "base": "14px",
+        "lg": "16px",
+        "xl": "18px",
+        "2xl": "20px",
+        "3xl": "24px"
+      },
+      "fontWeight": {
+        "normal": 400,
+        "medium": 500,
+        "semibold": 600,
+        "bold": 700
+      },
+      "lineHeight": {
+        "tight": 1.2,
+        "normal": 1.4,
+        "relaxed": 1.6
+      }
+    },
+    "spacing": {
+      "xs": "4px",
+      "sm": "8px",
+      "md": "12px",
+      "lg": "16px",
+      "xl": "20px",
+      "2xl": "24px",
+      "3xl": "32px"
+    },
+    "borderRadius": {
+      "sm": "4px",
+      "md": "8px",
+      "lg": "12px",
+      "full": "9999px"
+    },
+    "shadows": {
+      "sm": "0 1px 2px rgba(0,0,0,0.05)",
+      "md": "0 4px 8px rgba(0,0,0,0.08)",
+      "lg": "0 8px 24px rgba(0,0,0,0.12)"
+    }
+  },
+  "semantics": {
+    "buttons": {
+      "primary": {
+        "backgroundColor": "violet-500/20",
+        "textColor": "violet-100",
+        "padding": "6px 12px",
+        "borderRadius": "8px",
+        "fontSize": "13px",
+        "fontWeight": 500,
+        "hoverState": {
+          "backgroundColor": "violet-500/30"
+        }
+      },
+      "secondary": {
+        "backgroundColor": "transparent",
+        "textColor": "slate-300",
+        "padding": "6px 12px",
+        "borderRadius": "8px",
+        "fontSize": "13px",
+        "fontWeight": 500,
+        "border": "1px solid slate-700",
+        "hoverState": {
+          "backgroundColor": "slate-800/60",
+          "textColor": "slate-100"
+        }
+      }
+    },
+    "cards": {
+      "default": {
+        "backgroundColor": "slate-900/40",
+        "borderColor": "slate-700/60",
+        "borderRadius": "16px",
+        "padding": "20px",
+        "shadow": "none"
+      },
+      "elevated": {
+        "backgroundColor": "slate-900/60",
+        "borderColor": "slate-700/60",
+        "borderRadius": "16px",
+        "padding": "24px",
+        "shadow": "md"
+      }
+    },
+    "navigation": {
+      "header": {
+        "backgroundColor": "transparent",
+        "height": "56px",
+        "padding": "0 16px",
+        "borderBottom": "1px solid slate-800/60"
+      },
+      "navItem": {
+        "textColor": "slate-300",
+        "fontSize": "13px",
+        "fontWeight": 500,
+        "padding": "6px 12px",
+        "hoverState": {
+          "textColor": "slate-100",
+          "backgroundColor": "slate-800/40"
+        }
+      },
+      "mobileMenu": {
+        "backgroundColor": "slate-950/95",
+        "maxWidth": "100%",
+        "animation": "slide-up 200ms ease-out"
+      }
+    },
+    "layout": {
+      "container": {
+        "maxWidth": "none",
+        "padding": "0 12px"
+      },
+      "grid": {
+        "columns": 12,
+        "gap": "12px"
+      },
+      "section": {
+        "padding": "16px",
+        "gap": "12px"
+      }
+    }
+  },
+  "layout": {
+    "grids": {
+      "split": {
+        "columns": {
+          "mobile": 1,
+          "tablet": 1,
+          "desktop": 12
+        },
+        "leftPane": {
+          "desktop": "7 of 12",
+          "tablet": "stacked-top",
+          "mobile": "stacked-top"
+        },
+        "rightPane": {
+          "desktop": "5 of 12",
+          "tablet": "stacked-bottom",
+          "mobile": "stacked-bottom"
+        }
+      },
+      "decisionBoard": {
+        "columns": {
+          "mobile": 1,
+          "tablet": 1,
+          "desktop": 1
+        },
+        "rationale": "Right pane is ~45% viewport on desktop, ~500-700px. Multi-column splits each card to 200-300px, which is too cramped for hero+alternate comparison. Vertical-stack with full pane-width cards uses the available rhythm; alternates read as 'or instead' choices below the hero.",
+        "hero": {
+          "desktop": "full",
+          "mobile": "full"
+        },
+        "alternates": {
+          "desktop": "stacked-below-hero",
+          "mobile": "stacked-below-hero"
+        }
+      },
+      "ventureCockpit": {
+        "columns": {
+          "mobile": 1,
+          "tablet": 1,
+          "desktop": 1
+        },
+        "rationale": "Same width constraint as decisionBoard. 3-column body cramps each section. Vertical 3-row layout (KPIs / Active Work / Recommended) reads naturally top-to-bottom; KPIs + Active Work use horizontal carousels for their chip-like items so width isn't wasted on labels.",
+        "rows": {
+          "row1": "kpis (horizontal carousel of stat chips)",
+          "row2": "active-work (horizontal carousel of activity chips)",
+          "row3": "recommended (vertical stack of NextBestActionCards)"
+        },
+        "topStrip": "full-width-stage-blockers"
+      }
+    }
+  },
+  "responsive": {
+    "breakpoints": {
+      "mobile": { "maxWidth": 767, "columns": 1 },
+      "tablet": { "minWidth": 768, "maxWidth": 1023, "columns": 2 },
+      "desktop": { "minWidth": 1024, "columns": 3 }
+    },
+    "rules": [
+      "All first-class affordances (Welcome badge, primary CTAs, dismiss controls) MUST render on mobile.",
+      "No `hidden md:*` classes on primary interactive elements.",
+      "Header strip remains 56px tall across all breakpoints.",
+      "Body padding scales: p-4 mobile, p-5 tablet, p-6 desktop.",
+      "Multi-column layouts collapse to stacked vertically below `md`."
+    ]
+  },
+  "style": {
+    "voice": {
+      "persona": "aigent-me",
+      "tone": "warm",
+      "pace": "normal"
+    },
+    "text": {
+      "fontFamily": "Inter, system-ui, sans-serif",
+      "fontSize": "14px",
+      "lineHeight": "1.4",
+      "maxWidth": "65ch",
+      "paragraphSpacing": "0.75em",
+      "textRendering": "optimizeLegibility"
+    }
+  },
+  "structure": {
+    "templateSelection": {
+      "priority": ["right-pane-layout-shell-v1", "card-stack-fallback-v1"],
+      "byModality": {
+        "brief": ["brief-layout-v1"],
+        "move-forward": ["decision-board-layout-v1"],
+        "venture-cockpit": ["venture-cockpit-layout-v1"],
+        "composer": ["composer-layout-v1"],
+        "approval": ["approval-interrupt-layout-v1"],
+        "ledger": ["ledger-layout-v1"],
+        "stack": ["stack-layout-v1"]
+      },
+      "byDensity": {
+        "low": ["brief-layout-v1", "composer-layout-v1"],
+        "medium": ["decision-board-layout-v1", "ledger-layout-v1"],
+        "high": ["venture-cockpit-layout-v1"]
+      },
+      "bySurface": {
+        "aigentme-right-pane": [
+          "stack-layout-v1",
+          "brief-layout-v1",
+          "decision-board-layout-v1",
+          "venture-cockpit-layout-v1",
+          "composer-layout-v1",
+          "approval-interrupt-layout-v1",
+          "ledger-layout-v1"
+        ]
+      }
+    },
+    "mobileShapes": {
+      "stack-layout-v1": {
+        "kind": "scrolled-stack",
+        "description": "Single-column scroll, identical to Phase 1. Cards stack with consistent gap.",
+        "primaryGesture": "vertical-scroll"
+      },
+      "brief-layout-v1": {
+        "kind": "full-screen-reader",
+        "description": "Full-screen reading mode. The Today | Project | Cartridge switcher moves to a sticky bottom strip. Dismiss X returns to stack.",
+        "primaryGesture": "vertical-scroll",
+        "stickyControls": "bottom-tab-strip"
+      },
+      "decision-board-layout-v1": {
+        "kind": "vertical-stack",
+        "description": "Hero recommended card at top, alternates stacked below as 'or instead' choices. Each card is full pane-width. Rationale trace lives in the footer. Mobile is the same shape — natural vertical scroll.",
+        "primaryGesture": "vertical-scroll"
+      },
+      "venture-cockpit-layout-v1": {
+        "kind": "stacked-rows-with-carousels",
+        "description": "Sticky top strip (stage + blockers). Body is 3 stacked rows: (1) KPIs as a horizontal carousel of stat chips; (2) Active Work as a horizontal carousel of activity chips; (3) Recommended as a vertical stack of NextBestActionCards. Same shape across breakpoints — width-constrained right pane uses carousels instead of columns.",
+        "primaryGesture": "vertical-scroll + horizontal-scroll-in-rows"
+      },
+      "composer-layout-v1": {
+        "kind": "full-screen-editor",
+        "description": "Full-screen editor. Thread context collapses to a single-line chip at top (tap to expand). Send / Save / Route appear in a sticky bottom action bar.",
+        "primaryGesture": "vertical-scroll",
+        "stickyControls": "bottom-action-bar"
+      },
+      "approval-interrupt-layout-v1": {
+        "kind": "bottom-sheet",
+        "description": "Slides up from the bottom as a sheet (not a center modal). Drag handle at top; tap-out or swipe-down dismisses. Underlying layout dims but remains visible at the top of the screen for context.",
+        "primaryGesture": "swipe-down-dismiss",
+        "indicator": "drag-handle-top"
+      },
+      "ledger-layout-v1": {
+        "kind": "filter-collapsed-list",
+        "description": "Filter chips collapse to a single 'Filter (n)' button that opens a bottom sheet. List below is full-width, items expand inline to reveal receipt detail.",
+        "primaryGesture": "vertical-scroll + tap-to-expand",
+        "stickyControls": "top-filter-button"
+      }
+    },
+    "breakpoints": {
+      "mobile": { "maxWidth": 767, "columns": 1 },
+      "tablet": { "minWidth": 768, "maxWidth": 1023, "columns": 2 },
+      "desktop": { "minWidth": 1024, "columns": 3 }
+    },
+    "layoutRules": [
+      "Each right-pane layout mounts/unmounts atomically — no overlap.",
+      "Header strip is fixed 56px height with icon-left / title-center / actions-right symmetry.",
+      "Dismiss X is right-aligned inside the 56px header strip at icon-end position; same coordinate across every layout because the shared LayoutShell owns the placement. (Amended 2026-05-23 from the original absolute `right-3 top-3` after the Slice-C parity audit — see codexes/packs/agentiq/updates/2026-05-23_aigentme-phase-2-end-to-end-dogfood.md §4a.)",
+      "Body padding: p-5 desktop, p-4 mobile. Never mix scales in one layout.",
+      "Outer card border-radius: rounded-2xl (16px). Sub-cards: rounded-lg (8px). Never mix radii within a card.",
+      "Footer (when present): p-3 lg:p-4, right-aligned actions, never split across edges.",
+      "One primary CTA per pane. Secondary actions visually subordinate.",
+      "Loading skeletons preserve final-state dimensions — no content jump on hydration.",
+      "Empty states are designed sentences with deliberate placement, never raw 'No data'.",
+      "Interrupt layouts (Approval) overlay foreground; on dismiss, return to previous activeLayoutId.",
+      "Mobile shapes are first-class, not column-collapse fallbacks. Each layout declares its mobile shape explicitly in `mobileShapes`.",
+      "Sticky controls (bottom strips, action bars, filter buttons) respect safe-area insets on iOS — use env(safe-area-inset-bottom)."
+    ]
+  },
+  "metadata": {
+    "name": "aigentMe Phase 2 — Right-Pane Layouts",
+    "description": "Dynamic right-pane layout system replacing the Phase 1 card-stack. Each left-side action selects a whole-pane layout designed for that intent. Symmetry, simplicity, and elegance enforced.",
+    "tags": ["aigentme", "phase-2", "right-pane", "layouts", "design-fidelity"],
+    "constraints": {
+      "strict": true,
+      "allowFallbacks": true,
+      "priorityOrdering": [
+        "design-fidelity",
+        "security",
+        "privacy",
+        "accessibility",
+        "performance"
+      ]
+    },
+    "sources": [
+      {
+        "id": "operators-handbook-v1",
+        "type": "freeform",
+        "label": "Operators Handbook §8a Design Fidelity Posture",
+        "location": "codexes/packs/agentiq/items/OPERATORS_HANDBOOK.md#8a",
+        "extractedAt": "2026-05-23T00:00:00Z",
+        "coverage": ["tokens", "composition-rules", "symmetry-contract"]
+      },
+      {
+        "id": "ui-parity-reviewer",
+        "type": "freeform",
+        "label": "UI Parity Reviewer agent definition",
+        "location": ".claude/agents/ui-parity-reviewer.md",
+        "extractedAt": "2026-05-23T00:00:00Z",
+        "coverage": ["spacing-grid", "radii", "modal-widths", "breakpoints", "typography"]
+      },
+      {
+        "id": "tailwind-config",
+        "type": "css",
+        "label": "Tailwind config + globals.css tokens",
+        "location": "tailwind.config.js, app/globals.css",
+        "extractedAt": "2026-05-23T00:00:00Z",
+        "coverage": ["radius-tokens", "color-tokens", "spacing-scale"]
+      }
+    ],
+    "copilotHints": {
+      "violationSeverity": {
+        "rawHex": "critical",
+        "spacingOffGrid": "critical",
+        "mixedRadiiInCard": "critical",
+        "multiplePrimaryCtas": "warning",
+        "stackedCardsOverThreshold": "warning",
+        "hiddenMobileFirstClass": "critical",
+        "loadingSkeletonDimensionDrift": "warning"
+      },
+      "remedyPreference": "minimal-diff"
+    }
+  }
+}

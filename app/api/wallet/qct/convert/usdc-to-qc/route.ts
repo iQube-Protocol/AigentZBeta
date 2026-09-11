@@ -1,84 +1,104 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { creditWalletAsset, debitWalletAsset } from '@/services/wallet/qctLedgerService';
+import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { constitutionalRuntime } from '@/services/ctp/constitutionalRuntime';
+import '@/services/ctp/primitives/walletAssetConvert';
+import type { WalletAssetConvertResult } from '@/services/ctp/primitives/walletAssetConvert';
 
 export const runtime = 'nodejs';
 
-function round8(n: number): number {
-  return Math.round(n * 1e8) / 1e8;
-}
-
+/**
+ * CTP Slice C (2026-09-01, delivery amendment §3.3) — this route is now a
+ * THIN WEB-CHANNEL ADAPTER over the Constitutional Runtime. It performs no
+ * wallet mutation of its own: the ONE canonical implementation
+ * (`convertWalletAsset`, bound to the atomic `convert_wallet_asset`
+ * Postgres function) is reached ONLY through
+ * `constitutionalRuntime.execute('ctp.wallet.asset.convert', ...)`.
+ *
+ * Authorization repair (2026-09-01, preserved from the earlier urgent fix):
+ * the wallet subject resolves EXCLUSIVELY from `getActivePersona` — a
+ * body-supplied `personaId` is never read.
+ *
+ * Scope: USDC -> BASE_QC only (BCENT excluded — see the primitive's own
+ * header for why).
+ */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json().catch(() => ({}));
-    const { personaId, usdcAmount } = body || {};
-
-    if (!personaId || typeof personaId !== 'string') {
-      return NextResponse.json({ ok: false, error: 'personaId required' }, { status: 400 });
+    const persona = await getActivePersona(request);
+    if (!persona?.personaId) {
+      return NextResponse.json(
+        { ok: false, error: 'Authentication required — no active persona resolved for this caller.' },
+        { status: 401 },
+      );
     }
 
-    const usdc = Number(usdcAmount);
-    if (!Number.isFinite(usdc) || usdc <= 0) {
+    const body = await request.json().catch(() => ({}));
+    const usdcAmount = Number((body as { usdcAmount?: unknown })?.usdcAmount);
+    if (!Number.isFinite(usdcAmount) || usdcAmount <= 0) {
       return NextResponse.json({ ok: false, error: 'usdcAmount must be a positive number' }, { status: 400 });
     }
 
-    const rate = 100; // 1 USDC = 100 Q¢
-    const feePercent = 0.01;
-
-    const qctGross = usdc * rate;
-    const feeQct = qctGross * feePercent;
-    const qctNet = qctGross - feeQct;
-
-    const conversionId = `usdc_to_qct_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-
-    const metadata = {
-      conversionId,
-      rate,
-      feePercent,
-      usdcAmount: round8(usdc),
-      qctGross: round8(qctGross),
-      feeQct: round8(feeQct),
-      qctNet: round8(qctNet),
-    };
-
-    // Debit USDC first
-    const debit = await debitWalletAsset(personaId, 'USDC', usdc, 'usdc_to_qct_conversion', metadata);
-    if (!debit.success) {
-      return NextResponse.json({ ok: false, error: debit.error }, { status: 400 });
+    // Slice C scope (2026-09-01, operator instruction): BASE_QC only. BCENT
+    // remains simulated/off-chain (services/wallet/qctLedgerService.ts) and
+    // is explicitly NOT included in the first constitutional primitive —
+    // refuse rather than silently substituting BASE_QC for a caller who
+    // asked for BCENT.
+    const requestedDestination = (body as { destination?: unknown })?.destination;
+    if (requestedDestination && requestedDestination !== 'BASE_QC') {
+      return NextResponse.json(
+        { ok: false, error: `Conversion to '${requestedDestination}' is not yet available through the constitutional runtime — only BASE_QC is supported in this slice.` },
+        { status: 400 },
+      );
     }
 
-    // Credit QCT (Q¢)
-    const credit = await creditWalletAsset(personaId, 'QCT', qctNet, 'usdc_to_qct_conversion', metadata);
-    if (!credit.success) {
-      // Attempt rollback
-      await creditWalletAsset(personaId, 'USDC', usdc, 'usdc_to_qct_refund', {
-        ...metadata,
-        rollbackReason: credit.error || 'credit_failed',
-      });
-
-      return NextResponse.json({ ok: false, error: credit.error || 'Failed to credit QCT' }, { status: 500 });
+    const admin = getSupabaseServer();
+    if (!admin) {
+      return NextResponse.json({ ok: false, error: 'Platform database is unavailable.' }, { status: 500 });
     }
 
+    const outcome = await constitutionalRuntime.execute(
+      admin,
+      'ctp.wallet.asset.convert',
+      {
+        channel: 'web',
+        channelSessionRef: null,
+        callerPersonaId: persona.personaId,
+        callerAuthProfileId: persona.authProfileId ?? null,
+      },
+      { usdcAmount },
+    );
+
+    if (!outcome.ok) {
+      return NextResponse.json(
+        { ok: false, error: outcome.refusal.reason, refusalCode: outcome.refusal.reasonCode },
+        { status: 400 },
+      );
+    }
+
+    const result = outcome.result as WalletAssetConvertResult;
     return NextResponse.json({
       ok: true,
-      conversionId,
+      conversionId: result.conversionId,
+      destination: 'BASE_QC',
       debited: {
         asset: 'USDC',
-        amount: round8(usdc),
-        txId: debit.txId,
-        newBalance: debit.newBalance,
+        amount: result.debitedUsdc,
+        txId: result.debitTxId,
+        newBalance: result.resultingUsdcBalance,
       },
       credited: {
-        asset: 'QCT',
-        amount: round8(qctNet),
-        txId: credit.txId,
-        newBalance: credit.newBalance,
+        asset: 'BASE_QC',
+        amount: result.creditedBaseQc,
+        txId: result.creditTxId,
+        newBalance: result.resultingBaseQcBalance,
       },
       quote: {
-        rate,
-        feePercent,
-        qctGross: round8(qctGross),
-        feeQct: round8(feeQct),
-        qctNet: round8(qctNet),
+        rate: result.rate,
+        feePercent: result.feePercent,
+        destination: 'BASE_QC',
+        qctGross: result.debitedUsdc * result.rate,
+        feeQct: result.feeQct,
+        qctNet: result.creditedBaseQc,
       },
       at: new Date().toISOString(),
     });

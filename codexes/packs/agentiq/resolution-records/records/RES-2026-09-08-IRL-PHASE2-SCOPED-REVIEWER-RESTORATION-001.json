@@ -1,0 +1,69 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-08",
+  "resolutionId": "RES-2026-09-08-IRL-PHASE2-SCOPED-REVIEWER-RESTORATION-001",
+  "capability": "irl-pack-document-access",
+  "milestone": "Operator instruction, 2026-09-08: 'Proceed with the Austin reviewer-access gate, but do not waive IRE-6 and do not send any invitation yet' — implement the minimum Phase 2 scoped reviewer restoration named as deferred work in the 2026-08-27 IRL OS containment audit's Residual Risk item 0, reusing the existing invitation/grant/agent-package architecture rather than an ad-hoc allowlist, and prove it with the actual reviewer journey (not admin access) before any invitation is sent.",
+  "problem": "The 2026-08-27 IRL OS containment pass (docs/security/2026-08-27_irl-os-containment-breach-audit.md) correctly locked both irl-pack document routes (`/api/codex/packs/[packId]/file`, `/api/public/irl/doc`) down to admin-or-static-allowlist, closing a confirmed confidential-IP leak. But this also broke an ALREADY-APPROVED external review process: `/api/journey/validation-programme/agent-package` hands a genuinely-invited, non-admin scoped reviewer (Austin Ambrozi / Autonomi Solutions, EXP-P1's own named external reviewer) URLs directly into the now-admin-only file routes. The agent-package route's own invitation/grant check (`callerMayReadExperimentReview`/`resolveExperimentReviewGrant`) already vetted the caller, but the file routes had no way to see that prior vetting — they only recognized canonical admin. The audit's own operator disposition named this explicitly: 'Phase 1 approved, including the temporary interruption of the Autonomi/Austin direct-document reviewer flow — confidentiality takes priority; that flow is restored via canonical scoped grants in Phase 2.' Phase 2 had not been started.",
+  "observedFailure": [
+    "`app/api/codex/packs/[packId]/file/route.ts`'s `requiresAdmin` gate for the `irl` pack admitted ONLY `persona?.cartridgeFlags?.isAdmin === true` — a persona holding an active, correctly-scoped `research-lab` reviewer grant for EXP-P1 (exactly what an accepted x409 agreement produces) still received a 403.",
+      "`app/api/public/irl/doc/route.ts` never resolved a persona at all — every non-allowlisted path 404'd unconditionally, with no path to authorize a genuine reviewer short of widening the static public allowlist (which the audit explicitly forbade without an operator public-classification decision).",
+    "The audit doc itself named this as a live, already-approved-process regression, not merely newly-discovered exposure (Residual Risk item 0): 'a genuinely-invited, non-admin reviewer's document fetch via these URLs will now 403.'"
+  ],
+  "rootCauses": [
+    "Two access-control subsystems disagreed about the same canonical state — 'is this caller authorized to read this document' — without either one being wrong in isolation: the containment gate correctly enforced default-deny confidentiality, and the invitation/grant system correctly vetted Austin as EXP-P1's reviewer, but neither route consulted the other's decision. The file-serving routes' only authority vocabulary was 'admin', which a scoped external reviewer categorically is not and should not become."
+  ],
+  "resolution": [
+    "New module `services/research/irlExperimentPathScope.ts` (`experimentIdForIrlPackPath`) maps a pack-relative `irl` document path to the EXPERIMENT_REGISTRY entry (types/research.ts) whose OWN protocol directory (derived from that entry's `protocolRef`, never a second hand-maintained path list) the path falls under. A path outside every registered experiment's own folder returns `null` and stays exactly as admin-only as Phase 1 left it — this mechanism only ever WIDENS access to material inside a REGISTERED experiment's directory, never restores general/public IRL document access.",
+    "Both file-serving routes now accept EITHER canonical admin OR a persona holding an active `research-lab` grant, in a review-readable role, scoped (via `allowed_experiments`) to the experiment the requested path resolves to — using `resolveExperimentReviewGrant` (`services/passport/participationAccess.ts`), the SAME canonical grant check the Validation Programme's JSON Agent Package already uses. No new grant vocabulary, no ad-hoc Austin-specific allowlist, no admin bypass widened.",
+    "`/api/codex/packs/[packId]/file/route.ts`: the `irl`-pack default-deny branch now resolves `experimentIdForIrlPackPath(safePath)` and, for a non-admin caller, requires a qualifying `resolveExperimentReviewGrant` for that experiment id before serving — otherwise 403, exactly as before for every path outside a registered experiment folder.",
+    "`/api/public/irl/doc/route.ts`: now resolves a persona for any non-allowlisted path (previously it resolved none at all — the confirmed root cause of the original breach was conflating persona-identifier safety with confidentiality; this is the same repair pattern, applied consistently) and applies the identical admin-or-scoped-grant check. Every denial (anonymous, wrong persona, wrong scope, expired/revoked grant, or a path outside any experiment folder) still 404s — never a metadata-revealing 403 — preserving the containment directive 'return no existence signals on denial' for every unauthorized caller alike, not merely the anonymous case.",
+    "A delegated reviewer agent needs no separate mechanism: this codebase has no distinct 'agent identity' for a delegated reviewer — Austin's agent authenticates AS his own persona (the session/credential his x409 agreement's `acceptorId` binds), so the identical grant-scope check governs both the human and the agent uniformly, and delegation can never exceed the underlying persona's own grant.",
+    "Revocation/expiry needs no separate mechanism either: `resolveExperimentReviewGrant`'s query already filters `.eq('status', 'active')` server-side, so a revoked or expired grant simply produces zero qualifying rows — observationally identical to 'never invited', which is the correct, sufficient behavior.",
+    "20 new tests (`tests/irl-reviewer-scoped-access-2026-09-08.test.ts`) prove all 8 required properties: admin access preserved; an invited EXP-P1 reviewer retrieves the Reviewer Kit and its authorized resources on both routes; the same reviewer is denied unrelated private material (a path outside every experiment folder) even with a valid grant; an uninvited/unauthenticated caller is denied; a grant scoped to a DIFFERENT experiment (EXP-011) is denied EXP-P1 material yet still reaches its OWN experiment; a delegated-agent-shaped request is bound by the identical persona grant; a revoked/expired grant is denied identically to never-invited; and — verified against the REAL `collections.json`, not a fixture — every `col_experiments` path tagged as an EXP-P1 document resolves, via the SAME predicate the routes gate on, to EXP-P1: the agent package can never advertise a link its own authorized reviewer cannot subsequently dereference. Two pre-existing containment tests (`tests/irl-os-containment.test.ts`) updated to assert the new scoped-grant call sites explicitly, replacing stale prose ('no persona bypass') that the fix deliberately supersedes.",
+    "OS-9 verified: with the two route files stashed (the new path-scope module left in place), 7 of the 20 new tests fail exactly as expected (every positive-authorization case for a non-admin scoped reviewer) while all 13 denial-path tests still pass — confirming the tests exercise the new authorization branch, not a pre-existing one."
+  ],
+  "rejectedApproaches": [
+    "Widening `IRL_PUBLIC_PACK_PATHS`/`IRL_PUBLIC_DOC_PATHS` to include EXP-P1's documents — rejected; that would make EXP-P1 material anonymously public to any caller, not merely the invited reviewer, which is exactly the confidentiality exposure the 2026-08-27 containment pass exists to prevent.",
+    "A new, EXP-P1-specific or Austin-specific allowlist/flag — rejected per explicit operator instruction ('Do not introduce an ad-hoc Austin allowlist') and per `inv.engineering.036/037`; the existing `research-lab` grant + `resolveExperimentReviewGrant` mechanism already does exactly this, generically, for any future scoped experiment reviewer.",
+    "Restoring the Validation Programme UI tab (`irl-os-validation-programme`) alongside this fix — out of scope; that tab's own render-boundary work is tracked separately (`tests/irl-os-containment.test.ts`'s 'confirmed breach vector stays disabled' assertions), and this resolution touches only the two file-serving routes plus the new path-scope helper.",
+    "Changing `/api/public/irl/doc`'s denial status code to 403 once it started resolving personas — rejected; the containment posture of never signaling existence to an unauthorized caller is preserved deliberately for every denial case (anonymous or wrongly-scoped alike), matching the route's own pre-existing philosophy rather than adopting the other route's 403 vocabulary."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-08-EXPERIMENT-SCOPED-DOCUMENT-ACCESS-DERIVES-FROM-CANONICAL-GRANT-001"
+  ],
+  "canaries": [
+    "tests/irl-reviewer-scoped-access-2026-09-08.test.ts",
+    "tests/irl-os-containment.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "subsystems-disagreed",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/irl-reviewer-scoped-access-2026-09-08.test.ts",
+      "tests/irl-os-containment.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "docs/security/2026-08-27_irl-os-containment-breach-audit.md, Residual Risk item 0: \"a genuinely-invited, non-admin reviewer's document fetch via these URLs will now 403 ... Phase 2 should add scope-aware gating to the packs/file route (accept a caller whose canonical research-lab grant covers the referenced experiment, not just admin) before re-enabling the Validation Programme tab.\"",
+      "Operator instruction, 2026-09-08, verbatim: \"Proceed with the Austin reviewer-access gate, but do not waive IRE-6 and do not send any invitation yet ... Reuse the existing invitation/grant/agent-package architecture. Do not introduce an ad-hoc Austin allowlist ... Authorization must be object/scope-aware rather than simply reopening those endpoints.\""
+    ]
+  },
+  "sourceDocs": [
+    "docs/security/2026-08-27_irl-os-containment-breach-audit.md",
+    "services/passport/participationAccess.ts",
+    "app/api/journey/validation-programme/agent-package/route.ts"
+  ],
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-03-EXECUTION-CONSTRAINT-ABSORPTION-001",
+  "statement": "Implementation constraints that do not alter constitutional intent shall be absorbed by the system rather than projected onto the operator.",
+  "classification": "Constitutional Execution Principle 3 — Execution Constraint Absorption. Operator wording (2026-08-03): \"Implementation constraints belong to the runtime unless they materially change the governed act (pagination, batching, retries, continuation tokens, API limits, chunking, rate limits). \"Those belong to execution. Not governance.\"\"",
+  "family": "execution",
+  "parentCandidateId": "CI-2026-08-03-TTV-TTR-OBJECTIVE-001",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "ratifiedSource": null,
+  "projections": {
+    "targets": [
+      "ux-framework",
+      "devon",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "derivedFrom": [
+    "RES-2026-08-03-BATCH-LIMIT-PROJECTED-ONTO-OPERATOR-001"
+  ],
+  "occurrences": [
+    {
+      "site": "Track 2 Stage 2 bulk admission — the 25-source batch limit",
+      "defect": "The operator selected 33 sources with one disposition and one rationale and was told to \"Split the selection\". The system knew 33, knew 25, knew the disposition and the rationale, and knew that two batches and one batch are constitutionally identical — and still handed the arithmetic back.",
+      "resolutionId": "RES-2026-08-03-BATCH-LIMIT-PROJECTED-ONTO-OPERATOR-001",
+      "evidence": [
+        "Operator live-surface report, 2026-08-03"
+      ]
+    }
+  ],
+  "canaries": [],
+  "notes": [
+    "ENFORCEMENT POINT PENDING — deliberately recorded with NO canary, the same honest state as CI-2026-08-03-FREEZE-POPULATION-DISCLOSURE-001. The Track 2 agent is making the executor absorb the batching in parallel; when it lands, its canary attaches here and this candidate stops appearing in the milestone-close warnings.",
+    "NONE OF THESE IS A CONSTITUTIONAL DECISION, so none may become an operator decision: pagination, batching, retries, chunking, cursor continuation, rate limits, API segmentation, transaction grouping.",
+    "THE TEST the operator gave: the operator should think \"Admit these sources\", never \"Execute two POST requests because our backend limits batches to 25.\" If splitting into two API calls produces the identical governed outcome, the split belongs entirely inside the execution engine.",
+    "WHAT MUST SURVIVE: the refusal-not-truncation reasoning is CORRECT and is not weakened by this rule. A partially applied batch that reported success would still be a defect. The rule says the executor PLANS the segmentation — not that it may half-finish and call it done.",
+    "THE BOUNDARY, from the operator's own wording: \"unless they materially affect constitutional governance\". A limit that would change what is admitted, what is receipted, or what is disclosed is NOT absorbable and must still be surfaced. Absorption applies only where the governed outcome is provably identical.",
+    "Sits at the JOIN of two classes: family `agency` (it protects the operator's capability to act) and parent CI-2026-08-03-TTV-TTR-OBJECTIVE-001 (it is that objective applied to execution). Both are true only because the parent is a `governing` principle, which may cross families — modelling this rule is what forced that distinction to be made explicit.",
+    "PLACED 2026-08-03 as Constitutional Execution Principle 3 of six, beneath the ratified Constitutional Time Principle. The operator: \"What you've actually been discovering across these six occurrences is a constitutional execution principle that explains WHY the UX invariants exist.\"",
+    "UX IS A PROJECTION, NOT A FAMILY. This rule reaches the interface through its `ux-framework` projection target — it is not duplicated as a separate UX invariant. Operator: \"No new invariant. Just a UX projection. Same invariant. Different projection.\"",
+    "STATUS IS NOT INHERITED. Its parent is `ratified`; this rule stays at whatever its OWN evidence and enforcement point justify (operator, verbatim: \"They may remain candidate or validated implementation invariants until their own evidence and enforcement points justify promotion\").",
+    "UX PROJECTION (operator's own example): split 33 into 25 + 8 automatically; show progress; issue two receipts; one operator confirmation."
+  ],
+  "governingPrinciple": false,
+  "supersededBy": null
+}

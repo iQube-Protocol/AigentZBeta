@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-28-CHANNEL-INDEPENDENT-PROVENANCE-PRESERVING-001",
+  "statement": "Two constitutional acts of the same kind, performed through different authorized channels, must be equivalent in EFFECT (the same canonical state results) while remaining distinguishable in PROVENANCE (which channel, which agent, which evidentiary basis produced it). Channel-independence is a property of the state machine's outcome, never a license to erase or flatten how that outcome was reached -- an operator-assisted custody act must never be recorded, or later readable, as indistinguishable from the principal's own direct act.",
+  "family": "constitutional",
+  "governingPrinciple": false,
+  "parentCandidateId": "CI-2026-08-28-CONSTITUTIONAL-STATE-IS-INTERFACE-SOVEREIGN-001",
+  "projections": {
+    "targets": ["constitutional-computing", "irl"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "The evidentiary counterweight to CI-2026-08-28-MEET-PRINCIPALS-WHERE-THEY-ARE-001: channel flexibility must never come at the cost of provenance honesty. pending_principal_attestation is the structural embodiment of this -- an operator-registered artifact is real, visible, and usable for comparison, but is NOT yet the principal's own attested act, and freeze/sign refuse it until the principal's own confirmation clears the flag.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/reciprocal-exchange.test.ts",
+      "assertion": "registerArtifactOperatorAssisted() records bound principal, registering operator, and authority basis as three distinct fields (never folded into ownershipDeclaration prose), sets pending_principal_attestation:true, and declareFreeze()/signInstrument() both refuse it until confirmOperatorAssistedArtifact() -- callable only by the exact bound principal -- clears the flag, with content_hash provably unchanged across confirmation.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/reciprocalExchange.ts",
+      "defect": "The tempting shortcut -- depositing operator-assisted content through depositArtifact() with descriptive attribution metadata ('attribution: Ian/OCSGA') -- would have made the artifact indistinguishable from a principal-performed deposit at the point where it matters most: whether it can be frozen and signed. Explicitly rejected; see the resolution record's rejectedApproaches.",
+      "resolutionId": "RES-2026-08-28-RAX-OPERATOR-ASSISTED-CHANNEL-CONVERGENCE-001",
+      "evidence": [
+        "services/research/reciprocalExchange.ts",
+        "types/reciprocalExchange.ts",
+        "tests/reciprocal-exchange.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": ["RES-2026-08-28-RAX-OPERATOR-ASSISTED-CHANNEL-CONVERGENCE-001"],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "The operator directed this be treated as ratified doctrine effective 2026-08-28. Recorded at 'candidate' per this repo's consistent convention -- see the governing principle's own note for the ratifiedSource update path.",
+    "Sibling of CI-2026-08-09-HASH-VERIFIED-FROZEN-PROJECTION-001-class discipline (a frozen artifact's claims must trace to a recomputed, not merely declared, fingerprint) -- this principle extends the same discipline from 'is this the artifact we think it is' to 'is this consent we think it is'."
+  ]
+}

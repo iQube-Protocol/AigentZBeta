@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-23-GOVERNANCE-PATH-INDEPENDENT-OF-SERVICE-CLASS-001",
+  "statement": "A generic consequence-class taxonomy (what kind of consequence an action carries) must never be bent to control which enforcement mechanism processes that action. When a system needs two services to share the same honest consequence classification while being governed by two different, mutually exclusive enforcement mechanisms, it MUST introduce a second, independent discriminator for 'which mechanism governs this' rather than misclassifying the shared axis to produce the desired mechanism side effect. A frozen gate's exception scope (e.g. 'only capability X may request mode Y') must be satisfied by choosing which request that gate receives, never by lying about the requester's own classification.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "A single-axis-doing-two-jobs defect: `serviceClass` was overloaded to answer both 'what kind of consequence' and 'which gate mode to request', so satisfying the second question for a second CONSEQUENTIAL service required falsifying the answer to the first. The generic shape is any classification field that a gate/router also reads to select behavior — the moment two truthfully-same-classified things need different gate behavior, a second explicit discriminator is required rather than bending the shared classification.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/financial-services-runtime.test.ts",
+      "assertion": "MONEYPENNY_RUNTIME and MONEYPENNY_RUNTIME_CONSTITUTIONAL both declare serviceClass: 'CONSEQUENTIAL'; they declare different governancePath values (CONSTITUTIONAL_COMMERCE vs CONSTITUTIONAL_SERVICE_PIPELINE); GOVERNANCE_PATH_EXECUTION_MODE_OVERRIDE, not SERVICE_CLASS_EXECUTION_MODE, determines which one requests Gate 2's authoritative mode; Gate 2's own source is unchanged.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/financialServices/serviceCatalog.ts",
+      "defect": "MONEYPENNY_RUNTIME_CONSTITUTIONAL declared serviceClass: 'PROPOSAL' — a false consequence classification — purely to make it request Gate 2's unconditionally-passed 'shadow' mode and avoid the authoritative-mode refusal, when the service genuinely binds real financial consequence via the constitutional service pipeline.",
+      "resolutionId": "RES-2026-08-23-FSVC-GOVERNANCE-PATH-CORRECTION-001",
+      "evidence": [
+        "types/financialServices.ts",
+        "services/financialServices/serviceCatalog.ts",
+        "services/financialServices/serviceRequestOrchestrator.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-23-FSVC-GOVERNANCE-PATH-CORRECTION-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "Sibling to CI-2026-08-23-PROJECTION-GATED-ON-EXECUTION-REACHABILITY-001 (a caller must gate an expensive computation on the callee's own declared need for it) — that invariant governs a CALLER's behavior; this one governs how a CATALOG/DEFINITION represents itself so callers never have a reason to misread it.",
+    "The reusable diagnostic question for a future reviewer: 'is this classification field being read by more than one downstream decision, and would satisfying one reading require lying to the other?' If yes, split the axis."
+  ]
+}

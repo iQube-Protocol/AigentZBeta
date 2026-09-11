@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-08-15-DEVON-WIRING-PROCESS-RISK-001",
+  "capability": "Homecoming III bootstrap — invariant-driven DevOn + IDE 2.0 kernel",
+  "milestone": "Phase 2 — IDE 2.0 retrieval wired into DevOn",
+  "problem": "Two process defects surfaced during Phase 1/2 that had nothing to do with the feature being built and everything to do with whether the work could be trusted. First, the session was operating in DETACHED HEAD: three commits were authored and a push reported 'Everything up-to-date', because the push moved a branch ref that HEAD was not on. The work existed only by hash, addressable by no name any process tracks. Second, two regression canaries were found selecting their subject by incidental text rather than by the property under test — one pre-existing (tests/dev-merge-message-discipline.test.ts) and one authored in Phase 1 of this very milestone, which is the more useful datum: the defect class reproduced under an agent that had just cited the invariant governing it.",
+  "observedFailure": [
+    "`git push -u origin claude/resume-consumer-session-qm3v7c` reported 'Everything up-to-date' while three unpushed commits existed locally. `git branch --show-current` returned empty.",
+    "The remote branch tip was 283 commits behind HEAD; the commits were reachable only by hash.",
+    "tests/dev-merge-message-discipline.test.ts asserts the auto-merge workflow matches /-m \"\\$\\{SUBJECT\\}/. The workflow on this branch is CORRECT — it builds MERGE_MSG=\"${SUBJECT} [merge ${BRANCH}]\" and commits with it — but a refactor moved the value into an intermediate variable, so the canary reddens against a workflow that satisfies the rule it exists to protect.",
+    "A second assertion in the same file ('the first 30 visible characters of recent dev merges are distinguishable') measures HISTORICAL merges already in the log. No present action can turn it green.",
+    "tests/invariant-envelope-contract.test.ts, authored in Phase 1, counted occurrences of the string 'invariantEnvelope' to assert the envelope has exactly one home on DevLoopState. The import specifier `from './invariantEnvelope'` also contains that string, so the count was 2 and the canary failed against correct code."
+  ],
+  "rootCauses": [
+    "Branch addressability was never verified before mutation. The session began detached, and nothing in the workflow asked 'where will this commit land?' before authoring commits. The failure is silent by construction: committing in a detached state succeeds, and the only visible symptom is a push that reports success while doing nothing.",
+    "A canary that pins an IMPLEMENTATION SHAPE rather than the PROPERTY UNDER TEST reddens when the implementation is legitimately refactored, and stays green when the property is violated in a shape it does not match. Both failure directions are worse than no canary, because a canary that cries wolf gets weakened.",
+    "A canary asserting a property of HISTORY, rather than of the code under test, has no green state reachable by the work it gates. It is a permanent red that trains readers to ignore the file.",
+    "The Phase 1 recurrence has its own cause worth naming: the assertion was written by matching text that LOOKED unique in the file rather than by selecting the construct under test (a field declaration). Citing CI-2026-08-03-CANARY-SUBJECT-SELECTION-001 in the same session did not prevent reproducing it — an invariant that is known but not mechanised does not bind."
+  ],
+  "resolution": [
+    "Branch-addressability preflight added as a required step before mutation in every subsequent phase (operator ruling, 2026-08-15): assert `git branch --show-current` is non-empty and equals the designated branch, and report upstream and ahead/behind, BEFORE any file is changed.",
+    "Recovery was clean rather than lucky: the remote branch tip was verified to be an ANCESTOR of HEAD (`git merge-base --is-ancestor`), so the branch was re-pointed and fast-forwarded with no force and no rewritten history.",
+    "tests/dev-merge-message-discipline.test.ts deliberately LEFT UNCHANGED (operator ruling): recorded here as a pre-existing stale-canary defect, to be repaired in a separate canary-hygiene pass. Reshaping a correct workflow to satisfy an obsolete implementation pin would be the wrong direction of fix.",
+    "The Phase 1 canary was repaired at the source of the defect: it now counts FIELD DECLARATIONS (`/^\\s*invariantEnvelope\\??:/gm`) rather than bare occurrences, with the reason recorded inline.",
+    "Both canary defects recorded as new occurrences of the EXISTING CI-2026-08-03-CANARY-SUBJECT-SELECTION-001 rather than as a new candidate — one rule with five incidents is one candidate with five occurrences, not near-duplicate statements in separate files.",
+    "New candidate invariant CI-2026-08-15-DESTINATION-ADDRESSABLE-001 recorded at `candidate` for the branch-addressability lesson."
+  ],
+  "rejectedApproaches": [
+    "Force-pushing the branch to HEAD. Rejected and unnecessary: the ancestry check proved a fast-forward was available. Reaching for --force before checking ancestry is how a recoverable situation becomes a destructive one.",
+    "Fixing tests/dev-merge-message-discipline.test.ts inside this milestone. Rejected on operator ruling: it is unrelated to Homecoming III, and bundling an unrelated canary repair into a feature milestone is precisely the commit-discipline violation CLAUDE.md forbids.",
+    "Editing the auto-merge workflow to reintroduce a literal `-m \"${SUBJECT}\"` so the canary passes. Rejected as backwards: it would degrade correct code to satisfy an obsolete assertion — the canary is the thing that is wrong.",
+    "Minting a new candidate invariant for the canary-subject defect. Rejected: CI-2026-08-03-CANARY-SUBJECT-SELECTION-001 already states it exactly. Adding occurrences is both the honest record and the mechanism by which recurrence becomes visible.",
+    "Recording the Phase 1 canary defect quietly, or not at all, since it was caught before commit. Rejected: it is the single most informative occurrence in the set, because it demonstrates the invariant recurring under an agent that had cited it minutes earlier. Omitting a self-inflicted occurrence would bias the registry toward defects committed by others."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-15-DESTINATION-ADDRESSABLE-001",
+    "CI-2026-08-03-CANARY-SUBJECT-SELECTION-001"
+  ],
+  "canaries": [
+    "tests/invariant-envelope-contract.test.ts",
+    "tests/invariant-envelope-devon-wiring.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "observed",
+  "trigger": "defect-recurred",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/invariant-envelope-contract.test.ts",
+      "tests/invariant-envelope-devon-wiring.test.ts",
+      "tests/dev-merge-message-discipline.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      ".github/workflows/merge-claude-to-dev.yml",
+      "codexes/packs/agentiq/updates/2026-08-15_homecoming-iii-bootstrap-architecture-audit.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-15_homecoming-iii-bootstrap-architecture-audit.md"
+  ],
+  "date": "2026-08-15",
+  "projections": {
+    "targets": [
+      "devon",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

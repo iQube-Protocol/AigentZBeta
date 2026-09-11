@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-08-RECEIPTED-CONSTITUTIONAL-STATE-001",
+  "statement": "A verified external fact, checked against a valid constitutional policy and recorded in a DVN-attributable receipt carrying the evidence that justified it, IS the canonical constitutional state transition — downstream surfaces read that receipted state, never re-derive it by reinterpreting the external network's raw response at render time.",
+  "family": "constitutional",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "classification": "Operator directive, 2026-08-08, verbatim: \"verified external fact + valid constitutional policy + DVN receipt = canonical constitutional state transition. External networks prove facts; the receipted constitutional ledger records what those facts mean for this polity.\"",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/horizen-authorization-client.test.ts",
+      "assertion": "The evidence commitment written at CONFIRMED (network, tokenId, controllerWallet, authorizationId, every structured fact, a sha256 of the complete source response, a verification timestamp, a verifier/policy version) reads back byte-identical via getPulseAuthorizationEvidence; pulse_enrollment_verified fires on every confirmation and pulse_commitment_verified fires only when pulseCommitmentRecorded is independently true.",
+      "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/journey-verify-status-route.test.ts",
+      "assertion": "A CONFIRMED row with an already-enriched Agent Card projection reads structuredStatus from the receipted evidence and does NOT call verifyHorizenTransparencyActivation (no live partner reclassification on the steady-state render path).",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "horizen-pulse-admission",
+      "defect": "PulseTransparencyToggle and verify/status/route.ts derived their current-state display by reinterpreting Horizen's raw response at read time, rather than reading a settled, receipted fact — the same partner response could be re-classified differently across calls with no durable record of what was actually verified when the transition happened.",
+      "resolutionId": "RES-2026-08-08-RECEIPTED-CONSTITUTIONAL-STATE-001",
+      "evidence": [
+        "59af8eff0",
+        "tests/horizen-authorization-client.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-08-RECEIPTED-CONSTITUTIONAL-STATE-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "Directly builds on OS-1 (a confirmed external consequence outranks every local record of the request) and CI-2026-08-03-CHAIN-AS-INDEPENDENT-EVIDENCE-001 (a confirmed external consequence is independent evidence, named and surfaced rather than silently preferred) — this candidate is the next rung: once that external consequence has been verified and receipted ONCE, it is the record itself (not a repeat verification) that subsequent reads consult.",
+    "This pass scopes the pattern to the Horizen Pulse admission journey only, as the operator's own directive scoped it ('For this pilot...'). horizen_registration_confirmed (Wallet Signing Topology, 2026-08-01) already independently satisfies this pattern for the Register stage — found already conforming, not newly built — and is recorded here as corroborating evidence that the pattern generalises rather than being invented for this one surface.",
+    "ratificationRequired is true: this is a foundational architectural framing ('the spine of Web3' — chains establish facts, the constitutional runtime determines consequence, DVN receipts preserve the resulting state) that the operator directed concretely but has not yet ratified as cross-cutting doctrine for every partner integration. Do not treat as settled guidance for a NEW integration until ratified.",
+    "Operator, same day, on generality: 'I would probably elevate that beyond local fairly soon. It is not really a Horizen invariant. It describes what the DVN is for.' Two tighter formulations worth preserving verbatim: 'External systems are authorities over the facts they originate, but not over the constitutional state those facts produce. A verified fact becomes constitutional state only through a policy-governed, auditable state-transition receipt. Subsequent external observations reconcile against that state; they do not silently rewrite it.' And tighter still: 'Proof establishes fact. Policy establishes consequence. Receipt establishes state.' Scope stays 'local' here deliberately — earning 'cross-capability' requires a second recorded occurrence outside horizen-pulse-admission, not merely the operator's (correct) intuition that it generalises; do not promote scope on intuition alone.",
+    "The operator also named the eventual generalisation of the two Pulse-specific event types: a mechanism understanding 'Claim → Evidence → Verification Policy → Receipt → State Transition', of which Pulse's pulse_enrollment_verified/pulse_commitment_verified would be one implementation. NOT built now — the operator explicitly chose to run the Horizen migration first ('rather than expanding scope again') and treat this pilot as the working exemplar to generalise FROM, not to generalise before the exemplar is even closed."
+  ]
+}

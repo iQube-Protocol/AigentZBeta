@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-23-GATE-ALLOW-NOT-DELIVERY-001",
+  "statement": "A governance gate's `allow` decision (e.g. `invokeCapability()`'s `InvocationDecision`) is a permission to DISPATCH a capability, never itself evidence that the capability was performed. Any caller that reaches a completion/delivery status (`DELIVERED`, `AUTHORISED`, or an equivalent terminal success state) MUST first invoke the real provider and observe a real result; a technical failure of that dispatch resolves an UNRESOLVED-class status, never a silent success. Standing, reputation, or any other reward accrual tied to \"the service was delivered\" MUST be gated on the real provider result, never on the gate decision alone.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "A new occurrence of a general 'permission vs performance' confusion: a decision that something MAY happen is conflated with a record that it DID happen. The same shape as an earlier-closed defect class in this codebase where an approval record was mistaken for a completion receipt (agentAdmissionState.ts's own header documents this for Passport/delegation approvals vs receipts) — here recurring one layer up, at the capability-invocation/service-delivery boundary rather than the admission boundary.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/financial-services-runtime.test.ts",
+      "assertion": "requestFinancialService()'s Advisor/Architect branch only reaches DELIVERED after the real provider (draftFinancialStructure/runMoneyPennyChat) is actually called and returns a successful result; a gate 'allow' followed by a provider failure resolves UNRESOLVED, and Standing never accrues for that path.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/financialServices/serviceRequestOrchestrator.ts",
+      "defect": "The Advisor/Architect branch returned `status: 'DELIVERED'` and called `accrueStandingBestEffort()` immediately upon `invokeCapability()` returning `decision: 'allow'`, without ever calling MoneyPenny's real Architect (`draftFinancialStructure`) or Advisor (`runMoneyPennyChat`) implementation — a governance permission was reported and rewarded as a completed service interaction that never actually happened.",
+      "resolutionId": "RES-2026-08-23-FSVC-INTEGRATION-REPAIR-001",
+      "evidence": [
+        "tests/financial-services-runtime.test.ts",
+        "services/financialServices/serviceRequestOrchestrator.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-23-FSVC-INTEGRATION-REPAIR-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "There is already a `capability_invocation_completed` action vocabulary in `services/registry/invocationGateway.ts` (`emitCapabilityReceipt`'s 'completed' outcome) that no caller invoked before this repair — the fix completes that existing lifecycle (`emitCapabilityInvocationCompleted`, additive export) rather than inventing a parallel 'financial service completed' event, per `inv.engineering.036`/`037`.",
+    "A future generalization worth flagging (not built here): a shared helper enforcing 'no terminal success status without a completion receipt for this exact invocationId', so a future call site cannot recreate the same shortcut by construction rather than by discipline alone."
+  ]
+}

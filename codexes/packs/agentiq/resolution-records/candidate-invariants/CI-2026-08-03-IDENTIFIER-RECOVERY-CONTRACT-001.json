@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": "Child specialization of CI-2026-08-03-ACTOR-SUBJECT-OWNER-001 — a capability-specific implementation invariant, NOT a peer. Operator ruling 2026-08-03.",
+  "ratifiedSource": null,
+  "notes": [
+    "FLAGGED FOR THE OPERATOR, not decided here: this may be the same shape as CI-2026-08-03-ACTOR-SUBJECT-OWNER-001 — a wallet is the OWNER reference and was substituted for the SUBJECT reference. If the operator judges them one rule, this becomes a fourth occurrence of that candidate rather than a candidate of its own. The operator fixed that candidate's count at three, so it is not merged unilaterally.",
+    "`verifiedFailingBeforeFix` is recorded as false: the source doc records the canary being REWRITTEN from the obsolete wallet-keyed assertion, not a fail-before/pass-after run. Recorded honestly rather than assumed.",
+    "REPARENTED 2026-08-03 by operator ruling. It is an application of ACTOR-SUBJECT-OWNER plus a narrower recovery rule: wallet is a lookup key, not the agent identifier; actor receipt ownership is not subject identity; recovered identifiers must come from an authoritative source.",
+    "Hierarchy:  ACTOR-SUBJECT-OWNER  └── IDENTIFIER-RECOVERY-CONTRACT. The Horizen case counts as a FOURTH validation occurrence for the PARENT, while this child is preserved as the capability-specific rule. Deliberately NOT promoted with the parent — the operator ratified the parent, not this."
+  ],
+  "canaries": [
+    {
+      "path": "tests/register-ceremony.test.ts",
+      "assertion": "The receipt-decode call shape is asserted (`decodeAgentIdFromReceipt` with txHash / expectedOwner / expectedRegistry) AND the old wallet-keyed lookup is asserted GONE from this code path; plus ambiguity refusal and mandatory `ownerOf` verification.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "candidateId": "CI-2026-08-03-IDENTIFIER-RECOVERY-CONTRACT-001",
+  "statement": "Identifier recovery must return the subject's authoritative identifier; related actor, owner or wallet identifiers may be used only as lookup keys and must never be substituted as the answer.",
+  "scope": "local",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-08-02-HORIZEN-AGENTID-RECOVERY-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/horizen/registrationClient.ts",
+      "defect": "`checkAgentRegistrationStatus` recovered a missing agentId via `fetchRegistryAgent(ownerWalletAddress, network)`. ERC-721 gives no reverse (wallet → tokenId) enumeration guarantee — `balanceOf` returns a count, not a list — so a registry read keyed by the owner wallet is a different tool contract than an agentId lookup, with no guarantee the two ever coincide.",
+      "resolutionId": "RES-2026-08-02-HORIZEN-AGENTID-RECOVERY-001",
+      "evidence": [
+        "78747308f",
+        "tests/register-ceremony.test.ts"
+      ]
+    }
+  ],
+  "family": "engineering",
+  "parentCandidateId": "CI-2026-08-03-ACTOR-SUBJECT-OWNER-001",
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
+}

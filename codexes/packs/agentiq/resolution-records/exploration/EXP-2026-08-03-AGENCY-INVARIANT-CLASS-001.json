@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "exploration-item/v1.0",
+  "explorationId": "EXP-2026-08-03-AGENCY-INVARIANT-CLASS-001",
+  "becameCandidateId": "CI-2026-08-03-AGENCY-INVARIANT-I-001",
+  "disposition": "promoted-to-candidate",
+  "raisedBy": [
+    "RES-2026-08-03-KNOWLEDGE-PIPELINE-001"
+  ],
+  "notes": [],
+  "date": "2026-08-03",
+  "question": "Do the UX observations from the Track 2 exception work form a coherent invariant class, or are they nine separate notes?",
+  "context": "Explored 2026-08-03 and RESOLVED in the same session: they form one class with one parent and six corollaries. Recorded here to show the route from observation to structure.",
+  "wouldRequire": [
+    "Resolved — restructured under Agency Invariant I on 2026-08-03."
+  ],
+  "projections": {
+    "targets": [
+      "ux-framework"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

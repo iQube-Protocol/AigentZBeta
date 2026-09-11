@@ -69,7 +69,17 @@ export async function GET(request: NextRequest) {
 
     const sold = purchaseIds.size;
     const limitedSupply = bundle.isLimited ? (bundle.limitedSupply ?? null) : null;
-    const remaining = limitedSupply !== null ? Math.max(0, limitedSupply - sold) : null;
+    // Subtract `initialClaimed` (off-platform allocations recorded in
+    // knyt-store.ts — e.g. the 6 Franchisee PoA slots already taken by
+    // hand-allocation) alongside on-platform `sold` so the live badge
+    // honours both pools. Without this the API would echo back
+    // limitedSupply minus only on-platform sales and the static
+    // initialClaimed gets silently ignored once a bundle id is included
+    // in the /sku-supply fetch.
+    const offPlatformClaimed = bundle.initialClaimed ?? 0;
+    const remaining = limitedSupply !== null
+      ? Math.max(0, limitedSupply - sold - offPlatformClaimed)
+      : null;
 
     out[bundleId] = {
       bundleId,

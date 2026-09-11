@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildSurfacePlanV0 } from "@/services/metame/surfaceSelector";
+import { instrumentPlanRender } from '@/services/constitutional/renderInstrumentation';
 import { ContentModuleRenderProfileV0Schema, type ContentModuleRenderProfileV0 } from "@metame/contracts";
 import { SurfaceDecisionMatrixV0Schema, type SurfaceDecisionMatrixV0 } from "@/services/metame/surfaceSelector";
 import fs from "node:fs";
@@ -98,7 +99,18 @@ export async function POST(request: NextRequest) {
       matrix,
     });
 
-    return NextResponse.json(plan);
+    // CFS-017 v1 (observe mode, ratified 2026-07-06): constitutional
+    // instrumentation of the a2ui plan path — grounding refs, ontology drift,
+    // receipt when the caller resolves. Best-effort: a render is NEVER
+    // blocked; failure returns the plan exactly as before.
+    const constitutional = await instrumentPlanRender({
+      request,
+      intent,
+      cartridge,
+      modules: Array.isArray(modules) ? modules : [],
+    }).catch(() => null);
+
+    return NextResponse.json(constitutional ? { ...plan, constitutional } : plan);
   } catch (error) {
     console.error("Surface plan generation error:", error);
     return NextResponse.json(

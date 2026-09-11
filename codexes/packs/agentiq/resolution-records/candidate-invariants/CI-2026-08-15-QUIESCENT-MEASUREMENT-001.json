@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-15-QUIESCENT-MEASUREMENT-001",
+  "statement": "A measurement of a system's state is evidence about that system only if the system is quiescent for the duration of the measurement; a reading taken during mutation is evidence about the measurement, not about the system.",
+  "classification": "Engineering invariant (candidate causal pattern). Governs whether a reported regression count is evidence at all.",
+  "family": "engineering",
+  "scope": "local",
+  "status": "observed",
+  "ratifiedSource": null,
+  "parentCandidateId": null,
+  "supersededBy": null,
+  "governingPrinciple": false,
+  "derivedFrom": [
+    "RES-2026-08-15-PHASE2-SELF-REVIEW-OBSERVATIONS-001"
+  ],
+  "occurrences": [
+    {
+      "site": "Homecoming III Phase 2 — regression measurement",
+      "defect": "A full-suite run was executed in the background while resolution-record JSONs were being written into the same tree. tests/resolution-records.test.ts read a registry mid-write and failed. The run reported 41 failing tests against a 34 baseline, implying 7 regressions from Phase 2. Re-measured on quiesced committed trees: 17 failing files on both sides, empty difference. None of the 7 existed. The false count was reported to the operator before it was corrected. A second instance in the same phase: a measurement script embedded `git checkout HEAD~1 -- .` and silently reverted two committed files in the working tree while measuring.",
+      "resolutionId": "RES-2026-08-15-PHASE2-SELF-REVIEW-OBSERVATIONS-001",
+      "evidence": [
+        "5b4120341"
+      ]
+    }
+  ],
+  "canaries": [],
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "notes": [
+    "RECORDED AT `observed`, NOT `candidate` (operator ruling, 2026-08-15). One occurrence; the causal abstraction is plausible and unproven elsewhere.",
+    "EVERY STEP WAS INDIVIDUALLY CORRECT. The edits were correct. The test run was correct. The failure it reported was a TRUE statement about the tree at that instant. The invalid step was treating a reading taken during mutation as a reading of the stable system — which is why no tool reported anything wrong.",
+    "THE MISATTRIBUTION IS THE INSTRUCTIVE PART. The first hypothesis was suite flakiness — a property of the system under test. It pointed away from the observer. The correction came only from noticing that the extra failing suite passes in isolation. An agent that had accepted the flakiness hypothesis would have carried a false regression count forward as fact.",
+    "NO CANARY, STATED HONESTLY. This asserts a property of how an agent conducts measurement, not of the repository, so vitest is the wrong instrument — a canary would have to live in the agent harness. The control applied in this milestone is procedural: quiesce the tree, stop background runs, measure committed trees. Claiming a canary that does not exist would violate CI-2026-08-03-CANARY-REPRODUCES-DEFECT-001.",
+    "RELATIONSHIP TO CI-2026-08-15-DESTINATION-ADDRESSABLE-001. Both are workspace-state defects where every operation succeeds and the workspace is left in a state nobody asked for. They are NOT merged: addressability is about where work lands, quiescence is about whether an observation is evidence. Whether they share a parent is an open question, not a claim."
+  ]
+}

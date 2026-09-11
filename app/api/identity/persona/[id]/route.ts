@@ -44,10 +44,8 @@ function toIdentitySafePersona(record: any, fioVisible: boolean) {
  * GET /api/identity/persona/[id]
  * Fetch a single persona by ID or FIO handle
  */
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const { id } = params;
 
@@ -132,10 +130,8 @@ const PLAINTEXT_WALLET_FIELDS = ['evm_address', 'btc_address', 'sol_address'] as
 const allowLegacyPlaintextWalletWrite = () =>
   (process.env.ALLOW_LEGACY_PLAINTEXT_WALLET_WRITE || '').toLowerCase() === 'true';
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const { id } = params;
     const body = await req.json();
@@ -212,7 +208,7 @@ export async function PATCH(
 
     const { data, error } = await query
       .select(
-        'id,tenant_id,auth_profile_id,display_name,avatar_uri,fio_handle,fio_domain,default_identity_state,world_id_status,app_origin,discoverable_within_tenant,evm_address,btc_address,sol_address,bio,fio_public_key,fio_tx_id,fio_handle_expiration,fio_registration_status,fio_registered_at,referred_by_persona_id,referrer_persona_id,ref_campaign_id,first_paid_purchase_at,referral_locked_at,referral_method,referral_identifier,created_at,updated_at'
+        'id,tenant_id,auth_profile_id,display_name,avatar_uri,fio_handle,fio_domain,root_did,default_identity_state,world_id_status,app_origin,discoverable_within_tenant,evm_address,btc_address,sol_address,bio,fio_public_key,fio_tx_id,fio_handle_expiration,fio_registration_status,fio_registered_at,referred_by_persona_id,referrer_persona_id,ref_campaign_id,first_paid_purchase_at,referral_locked_at,referral_method,referral_identifier,created_at,updated_at'
       )
       .single();
 
@@ -224,6 +220,24 @@ export async function PATCH(
         );
       }
       throw new Error(error.message);
+    }
+
+    // aigentMe rename → propagate the new name to the bound agent identity so
+    // the cartridge / registry badge and the wallet persona stay in sync (the
+    // aigentMe persona's root_did equals the agent's did_uri). Best-effort.
+    if (
+      body.display_name !== undefined &&
+      (data as { app_origin?: string; root_did?: string })?.app_origin === 'aigent-me' &&
+      (data as { root_did?: string })?.root_did
+    ) {
+      try {
+        await supabase
+          .from('agent_root_identity')
+          .update({ display_name: body.display_name })
+          .eq('did_uri', (data as { root_did: string }).root_did);
+      } catch {
+        /* best-effort — persona rename already succeeded */
+      }
     }
 
     // Sync wallet addresses to FIO network if evm_address, btc_address, or sol_address changed
@@ -292,10 +306,8 @@ export async function PATCH(
  * DELETE /api/identity/persona/[id]
  * Delete a persona
  */
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const { id } = params;
 

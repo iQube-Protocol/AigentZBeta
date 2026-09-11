@@ -11,7 +11,12 @@ import type { TenantId, DocumentScope, NakamotoDocument, NakamotoPrompt, TenantI
 // Core Hub configuration (Nakamoto-specific Core Hub)
 const CORE_HUB_URL = 'https://bsjhfvctmduxhohtllly.supabase.co';
 const CORE_HUB_ANON_KEY = process.env.NEXT_PUBLIC_CORE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
-const CORE_HUB_SERVICE_ROLE_KEY = process.env.NEXT_PUBLIC_CORE_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+// SECURITY (2026-07-30): never a NEXT_PUBLIC_-prefixed fallback for a
+// service-role credential, dev-only guard below notwithstanding -- Next.js
+// inlines NEXT_PUBLIC_* values into the client bundle at build time
+// regardless of which environment reads them. See
+// app/api/identity/persona/route.ts for the full rationale.
+const CORE_HUB_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 export type { TenantId, DocumentScope, NakamotoDocument, NakamotoPrompt, TenantInfo };
 

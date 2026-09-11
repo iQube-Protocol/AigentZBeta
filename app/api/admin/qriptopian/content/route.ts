@@ -11,10 +11,18 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { requireCartridgeAdmin } from '@/services/access/requireCartridgeAdmin';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
+  // 2026-05-26: gate added. This route was previously ungated and
+  // returned every Qriptopian smart_content_qubes row to any caller.
+  // Now requires the persona to admin the Qripto cartridge OR hold a
+  // global uber/platform-tier role.
+  const gate = await requireCartridgeAdmin(req, 'qripto');
+  if (gate instanceof NextResponse) return gate;
+
   const supabase = getSupabaseServer();
   if (!supabase) return NextResponse.json({ ok: false, error: 'DB unavailable' }, { status: 503 });
 

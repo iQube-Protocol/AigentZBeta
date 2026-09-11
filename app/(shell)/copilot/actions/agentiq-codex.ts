@@ -11,41 +11,27 @@
  */
 
 import { Action } from "@copilotkit/shared";
-import * as fs from "fs";
 import * as path from "path";
+import {
+  ensureCorpusHydrated,
+  corpusReadFile,
+  corpusListMarkdown,
+} from "@/services/knowledge/packCorpusStore";
 
 const CODEX_ROOT = path.join(process.cwd(), "codexes/packs/aigency");
 const ITEMS_ROOT = path.join(CODEX_ROOT, "items");
 
-/** Read a codex file safely. */
+/** Read a codex file via the pack-corpus seam (local FS in dev; remote in the
+ *  SSR Lambda). Each action handler awaits ensureCorpusHydrated() first. */
 function readCodexFile(relPath: string): string | null {
-  try {
-    const abs = path.join(CODEX_ROOT, relPath);
-    // Prevent path traversal outside the codex root
-    if (!abs.startsWith(CODEX_ROOT)) return null;
-    return fs.readFileSync(abs, "utf8");
-  } catch {
-    return null;
-  }
+  const abs = path.join(CODEX_ROOT, relPath);
+  if (!abs.startsWith(CODEX_ROOT)) return null; // traversal guard
+  return corpusReadFile(abs);
 }
 
-/** List all .md files recursively under a directory. */
+/** List all .md files recursively under a directory, relative to `base`. */
 function listMarkdownFiles(dir: string, base = CODEX_ROOT): string[] {
-  const results: string[] = [];
-  try {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        results.push(...listMarkdownFiles(full, base));
-      } else if (entry.name.endsWith(".md") && !entry.name.startsWith(".")) {
-        results.push(path.relative(base, full));
-      }
-    }
-  } catch {
-    // ignore unreadable dirs
-  }
-  return results;
+  return corpusListMarkdown(dir, base);
 }
 
 /** Simple keyword search across all codex markdown files. */
@@ -128,6 +114,7 @@ const agentiq_codex_search: Action<any> = {
     },
   ],
   handler: async ({ query, section, limit = 5, exclude_deploy_triggers = true }) => {
+    await ensureCorpusHydrated();
     try {
       let searchRoot = ITEMS_ROOT;
       if (section) {
@@ -220,6 +207,7 @@ const agentiq_codex_get: Action<any> = {
     },
   ],
   handler: async ({ path: relPath }) => {
+    await ensureCorpusHydrated();
     try {
       const content = readCodexFile(relPath);
       if (content === null) {
@@ -249,6 +237,7 @@ const agentiq_codex_list_prs: Action<any> = {
     },
   ],
   handler: async ({ limit = 10 }) => {
+    await ensureCorpusHydrated();
     try {
       const indexContent = readCodexFile("index.json");
       if (!indexContent) {
@@ -305,6 +294,7 @@ const agentiq_codex_list_commits: Action<any> = {
     },
   ],
   handler: async ({ limit = 20, type_filter, exclude_deploy_triggers = true }) => {
+    await ensureCorpusHydrated();
     try {
       const indexContent = readCodexFile("index.json");
       if (!indexContent) {

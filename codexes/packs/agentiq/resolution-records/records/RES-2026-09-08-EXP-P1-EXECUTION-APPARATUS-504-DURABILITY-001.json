@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-08",
+  "resolutionId": "RES-2026-09-08-EXP-P1-EXECUTION-APPARATUS-504-DURABILITY-001",
+  "capability": "exp-p1-execution-model",
+  "milestone": "Operator instruction, 2026-09-08: \"EXP-P1 v4 execution rehearsal returned HTTP 504. Treat this as an execution-apparatus incident.\" — a strict 6-part investigation-then-fix protocol required establishing persistence state before touching anything, mechanically tracing the 504 (never inferring cause from the status code alone), auditing actual concurrency topology, fixing orchestration without changing any scientific treatment, preserving the failed attempt as apparatus provenance (never fabricating a scientific result), and stopping before any retry.",
+  "problem": "The one-shot `runExpP1ExecutionRehearsal` (2026-09-07) held a single HTTP response open while executing 16 tasks x 4 arms = up to 64 concurrent `callChatWithUsage` model calls, then persisted the full result synchronously before responding. This exceeded the Amplify hosting gateway's ~30s SSR-request ceiling (documented, pre-existing, independent of the route's own `maxDuration` config) — the browser received a 504 while the Lambda continued running and persisting server-side, producing an execution outcome the client could not observe and creating risk of duplicate runs on a naive retry.",
+  "observedFailure": [
+    "A live v4 execution-rehearsal click returned HTTP 504 to the browser.",
+    "Supabase evidence (read-only SELECTs only, per the operator's explicit 'do not delete, overwrite or retry anything') showed two attempts: 'EXP-P1/execution-run/internal-rehearsal/2026-09-08T03:09:58.568Z' fully persisted (lifecycle 'executed', 16 tasks, real v4 taskSetId, a completion receipt) despite the client-side 504 — proof the Lambda ran to completion after the client gave up; a second attempt at '.../2026-09-08T03:12:56.143Z' left only a lifecycle-transition receipt with NO matching research_objects row — a genuine partial/orphaned state from the same design.",
+    "`services/experiments/llm.ts` already documented, independently of this incident, that 'the hosting gateway kills SSR requests at ~30s and answers with an EMPTY body' — the root-cause mechanism was already known in-repo, just not yet applied to this route's one-shot design."
+  ],
+  "rootCauses": [
+    "The execution rehearsal's ONLY unit of work was 'the entire run' — one HTTP request, no intermediate persistence checkpoint, and an unbounded 16x4=64-way concurrent fan-out via nested `Promise.all` calls, with no bound on simultaneous provider calls per request.",
+    "No durable run identity existed until the FULL run finished — so a request that outlived the gateway's ~30s ceiling left the operator with no way to observe, resume, or safely retry an in-flight run without risking either data loss (never seeing what already happened) or duplication (starting a second run for tasks the first had already covered)."
+  ],
+  "resolution": [
+    "Split the execution-run lifecycle into two durable phases in `services/research/artifacts.ts`: `startExecutionRun` (creates a `lifecycle:'executing'` artifact recording `expectedTaskIds` — the full task-id list the run must eventually cover — and writes NO receipt, per this repo's DVN-pipeline discipline that a receipt is a completion event, never invented ad hoc) and `checkpointExecutionRun` (idempotently appends newly-completed task results by `taskId`, skipping any id already present; writes the ONE completion receipt and flips to `lifecycle:'executed'` only once every `expectedTaskIds` entry is present; is a safe no-op if called again on an already-`'executed'` run).",
+    "Split `services/research/expP1ExecutionRehearsal.ts`'s monolithic runner into `startExpP1ExecutionRehearsal` (Phase 1 — reads the frozen crystal, asserts the frozen selector version, calls `startExecutionRun`; calls NO model, completes well inside any gateway ceiling) and `stepExpP1ExecutionRehearsal` (Phase 2 — advances at most `DEFAULT_STEP_BATCH_SIZE` (3) PENDING tasks per call via `executeOneTask`, then `checkpointExecutionRun`s the result; each task's four arms (A/B/C/D) execute concurrently via `Promise.all`, so one step now makes at most 3x4=12 concurrent provider calls, never the prior 64).",
+    "`stepExpP1ExecutionRehearsal` computes pending work by diffing `taskSet.tasks` against the run's already-persisted `taskResults` (by `taskId`) on every call — calling it again with the SAME `runId`, whether from a genuine resume after an interruption or a duplicate client click, executes ONLY the tasks not yet done and never re-invokes the model for one already recorded.",
+    "`app/api/research/crystal/[experimentId]/execution-rehearsal/route.ts` now reads one body field, `action: 'start' | 'step'` (defaulting to `'start'` so an accidental omission never silently steps an unnamed run), routing to the matching function; `maxDuration` dropped from 300s to 60s since neither phase needs anywhere near that.",
+    "`components/research/ExpP1ExecutionStatus.tsx`'s execution-rehearsal button now POSTs `action:'start'` once, then loops POSTing `action:'step'` against the returned `runId` until the server reports `status:'executed'`, showing a live `(doneCount/totalTasks)` progress readout instead of one long spinner tied to a single held-open request.",
+    "`startExpP1ExecutionRehearsal` resumes-in-place: before creating anything, it checks (`listExecutionRuns`) for an already-`'executing'` run against the SAME task set and, if found, returns that run's id (with its real already-done count) instead of creating a second, independent run — so a fresh click after the operator left the page mid-run, or a genuine duplicate click, never re-executes tasks the first run already completed. A run that already reached `'executed'` is correctly NOT resumed (nothing left to resume) — a further click genuinely starts a fresh run, which is the right 'run it again' behavior.",
+    "`ExecutionRunArtifact` (`types/research.ts`) gained `expectedTaskIds: string[] | null` (the full task-id list known at start time; `null` only for runs the OLD one-shot `recordExecutionRun` path wrote) and `lastCheckpointedAt: string | null`; `ARTIFACT_LIFECYCLE` gained the `'executing'` in-progress state between `'frozen'` and `'executed'`.",
+    "The failed v4 attempts were NOT retried, deleted, or overwritten at any point during this investigation or fix — both persisted rows (the fully-executed one and the partial/receipt-only one) remain exactly as the 504 left them, confirmed unchanged by read-only SELECT queries throughout. No v4 execution was triggered during this fix-and-verify cycle; all verification ran against mocked provider calls in `tests/exp-p1-execution-rehearsal.test.ts` and `tests/exp-p1-execution-rehearsal-route.test.ts`.",
+    "Zero scientific-treatment change: `EXP_P1_EXECUTION_PROVIDER`, `EXP_P1_EXECUTION_MODEL`, `EXP_P1_EXECUTION_TEMPERATURE`, `EXP_P1_EXECUTION_MAX_TOKENS`, `EXP_P1_EXECUTION_PROMPT_VERSION`, `FROZEN_ARM_B_SELECTOR_VERSION`, `executeArm`, `renderInvariantBlock`, `extractDemonstratedUse`, and `SCORING_CONFIGURATION` are byte-identical to the pre-incident module — only reorganized into `buildStaticExecutionContext`/`executeOneTask`/`buildArmConfiguration`/`validateTaskSet` plus the two new entry points; the old one-shot `runExpP1ExecutionRehearsal` is retained, unexported-from-the-route, as a test/local-convenience wrapper that calls `startExpP1ExecutionRehearsal` then loops `stepExpP1ExecutionRehearsal` with `batchSize: taskSet.tasks.length` — never used by the production route."
+  ],
+  "rejectedApproaches": [
+    "Widening the route's `maxDuration` further, or moving the run to a background worker outside Next.js's request/response model — rejected; the operator's explicit instruction named 'bounded concurrency' and 'UI polls/resumes rather than holding one HTTP connection open' as the preferred shape, and this repo has no existing background-job infrastructure to extend for a single experimental route.",
+    "Retrying the failed attempts to see if they would now succeed under the new code — explicitly forbidden by the operator ('Do not execute v4 again') until the durability fix was implemented, tested, and reported; no execution was run at any point in this resolution.",
+    "Treating the 504 status code alone as sufficient root-cause evidence — rejected per explicit operator instruction ('Do not infer the cause from the 504 alone'); the root cause is grounded in the DB-persisted timing evidence (one attempt fully completed server-side after the client's 504) plus the pre-existing, independently-documented gateway-timeout comment in `services/experiments/llm.ts`, not the status code by itself.",
+    "Manufacturing a scientific result row for the second, partially-persisted attempt to 'complete the picture' — rejected; that attempt's absent `research_objects` row is left exactly as found, a genuine partial-persistence artifact-of-incident, never backfilled or synthesized.",
+    "Aggregating per-task citation diagnostics onto the run-level `armConfiguration` the way the old one-shot design did — rejected as unnecessary duplication in the checkpointed model; the same fabricated-citation signal is already inspectable directly off each task's own persisted per-arm result, and accumulating it redundantly across steps would need its own merge/checkpoint logic for no added information."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-08-LONG-RUNNING-GOVERNED-EXECUTION-MUST-BE-CHECKPOINTED-RESUMABLE-001"
+  ],
+  "canaries": [
+    "tests/exp-p1-execution-rehearsal.test.ts",
+    "tests/exp-p1-execution-rehearsal-route.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/exp-p1-execution-rehearsal.test.ts",
+      "tests/exp-p1-execution-rehearsal-route.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "Operator instruction, 2026-09-08, verbatim: \"EXP-P1 v4 execution rehearsal returned HTTP 504. Treat this as an execution-apparatus incident. Do not rerun, modify scientific treatments, or create another execution artifact yet... Fix orchestration, not the experiment... Stop before retry... Do not execute v4 again.\"",
+      "Supabase research_objects row 'EXP-P1/execution-run/internal-rehearsal/2026-09-08T03:09:58.568Z' (lifecycle 'executed', 16 tasks) — the fully-persisted-despite-504 attempt.",
+      "Supabase activity_receipts row 'db2b9a6f...' (receipt_status 'local') with no matching research_objects row — the partial-persistence attempt at '.../2026-09-08T03:12:56.143Z'."
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md",
+    "services/experiments/llm.ts",
+    "services/research/expP1ExecutionRehearsal.ts",
+    "services/research/artifacts.ts"
+  ],
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

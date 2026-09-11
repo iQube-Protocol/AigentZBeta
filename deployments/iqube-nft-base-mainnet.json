@@ -1,0 +1,10 @@
+{
+  "chain": "base",
+  "chainId": 8453,
+  "contract": "iQubeNFT",
+  "address": "0xD7e07dF8259bD491B1259892F4Fb9357Dd0aff17",
+  "deployer": "0x0e3a4FDbE83F7e206380E6C61CA016F2127FF844",
+  "txHash": "0xb0eea0101265c5ec57b29922c225702df3a74b1f211e840cc37fb5f52d91b21d",
+  "explorer": "https://basescan.org/address/0xD7e07dF8259bD491B1259892F4Fb9357Dd0aff17",
+  "deployedAt": "2026-05-28"
+}

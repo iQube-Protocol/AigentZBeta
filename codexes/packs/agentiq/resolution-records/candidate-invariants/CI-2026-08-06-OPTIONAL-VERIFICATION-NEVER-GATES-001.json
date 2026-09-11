@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "Sits alongside the eligibility.satisfied/outstanding tracking: an optional verification stays fully VISIBLE (satisfied/outstanding, badges, receipts) even while it is non-gating — the rule forbids it from blocking admission, not from being disclosed."
+  ],
+  "canaries": [
+    {
+      "path": "tests/agent-bench-read-model.test.ts",
+      "assertion": "Re-adding `args.pulseAuthorized && args.pnlEnabled` to buildFinancialServicesMembership's fullyEligible condition flips the 'reports Service Ready even with Pulse/P&L outstanding' test's lifecycleState assertion from 'service-ready' back to 'in-admission', failing the canary.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "candidateId": "CI-2026-08-06-OPTIONAL-VERIFICATION-NEVER-GATES-001",
+  "statement": "A verification or capability explicitly designated optional must never be folded into the boolean that decides an admission/eligibility status — it may be tracked and disclosed, but the gate must be satisfiable without it.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-08-06-SERVICE-READY-PULSE-GATE-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/marketa/activation/agentBenchReadModel.ts::buildFinancialServicesMembership",
+      "defect": "Pulse/P&L (the journey's optional `verify` stage) were ANDed into `fullyEligible`, the boolean that produces Service Ready — an already-ratified 'optional, never gating' rule (2026-08-05 Agent Bench design §5/§7; task #13) was reintroduced by a single boolean expression despite being explicitly named as a risk to avoid in the same design doc.",
+      "resolutionId": "RES-2026-08-06-SERVICE-READY-PULSE-GATE-001",
+      "evidence": [
+        "tests/agent-bench-read-model.test.ts"
+      ]
+    }
+  ],
+  "family": "engineering",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
+}

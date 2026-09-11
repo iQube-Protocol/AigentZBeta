@@ -74,6 +74,14 @@ VALUES
   ('00000000-0000-4000-8000-000000ac1007', 'metame', 'activation_tab', 'metame-studio',
     'metaMe Studio',
     'Full-depth authoring surface — build StudioArtifacts (briefs, post-sets, image prompts, video scripts, slide outlines).',
+    'canonized'),
+  ('00000000-0000-4000-8000-000000ac1008', 'metame', 'activation_tab', 'aigent-z',
+    'aigentZ',
+    'Development Command Center — consequence-engineered building with aigentZ.',
+    'canonized'),
+  ('00000000-0000-4000-8000-000000ac1009', 'polity-passport-bureau', 'activation_tab', 'polity-passport',
+    'Polity Passport',
+    'Identity sovereignty — apply for a Polity Passport, manage ENS, delegate to agents.',
     'canonized')
 ON CONFLICT (id) DO UPDATE SET
   series = EXCLUDED.series,
@@ -105,7 +113,9 @@ VALUES
   ('00000000-0000-4000-8000-000000ac1004', 'free'),           -- qriptopian
   ('00000000-0000-4000-8000-000000ac1005', 'sku_required'),   -- venture-lab
   ('00000000-0000-4000-8000-000000ac1006', 'sku_required'),   -- marketa
-  ('00000000-0000-4000-8000-000000ac1007', 'sku_required')    -- metame-studio
+  ('00000000-0000-4000-8000-000000ac1007', 'sku_required'),   -- metame-studio
+  ('00000000-0000-4000-8000-000000ac1008', 'free'),           -- aigent-z
+  ('00000000-0000-4000-8000-000000ac1009', 'free')            -- polity-passport
 ON CONFLICT (content_qube_id) DO UPDATE SET
   gating_kind = EXCLUDED.gating_kind;
 

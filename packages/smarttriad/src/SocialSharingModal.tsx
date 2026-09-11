@@ -37,6 +37,13 @@ interface SocialSharingModalProps {
    *  the active-persona surface's displayLabel/ownFioHandle when not
    *  supplied. */
   personaLabel?: string;
+  /** Optional campaign discriminator (e.g. 'knyts-bridge-crossing'),
+   *  forwarded to /api/social/track so this share's click/signup/
+   *  conversion counters and reward accrue to that campaign instead of
+   *  the default 'qriptopian-share' (Herald of the Order). Omitted by
+   *  every existing caller — behavior is unchanged unless a caller
+   *  opts in. */
+  campaignId?: string;
   onShare?: (platform: string) => void;
 }
 
@@ -46,6 +53,7 @@ export function SocialSharingModal({
   article,
   personaId,
   personaLabel,
+  campaignId,
   onShare,
 }: SocialSharingModalProps) {
   const [copied, setCopied] = useState(false);
@@ -74,17 +82,27 @@ export function SocialSharingModal({
         personaId,                 // server-side only
         contentId: article.id,
         eventType: 'create',
+        campaignId,
       }),
     }).catch(() => { /* non-fatal — link still works */ });
-  }, [isOpen, shareId, personaId, article.id]);
+  }, [isOpen, shareId, personaId, article.id, campaignId]);
 
   if (!isOpen) return null;
 
   // Deep link is built around shareId only. personaId is NEVER added
   // to the URL — the server-side mapping does the attribution.
-  let deepLink: string;
+  //
+  // Every share destination — including a caller-supplied article.url —
+  // MUST route through the /api/social/track?s=&r= proxy so clicks stay
+  // attributable. article.url (when present) becomes the redirect target
+  // (`r`), never the deep link itself; otherwise a synthesized /article
+  // URL is the redirect target. See packages/smarttriad's audit: a prior
+  // version short-circuited to the raw article.url, silently breaking
+  // click/signup/conversion attribution for every caller that passed one
+  // (KNYTS Pulse, Herald of the Order, and future Bridges alike).
+  let redirectTarget: string;
   if (article.url) {
-    deepLink = article.url;
+    redirectTarget = article.url;
   } else {
     const contentUrl = new URL(`${window.location.origin}/article`);
     contentUrl.searchParams.set('id', article.id);
@@ -92,12 +110,13 @@ export function SocialSharingModal({
     if (article.section) contentUrl.searchParams.set('section', article.section);
     if (article.type) contentUrl.searchParams.set('type', article.type);
     contentUrl.searchParams.set('shareId', shareId);
-
-    const trackUrl = new URL(`${window.location.origin}/api/social/track`);
-    trackUrl.searchParams.set('s', shareId);
-    trackUrl.searchParams.set('r', contentUrl.toString());
-    deepLink = trackUrl.toString();
+    redirectTarget = contentUrl.toString();
   }
+
+  const trackUrl = new URL(`${window.location.origin}/api/social/track`);
+  trackUrl.searchParams.set('s', shareId);
+  trackUrl.searchParams.set('r', redirectTarget);
+  const deepLink = trackUrl.toString();
 
   const shareText = `Check out this article: ${article.title}${article.description ? ` - ${article.description}` : ''}`;
 
@@ -214,6 +233,7 @@ export function SocialSharingModal({
           contentId: article.id,
           platform,
           eventType: 'create',
+          campaignId,
         }),
       }).catch(() => {});
     }

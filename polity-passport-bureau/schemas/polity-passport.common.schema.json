@@ -1,0 +1,750 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json",
+  "title": "Polity Passport Common Definitions",
+  "type": "object",
+  "$defs": {
+    "isoDatetime": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "uri": {
+      "type": "string",
+      "format": "uri"
+    },
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "passportType": {
+      "type": "string",
+      "enum": [
+        "citizen",
+        "verified_citizen",
+        "agent_participant",
+        "robot_participant",
+        "organization_participant",
+        "restricted_participant",
+        "provisional_participant"
+      ]
+    },
+    "citizenPassportStatus": {
+      "$comment": "PRD Addendum D (irrevocability correction): citizen passports have lifecycle/continuity states only — no revoked state. Personhood recognition is not conditional on reputation.",
+      "type": "string",
+      "enum": [
+        "draft",
+        "submitted",
+        "pending_approval",
+        "active",
+        "renewal_due",
+        "expired_non_renewal",
+        "dormant",
+        "inactive_presumed",
+        "ceased_death_confirmed",
+        "superseded_by_reissue"
+      ]
+    },
+    "participantPassportStatus": {
+      "$comment": "PRD Addendum D: agent/participant standing is revocable and delistable.",
+      "type": "string",
+      "enum": [
+        "draft",
+        "submitted",
+        "pending_approval",
+        "provisionally_issued",
+        "approved",
+        "restricted",
+        "needs_more_information",
+        "suspended",
+        "revoked",
+        "expired",
+        "renewed",
+        "delisted"
+      ]
+    },
+    "passportStatus": {
+      "$comment": "Superset union retained for shared surfaces (e.g. status transitions). Per-class schemas constrain to citizenPassportStatus / participantPassportStatus via conditional validation. 'denied' applies to application-phase records only; see bundle README open items.",
+      "type": "string",
+      "enum": [
+        "draft",
+        "submitted",
+        "pending_approval",
+        "provisionally_issued",
+        "approved",
+        "active",
+        "renewal_due",
+        "restricted",
+        "needs_more_information",
+        "denied",
+        "suspended",
+        "revoked",
+        "expired",
+        "expired_non_renewal",
+        "dormant",
+        "inactive_presumed",
+        "ceased_death_confirmed",
+        "superseded_by_reissue",
+        "renewed",
+        "delisted"
+      ]
+    },
+    "identityState": {
+      "type": "string",
+      "enum": [
+        "anonymous",
+        "semi_anonymous",
+        "semi_identifiable",
+        "identifiable"
+      ]
+    },
+    "visibilityClass": {
+      "type": "string",
+      "enum": [
+        "public",
+        "public_metadata_private_payload",
+        "private",
+        "sealed",
+        "steward_only"
+      ]
+    },
+    "qubeClass": {
+      "type": "string",
+      "enum": [
+        "metaQube",
+        "blakQube",
+        "tokenQube",
+        "DataQube",
+        "ContentQube",
+        "ToolQube",
+        "ModelQube",
+        "AigentQube",
+        "DIDQube",
+        "PassportQube"
+      ]
+    },
+    "qubeRef": {
+      "type": "object",
+      "required": [
+        "iqube_id",
+        "qube_class"
+      ],
+      "properties": {
+        "iqube_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "registry_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "qube_class": {
+          "$ref": "#/$defs/qubeClass"
+        },
+        "content_hash": {
+          "type": "string"
+        },
+        "anchor_chain": {
+          "type": "string"
+        },
+        "anchor_reference": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "didRef": {
+      "type": "object",
+      "required": [
+        "did"
+      ],
+      "properties": {
+        "did": {
+          "type": "string",
+          "minLength": 1
+        },
+        "did_method": {
+          "type": "string"
+        },
+        "didqube_id": {
+          "type": "string"
+        },
+        "public_key_ref": {
+          "type": "string"
+        },
+        "created_at": {
+          "$ref": "#/$defs/isoDatetime"
+        },
+        "rotated_from": {
+          "type": "string"
+        },
+        "rotation_reason": {
+          "type": "string",
+          "enum": [
+            "not_applicable",
+            "routine_rotation",
+            "security",
+            "political_safety",
+            "refugee_or_asylum_safety",
+            "witness_protection",
+            "identity_compromise",
+            "other"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "personaRef": {
+      "type": "object",
+      "required": [
+        "persona_id",
+        "persona_handle"
+      ],
+      "properties": {
+        "persona_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "persona_handle": {
+          "type": "string",
+          "minLength": 1
+        },
+        "display_name": {
+          "type": "string"
+        },
+        "persona_public_key": {
+          "type": "string"
+        },
+        "recovery_email_provided": {
+          "type": "boolean"
+        },
+        "recovery_phone_provided": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "kybeDidBinding": {
+      "type": "object",
+      "required": [
+        "kybe_did",
+        "binding_status"
+      ],
+      "properties": {
+        "kybe_did": {
+          "$ref": "#/$defs/didRef"
+        },
+        "binding_status": {
+          "type": "string",
+          "enum": [
+            "created",
+            "bound",
+            "pending_binding",
+            "failed"
+          ]
+        },
+        "proof_of_control_reference": {
+          "type": "string"
+        },
+        "individuality_claim": {
+          "type": "string",
+          "enum": [
+            "unique_human",
+            "unique_participant",
+            "unknown"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "rootDidBinding": {
+      "type": "object",
+      "properties": {
+        "root_did": {
+          "$ref": "#/$defs/didRef"
+        },
+        "root_did_status": {
+          "type": "string",
+          "enum": [
+            "not_created",
+            "active",
+            "rotated",
+            "suspended",
+            "revoked"
+          ]
+        },
+        "reputation_inheritance_enabled": {
+          "type": "boolean"
+        },
+        "reputation_source_root_did": {
+          "type": "string"
+        },
+        "reputation_target_root_did": {
+          "type": "string"
+        },
+        "kybe_did_continuity_anchor": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "personhoodProof": {
+      "type": "object",
+      "required": [
+        "proof_type",
+        "proof_strength",
+        "status"
+      ],
+      "properties": {
+        "proof_type": {
+          "type": "string",
+          "enum": [
+            "captcha",
+            "world_id",
+            "kybe_did_continuity",
+            "manual_steward_attestation",
+            "third_party_pop_provider",
+            "other"
+          ]
+        },
+        "proof_strength": {
+          "type": "string",
+          "enum": [
+            "weak_human_presence",
+            "strong_unique_personhood",
+            "continuity_anchor",
+            "manual_attestation",
+            "unknown"
+          ]
+        },
+        "provider": {
+          "type": "string"
+        },
+        "provider_proof_reference": {
+          "type": "string"
+        },
+        "completed_at": {
+          "$ref": "#/$defs/isoDatetime"
+        },
+        "expires_at": {
+          "$ref": "#/$defs/isoDatetime"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "not_started",
+            "pending",
+            "completed",
+            "failed",
+            "expired",
+            "revoked"
+          ]
+        },
+        "privacy_notes": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "blackQubeDisclosureMap": {
+      "$comment": "Legacy disclosure map. For citizen passport private payloads, use selfCustodyBlakQubeRef instead (Self-Custody blakQube Passport Vault addendum).",
+      "type": "object",
+      "properties": {
+        "blackqube_id": {
+          "type": "string"
+        },
+        "contains_name": {
+          "type": "boolean"
+        },
+        "contains_address": {
+          "type": "boolean"
+        },
+        "contains_phone": {
+          "type": "boolean"
+        },
+        "contains_email": {
+          "type": "boolean"
+        },
+        "contains_jurisdiction": {
+          "type": "boolean"
+        },
+        "contains_sensitive_status": {
+          "type": "boolean"
+        },
+        "contains_support_needs": {
+          "type": "boolean"
+        },
+        "contains_operator_identity": {
+          "type": "boolean"
+        },
+        "encryption_profile": {
+          "type": "string"
+        },
+        "access_policy_ref": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "selfCustodyBlakQubeRef": {
+      "type": "object",
+      "required": [
+        "storage_model",
+        "storage_provider",
+        "encrypted_payload_ref",
+        "encryption_profile",
+        "holder_key_control",
+        "system_plaintext_access"
+      ],
+      "properties": {
+        "storage_model": {
+          "const": "self_custody_encrypted_file"
+        },
+        "storage_provider": {
+          "const": "autodrive"
+        },
+        "encrypted_payload_ref": {
+          "type": "object",
+          "required": [
+            "content_id",
+            "content_hash"
+          ],
+          "properties": {
+            "content_id": {
+              "type": "string",
+              "description": "Auto Drive content identifier or storage reference for the encrypted payload only."
+            },
+            "content_hash": {
+              "type": "string",
+              "description": "Hash of the encrypted payload, not plaintext."
+            },
+            "manifest_ref": {
+              "type": "string",
+              "description": "Optional encrypted or public manifest reference."
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "additionalProperties": false
+        },
+        "encryption_profile": {
+          "type": "object",
+          "required": [
+            "encryption_location",
+            "algorithm",
+            "key_custody"
+          ],
+          "properties": {
+            "encryption_location": {
+              "const": "client_side_before_upload"
+            },
+            "algorithm": {
+              "type": "string",
+              "enum": [
+                "AES-256-GCM",
+                "XChaCha20-Poly1305",
+                "other_approved"
+              ]
+            },
+            "key_custody": {
+              "const": "holder_controlled"
+            },
+            "key_derivation_profile": {
+              "type": "string",
+              "description": "Reference to wallet-signature, passphrase, hardware key, or future social recovery derivation profile."
+            },
+            "key_recovery_enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "key_recovery_method": {
+              "type": "string",
+              "enum": [
+                "none",
+                "holder_seed_phrase",
+                "hardware_key",
+                "social_recovery",
+                "threshold_recovery",
+                "future_mobile_recovery",
+                "other"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "holder_key_control": {
+          "type": "object",
+          "required": [
+            "holder_controls_decryption_key",
+            "bureau_controls_decryption_key",
+            "sysadmin_controls_decryption_key"
+          ],
+          "properties": {
+            "holder_controls_decryption_key": {
+              "const": true
+            },
+            "bureau_controls_decryption_key": {
+              "const": false
+            },
+            "sysadmin_controls_decryption_key": {
+              "const": false
+            },
+            "third_party_key_custodian": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "system_plaintext_access": {
+          "type": "object",
+          "required": [
+            "passport_bureau_access",
+            "registry_access",
+            "supabase_access",
+            "sysadmin_access"
+          ],
+          "properties": {
+            "passport_bureau_access": {
+              "const": false
+            },
+            "registry_access": {
+              "const": false
+            },
+            "supabase_access": {
+              "const": false
+            },
+            "sysadmin_access": {
+              "const": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "disclosure_flags": {
+          "type": "object",
+          "properties": {
+            "contains_name": {
+              "type": "boolean"
+            },
+            "contains_address": {
+              "type": "boolean"
+            },
+            "contains_phone": {
+              "type": "boolean"
+            },
+            "contains_email": {
+              "type": "boolean"
+            },
+            "contains_jurisdiction": {
+              "type": "boolean"
+            },
+            "contains_sensitive_status": {
+              "type": "boolean"
+            },
+            "contains_support_needs": {
+              "type": "boolean"
+            },
+            "contains_operator_identity": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "access_policy_ref": {
+          "type": "string",
+          "description": "Reference to the policy governing holder-only access, delegated access, or future selective disclosure."
+        }
+      },
+      "additionalProperties": false
+    },
+    "supportNeed": {
+      "type": "string",
+      "enum": [
+        "none_declared",
+        "immigration_orientation",
+        "housing_orientation",
+        "housing_assistance",
+        "shelter_routing",
+        "legal_information",
+        "document_preparation",
+        "translation",
+        "statelessness_support",
+        "refugee_or_asylum_support",
+        "identity_continuity_support",
+        "emergency_support",
+        "other"
+      ]
+    },
+    "agentProtocol": {
+      "type": "string",
+      "enum": [
+        "a2a",
+        "mcp",
+        "openapi",
+        "json_rpc",
+        "rest",
+        "graphql",
+        "websocket",
+        "agent_card",
+        "llms_txt",
+        "custom"
+      ]
+    },
+    "agentType": {
+      "type": "string",
+      "enum": [
+        "assistant_agent",
+        "legal_information_agent",
+        "immigration_assistance_agent",
+        "housing_assistance_agent",
+        "civic_agent",
+        "translation_agent",
+        "robot_agent",
+        "model_backed_service",
+        "workflow_agent",
+        "cartridge_copilot",
+        "organizational_agent",
+        "autonomous_agent",
+        "other"
+      ]
+    },
+    "operatorType": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "individual",
+        "organization",
+        "collective",
+        "autonomous",
+        "public_institution",
+        "commercial_entity",
+        "nonprofit",
+        "other"
+      ]
+    },
+    "disclosureLevel": {
+      "type": "string",
+      "enum": [
+        "anonymous",
+        "pseudonymous",
+        "semi_identifiable",
+        "identifiable",
+        "undisclosed"
+      ]
+    },
+    "riskClass": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "autonomyClass": {
+      "type": "string",
+      "enum": [
+        "read_only",
+        "recommendation_only",
+        "human_approval_required",
+        "bounded_delegation",
+        "autonomous_with_limits",
+        "autonomous_high_impact"
+      ]
+    },
+    "humanImpactLevel": {
+      "type": "string",
+      "enum": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "policyObligation": {
+      "type": "string",
+      "enum": [
+        "do_not_impersonate_human",
+        "disclose_agent_status",
+        "honor_user_sovereignty",
+        "respect_passport_scope",
+        "respect_blackqube_boundaries",
+        "produce_receipts",
+        "support_auditability",
+        "honor_revocation",
+        "honor_suspension",
+        "do_not_train_without_permission",
+        "do_not_exfiltrate_private_data",
+        "escalate_high_risk_matters",
+        "require_human_approval_for_outbound_actions",
+        "respect_legal_advice_boundary",
+        "respect_vulnerable_person_safeguards"
+      ]
+    },
+    "policyConstraint": {
+      "type": "string",
+      "enum": [
+        "read_only",
+        "no_outbound_action",
+        "no_legal_advice",
+        "no_financial_advice",
+        "no_medical_advice",
+        "no_blackqube_access",
+        "no_child_directed_interaction",
+        "no_physical_world_action",
+        "human_signoff_required",
+        "steward_review_required",
+        "jurisdiction_limited",
+        "sandbox_only",
+        "rate_limited",
+        "scope_limited"
+      ]
+    },
+    "receiptRef": {
+      "type": "object",
+      "required": [
+        "receipt_id",
+        "receipt_type",
+        "created_at"
+      ],
+      "properties": {
+        "receipt_id": {
+          "type": "string"
+        },
+        "receipt_type": {
+          "type": "string",
+          "enum": [
+            "application_created",
+            "application_submitted",
+            "registry_record_created",
+            "automated_review",
+            "steward_review",
+            "status_transition",
+            "credential_issued",
+            "credential_revoked",
+            "data_access",
+            "crud_activity",
+            "appeal_submitted"
+          ]
+        },
+        "created_at": {
+          "$ref": "#/$defs/isoDatetime"
+        },
+        "actor": {
+          "type": "string"
+        },
+        "hash": {
+          "type": "string"
+        },
+        "anchor_reference": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

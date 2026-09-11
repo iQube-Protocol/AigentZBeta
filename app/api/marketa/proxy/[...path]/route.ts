@@ -70,7 +70,7 @@ async function handleProxyRequest(request: NextRequest) {
     
     // Add bridge headers for development
     headers.set('x-dev-override', 'true');
-    headers.set('x-forwarded-for', request.ip || 'unknown');
+    headers.set('x-forwarded-for', request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown');
     headers.set('x-forwarded-host', request.headers.get('host') || 'localhost');
     headers.set('x-forwarded-proto', 'https');
     

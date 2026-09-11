@@ -10,7 +10,7 @@
  * sharing happens through the Drive surface, just like Slides.
  */
 
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Sparkles, X, Sheet, Plus, Minus } from "lucide-react";
 import { MicButton } from "@/components/ui/MicButton";
 import { transformEmailDictation } from "@/hooks/useSpeechRecognition";
@@ -31,13 +31,17 @@ interface Props {
     source: 'llm' | 'template';
   }>;
   theme?: "light" | "dark";
+  /** See ComposeGmailDraftModal — Phase 2 inline host mode. */
+  inline?: boolean;
+  /** See ComposeGoogleDocModal — auto-fires draft on mount when set. */
+  initialPrompt?: string;
 }
 
 function emptyRow(width: number): string[] {
   return new Array(width).fill("");
 }
 
-export function ComposeGoogleSheetModal({ open, onClose, onCreate, onDraftWithAigentMe, theme = "dark" }: Props) {
+export function ComposeGoogleSheetModal({ open, onClose, onCreate, onDraftWithAigentMe, theme = "dark", inline = false, initialPrompt }: Props) {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiDrafting, setAiDrafting] = useState(false);
   const [aiRationale, setAiRationale] = useState<string | null>(null);
@@ -67,15 +71,13 @@ export function ComposeGoogleSheetModal({ open, onClose, onCreate, onDraftWithAi
 
   const width = header.length;
 
-  const handleDraft = useCallback(async () => {
+  const draftWithPrompt = useCallback(async (promptToUse: string) => {
+    const trimmed = promptToUse.trim();
+    if (!trimmed) return;
     setError(null);
-    if (!aiPrompt.trim()) {
-      setError('Tell aigentMe what the spreadsheet is for.');
-      return;
-    }
     setAiDrafting(true);
     try {
-      const draft = await onDraftWithAigentMe(aiPrompt.trim());
+      const draft = await onDraftWithAigentMe(trimmed);
       setTitle(draft.title ?? "");
       setSheetName(draft.sheetName?.trim() || "Sheet1");
       if (Array.isArray(draft.rows) && draft.rows.length > 0) {
@@ -93,7 +95,25 @@ export function ComposeGoogleSheetModal({ open, onClose, onCreate, onDraftWithAi
     } finally {
       setAiDrafting(false);
     }
-  }, [aiPrompt, onDraftWithAigentMe]);
+  }, [onDraftWithAigentMe]);
+
+  const handleDraft = useCallback(() => {
+    if (!aiPrompt.trim()) {
+      setError('Tell aigentMe what the spreadsheet is for.');
+      return;
+    }
+    void draftWithPrompt(aiPrompt);
+  }, [aiPrompt, draftWithPrompt]);
+
+  // Mount-fire from initialPrompt — see ComposeGoogleDocModal.
+  const lastInitialPromptRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialPrompt || !initialPrompt.trim()) return;
+    if (lastInitialPromptRef.current === initialPrompt) return;
+    lastInitialPromptRef.current = initialPrompt;
+    setAiPrompt(initialPrompt);
+    void draftWithPrompt(initialPrompt);
+  }, [initialPrompt, draftWithPrompt]);
 
   function updateHeaderCell(i: number, v: string) {
     setHeader((h) => h.map((c, idx) => (idx === i ? v : c)));
@@ -152,11 +172,11 @@ export function ComposeGoogleSheetModal({ open, onClose, onCreate, onDraftWithAi
     }
   }, [title, sheetName, header, dataRows, onCreate, onClose]);
 
-  if (!open) return null;
+  if (!inline && !open) return null;
 
-  return (
-    <div className={overlayClass} role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget && !submitting) onClose(); }}>
+  const formBody = (
       <form onSubmit={handleSubmit} className={`rounded-lg p-5 w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-xl ${panelClass}`}>
+        {!inline && (
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">
             <Sheet className="w-4 h-4 text-violet-400" />
@@ -166,6 +186,7 @@ export function ComposeGoogleSheetModal({ open, onClose, onCreate, onDraftWithAi
             <X className="w-4 h-4" />
           </button>
         </div>
+        )}
 
         <div className={`mb-3 p-3 rounded border ${isDark ? 'border-violet-500/30 bg-violet-500/5' : 'border-violet-300 bg-violet-50'}`}>
           <label className="block">
@@ -303,6 +324,13 @@ export function ComposeGoogleSheetModal({ open, onClose, onCreate, onDraftWithAi
           </button>
         </div>
       </form>
+  );
+
+  if (inline) return formBody;
+
+  return (
+    <div className={overlayClass} role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget && !submitting) onClose(); }}>
+      {formBody}
     </div>
   );
 }

@@ -1,0 +1,270 @@
+{
+  "schemaVersion": "venture-iqube/v0.2",
+  "emittedAt": "2026-05-29T20:00:00-04:00",
+  "operator": {
+    "displayLabel": "Dele",
+    "archetype": "founder",
+    "tagline": "Founder-operator building the sovereign experience economy through metaMe, metaKnyts, The Qriptopian, Qc, iQubes, and the Agentic Polity.",
+    "fioHandle": "dele@metame"
+  },
+  "strategy": {
+    "headline": "Blueprint Operation metaWill in Q1, expand the founder-operator model in Q2, and package Venture Lab proof by Q3.",
+    "thesis": "Operation metaWill is the June 1, 2026 launch program for proving the metaProof operating stack as a repeatable venture-growth system. The Polity remains the North Star, but Q1 is a blueprinting quarter rather than a premature expansion quarter. The four Q1 blueprints are: Cartridge Blueprinting, centered on the Media Cartridge with metaKnyts as the anchor mythos/commercial instance and The Qriptopian as the ethos/logos extension; Experience Blueprinting, centered on metaMe Runtime, aigentMe, personal blended doors, cartridges, myCanvas, remixing, publishing, Qc starter bundles, and iQube-governed context; Operating Blueprinting, centered on using aigentMe to operate Operation metaWill itself for the founder operator; and Venture Growth Blueprinting, centered on proving revenue, adoption, partner growth, Qc micropayments, premium KNYT bundles, franchise offers, and Venture Lab proof. Q2 should expand from proven internal blueprints into external founder-operator recruitment. Q3 should consolidate capital readiness, Studio-led spin-out proof, Runtime and Qc fast-follower paths, and the 2027 legal/metaCommons preparation.",
+    "currentStage": "zero",
+    "blockers": [
+      "Avoid over-expanding before Q1 blueprints are proven and repeatable.",
+      "Keep Studio light/internal in Q1 rather than turning it into the primary commercial surface too early.",
+      "Ensure Qc micropayments remain simple enough for users to understand and habit-form.",
+      "Keep premium KNYT product sales and franchise offers complementary rather than bundled into confusion.",
+      "Translate Polity strategy into concrete cartridge, runtime, operating, and venture-growth blueprints."
+    ],
+    "constraints": [
+      "June 1 is a blueprinting-quarter launch, not a mass external onboarding launch.",
+      "Use only validated mainnet Qc/iQube flows for user-facing economic actions.",
+      "Human approval is required for outbound communications, payments, access-policy changes, and public posting.",
+      "Confidential Operation metaWill strategy should not be exposed in public-facing copy.",
+      "Q1 metrics should emphasize metaKnyts, metaMe, Qriptopian, and Qc signals; Polity Cartridge remains qualitative."
+    ]
+  },
+  "ventures": [
+    {
+      "id": "operation-metawill",
+      "name": "Operation metaWill",
+      "tagline": "The internal launch program for blueprinting and scaling the sovereign experience economy.",
+      "stage": "launch",
+      "cartridgeBindings": ["metame", "venture-lab", "marketa", "agentiq-os"],
+      "northStarKpi": "Four Q1 blueprints reach v1 quality and produce clear Q2 external founder-operator expansion criteria.",
+      "objectives": [
+        { "id": "q1-blueprint-charter", "title": "Publish the Q1 Blueprinting Charter", "summary": "Reframe June 1 through August 31 as the Blueprinting Quarter with four blueprint tracks and a clear proof-capture cadence.", "impact": "critical", "effort": "medium", "horizon": "next7d", "successCriteria": ["Four blueprint owners identified", "Blueprint definitions approved", "Weekly review cadence created", "aigentMe directives updated", "Internal/public messaging boundaries clarified"], "dependencies": [], "specialistHint": "aigent-z" },
+        { "id": "proof-capture-system", "title": "Create the Operation metaWill proof-capture system", "summary": "Capture evidence from cartridge, experience, operating, venture growth, micropayment, Pulse, and sales workflows.", "impact": "critical", "effort": "medium", "horizon": "next30d", "successCriteria": ["Proof taxonomy created", "Case-study template created", "Qc transaction proof captured", "Premium/franchise sales signals captured", "Blueprint progress visible in aigentMe"], "dependencies": ["q1-blueprint-charter"], "specialistHint": "aigent-z" },
+        { "id": "q2-expansion-criteria", "title": "Define Q2 external founder-operator expansion criteria", "summary": "Translate Q1 blueprint proof into requirements for recruiting external founder operators in Q2.", "impact": "high", "effort": "medium", "horizon": "next90d", "successCriteria": ["Minimum viable Media Cartridge Blueprint defined", "Minimum viable Experience Blueprint defined", "Minimum viable Operating Blueprint defined", "Minimum viable Venture Growth Blueprint defined", "Q2 recruitment criteria documented"], "dependencies": ["proof-capture-system"], "specialistHint": "marketa" }
+      ],
+      "partners": [
+        { "name": "metaProof group", "role": "internal proof environment", "status": "active" },
+        { "name": "Zero KNYTs", "role": "early access cohort for franchise and patronage paths", "status": "engaged" }
+      ],
+      "notes": "This is the umbrella execution program. It should not become a broad public brand too early. Public surfaces should talk about the three domains—Mythos, Logos, Ethos—and the personal blended door."
+    },
+    {
+      "id": "metame-runtime",
+      "name": "metaMe Runtime and aigentMe",
+      "tagline": "The Logos spine: a sovereign runtime and founder-operator execution layer.",
+      "stage": "launch",
+      "cartridgeBindings": ["metame", "agentiq-os", "moneypenny"],
+      "northStarKpi": "Internal founder-operator workflows are repeatedly executed through aigentMe with Qc-powered actions and clear proof capture.",
+      "objectives": [
+        { "id": "experience-blueprint-v1", "title": "Create the metaMe Experience Blueprint v1", "summary": "Document how metaMe Runtime, cartridges, myCanvas, remixing, publishing, Pulse paths, Qc starter bundles, and iQube-governed context form a repeatable sovereign experience.", "impact": "critical", "effort": "heavy", "horizon": "next90d", "successCriteria": ["Personal blended-door model tested", "Mythos/Logos/Ethos balance captured", "Qc starter bundle tested", "myCanvas to Pulse publishing documented", "Runtime journey map approved"], "dependencies": ["operation-metawill:q1-blueprint-charter"], "specialistHint": "aigent-z" },
+        { "id": "operating-blueprint-v1", "title": "Create the aigentMe Operating Blueprint v1", "summary": "Use aigentMe to operate Operation metaWill itself, proving how the founder operator receives briefs, NBEs, specialist handoffs, communications support, and proof capture.", "impact": "critical", "effort": "heavy", "horizon": "next90d", "successCriteria": ["Daily/weekly operating cadence defined", "NBE patterns grounded in Venture iQube objectives", "Human approval boundaries documented", "Specialist handoff flows tested", "Internal case study drafted"], "dependencies": ["operation-metawill:proof-capture-system"], "specialistHint": "aigent-z" },
+        { "id": "personal-blended-door", "title": "Implement the personal blended-door onboarding model", "summary": "During metaMe setup, classify each user's Mythos, Logos, and Ethos balance and generate a personalized starter path.", "impact": "high", "effort": "medium", "horizon": "next30d", "successCriteria": ["Three-domain intake questions drafted", "Mythos-heavy journey defined", "Logos-heavy journey defined", "Ethos-heavy journey defined", "Blended starter bundle defined"], "dependencies": [], "specialistHint": "kn0w1" }
+      ],
+      "partners": [
+        { "name": "OpenClaw / myClaw", "role": "helper-grade execution support", "status": "engaged" },
+        { "name": "myGuard", "role": "runtime guardrail and user-protection helper", "status": "engaged" }
+      ],
+      "notes": "metaMe Runtime is the central door and spine, not merely one of three equal doors. aigentMe is the founder-operator guide and operating agent. Studio remains mostly internal/light in Q1, supporting runtime, myCanvas, admin customization, remixing, and publishing rather than being externally commercialized."
+    },
+    {
+      "id": "metaknyts-media-cartridge",
+      "name": "metaKnyts Media Cartridge",
+      "tagline": "The Mythos anchor and first commercial media-cartridge proof instance.",
+      "stage": "launch",
+      "cartridgeBindings": ["knyt", "metame", "marketa", "venture-lab"],
+      "northStarKpi": "Premium KNYT and franchise sales motions produce repeatable evidence for the Media Cartridge Blueprint.",
+      "objectives": [
+        { "id": "media-cartridge-blueprint-v1", "title": "Create the Media Cartridge Blueprint v1 using metaKnyts as instance 1", "summary": "Define the repeatable cartridge pattern for content, Codex, Pulse, PCS, premium products, franchise offers, iQubes, Qc payments, remixing, and founder-operator activation.", "impact": "critical", "effort": "heavy", "horizon": "next90d", "successCriteria": ["Template=0 / metaKnyts=1 / Qriptopian=2 pattern documented", "KNYT Pulse role defined", "Premium and franchise sales tracks separated", "myCanvas remix/publish path mapped", "Cartridge revenue and proof loops documented"], "dependencies": ["operation-metawill:q1-blueprint-charter"], "specialistHint": "marketa" },
+        { "id": "premium-product-sales-track", "title": "Run the premium product-sales track", "summary": "Lead high-ticket product sales through First KNYT, ZeroKNYT, and Satoshi Collection bundles while treating buyers as potential franchise and metaMe prospects.", "impact": "critical", "effort": "medium", "horizon": "next30d", "successCriteria": ["Premium offer copy finalized", "Satoshi collection framing clarified", "Premium buyer journey mapped", "Premium-to-franchise upsell map created", "First buyer/prospect responses tracked"], "dependencies": [], "specialistHint": "marketa" },
+        { "id": "franchise-offer-sales-track", "title": "Run the founder-operator franchise offer track", "summary": "Use the three metaKnyt founder-operator franchise offers as the primary operating-position sales track, separate from premium book/Codex product bundles.", "impact": "critical", "effort": "medium", "horizon": "next30d", "successCriteria": ["Three franchise offers live in KNYT store", "ZeroKNYT purchase gating confirmed", "Investor KNYT visibility confirmed", "Qualification checklist drafted", "Franchise-to-metaMe activation path documented"], "dependencies": [], "specialistHint": "marketa" }
+      ],
+      "partners": [
+        { "name": "Zero KNYTs", "role": "exclusive early access and high-conviction sales cohort", "status": "engaged" },
+        { "name": "Metaiye Media", "role": "media/franchise operating layer", "status": "active" }
+      ],
+      "notes": "Premium bundles sell the mythos stake. Franchise offers sell the operating position. metaMe activates both. The franchise offers intentionally do not include book and Codex bundles so that the premium product and franchise tracks can complement and cross-sell each other."
+    },
+    {
+      "id": "qriptopian-codex-pulse",
+      "name": "The Qriptopian Codex and Pulse",
+      "tagline": "The Ethos door and civic media layer for Polity alignment.",
+      "stage": "launch",
+      "cartridgeBindings": ["qriptopian", "metame", "marketa"],
+      "northStarKpi": "The Qriptopian contextualizes metaKnyt and metaMe traction while proving Qriptopian Pulse as the correspondent pathway.",
+      "objectives": [
+        { "id": "qriptopian-cartridge-blueprint", "title": "Document The Qriptopian as the second Media Cartridge instance", "summary": "Show how The Qriptopian extends the media cartridge from Mythos into Ethos and Logos through Codex content, Polity papers, Pulse, Qc content flows, and correspondent pathways.", "impact": "critical", "effort": "medium", "horizon": "next90d", "successCriteria": ["Qriptopian=2 pattern documented", "Qriptopian Codex role clarified", "Qriptopian Pulse ladder documented", "ContentQube/WIP status mapped", "Ethos/Logos extension narrative drafted"], "dependencies": ["metaknyts-media-cartridge:media-cartridge-blueprint-v1"], "specialistHint": "quill" },
+        { "id": "polity-content-codex-status", "title": "Stabilize Polity content status in Qriptopian Codex", "summary": "Maintain the 16 Polity-related WIP papers as a seeded Codex base while flagging the Qripto protocol papers and first Polity series for future refinement.", "impact": "high", "effort": "light", "horizon": "next30d", "successCriteria": ["16 WIP Polity papers visible in Codex", "Qripto protocol paper location noted", "Refinement backlog created", "Public explanation drafted without overloading users"], "dependencies": [], "specialistHint": "quill" },
+        { "id": "community-update", "title": "Draft and send the broader community update", "summary": "After the Zero KNYT communication, send a broader progress update explaining activation, mainnet infrastructure, gated early franchise access, premium paths, Pulse, and metaMe personalization.", "impact": "high", "effort": "medium", "horizon": "next7d", "successCriteria": ["Update drafted", "Zero KNYT early access framed clearly", "No confidential Operation metaWill strategy exposed", "Three-domain strategy introduced simply", "CTA path approved"], "dependencies": [], "specialistHint": "marketa" }
+      ],
+      "partners": [
+        { "name": "Qriptopian Pulse correspondents", "role": "civic media / Polity signal contributors", "status": "target" },
+        { "name": "Quill", "role": "editorial agent for The Qriptopian", "status": "active" }
+      ],
+      "notes": "The Qriptopian should not carry primary Q1 quantitative burden. It contextualizes, aligns, and explains the Polity while providing Pulse and Codex proof."
+    },
+    {
+      "id": "qcent-micropayments",
+      "name": "QriptoCENT / Qc Micropayments",
+      "tagline": "The live micropayment rail for content, tools, agents, consultations, and contribution.",
+      "stage": "launch",
+      "cartridgeBindings": ["moneypenny"],
+      "northStarKpi": "Live Qc usage is demonstrated across Mythos, Logos, and Ethos flows during Q1.",
+      "objectives": [
+        { "id": "qc-live-flow-proof", "title": "Capture mainnet Qc flow proof across the three domains", "summary": "Use live Qc micropayments for at least one Mythos, Logos, and Ethos flow such as KNYT content/remix, aigentMe/tool/inference turn, and Qriptopian content/Pulse action.", "impact": "critical", "effort": "medium", "horizon": "next30d", "successCriteria": ["One Mythos Qc flow completed", "One Logos Qc flow completed", "One Ethos Qc flow completed", "Receipts or transaction proof captured", "User-facing explanation drafted"], "dependencies": [], "specialistHint": "moneypenny" },
+        { "id": "qc-starter-bundles", "title": "Design and test Qc starter bundles", "summary": "Use the proposed 10,000 Qc treasury activation pool and 50 Qc sign-on bonuses to help users experience content, tool turns, consultations, and contribution flows.", "impact": "high", "effort": "medium", "horizon": "next30d", "successCriteria": ["Mythos starter bundle defined", "Logos starter bundle defined", "Ethos starter bundle defined", "Blended starter bundle defined", "Treasury/sign-on operating note drafted"], "dependencies": ["metame-runtime:personal-blended-door"], "specialistHint": "moneypenny" },
+        { "id": "qc-spinout-evidence", "title": "Collect Qc fast-follower spin-out evidence", "summary": "Capture why Qc can become a standalone or fast-follower Venture Lab product based on live micropayment behavior across content, agents, inference, and contribution.", "impact": "high", "effort": "medium", "horizon": "next90d", "successCriteria": ["Use-case map created", "Early transaction evidence captured", "User friction noted", "Product memo drafted", "Fast-follower thesis integrated into Venture Lab proof pack"], "dependencies": ["qc-live-flow-proof"], "specialistHint": "moneypenny" }
+      ],
+      "partners": [
+        { "name": "Aigent MoneyPenny", "role": "treasury and micro-payment guidance", "status": "active" }
+      ],
+      "notes": "Qc is not a feature; it is the live bridge that proves the sovereign experience economy can price content, tools, consultations, inference, remixing, and contribution at micro-scale. The moneypenny binding is the canonical Qc / treasury / micropayments surface; metaMe, KNYT, Qriptopian, and Venture Lab remain partner/use-case surfaces rather than cartridge-binding workarounds."
+    },
+    {
+      "id": "studio-blueprint",
+      "name": "metaMe Studio Internal Enablement",
+      "tagline": "The internal composition layer supporting Q1 blueprints and lead spin-out proof.",
+      "stage": "build",
+      "cartridgeBindings": ["studio"],
+      "northStarKpi": "Studio is evidenced as the repeatable composition layer without becoming the primary external Q1 commercial play.",
+      "objectives": [
+        { "id": "studio-internal-enablement", "title": "Keep Studio light but visible as internal Q1 enablement", "summary": "Use Studio capabilities behind myCanvas, workbench, remixing, admin customization, publishing flows, and super-admin tooling to support the blueprints.", "impact": "high", "effort": "medium", "horizon": "next90d", "successCriteria": ["Studio role documented", "myCanvas/remix support mapped", "Admin customization support mapped", "Publishing support mapped", "No premature external Studio commercialization in Q1"], "dependencies": ["metame-runtime:experience-blueprint-v1"], "specialistHint": "aigent-z" },
+        { "id": "studio-spinout-proof", "title": "Prepare Studio lead spin-out proof", "summary": "Use Q1 internal blueprinting evidence to show why Studio is the lead Venture Lab spin-out opportunity.", "impact": "critical", "effort": "medium", "horizon": "next90d", "successCriteria": ["Studio spin-out memo drafted", "Runtime relationship clarified", "Registry/AgentiQ OS relationship clarified", "Media Cartridge proof linked", "Q2/Q3 expansion implications mapped"], "dependencies": ["studio-internal-enablement"], "specialistHint": "kn0w1" }
+      ],
+      "partners": [
+        { "name": "Codex / code agents", "role": "runtime and feature implementation support", "status": "active" }
+      ],
+      "notes": "Studio remains the lead spin-out opportunity, but Q1 should primarily use the studio surface internally to build and prove blueprints through myCanvas, workbench, remixing, publishing, admin customization, and Studio super-admin capabilities."
+    },
+    {
+      "id": "venture-lab-spinouts",
+      "name": "metaMe Venture Lab and Spin-Out Strategy",
+      "tagline": "The venture-scaling layer for Studio, Runtime, Qc, and media cartridge replication.",
+      "stage": "validation",
+      "cartridgeBindings": ["venture-lab", "avl", "metame", "agentiq-os"],
+      "northStarKpi": "Venture Lab proof pack supports Studio as lead spin-out and Runtime/Qc as fast followers by Q3.",
+      "objectives": [
+        { "id": "venture-growth-blueprint-v1", "title": "Create the Venture Growth Blueprint v1", "summary": "Show how premium KNYT, franchise offers, metaMe activation, Qriptopian alignment, Qc usage, iQubes, Marketa, and specialist agents combine into repeatable venture growth.", "impact": "critical", "effort": "heavy", "horizon": "next90d", "successCriteria": ["Revenue-motion map documented", "Adoption loop documented", "Partner-growth loop documented", "Qc micro-economy proof included", "Q2 external expansion plan drafted"], "dependencies": ["metaknyts-media-cartridge:premium-product-sales-track", "metaknyts-media-cartridge:franchise-offer-sales-track", "qcent-micropayments:qc-live-flow-proof"], "specialistHint": "marketa" },
+        { "id": "spinout-sequence-proof", "title": "Document spin-out sequence and evidence", "summary": "Maintain Studio as lead spin-out, with metaMe Runtime and Qc as fast followers, before metaKnyt franchises or legal/metaCommons verticalization.", "impact": "high", "effort": "medium", "horizon": "next90d", "successCriteria": ["Studio lead thesis documented", "Runtime fast-follower note drafted", "Qc fast-follower note drafted", "Media cartridge as proof venture documented", "Q3 capital-readiness path outlined"], "dependencies": ["studio-blueprint:studio-spinout-proof"], "specialistHint": "kn0w1" }
+      ],
+      "partners": [
+        { "name": "Strategic investors", "role": "future Venture Lab raise targets", "status": "target" },
+        { "name": "Founder-operator partners", "role": "Q2 expansion candidates", "status": "target" }
+      ],
+      "notes": "Q1 focuses on internal blueprinting and proof. Q2 recruits external founder operators based on blueprints. Q3 consolidates spin-out and capital-readiness evidence."
+    },
+    {
+      "id": "polity-strategy-cartridge",
+      "name": "Polity Strategy Cartridge",
+      "tagline": "The qualitative compass and North Star alignment layer for Operation metaWill.",
+      "stage": "validation",
+      "cartridgeBindings": ["legal-metacommons", "qriptopian", "venture-lab", "agentiq-os", "metame"],
+      "northStarKpi": "Commercial growth increases sovereignty, agency, and Polity coherence rather than diluting them.",
+      "objectives": [
+        { "id": "polity-qualitative-compass", "title": "Operate the Polity Cartridge as a qualitative compass in Q1", "summary": "Track strategic coherence, sovereignty alignment, agent rights/constraints/obligations, citizen/operator formation, and whether revenue activity supports the Polity thesis.", "impact": "high", "effort": "medium", "horizon": "next90d", "successCriteria": ["Qualitative review template created", "Agent rights/constraints/obligations included", "Polity alignment questions defined", "Monthly review cadence set", "No heavy quantitative dashboard burden in Q1"], "dependencies": ["operation-metawill:q1-blueprint-charter"], "specialistHint": "metaye" },
+        { "id": "legal-metacommons-2027-path", "title": "Keep legal/metaCommons as 2027 deep commons path", "summary": "Preserve legal/metaCommons as the Polity's first deep commons vertical while keeping Q1 focused on media cartridge blueprinting.", "impact": "medium", "effort": "light", "horizon": "next90d", "successCriteria": ["Legal/metaCommons held as strategic roadmap item", "Not allowed to distract from media-cartridge Q1", "2027 preparation note drafted", "Connection to Polity explained"], "dependencies": ["polity-qualitative-compass"], "specialistHint": "metaye" }
+      ],
+      "partners": [
+        { "name": "Metayé / Metaiye Media", "role": "Polity emissary and media partner frame", "status": "engaged" }
+      ],
+      "notes": "The Polity Strategy Cartridge remains a qualitative strategic compass in Q1. The legal-metacommons binding records the 2027 deep-commons vertical as a real forward dependency while Qriptopian, Venture Lab, AgentiQ OS, and metaMe remain the current operating surfaces for Polity alignment."
+    },
+    {
+      "id": "agentiq-os-registry",
+      "name": "AgentiQ OS and iQube Registry Path",
+      "tagline": "The open builder path and primitive-quality layer supporting future expansion.",
+      "stage": "build",
+      "cartridgeBindings": ["agentiq-os", "iqube-registry"],
+      "northStarKpi": "AgentiQ OS and the iQube Registry support the blueprint without distracting from Q1 operating proof.",
+      "objectives": [
+        { "id": "registry-blueprint-support", "title": "Map the iQube Registry and AgentiQ OS support role", "summary": "Clarify how iQubes, ContentQubes, ToolQubes, AigentQubes, and future Registry paths support the Q1 blueprints and Q2 external builder/onboarding path.", "impact": "high", "effort": "medium", "horizon": "next90d", "successCriteria": ["iQube support role documented", "ContentQube support role documented", "Tool/Aigent support role documented", "Q2 builder path noted", "No Q1 over-expansion into broad developer GTM"], "dependencies": ["operation-metawill:q1-blueprint-charter"], "specialistHint": "aigent-z" }
+      ],
+      "partners": [
+        { "name": "Developers / code agents", "role": "future contributor and primitive-builder pathway", "status": "target" }
+      ],
+      "notes": "AgentiQ OS and the iQube Registry / RegistrySupply surface remain critical infrastructure. In Q1 they support internal blueprinting; Q2/Q3 can expand into more external builder onboarding once the blueprints are proven."
+    },
+    {
+      "id": "marketa-growth-engine",
+      "name": "Marketa Growth Engine",
+      "tagline": "The strategic marketing and growth specialist layer for Operation metaWill.",
+      "stage": "launch",
+      "cartridgeBindings": ["marketa", "metame", "knyt", "qriptopian", "venture-lab"],
+      "northStarKpi": "Marketa converts the blueprints into clear outreach, revenue, partner, and adoption motions without over-broadening Q1.",
+      "objectives": [
+        { "id": "q1-growth-comms", "title": "Coordinate Q1 growth communications", "summary": "Support Zero KNYT follow-up, broader community update, premium/franchise messaging, Qriptopian framing, and founder-operator narrative.", "impact": "high", "effort": "medium", "horizon": "next30d", "successCriteria": ["Broader community update drafted", "Zero KNYT follow-up logic drafted", "Premium/franchise distinction clear", "Founder-operator narrative clear", "No confidential strategy exposed"], "dependencies": ["qriptopian-codex-pulse:community-update"], "specialistHint": "marketa" },
+        { "id": "partner-growth-map", "title": "Create the Q2 partner/founder-operator growth map", "summary": "Use Q1 blueprint learnings to identify which partners and external founder operators should be recruited in Q2.", "impact": "medium", "effort": "medium", "horizon": "next90d", "successCriteria": ["Q2 prospect archetypes defined", "Partner categories defined", "Founder-operator recruitment message drafted", "Blueprint evidence requirements listed"], "dependencies": ["venture-lab-spinouts:venture-growth-blueprint-v1"], "specialistHint": "marketa" }
+      ],
+      "partners": [
+        { "name": "Marketa", "role": "growth, outreach, and strategic marketing specialist", "status": "active" }
+      ],
+      "notes": "Marketa should be used internally in Q1 to prove the growth operating model, not just to create generic marketing content."
+    }
+  ],
+  "plan": {
+    "today": {
+      "focus": "Finalize the Venture iQube and align it to the Q1 Blueprinting Quarter.",
+      "actions": [
+        { "title": "Review and approve this Venture iQube structure for aigentMe ingestion", "ventureId": "operation-metawill", "objectiveId": "q1-blueprint-charter", "owner": "self", "due": "2026-05-29T23:00:00-04:00" },
+        { "title": "Confirm whether the allowed cartridge enum needs v0.2 additions for polity, studio, registry, qcent, and legal-metacommons", "ventureId": "agentiq-os-registry", "objectiveId": "registry-blueprint-support", "owner": "aigent-z", "due": "2026-05-29T23:30:00-04:00" }
+      ]
+    },
+    "next24h": {
+      "focus": "Prepare the pre-June-1 ingest, readiness, and communications package.",
+      "actions": [
+        { "title": "Upload the approved Venture iQube JSON through the UploadDrawer as useKind venture_iqube", "ventureId": "operation-metawill", "objectiveId": "q1-blueprint-charter", "owner": "self", "due": "2026-05-30T12:00:00-04:00" },
+        { "title": "Draft the broader community update following the first Zero KNYT communication", "ventureId": "qriptopian-codex-pulse", "objectiveId": "community-update", "owner": "marketa", "due": "2026-05-30T17:00:00-04:00" },
+        { "title": "Confirm mainnet Qc/iQube payment lifecycle readiness for the June 1 go-live checklist", "ventureId": "qcent-micropayments", "objectiveId": "qc-live-flow-proof", "owner": "moneypenny", "due": "2026-05-30T18:00:00-04:00" }
+      ]
+    },
+    "next7d": {
+      "focus": "Run the first Q1 Blueprinting Sprint from June 1 through June 7.",
+      "actions": [
+        { "title": "Run June 1 Blueprint Command Day and confirm four blueprint owners", "ventureId": "operation-metawill", "objectiveId": "q1-blueprint-charter", "owner": "self", "due": "2026-06-01T12:00:00-04:00" },
+        { "title": "Draft Media Cartridge Blueprint v0.1 using metaKnyts and The Qriptopian", "ventureId": "metaknyts-media-cartridge", "objectiveId": "media-cartridge-blueprint-v1", "owner": "marketa", "due": "2026-06-02T18:00:00-04:00" },
+        { "title": "Draft Experience Blueprint v0.1 for the personal blended door and Qc starter bundles", "ventureId": "metame-runtime", "objectiveId": "experience-blueprint-v1", "owner": "aigent-z", "due": "2026-06-03T18:00:00-04:00" },
+        { "title": "Draft Operating Blueprint v0.1 for aigentMe as the founder-operator operating agent", "ventureId": "metame-runtime", "objectiveId": "operating-blueprint-v1", "owner": "aigent-z", "due": "2026-06-04T18:00:00-04:00" },
+        { "title": "Draft Venture Growth Blueprint v0.1 with premium, franchise, Qc, and Venture Lab proof loops", "ventureId": "venture-lab-spinouts", "objectiveId": "venture-growth-blueprint-v1", "owner": "marketa", "due": "2026-06-05T18:00:00-04:00" },
+        { "title": "Send or schedule the broader community update after review", "ventureId": "qriptopian-codex-pulse", "objectiveId": "community-update", "owner": "marketa", "due": "2026-06-06T12:00:00-04:00" }
+      ]
+    },
+    "next30d": {
+      "focus": "Advance Q1 blueprints to v0.5 and capture first proof from sales, runtime, Qc, Pulse, and operations.",
+      "actions": [
+        { "title": "Separate and document premium product sales and founder-operator franchise sales as complementary tracks", "ventureId": "metaknyts-media-cartridge", "objectiveId": "premium-product-sales-track", "owner": "marketa", "due": "2026-06-15T18:00:00-04:00" },
+        { "title": "Capture at least one live Qc proof flow in Mythos, Logos, and Ethos surfaces", "ventureId": "qcent-micropayments", "objectiveId": "qc-live-flow-proof", "owner": "moneypenny", "due": "2026-06-21T18:00:00-04:00" },
+        { "title": "Test the personal blended-door onboarding model internally", "ventureId": "metame-runtime", "objectiveId": "personal-blended-door", "owner": "aigent-z", "due": "2026-06-21T18:00:00-04:00" },
+        { "title": "Create the first proof inventory for Operation metaWill Q1", "ventureId": "operation-metawill", "objectiveId": "proof-capture-system", "owner": "aigent-z", "due": "2026-06-28T18:00:00-04:00" },
+        { "title": "Prepare Polity Cartridge qualitative review template", "ventureId": "polity-strategy-cartridge", "objectiveId": "polity-qualitative-compass", "owner": "metaye", "due": "2026-06-28T18:00:00-04:00" }
+      ]
+    },
+    "next90d": {
+      "focus": "Complete Q1 Blueprinting Quarter and prepare Q2 external founder-operator expansion.",
+      "actions": [
+        { "title": "Complete Media Cartridge Blueprint v1", "ventureId": "metaknyts-media-cartridge", "objectiveId": "media-cartridge-blueprint-v1", "owner": "marketa", "due": "2026-08-31T18:00:00-04:00" },
+        { "title": "Complete metaMe Experience Blueprint v1", "ventureId": "metame-runtime", "objectiveId": "experience-blueprint-v1", "owner": "aigent-z", "due": "2026-08-31T18:00:00-04:00" },
+        { "title": "Complete aigentMe Operating Blueprint v1", "ventureId": "metame-runtime", "objectiveId": "operating-blueprint-v1", "owner": "aigent-z", "due": "2026-08-31T18:00:00-04:00" },
+        { "title": "Complete Venture Growth Blueprint v1", "ventureId": "venture-lab-spinouts", "objectiveId": "venture-growth-blueprint-v1", "owner": "marketa", "due": "2026-08-31T18:00:00-04:00" },
+        { "title": "Prepare Q2 external founder-operator recruitment plan", "ventureId": "operation-metawill", "objectiveId": "q2-expansion-criteria", "owner": "marketa", "due": "2026-08-31T18:00:00-04:00" },
+        { "title": "Draft Studio lead spin-out proof memo and Runtime/Qc fast-follower notes", "ventureId": "venture-lab-spinouts", "objectiveId": "spinout-sequence-proof", "owner": "kn0w1", "due": "2026-08-31T18:00:00-04:00" }
+      ]
+    }
+  },
+  "specialistPreferences": {
+    "outreach": "marketa",
+    "research": "kn0w1",
+    "drafting": "quill",
+    "diligence": "kn0w1",
+    "operations": "aigent-z",
+    "treasury": "moneypenny",
+    "platformGuidance": "aigent-z"
+  },
+  "kpiBoard": [
+    { "name": "Q1 Blueprint Completion", "metric": "Number of four Q1 blueprints reaching v1 quality", "current": 0, "target": 4, "horizon": "next90d", "ventureId": "operation-metawill" },
+    { "name": "Premium KNYT Sales Pipeline", "metric": "Qualified premium product buyers or prospects across First KNYT, ZeroKNYT, and Satoshi Collection", "current": "baseline pending", "target": "active pipeline with first serious prospects tracked", "horizon": "next30d", "ventureId": "metaknyts-media-cartridge" },
+    { "name": "Franchise Offer Pipeline", "metric": "Qualified founder-operator franchise prospects", "current": "baseline pending", "target": "first serious conversations underway", "horizon": "next30d", "ventureId": "metaknyts-media-cartridge" },
+    { "name": "metaMe Internal Operating Proof", "metric": "Operation metaWill workflows actively coordinated through aigentMe", "current": "starting", "target": "weekly operating cadence with proof captured", "horizon": "next30d", "ventureId": "metame-runtime" },
+    { "name": "Qc Three-Domain Proof", "metric": "Live Qc flows demonstrated across Mythos, Logos, and Ethos", "current": 0, "target": 3, "horizon": "next30d", "ventureId": "qcent-micropayments" },
+    { "name": "Personal Blended Door Test", "metric": "Internal users or journeys tested with Mythos/Logos/Ethos blended onboarding", "current": 0, "target": "first internal journeys completed", "horizon": "next30d", "ventureId": "metame-runtime" },
+    { "name": "KNYT Pulse and Qriptopian Pulse Proof", "metric": "Pulse publishing/contribution flows demonstrated", "current": "wired", "target": "first proof flows documented", "horizon": "next90d", "ventureId": "qriptopian-codex-pulse" },
+    { "name": "Venture Growth Blueprint Readiness", "metric": "Revenue, adoption, partner, and proof loops documented", "current": "drafting", "target": "v1 blueprint complete", "horizon": "next90d", "ventureId": "venture-lab-spinouts" },
+    { "name": "Studio Spin-Out Evidence", "metric": "Studio lead spin-out proof memo status", "current": "not started", "target": "memo drafted with Q1 internal evidence", "horizon": "next90d", "ventureId": "studio-blueprint" },
+    { "name": "Polity Qualitative Alignment", "metric": "Monthly qualitative review completed for sovereignty, agency, and strategic coherence", "current": "not started", "target": "first Q1 review completed", "horizon": "next90d", "ventureId": "polity-strategy-cartridge" }
+  ]
+}

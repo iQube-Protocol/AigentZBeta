@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-03-ELIGIBILITY-IS-NOT-ACCRUAL-001",
+  "statement": "Admission to a population confers ELIGIBILITY to earn, never the earnings themselves. A merit quantity must derive only from receipts of qualifying, validated action — never from the act of joining.",
+  "classification": null,
+  "ratifiedSource": null,
+  "scope": "local",
+  "status": "candidate",
+  "family": "constitutional",
+  "parentCandidateId": null,
+  "governingPrinciple": false,
+  "supersededBy": null,
+  "derivedFrom": ["RES-2026-08-03-JOURNEY-AXES-MONOTONICITY-001"],
+  "occurrences": [
+    {
+      "site": "services/journey/horizenMoneyPennyJourney.ts — the Deploy (Factory ingestion) stage",
+      "defect": "The ingestion stage declared `receiptTypes: ['standing_accrued']`, so the act of ingesting an agent into the Factory wrote a Standing ACCRUAL. Standing would have arrived with the paperwork instead of being earned by conduct, collapsing the distinction PRD-GJR-001 §3.7 rests on: 'an agent can lose money honestly and still earn Standing through accurate disclosure. An agent can be profitable and lose Standing by concealing risk.' Standing granted at ingestion can do neither. Changed to `capability_registered`.",
+      "resolutionId": "RES-2026-08-03-JOURNEY-AXES-MONOTONICITY-001",
+      "evidence": ["services/journey/agentStateAxes.ts", "tests/journey-monotonic-admission.test.ts"]
+    }
+  ],
+  "canaries": [
+    {
+      "path": "tests/journey-monotonic-admission.test.ts",
+      "assertion": "Ingestion sets `standingEligible: true` and `accrued: 0` with no source receipts; Standing accrues only from qualifying receipts; and the state route reads ingestion from `capability_registered`, never from `standing_accrued` — closing the back door by which a shared receipt type would have re-collapsed the two. Mutation-verified: `accrued: ingested ? 1 : 0` and `standingEligible: false` each turn the suite red.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "notes": [
+    "Operator ruling, verbatim (2026-08-03): \"Ingested into Factory ≠ Standing accrued. Ingested into Factory → ELIGIBLE to accrue Standing through qualifying, validated action.\"",
+    "The subtle re-entry route was the RECEIPT TYPE, not the boolean: as long as ingestion and accrual shared `standing_accrued`, any observer reading that receipt would have re-derived the collapse however carefully the flags were computed. Separating the receipt types is what makes the distinction hold at every observer, not just at the one that was fixed.",
+    "Scope recorded as `local`: one occurrence, in the Standing substrate. The shape (joining a population vs earning within it) plainly generalises to reputation, credit and membership systems, but generality is a claim earned by recurrence and has not been earned here."
+  ],
+  "projections": {
+    "targets": ["constitutional-computing"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

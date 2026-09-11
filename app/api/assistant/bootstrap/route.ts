@@ -51,7 +51,7 @@ interface ExperienceModelHint {
 }
 
 interface AssistantSpecialist {
-  id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c' | 'aigent-nakamoto' | 'moneypenny' | 'metaye';
+  id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c' | 'aigent-nakamoto' | 'moneypenny' | 'metaye' | 'researcher';
   label: string;
   description: string;
   /** Where this specialist primarily operates from. */
@@ -71,6 +71,7 @@ interface AssistantCta {
     | 'brief-me'
     | 'move-this-forward'
     | 'review-venture-progress'
+    | 'ask-specialists'
     | 'create-something'
     | 'coordinate-follow-ups';
   label: string;
@@ -92,7 +93,12 @@ interface AssistantBootstrapSurface {
   displayLabel?: string;
 
   /** Cartridge-role flags (server-resolved). */
-  cartridgeFlags: { isAdmin: boolean; isPartner: boolean };
+  cartridgeFlags: {
+    isAdmin: boolean;
+    isPartner: boolean;
+    /** Cartridge slugs the persona admins (per-cartridge grants). */
+    adminCartridges: string[];
+  };
 
   /**
    * Active cartridge slug the assistant should treat as default.
@@ -102,7 +108,7 @@ interface AssistantBootstrapSurface {
 
   /** Cartridges the user can pivot Aigent Me into for this session. */
   availableCartridges: Array<{
-    slug: 'metame' | 'knyt' | 'qriptopian' | 'marketa' | 'avl';
+    slug: 'metame' | 'knyt' | 'qriptopian' | 'marketa' | 'mvl';
     label: string;
   }>;
 
@@ -151,7 +157,7 @@ const AVAILABLE_CARTRIDGES: AssistantBootstrapSurface['availableCartridges'] = [
   { slug: 'knyt', label: 'KNYT' },
   { slug: 'qriptopian', label: 'The Qriptopian' },
   { slug: 'marketa', label: 'Marketa' },
-  { slug: 'avl', label: 'AgentiQ Venture Lab' },
+  { slug: 'mvl', label: 'metaMe Venture Lab' },
 ];
 
 const AVAILABLE_SPECIALISTS: AssistantSpecialist[] = [
@@ -211,6 +217,13 @@ const AVAILABLE_SPECIALISTS: AssistantSpecialist[] = [
     homeCartridge: 'protocol',
     canAsk: { enabled: true, status: 'available' },
   },
+  {
+    id: 'researcher',
+    label: 'Research Copilot',
+    description: 'Invariant substrate, experiments, protocols, structured discovery',
+    homeCartridge: 'cross-cutting',
+    canAsk: { enabled: true, status: 'available' },
+  },
 ];
 
 /**
@@ -223,6 +236,7 @@ const PRIMARY_CTAS: AssistantCta[] = [
   { id: 'brief-me',                label: 'Brief me',                  enabled: true,  status: 'available' },
   { id: 'move-this-forward',       label: 'Move goals forward',        enabled: true,  status: 'available' },
   { id: 'review-venture-progress', label: 'Review venture progress',   enabled: true,  status: 'available' },
+  { id: 'ask-specialists',         label: 'Ask specialists',           enabled: true,  status: 'available' },
   { id: 'create-something',        label: 'Create something',          enabled: false, status: 'preview' },
   { id: 'coordinate-follow-ups',   label: 'Coordinate follow-ups',     enabled: false, status: 'preview' },
 ];

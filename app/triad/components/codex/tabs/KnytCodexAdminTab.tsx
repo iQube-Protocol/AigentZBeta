@@ -17,6 +17,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { CanonicalMintPanel } from '@/components/admin/CanonicalMintPanel';
 
 interface Props {
   isAdmin?: boolean;
@@ -224,6 +225,15 @@ function HumanView({ data }: { data: CanonicalResponse }) {
   const want = data.counts.expectedPerCategory;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/*
+        Canonical Mint Panel — Phase 7B admin trigger for on-chain
+        ERC-721 master mints on Base mainnet. Mounted here at the top of
+        the KNYT Codex admin surface because it's the most visible
+        canonical-content admin view today. Will migrate into the iQube
+        Registry surface when that workstream ships (see backlog doc:
+        codexes/packs/agentiq/updates/2026-05-29_canonical-mint-panel-registry-integration.md).
+      */}
+      <CanonicalMintPanel series="metaKnyts" />
       {/* ── Convention reference card ── */}
       <section style={{ background: '#111827', border: '1px solid #1f2937', borderRadius: 8, padding: 16 }}>
         <h3 style={{ margin: '0 0 12px 0', fontSize: 14, fontWeight: 600 }}>Convention Reference</h3>

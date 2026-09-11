@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "Sibling of CI-2026-08-09-POST-FREEZE-OBSERVER-REVIEW-001 (that rule governs how N observers decide against a frozen artifact; this rule governs how a live-query-derived REPORT about that same frozen artifact may claim to represent it at all).",
+    "Generalizes beyond crystals: any surface that reports 'what a frozen/committed object contained' from a LIVE query over mutable storage — rather than a persisted snapshot — carries the same risk, and the same fix (recompute the same commitment, compare, refuse on mismatch) applies wherever the query and the commitment share one deterministic projection."
+  ],
+  "canaries": [
+    {
+      "path": "tests/crystal-frozen-manifest.test.ts",
+      "assertion": "buildFrozenCrystalManifest verifies by recomputing the SAME frozenHash projection crystalStatistics.ts uses and comparing it to the persisted artifact.contentHash; on a match it serves full member detail with verifiedAgainstFreeze:true; on a mismatch (simulated corpus drift) it withholds members (null) and intraCrystalEdges (null) rather than serving the live query as the frozen set; never exposes creatorAliasCommitment; honestly reports freeze-ceremony disclosure fields as never persisted rather than recomputing them as if they were.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "candidateId": "CI-2026-08-09-HASH-VERIFIED-FROZEN-PROJECTION-001",
+  "statement": "A report that claims to describe an already-frozen/committed object, but is actually computed from a live, mutable query, must recompute the SAME deterministic commitment the freeze act pinned and compare it before serving detail — and must refuse to serve that detail as authoritative when the comparison fails, rather than silently substituting current state for the frozen fact.",
+  "scope": "local",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-08-09-AGENT-PACKAGE-REVIEW-COMPLETENESS-001"
+  ],
+  "occurrences": [
+    {
+      "site": "app/api/journey/validation-programme/agent-package/route.ts — the frozenCrystal block",
+      "defect": "No hash-verified per-invariant manifest existed for a frozen crystal; the only persisted fact was a content hash, with no reader that checked a live re-query against it before presenting member detail as the frozen set.",
+      "resolutionId": "RES-2026-08-09-AGENT-PACKAGE-REVIEW-COMPLETENESS-001",
+      "evidence": [
+        "services/research/crystalFrozenManifest.ts",
+        "tests/crystal-frozen-manifest.test.ts"
+      ]
+    }
+  ],
+  "family": "engineering",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": ["irl"],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
+}

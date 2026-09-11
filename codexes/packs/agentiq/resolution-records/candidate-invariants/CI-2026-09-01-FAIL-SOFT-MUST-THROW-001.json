@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "A caller that wraps a substrate read in `.catch(() => null)` or a try/catch — to turn a failure into an honest `unknown`/`unreadable` state, as `loadTrack2ProgrammeState` and `resolveTrack2Population` both already did, in already-merged, already-tested code — has a documented, load-bearing expectation that the wrapped function actually rejects on failure. A reader that instead catches its OWN error internally and resolves to an empty-but-valid result (`if (error) return [];`) defeats that expectation SILENTLY: the caller's catch never fires, the caller's own correctness is untouched by any test that mocks the reader directly (as this codebase's own test suite already did, correctly, for `loadTrack2ProgrammeState`), and the gap is invisible until a real query error occurs against the real function in production.",
+    "This is deliberately narrower than 'never swallow an error' — a function MAY legitimately choose fail-soft-to-empty as its OWN contract (this codebase already has that pattern elsewhere, e.g. call sites that write their own `.catch(() => [])`). The invariant is about a MISMATCH: a producer's swallow-to-success behaviour contradicting a consumer's already-written, already-relied-upon expectation that failure propagates. The fix is always to make the PRODUCER honest (throw), never to teach every consumer to route around a producer that lies about its own failures.",
+    "Two occurrences of the identical shape, in two different modules read by two different capabilities (Corpus Scout's `listCandidateSources` and Invariant Discovery's `listCandidates`), both discovered and fixed together on 2026-09-01 — the second was found by grepping for the same `if (error) return [];` pattern once the first was understood, not independently."
+  ],
+  "canaries": [
+    {
+      "path": "tests/corpus-scout-list-projection.test.ts",
+      "assertion": "`listCandidateSources` and `listCandidates` each reject their returned promise when the underlying Supabase query reports an `error` — they must never resolve to `[]` on a genuine read failure. Both tests were verified failing against the pre-fix `if (error) return [];` bodies before the fix landed.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/research-programme-orchestrator.test.ts",
+      "assertion": "'an unreadable signal is NAMED, so a zero is not mistaken for a fact' — already asserts that a rejected `listCandidateSources` call surfaces as `populationUnreadable` containing 'corpus_candidate_sources', never as a false zero treated as fact. This test already existed and already passed (it mocks the function directly), which is exactly why the defect was invisible to the existing suite: the mock always behaved as the fix now makes the real function behave.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "candidateId": "CI-2026-09-01-FAIL-SOFT-MUST-THROW-001",
+  "statement": "A shared substrate-read function must not itself swallow a query error into an empty-but-successful result when any of its callers already depends — via `.catch()`, try/catch, or documented contract — on that failure propagating as a rejection. Make the producer honest; never route consumers around a producer that lies about its own failures.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-09-01-TRACK2-FAIL-SOFT-SWALLOWED-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/corpusScout/provenance.ts — listCandidateSources",
+      "defect": "`if (error) return [];` silently converted a genuine `corpus_candidate_sources` query failure (observed live: recurring Postgres statement timeouts) into a confidently-empty corpus. Defeated `researchProgrammeOrchestrator.ts`'s `.catch(() => null)` (documented fail-soft-to-`unknown` contract) and `track2Population.ts`'s own try/catch (documented fail-soft-to-`unreadable` contract) — both already written, both already correct, neither ever actually reachable. Produced the live EXP-P1 Track 2 oscillation: a stable, DB-confirmed corpus of 34 admitted + 18 pending sources intermittently rendered as '0 discovered, 0 admitted — Discover Sources not started', cascading through `unblockedStageIds` to strip the genuinely pending 'Review & Admit' human decision from `firstPendingDecision` entirely.",
+      "resolutionId": "RES-2026-09-01-TRACK2-FAIL-SOFT-SWALLOWED-001",
+      "evidence": [
+        "tests/corpus-scout-list-projection.test.ts"
+      ]
+    },
+    {
+      "site": "services/invariants/discoveryEngine.ts — listCandidates",
+      "defect": "The identical `if (error) return [];` pattern over `discovery_candidates`, discovered by inspection once the first occurrence was understood — not yet observed to have fired in production, but read through the exact same `.catch(() => null)` contract in `loadTrack2ProgrammeState` and therefore capable of producing the identical class of false-empty read for Stage 3/4 (Extract Candidates / Review & Promote).",
+      "resolutionId": "RES-2026-09-01-TRACK2-FAIL-SOFT-SWALLOWED-001",
+      "evidence": [
+        "tests/corpus-scout-list-projection.test.ts"
+      ]
+    }
+  ],
+  "family": "engineering",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
+}

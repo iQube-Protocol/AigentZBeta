@@ -2,11 +2,16 @@
  * Inter-cartridge navigation helpers.
  *
  * CANONICAL RULE: Every link that navigates from one codex/cartridge to
- * another MUST propagate personaId (and optionally isAdmin/isPartner) as URL
- * query params. The receiving embed route already reads and forwards these
- * to tab components. Never rely solely on localStorage/sessionStorage for
+ * another MUST propagate personaId (and optionally isPartner) as URL query
+ * params. The receiving embed route already reads and forwards these to tab
+ * components. Never rely solely on localStorage/sessionStorage for
  * cross-cartridge identity — URL params are explicit, auditable, and work
  * regardless of storage availability.
+ *
+ * `isAdmin` is deliberately NOT one of these params (removed 2026-08-27 —
+ * see docs/security/2026-08-27_irl-os-containment-breach-audit.md). Admin
+ * authority is resolved exclusively at the destination from its own
+ * canonical persona check, never handed across a navigation boundary.
  *
  * SHELL CONTEXTS:
  *   "embed"  (default) — standalone thin-client embed; no platform chrome.
@@ -40,8 +45,21 @@ export interface CodexNavOptions {
   personaId?: string;
   /** Initial tab slug in the target codex */
   tab?: string;
-  /** Carry admin flag for optimistic gate rendering (server re-validates) */
-  isAdmin?: boolean;
+  /**
+   * REMOVED (2026-08-27 IRL OS containment addendum — see
+   * docs/security/2026-08-27_irl-os-containment-breach-audit.md). This field
+   * carried a `?isAdmin=true` query param whose consumer
+   * (useCodexEmbedAuthBridge) seeded it directly into UI-level admin state —
+   * durably so, for an unauthenticated caller, since nothing ever
+   * overwrote it. `isAdmin` MUST be resolved exclusively from the
+   * destination's own canonical persona check
+   * (/api/wallet/active-persona → cartridgeFlags.isAdmin); it can never be a
+   * navigation-time value one cartridge hands another. Do not reintroduce
+   * this field — if a future caller needs to propose a PRESENTATION choice
+   * at the destination (e.g. "open on the admin-facing tab if you turn out
+   * to have access"), that is a `requestedView`-shaped hint that selects
+   * among ALREADY-PUBLIC destinations, never one that grants access.
+   */
   /** Carry partner flag for optimistic gate rendering */
   isPartner?: boolean;
   /** Carry investor flag for optimistic gate rendering (server re-validates) */
@@ -56,6 +74,85 @@ export interface CodexNavOptions {
    *   "viewer"           — /codex/viewer?id=[slug]-codex — inside AgentiQ platform shell
    */
   shell?: CodexShell;
+  /**
+   * Suppress the destination cartridge's own floating copilot (`?copilot=off`).
+   *
+   * For hosts that already provide the operator's conversational partner — the
+   * Guided Journey viewport being the first — where the cartridge's copilot
+   * would be a SECOND one on screen (MS-1: one navigation). Off by default:
+   * a cartridge reached any other way keeps its copilot, which is the only one
+   * there and entirely correct.
+   */
+  suppressCopilot?: boolean;
+  /**
+   * Which Journey-selectable agent the destination surface concerns
+   * (resolveRegistrableAgent slug, e.g. "nakamoto") — propagated as
+   * `?agentSlug=`. A NAMED, TYPED field, deliberately not a generic query
+   * passthrough (al, 2026-08-04): this carries exactly one identity, the
+   * selected Journey agent, and nothing else. The receiving route resolves
+   * it server-side through `resolveRegistrableAgent` and never trusts it as
+   * a runtime agent id directly. Omitted preserves every existing caller's
+   * URL byte-for-byte.
+   */
+  agentSlug?: string;
+  /**
+   * Focused presentation (`?chrome=focused`) — suppresses the destination
+   * cartridge's PRIMARY chrome (its top-level brand/tab-group header and the
+   * group sub-header strip that lets the operator jump to sibling tabs) while
+   * leaving the active tab's own local content — including whatever toolbar,
+   * filters or sub-navigation that tab renders itself — completely untouched.
+   *
+   * For hosts that already provide the outer navigation frame — the Guided
+   * Journey viewport being the first — where the destination's own estate-
+   * level nav would double up on (or overwhelm) the host's. Off by default:
+   * a cartridge reached any other way keeps its full primary chrome, which is
+   * correct there. See CodexPanelDynamic's `suppressPrimaryChrome` prop,
+   * which this flag maps to server-side of the embed route.
+   */
+  focused?: boolean;
+  /**
+   * Focused navigation depth (`?depth=N`). Only meaningful when `focused: true`.
+   * Defines how many navigation layers above the content to reveal:
+   *   0 — content surface only (no cartridge nav, no domain nav)
+   *   1 — content + immediate parent/domain nav (e.g., Store tabs, metaMe views)
+   *   2+ — content + multiple nav tiers (uncommon; future extensible)
+   *
+   * Omitted or undefined defaults to 0 (content only). Each cartridge documents
+   * the depth required to remain usable.
+   *
+   * Example depths for KNYTS Bridge:
+   *   Pulse (View) — depth 0 (publication feed)
+   *   Store (Buy) — depth 1 (needs Episodes|KNYT Cards|Bundles|Investor KNYT)
+   *   myCanvas (Remix) — depth 0 (self-contained composer)
+   *   aigentMe (Delegate) — depth 1 (needs metaMe/aigentMe context to navigate)
+   */
+  focusedNavDepth?: number;
+  /**
+   * Presentation-only section focus within the destination tab (`?focus=`) —
+   * e.g. the Reciprocal Artifact Exchange workspace's `artifact | review |
+   * freeze | instrument | crossing` values (IRLExchangeTab, PRD-IRL-AX-001).
+   * A NAMED, TYPED string, deliberately not a generic query passthrough
+   * (same discipline as `agentSlug` above): it never authorizes or changes
+   * what actions are available — the destination component decides what, if
+   * anything, to do with it (scroll, foreground, de-emphasize). Omitted
+   * preserves every existing caller's URL byte-for-byte.
+   */
+  focus?: string;
+  /**
+   * Explicitly select this catalogue item's group at the destination
+   * (`?autoActivate=`) — the ACTIVATION_CATALOG id (data/activation-catalog.ts)
+   * whose group the destination `tab` belongs to, e.g. "moneypenny" (Factor
+   * Operate blocker, 2026-09-06). CodexPanelDynamic already auto-activates
+   * an unaddressed, self-activatable (`gate: 'open'`) catalogue id read from
+   * this exact param on arrival — this option only supplies it. A NAMED,
+   * TYPED field, same discipline as `agentSlug`/`focus` above: `tab` alone
+   * is ambiguous whenever the destination tab's own group carries an
+   * `activationId` gate this persona has not separately granted —
+   * `getEnabledTabs` then excludes the tab and the destination silently
+   * falls back to its own first-enabled tab instead. Omitted preserves
+   * every existing caller's URL byte-for-byte.
+   */
+  autoActivate?: string;
 }
 
 /**
@@ -72,12 +169,17 @@ export function buildCodexUrl(slug: string, opts: CodexNavOptions = {}): string 
     personaSessionToken,
     personaId,
     tab,
-    isAdmin,
     isPartner,
     isInvestor,
     from,
     fromTab,
     shell = "embed",
+    suppressCopilot,
+    agentSlug,
+    focused,
+    focusedNavDepth,
+    focus,
+    autoActivate,
   } = opts;
 
   const params = new URLSearchParams();
@@ -91,11 +193,18 @@ export function buildCodexUrl(slug: string, opts: CodexNavOptions = {}): string 
   } else if (personaId) {
     params.set("personaId", personaId);
   }
-  if (isAdmin)    params.set("isAdmin",    "true");
   if (isPartner)  params.set("isPartner",  "true");
   if (isInvestor) params.set("isInvestor", "true");
   if (from)       params.set("from",       from);
   if (fromTab)    params.set("fromTab",    fromTab);
+  if (suppressCopilot) params.set("copilot", "off");
+  if (focused) params.set("chrome", "focused");
+  if (focusedNavDepth !== undefined && focusedNavDepth >= 0) params.set("depth", String(focusedNavDepth));
+  // Trimmed, non-empty only — URLSearchParams.set percent-encodes the value;
+  // the receiving route is what actually validates it, via resolveRegistrableAgent.
+  if (agentSlug && agentSlug.trim().length > 0) params.set("agentSlug", agentSlug.trim());
+  if (focus && focus.trim().length > 0) params.set("focus", focus.trim());
+  if (autoActivate && autoActivate.trim().length > 0) params.set("autoActivate", autoActivate.trim());
 
   if (shell === "viewer") {
     // Normalise to full codexId — viewer expects ?id=knyt-codex, not the bare slug

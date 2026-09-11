@@ -1,0 +1,61 @@
+{
+  "id": "standing-charter",
+  "title": "The Standing Charter",
+  "version": "1.0.0",
+  "status": "ratified",
+  "ratifiedAt": "2026-06-17",
+  "boundConstitutionVersion": "1.0.0",
+  "purpose": "Standing establishes confidence in the veracity of information contributed by citizens, aigents, organizations, and institutions within the Polity.",
+  "standingIsNot": ["reputation", "popularity", "status", "social_ranking"],
+  "definition": "Standing is a measure of confidence that a declaration accurately reflects reality.",
+  "firstPrinciple": {
+    "citizensNotResponsibleForFutureConsequencesOfTruthfulInformation": true,
+    "citizensResponsibleForTruthfullyRepresenting": [
+      "who_they_are",
+      "what_they_know",
+      "what_they_can_do",
+      "what_they_have_done",
+      "what_they_intend"
+    ],
+    "obligationOfCitizen": "veracity",
+    "obligationOfPolity": "interpretation"
+  },
+  "declarations": {
+    "types": [
+      "identity",
+      "capability",
+      "intent",
+      "experience",
+      "credential"
+    ],
+    "becomeSignalsVia": ["verification", "iqubing"]
+  },
+  "proofOfWorkPotential": {
+    "standingContributes": true,
+    "estimates": "capability latent within truthful information before that capability is applied",
+    "standingMeasuresOutcomes": false,
+    "note": "Standing helps estimate potential, not outcomes. PoWP is defined and enshrined in the Polity Paper series (Qriptopian codex) — pending ingestion as constitutional commentary."
+  },
+  "proofOfTimeSaved": {
+    "verifies": "realized value",
+    "primarilyRecalibratesStanding": false,
+    "improves": "the Polity's ability to understand how capability emerges from truthful information",
+    "note": "PoTS is defined and enshrined in the Polity Paper series (Qriptopian codex) — pending ingestion as constitutional commentary."
+  },
+  "standingHolders": {
+    "citizen": {
+      "holdsStanding": true,
+      "holdsCitizenship": true,
+      "rights": "inalienable"
+    },
+    "participant_agent": {
+      "holdsStanding": true,
+      "holdsCitizenship": false,
+      "rights": "participatory_and_revocable",
+      "note": "Participant-passport-bearing agents hold Standing but not citizenship or inalienable rights."
+    },
+    "organization": { "holdsStanding": true, "holdsCitizenship": false },
+    "institution": { "holdsStanding": true, "holdsCitizenship": false }
+  },
+  "constitutionalPrinciple": "The purpose of Standing is not to determine a citizen's worth, but to establish confidence in the truthfulness of signals entering the Polity."
+}

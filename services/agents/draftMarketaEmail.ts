@@ -8,6 +8,7 @@
  */
 
 import type { ExperienceQubeMeta } from '@/services/iqube/experienceQube';
+import { callDraftLlm } from './_lib/llmDraftHelper';
 
 export interface DraftMarketaContext {
   experience?: Pick<
@@ -16,6 +17,21 @@ export interface DraftMarketaContext {
   > | null;
   activeCartridge?: string;
   intentName?: string;
+  /**
+   * Artifacts produced by other quick-actions in the current workflow
+   * turn (e.g. a Slides deck created moments before this outreach
+   * email draft). Each entry carries a publicly-resolvable URL. The
+   * drafter is instructed to embed these URLs inline next to any
+   * "attached" / "shared" / "see the deck" reference. Keeps the
+   * partner-outreach voice while still honouring the
+   * URL-or-omit-the-reference rule. Empty / undefined when no prior
+   * artifact exists.
+   */
+  relatedArtifacts?: Array<{
+    artifactType: string;
+    title: string;
+    locationUrl: string;
+  }>;
 }
 
 export interface DraftMarketaInput {
@@ -43,10 +59,29 @@ const SYSTEM_PROMPT = [
   'Tone: clear, value-led, partner-respectful. Avoid hype, jargon, or pushy CTAs.',
   'You return STRICT JSON ONLY with the keys: to, cc, bcc, subject, bodyText, rationale.',
   'Empty strings are valid for to / cc / bcc when the user did not specify a recipient.',
-  'bodyText is plain text (no Markdown), 80–250 words, structured as: short hook → value statement → single concrete next step. End with a sign-off line.',
+  'bodyText is PLAIN TEXT ONLY. NEVER use Markdown syntax: no asterisks for bold (**word**), no underscores for italic (_word_), no hash headers (#), no backticks for code (`code`), no bracket links, no horizontal rules. If you need emphasis, use capitalised key terms or rephrase in plain prose. Numbered lists are fine as "1. " "2. " etc., but item text after the number is plain — never bold the lead-in phrase. 80–250 words, structured as: short hook → value statement → single concrete next step. End with a sign-off line.',
+  'ATTACHMENT URL RULE (non-negotiable): If the user prompt references an attached / shared / linked document, deck, doc, sheet, file, presentation, proposal, report, one-pager, or artifact AND the RELATED ARTIFACTS block lists one, you MUST include its URL inline next to the reference. Use bare URLs only (the email client auto-linkifies them) — for example: "Quick deck for context: https://docs.google.com/presentation/d/... — keen to hear your read." Never write "attached" / "see attached" / "find attached" / "I have attached" without a URL on the same line. If the RELATED ARTIFACTS block is empty AND the user prompt references an attachment, OMIT the reference entirely rather than promise something that is not there.',
   'rationale is one sentence (<= 25 words) explaining the angle you took.',
   'Never invent recipient email addresses. If the user names a person without an address, leave "to" blank and reference the name in the body.',
 ].join(' ');
+
+/** Belt-and-suspenders strip for Sonnet's tendency to leak **bold** /
+ *  __underline__ / `code` even after a "no Markdown" instruction.
+ *  Same patterns as draftEmail.stripMarkdown — keep them in lockstep
+ *  if either side changes. (Extract to _lib in a follow-up if a third
+ *  email-flavoured drafter lands.) */
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/(^|[^A-Za-z0-9])\*([^*\n]+)\*(?=[^A-Za-z0-9]|$)/g, '$1$2')
+    .replace(/(^|[^A-Za-z0-9])_([^_\n]+)_(?=[^A-Za-z0-9]|$)/g, '$1$2')
+    .replace(/`([^`\n]+)`/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^>\s?/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
 
 function userPrompt(input: DraftMarketaInput): string {
   const ctx = input.context;
@@ -56,6 +91,13 @@ function userPrompt(input: DraftMarketaInput): string {
   if (ctx.experience?.primaryGoal) lines.push(`Primary goal: ${ctx.experience.primaryGoal}`);
   if (ctx.activeCartridge) lines.push(`Active cartridge: ${ctx.activeCartridge}`);
   if (ctx.intentName) lines.push(`Recent intent: ${ctx.intentName}`);
+  if (ctx.relatedArtifacts && ctx.relatedArtifacts.length > 0) {
+    lines.push('');
+    lines.push('RELATED ARTIFACTS (already created in this workflow — include URLs inline when referenced):');
+    for (const a of ctx.relatedArtifacts) {
+      lines.push(`- ${a.title} (${a.artifactType}): ${a.locationUrl}`);
+    }
+  }
   lines.push('');
   lines.push('Draft the email now and return JSON.');
   return lines.join('\n');
@@ -122,7 +164,7 @@ export async function draftMarketaEmail(input: DraftMarketaInput): Promise<Draft
   if (!prompt) {
     return { ...templateDraft({ ...input, prompt: 'Quick partner note' }), source: 'template', generatedAt };
   }
-  const raw = await callOpenAi(SYSTEM_PROMPT, userPrompt({ ...input, prompt }));
+  const raw = await callDraftLlm(SYSTEM_PROMPT, userPrompt({ ...input, prompt }), 800);
   if (raw) {
     try {
       const parsed = JSON.parse(raw) as Partial<DraftMarketaOutput>;
@@ -131,8 +173,8 @@ export async function draftMarketaEmail(input: DraftMarketaInput): Promise<Draft
           to: typeof parsed.to === 'string' ? parsed.to : '',
           cc: typeof parsed.cc === 'string' ? parsed.cc : '',
           bcc: typeof parsed.bcc === 'string' ? parsed.bcc : '',
-          subject: parsed.subject.trim(),
-          bodyText: parsed.bodyText,
+          subject: stripMarkdown(parsed.subject.trim()),
+          bodyText: stripMarkdown(parsed.bodyText),
           rationale: typeof parsed.rationale === 'string' && parsed.rationale.trim()
             ? parsed.rationale.trim()
             : 'Drafted by Marketa (via aigentMe) from your prompt and current persona context.',

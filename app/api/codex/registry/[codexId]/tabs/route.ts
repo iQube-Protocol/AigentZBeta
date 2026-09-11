@@ -24,14 +24,15 @@ import { CodexTab, CreateTabRequest, CodexRegistryResponse } from '@/types/codex
 export const dynamic = 'force-dynamic';
 
 interface RouteContext {
-  params: { codexId: string };
+  params: Promise<{ codexId: string }>;
 }
 
 /**
  * GET /api/codex/registry/[codexId]/tabs
  * List all tabs for a codex
  */
-export async function GET(request: NextRequest, { params }: RouteContext) {
+export async function GET(request: NextRequest, props: RouteContext) {
+  const params = await props.params;
   try {
     const { codexId } = params;
     const searchParams = request.nextUrl.searchParams;
@@ -88,7 +89,8 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
  * POST /api/codex/registry/[codexId]/tabs
  * Add a new tab to a codex
  */
-export async function POST(request: NextRequest, { params }: RouteContext) {
+export async function POST(request: NextRequest, props: RouteContext) {
+  const params = await props.params;
   try {
     const { codexId } = params;
     const body: CreateTabRequest = await request.json();

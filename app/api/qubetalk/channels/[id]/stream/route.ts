@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireChannelAccess } from '@/app/api/qubetalk/_lib/requireChannelAccess';
 import { qubetalkPersistence } from '@/services/qubetalk/qubetalkPersistence';
 
 interface RouteParams {
@@ -15,7 +16,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     
-    const tenant_id = searchParams.get('tenant_id');
+    // Tenant scope is RESOLVED from the caller, never trusted from the query
+    // string — the 2026-07-28 anonymous-read leak. Fails closed on no persona.
+    const gate = await requireChannelAccess(request, searchParams.get('tenant_id'));
+    if (!gate.ok) return gate.response;
+    const tenant_id = gate.access.tenantId;
     const last_event_id = searchParams.get('last_event_id');
 
     if (!id) {
@@ -25,12 +30,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }, { status: 400 });
     }
 
-    if (!tenant_id) {
-      return NextResponse.json({
-        error: 'tenant_id is required',
-        code: 'MISSING_TENANT'
-      }, { status: 400 });
-    }
 
     // Verify channel exists using database
     const channel = await qubetalkPersistence.getChannel(id, tenant_id);

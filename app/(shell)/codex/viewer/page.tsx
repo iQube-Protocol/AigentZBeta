@@ -71,8 +71,14 @@ export default function CodexViewerPage() {
       return [];
     }
   });
-  const [configCollapsed, setConfigCollapsed] = useState(false);
+  // Floating hover-dock control rail (mirrors components/Sidebar.tsx's hover/pin
+  // model): collapsed to just the icon rail by default; hovering a rail icon opens
+  // its section as an overlay flyout without resizing the preview pane; the toggle
+  // button pins it open so it stays open without hovering.
+  const [pinnedOpen, setPinnedOpen] = useState(false);
+  const [hoverOpen, setHoverOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<ConfigSection>("codex");
+  const configPanelOpen = pinnedOpen || hoverOpen;
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>("desktop");
   const [copilotOpen, setCopilotOpen] = useState(false);
@@ -195,11 +201,11 @@ export default function CodexViewerPage() {
   }, [tabOptions]);
 
   const fallbackCodexes = useMemo<CodexOption[]>(() => ([
-    { id: "knyt-codex", label: "KNYT Cartridge", color: "purple" },
-    { id: "qripto-codex", label: "Qriptopian Cartridge", color: "indigo" },
-    { id: "agentiq-codex", label: "AgentiQ Cartridge", color: "blue" },
+    { id: "knyt-codex", label: "KNYT", color: "purple" },
+    { id: "qripto-codex", label: "Qriptopian", color: "indigo" },
+    { id: "agentiq-codex", label: "AgentiQ", color: "blue" },
     { id: "marketa-codex", label: "Aigent Marketa", color: "rose" },
-    { id: "moneypenny-codex", label: "Aigent MoneyPenny", color: "green" },
+    { id: "moneypenny-codex", label: "MoneyPenny", color: "green" },
     { id: "nakamoto-codex", label: "Aigent Nakamoto", color: "orange" },
   ]), []);
 
@@ -207,7 +213,10 @@ export default function CodexViewerPage() {
     if (!codexList || codexList.length === 0) return fallbackCodexes;
     return codexList.map((codex: CodexListItem) => ({
       id: codex.id,
-      label: codex.name,
+      // The PICKER name when the cartridge declares one, else its header name.
+      // Two names, one for each reading context (operator, 2026-07-28) — never
+      // a truncation of the header string.
+      label: codex.shortName ?? codex.name,
       color: normalizeColor(codex.metadata?.color),
     }));
   }, [codexList, fallbackCodexes]);
@@ -227,6 +236,27 @@ export default function CodexViewerPage() {
       setActiveTab(visibleTabOptions[0].slug);
     }
   }, [visibleTabOptions, activeTab, enabledTabs]);
+
+  // Cartridge-agnostic intra-cartridge tab navigation. A tab component
+  // dispatches `window.dispatchEvent(new CustomEvent('codex:navigate-tab',
+  // { detail: { tab: '<slug>' } }))` to jump to a sibling tab WITHIN the same
+  // cartridge without prop-drilling a setter (the generic sibling of KNYT's
+  // `knyt:navigate-tab`). The target must be a currently-visible tab of THIS
+  // codex — an unknown/hidden slug is ignored, so this can't reach across
+  // cartridges or reveal a hidden tab. First used by the IRL research ICE
+  // loop's Run stage to open the Experiment Lab (navigation, not execution).
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ tab?: string }>).detail || {};
+      const target = detail.tab;
+      if (typeof target !== "string") return;
+      if (target !== activeTab && visibleTabOptions.some(tab => tab.slug === target)) {
+        setActiveTab(target);
+      }
+    };
+    window.addEventListener("codex:navigate-tab", handler);
+    return () => window.removeEventListener("codex:navigate-tab", handler);
+  }, [visibleTabOptions, activeTab]);
 
   const codexSlug = codexId.replace("-codex", "");
   const hiddenTabsParam = hiddenTabs.length > 0 ? `&hiddenTabs=${encodeURIComponent(hiddenTabs.join(","))}` : "";
@@ -481,19 +511,33 @@ export default function CodexViewerPage() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Control Panel */}
-        <div className="flex h-full border-r border-slate-700/50 bg-slate-800/30">
-          <div className="w-16 flex-shrink-0 border-r border-slate-700/50 bg-slate-800/70 flex flex-col items-center py-4">
+        {/* Control Rail — floating hover-dock. The rail itself reserves w-16; the
+            flyout is an absolutely-positioned overlay so it never resizes the
+            preview pane. onMouseEnter/Leave lives on this outer wrapper (not the
+            rail alone) so moving the pointer from an icon into the flyout content
+            keeps it open — it only collapses when the pointer leaves the whole
+            rollover area, same as a typical hover dock. */}
+        <div
+          className="relative z-30 flex-shrink-0 h-full"
+          onMouseEnter={() => setHoverOpen(true)}
+          onMouseLeave={() => setHoverOpen(false)}
+        >
+          <div className="w-16 h-full flex-shrink-0 border-r border-slate-800 bg-slate-900/40 backdrop-blur-md flex flex-col items-center py-4">
             <button
-              onClick={() => setConfigCollapsed(!configCollapsed)}
-              className="p-2 rounded-lg bg-slate-700/50 text-slate-200 hover:bg-slate-700"
-              title={configCollapsed ? "Expand configuration" : "Collapse configuration"}
-              aria-label={configCollapsed ? "Expand configuration" : "Collapse configuration"}
+              onClick={() => setPinnedOpen(!pinnedOpen)}
+              className={`p-2 rounded-lg transition-colors ${
+                pinnedOpen
+                  ? "bg-indigo-500/30 text-indigo-200"
+                  : "bg-slate-700/50 text-slate-200 hover:bg-slate-700"
+              }`}
+              title={pinnedOpen ? "Unpin panel" : "Pin panel open"}
+              aria-label={pinnedOpen ? "Unpin panel" : "Pin panel open"}
+              aria-pressed={pinnedOpen}
             >
-              {configCollapsed ? (
-                <PanelLeftOpen className="w-4 h-4" />
-              ) : (
+              {pinnedOpen ? (
                 <PanelLeftClose className="w-4 h-4" />
+              ) : (
+                <PanelLeftOpen className="w-4 h-4" />
               )}
             </button>
 
@@ -504,9 +548,11 @@ export default function CodexViewerPage() {
                 return (
                   <button
                     key={section.id}
+                    onMouseEnter={() => setActiveSection(section.id as ConfigSection)}
+                    onFocus={() => setActiveSection(section.id as ConfigSection)}
                     onClick={() => {
                       setActiveSection(section.id as ConfigSection);
-                      if (configCollapsed) setConfigCollapsed(false);
+                      setPinnedOpen(true);
                     }}
                     className={`p-2 rounded-lg transition-colors ${
                       isActive
@@ -523,8 +569,13 @@ export default function CodexViewerPage() {
             </div>
           </div>
 
-          {!configCollapsed && (
-            <div className="w-80 p-6 overflow-y-auto">
+          <div
+            className={`absolute left-16 top-0 h-full w-80 overflow-y-auto rounded-r-xl border-r border-slate-800 bg-slate-900/70 backdrop-blur-md shadow-2xl shadow-black/40 p-6 transition-all duration-150 ${
+              configPanelOpen
+                ? "opacity-100 translate-x-0 pointer-events-auto"
+                : "opacity-0 -translate-x-2 pointer-events-none"
+            }`}
+          >
               <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-semibold text-slate-300 mb-3">
@@ -540,7 +591,6 @@ export default function CodexViewerPage() {
                 </div>
               </div>
             </div>
-          )}
         </div>
 
         {/* Component Preview */}

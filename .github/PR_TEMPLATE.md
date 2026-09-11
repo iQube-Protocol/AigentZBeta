@@ -45,6 +45,21 @@
 - Receipts emitted for state changes: Yes/No
 - Provenance updated (if relevant): Yes/No
 
+## Capability and Invariant Completion (CCR-001)
+<!--
+Constitutional Capability Completion Law: a capability that is implemented but
+has no completion artifact is operationally present, not constitutionally
+complete. Template: codexes/packs/aigency/items/build_/templates/CAPABILITY_COMPLETION_ARTIFACT_TEMPLATE.md
+Write N/A on every line if this PR touches no registered capability.
+-->
+- Does this PR complete or materially change a registered capability? Yes/No
+  - If Yes, Capability Completion Artifact (CCB) path:
+- New invariants discovered in this work:
+  - ID / statement / provenance (§8 kind) / canary shipped in this PR:
+- Defect fixed by this PR maps to invariant (CCR-INV-9): `<ID>` / new candidate / N/A
+- Every invariant marked `canonical` names at least one canary: Yes/No/N/A
+- Artifact updated to match the shipped behaviour (CCR-INV-11): Yes/No/N/A
+
 ## Testing
 - Unit tests added/updated:
 - Pack integrity checks run: Yes/No

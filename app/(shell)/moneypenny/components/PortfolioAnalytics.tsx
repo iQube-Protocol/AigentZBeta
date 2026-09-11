@@ -10,9 +10,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { BarChart3, TrendingUp, TrendingDown, DollarSign, Activity, PieChart } from "lucide-react";
+import { SimulationNotice } from "./SimulationNotice";
 
 export function PortfolioAnalytics() {
-  // Mock portfolio data
+  // Hardcoded placeholder data — no canonical portfolio/execution evidence
+  // source is wired here yet (SPEC-MPY-002 MPY2-5 "Portfolio/execution/
+  // history views read canonical evidence/state wherever available" remains
+  // open; flagged in the MPY2-0 donor harvest audit). Labelled with
+  // <SimulationNotice> below per the §7 truthfulness rule rather than
+  // presented as live P&L.
   const portfolioData = {
     totalValue: 125000,
     totalPnL: 2500,
@@ -42,9 +48,11 @@ export function PortfolioAnalytics() {
 
   return (
     <div className="space-y-6">
+      <SimulationNotice label="Portfolio figures are simulated placeholders — no canonical evidence source wired yet" />
+
       {/* Portfolio Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
+        <Card className="border-slate-800 bg-slate-900/40 backdrop-blur-xl">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
               <DollarSign className="h-4 w-4 text-emerald-400" />
@@ -52,16 +60,16 @@ export function PortfolioAnalytics() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white">
+            <div className="text-2xl font-bold text-slate-100">
               ${portfolioData.totalValue.toLocaleString()}
             </div>
-            <p className="text-xs text-white/60 mt-1">
+            <p className="text-xs text-slate-400 mt-1">
               Portfolio total value
             </p>
           </CardContent>
         </Card>
 
-        <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
+        <Card className="border-slate-800 bg-slate-900/40 backdrop-blur-xl">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-emerald-400" />
@@ -72,13 +80,13 @@ export function PortfolioAnalytics() {
             <div className={`text-2xl font-bold ${portfolioData.totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
               {portfolioData.totalPnL >= 0 ? '+' : ''}${portfolioData.totalPnL.toLocaleString()}
             </div>
-            <p className="text-xs text-white/60 mt-1">
+            <p className="text-xs text-slate-400 mt-1">
               {portfolioData.totalPnLPercent.toFixed(2)}% total return
             </p>
           </CardContent>
         </Card>
 
-        <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
+        <Card className="border-slate-800 bg-slate-900/40 backdrop-blur-xl">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
               <Activity className="h-4 w-4 text-purple-400" />
@@ -86,16 +94,16 @@ export function PortfolioAnalytics() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white">
+            <div className="text-2xl font-bold text-slate-100">
               {portfolioData.winRate}%
             </div>
-            <p className="text-xs text-white/60 mt-1">
+            <p className="text-xs text-slate-400 mt-1">
               {portfolioData.totalTrades} total trades
             </p>
           </CardContent>
         </Card>
 
-        <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
+        <Card className="border-slate-800 bg-slate-900/40 backdrop-blur-xl">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-blue-400" />
@@ -106,7 +114,7 @@ export function PortfolioAnalytics() {
             <div className={`text-2xl font-bold ${portfolioData.todayPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
               {portfolioData.todayPnL >= 0 ? '+' : ''}${portfolioData.todayPnL}
             </div>
-            <p className="text-xs text-white/60 mt-1">
+            <p className="text-xs text-slate-400 mt-1">
               {portfolioData.todayPnLPercent.toFixed(2)}% today
             </p>
           </CardContent>
@@ -114,13 +122,13 @@ export function PortfolioAnalytics() {
       </div>
 
       {/* Chain Allocation */}
-      <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
+      <Card className="border-slate-800 bg-slate-900/40 backdrop-blur-xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <PieChart className="h-5 w-5 text-emerald-400" />
             Chain Allocation
           </CardTitle>
-          <CardDescription className="text-white/60">
+          <CardDescription className="text-slate-400">
             Portfolio distribution across chains
           </CardDescription>
         </CardHeader>
@@ -130,14 +138,14 @@ export function PortfolioAnalytics() {
               <div key={chain.chain} className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className={`w-3 h-3 rounded-full ${chain.color}`} />
-                  <span className="text-sm text-white/80">{chain.chain}</span>
+                  <span className="text-sm text-slate-300">{chain.chain}</span>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
                     <Progress value={chain.allocation} className="w-20 h-2" />
-                    <span className="text-sm text-white/60">{chain.allocation}%</span>
+                    <span className="text-sm text-slate-400">{chain.allocation}%</span>
                   </div>
-                  <span className="text-sm font-medium text-white">
+                  <span className="text-sm font-medium text-slate-100">
                     ${chain.value.toLocaleString()}
                   </span>
                 </div>
@@ -148,23 +156,23 @@ export function PortfolioAnalytics() {
       </Card>
 
       {/* Recent Performance */}
-      <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
+      <Card className="border-slate-800 bg-slate-900/40 backdrop-blur-xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <BarChart3 className="h-5 w-5 text-emerald-400" />
             Recent Performance
           </CardTitle>
-          <CardDescription className="text-white/60">
+          <CardDescription className="text-slate-400">
             Daily P&L and trading activity
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
             {recentPerformance.map((day) => (
-              <div key={day.date} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/10">
+              <div key={day.date} className="flex items-center justify-between p-2 rounded-lg bg-slate-900/40 border border-slate-800">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-white/80">{day.date}</span>
-                  <Badge variant="outline" className="bg-white/10 text-white/60 border-white/20">
+                  <span className="text-sm text-slate-300">{day.date}</span>
+                  <Badge variant="outline" className="bg-slate-800/60 text-slate-400 border-slate-700">
                     {day.trades} trades
                   </Badge>
                 </div>

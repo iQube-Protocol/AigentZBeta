@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-22",
+  "resolutionId": "RES-2026-08-22-FSVC-ELIGIBILITY-UNDEFINED-COLLAPSE-001",
+  "capability": "phase-3-moneypenny-financial-services-runtime",
+  "milestone": "Phase 3 Track A live browser verification — the operator's first authenticated click-through of the Financial Service Orchestration console on dev-beta.aigentz.me",
+  "problem": "The Orchestration console showed every registrable agent — including MoneyPenny herself, the platform's most-established agent — as \"not eligible — NOT_ADMITTED\" for all three Financial Services, making the console unusable for its stated purpose (observe/trigger an admitted agent's service consumption).",
+  "observedFailure": [
+    "Live screenshots from the operator (dev-beta.aigentz.me, authenticated as persona 'Aigent Z') showed Aigent MoneyPenny, Aigent Nakamoto, and Aigent Know1 all reading 'not eligible — NOT_ADMITTED' for Advisor, Architect, and Runtime alike — a uniform, universal refusal across every agent and every service, which is itself a signal of a systemic read-path defect rather than three independently-unadmitted agents (MoneyPenny in particular has been the platform's primary live-registered demo agent across many prior sessions)."
+  ],
+  "rootCauses": [
+    "`services/financialServices/eligibility.ts`'s admission check read `if (!admission.delegationActive)` to decide `NOT_ADMITTED`. `resolveAgentAdmissionState()` (`services/journey/agentAdmissionState.ts`) returns `delegationActive` as three-valued (`true | false | undefined`), where `undefined` means a genuine audit gap (e.g. the documented 'migrated-agent gap': an agent with an approved Delegate Passport but no `agent_root_identity` row yet, whose self-heal mint requires an authenticated `callerAuthProfileId` this eligibility check never had a parameter to accept). `!undefined` is `true` in JavaScript, so the coarse boolean negation silently treated 'could not be determined' identically to the real negative 'not admitted' — exactly the defect class `agentAdmissionState.ts`'s own extensive header documentation names and was written to close elsewhere in this codebase (the sponsorship/Passport/registration observers), reintroduced fresh in a brand-new call site that never read that file's own three-valued discipline carefully enough before calling it.",
+    "Compounding cause: `evaluateFinancialServiceEligibility()` never threaded `callerAuthProfileId`/`actorPersonaId` through to `resolveAgentAdmissionState()` at all, so even a genuinely migrated agent being checked by a fully authenticated, authorized operator (Aigent Z) could never trigger the self-heal mint that would have resolved its RootDID and produced a real `true`/`false` — every migrated agent was structurally stuck at the audit-gap `undefined`, which the first defect then silently rendered as `false`."
+  ],
+  "resolution": [
+    "Distinguished `admission.delegationActive === undefined` (returns `{eligible: undefined, code: 'ADMISSION_UNRESOLVED', reason: '...unresolved audit gap: <auditGaps>'}`) from `admission.delegationActive === false` (returns `{eligible: false, code: 'NOT_ADMITTED', ...}`) in `eligibility.ts`.",
+    "Added `callerAuthProfileId`/`actorPersonaId` to `EvaluateFinancialServiceEligibilityInput`, `DiscoveryCallerContext` (discovery.ts), and `RequestFinancialServiceInput` (serviceRequestOrchestrator.ts), threading them unchanged into `resolveAgentAdmissionState()` so an authenticated caller's context can actually reach the self-heal path.",
+    "Wired `app/api/moneypenny/service-orchestration/route.ts` to resolve `persona.authProfileId`/`persona.personaId` from the spine (`getActivePersona`) and pass them through on both the discovery (GET) and request (POST) paths.",
+    "Added three regression tests to `tests/financial-services-runtime.test.ts` proving: (a) `delegationActive: undefined` resolves `ADMISSION_UNRESOLVED` not `NOT_ADMITTED`; (b) `delegationActive: false` still correctly resolves `NOT_ADMITTED`; (c) `callerAuthProfileId`/`actorPersonaId` are passed through to `resolveAgentAdmissionState` unchanged."
+  ],
+  "rejectedApproaches": [
+    "Hardcoding a bypass for MoneyPenny specifically (e.g. 'MoneyPenny is always admitted') — rejected because it would mask the same undefined-collapse defect for Nakamoto/Know1/any future agent, and because the actual cause was a call-site bug, not a data problem specific to any one agent.",
+    "Loosening `requiresAdmission` on the catalog to work around the symptom — rejected per the same session's freeze ruling ('no new primitives or policy changes absent a proven gap') and because it would have hidden a real, generically-applicable bug behind a policy change unrelated to the actual defect."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-22-THREE-VALUED-NEGATION-COLLAPSE-001"
+  ],
+  "canaries": [
+    "tests/financial-services-runtime.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "defect-recurred",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/financial-services-runtime.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-22_phase3-track-a-service-orchestration-console.md",
+    "services/journey/agentAdmissionState.ts"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

@@ -1,0 +1,48 @@
+name: deferred-mints-batcher
+
+# Drains the deferred tokenQube mint queue (deferred_token_qube_mints) by
+# POSTing to /api/admin/iqube/process-deferred-mints. PersonaQube mints from
+# the wallet are enqueued (strategy: deferred) and minted on Base in batches
+# of 50 by this loop. Idempotent — only pending rows with a resolvable owner
+# address and a live target chain are minted; everything else stays pending.
+#
+# Required secrets (Settings → Secrets and variables → Actions):
+#   ADMIN_OPS_TOKEN — the same value set in Amplify env. Authorises the
+#                     process-deferred-mints endpoint for the scheduled caller.
+#
+# Manual trigger: Actions → deferred-mints-batcher → Run workflow.
+
+on:
+  schedule:
+    # Every 15 minutes (GitHub Actions cron has a >5-min floor). Drift of a
+    # few minutes is fine for batch minting.
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: deferred-mints-batcher
+  cancel-in-progress: false
+
+jobs:
+  drain:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Process deferred tokenQube mints
+        env:
+          ADMIN_OPS_TOKEN: ${{ secrets.ADMIN_OPS_TOKEN }}
+        run: |
+          if [ -z "$ADMIN_OPS_TOKEN" ]; then
+            echo "::error::ADMIN_OPS_TOKEN secret not set in repo settings"
+            exit 1
+          fi
+          response=$(curl -fsS -X POST \
+            -H "Authorization: Bearer $ADMIN_OPS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"limit":50}' \
+            "https://dev-beta.aigentz.me/api/admin/iqube/process-deferred-mints")
+          echo "Batcher response: $response"
+          ok=$(echo "$response" | python3 -c "import sys,json; print(json.load(sys.stdin).get('ok', False))")
+          if [ "$ok" != "True" ] && [ "$ok" != "true" ]; then
+            echo "::error::Deferred-mints batcher reported failure"
+            exit 1
+          fi

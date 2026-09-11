@@ -1,0 +1,210 @@
+{
+  "receipt": {
+    "schemaVersion": "learning-receipt/v1.0",
+    "intentRef": "intent-phase6-crystal2-contextbinding-scope",
+    "sessionRef": "dls-phase6-dogfood",
+    "intentStatement": "Live-model dogfood of the full retrieval→discovery→compression chain against the REAL, 33-member devon candidate registry found that live discovery and the single most relevant registered candidate are silently crowded out of the compressed implementation context by relevance-blind, fixed-priority budget allocation.",
+    "establishedInvariantsUsed": [
+      "CI-2026-08-03-ACTOR-SUBJECT-OWNER-001",
+      "CI-2026-08-03-CANARY-REPRODUCES-DEFECT-001",
+      "CI-2026-08-03-TTV-TTR-OBJECTIVE-001"
+    ],
+    "candidateOrLiveInvariantsUsed": [
+      "CI-2026-08-03-IDENTIFIER-RECOVERY-CONTRACT-001",
+      "CI-2026-08-08-CFS-ROOTDID-AUTHORITY-001",
+      "CI-2026-08-08-PNL-INDEPENDENT-EVIDENCE-001",
+      "CI-2026-08-08-PULSE-EVIDENCE-BOOTSTRAP-001",
+      "CI-2026-08-08-RECEIPT-SUBJECT-SCOPING-001",
+      "CI-2026-08-08-RECEIPTED-CONSTITUTIONAL-STATE-001",
+      "CI-2026-08-08-RECONCILIATION-NEVER-REWRITES-001",
+      "CI-2026-08-09-STANDING-SEED-PRODUCTION-WIRING-001",
+      "CI-2026-08-15-CANONICAL-TERM-RESOLUTION-001",
+      "CI-2026-08-15-COLLECTION-KEY-UNIQUENESS-001",
+      "CI-2026-08-15-DESTINATION-ADDRESSABLE-001",
+      "CI-2026-08-15-QUIESCENT-MEASUREMENT-001",
+      "CI-2026-08-15-SCOPE-CONTEXT-BINDING-AXIS-001",
+      "CI-2026-08-03-ADMISSION-CIRCULAR-PREREQUISITE-001",
+      "CI-2026-08-03-BOUNDED-PROCESSOR-PARTIAL-COMPLETION-001",
+      "CI-2026-08-03-CANARY-SUBJECT-SELECTION-001",
+      "CI-2026-08-03-CANONICAL-READER-OWNERSHIP-001",
+      "CI-2026-08-03-CAPACITY-LIMIT-BATCHES-NOT-TRUNCATES-001",
+      "CI-2026-08-03-CHAIN-AS-INDEPENDENT-EVIDENCE-001",
+      "CI-2026-08-03-CONTROL-CONSTRAINS-RECORD-001",
+      "CI-2026-08-03-CONVERGE-ON-PROTOCOL-CONTRACT-001",
+      "CI-2026-08-03-DISTINCT-STATE-AXES-001",
+      "CI-2026-08-03-EXCEPTION-TERMINATES-IN-ACT-001",
+      "CI-2026-08-03-EXECUTION-CONSTRAINT-ABSORPTION-001",
+      "CI-2026-08-03-ONE-ADMISSION-GATE-001",
+      "CI-2026-08-03-PREPARED-EXECUTION-001",
+      "CI-2026-08-03-SCHEMA-ENRICHMENT-RECOVERY-001",
+      "CI-2026-08-03-SETTLED-STAGE-OUTCOME-MONOTONIC-001",
+      "CI-2026-08-03-UX-MINIMIZE-CONSTITUTIONAL-COGNITIVE-LOAD-001",
+      "CI-2026-08-03-UX-RECOMMENDATION-PREPARED-IN-ADVANCE-001",
+      "pos-0",
+      "pos-1",
+      "pos-2",
+      "neg-0",
+      "neg-1",
+      "neg-2"
+    ],
+    "projectedRisks": [
+      "por-rv1",
+      "por-rv2",
+      "por-rv3"
+    ],
+    "observedRisks": [
+      "ro-phase6-compression-crowdout"
+    ],
+    "evidenceSupporting": [
+      {
+        "invariantRef": "neg-0",
+        "kind": "supported",
+        "basis": "tests/context-binding-axis-scope.test.ts — \"does not import from types/invariantEnvelope.ts\" passed",
+        "consequenceRef": "c-import-coupling",
+        "dcirEventId": "dcir-evt-msuq43jl-1-mwy5o4",
+        "observedAt": "2026-08-15T00:00:00.000Z"
+      },
+      {
+        "invariantRef": "neg-1",
+        "kind": "supported",
+        "basis": "tests/context-binding-axis-scope.test.ts — \"contains no T0-forbidden identifier key name\" passed",
+        "consequenceRef": "c-t0-leak",
+        "dcirEventId": "dcir-evt-msuq43jl-2-idqf07",
+        "observedAt": "2026-08-15T00:00:00.000Z"
+      },
+      {
+        "invariantRef": "neg-2",
+        "kind": "supported",
+        "basis": "tests/context-binding-axis-scope.test.ts — \"has zero non-test production importers\" passed",
+        "consequenceRef": "c-premature-adoption",
+        "dcirEventId": "dcir-evt-msuq43jl-3-isi0sf",
+        "observedAt": "2026-08-15T00:00:00.000Z"
+      }
+    ],
+    "evidenceChallengingOrFalsifying": [],
+    "repairPerformed": [],
+    "unresolvedMaterialQuestions": [],
+    "scopeRecommendations": [
+      "A negative-bearing discovery widened scope beyond the intent domain — consider whether this cycle's learning is cross-capability, not local."
+    ],
+    "draftResolutionRecord": {
+      "schemaVersion": "resolution-record/v2.0",
+      "resolutionId": "RES-2026-08-15-PHASE6-COMPRESSION-CROWDOUT-001",
+      "capability": "Homecoming III — invariant-driven DevOn + IDE 2.0 kernel",
+      "milestone": "Phase 6 — live dogfood",
+      "problem": "Live-model dogfood of the full retrieval→discovery→compression chain against the REAL, 33-member devon candidate registry found that live discovery and the single most relevant registered candidate are silently crowded out of the compressed implementation context by relevance-blind, fixed-priority budget allocation.",
+      "observedFailure": [
+        "Live discovery (6/6 items) was entirely crowded out of the compressed implementation context, and the single most on-point registered candidate (CI-2026-08-15-SCOPE-CONTEXT-BINDING-AXIS-001) was omitted while several unrelated (Pulse/P&L/RootDID) candidates were carried instead — observed live against the real, 33-member devon-projected candidate registry."
+      ],
+      "rootCauses": [
+        "The devon-projected candidate population (33, all materiality \"unknown\") exceeds the non-established compression budget (9 remaining of 12 after 3 established) with no per-task relevance discount applied before the fixed established→signals→discoveries partition order allocates it."
+      ],
+      "resolution": [
+        "No remediation was required this cycle."
+      ],
+      "rejectedApproaches": [],
+      "candidateInvariants": [],
+      "canaries": [],
+      "scope": "local",
+      "status": "observed",
+      "trigger": "invariant-incomplete-or-misscoped",
+      "evidence": {
+        "commits": [],
+        "tests": [],
+        "receipts": [],
+        "incidentRefs": []
+      },
+      "sourceDocs": [],
+      "date": "2026-08-15",
+      "projections": {
+        "targets": [
+          "devon"
+        ],
+        "researchRequired": false,
+        "ratificationRequired": true,
+        "track": null
+      }
+    },
+    "draftCandidateInvariants": [],
+    "generatedAt": "2026-08-15T00:00:00.000Z"
+  },
+  "riskObservation": {
+    "schemaVersion": "risk-observation/v1.0",
+    "id": "ro-phase6-compression-crowdout",
+    "intentRef": "intent-phase6-crystal2-contextbinding-scope",
+    "sessionRef": "dls-phase6-dogfood",
+    "site": "services/devCommandCenter/implementationContext.ts::composeImplementationContext (+ invariantEnvelope.ts::compressEnvelope)",
+    "description": "Live discovery (6/6 items) was entirely crowded out of the compressed implementation context, and the single most on-point registered candidate (CI-2026-08-15-SCOPE-CONTEXT-BINDING-AXIS-001) was omitted while several unrelated (Pulse/P&L/RootDID) candidates were carried instead — observed live against the real, 33-member devon-projected candidate registry.",
+    "initiatingCondition": "The devon-projected candidate population (33, all materiality \"unknown\") exceeds the non-established compression budget (9 remaining of 12 after 3 established) with no per-task relevance discount applied before the fixed established→signals→discoveries partition order allocates it.",
+    "adverseConsequence": "Genuinely relevant live discoveries and the single most relevant registered candidate are silently absent from the prompt that would reach an implementer, while less-relevant unrelated-subsystem candidates are carried in their place.",
+    "relatedRiskVectorId": null,
+    "evidenceRefs": [
+      "codexes/packs/agentiq/updates/2026-08-15_phase6-dogfood-trace.json"
+    ],
+    "observedAt": "2026-08-15T00:00:00.000Z"
+  },
+  "portability": {
+    "observationId": "ro-phase6-compression-crowdout",
+    "recurrenceCount": 1,
+    "distinctSites": [
+      "services/devCommandCenter/implementationContext.ts::composeImplementationContext (+ invariantEnvelope.ts::compressEnvelope)"
+    ],
+    "portable": false,
+    "rationale": "Single occurrence — one failure is evidence of a risk, not of a pattern.",
+    "assessedAt": "2026-08-15T00:00:00.000Z"
+  },
+  "candidateProduced": null,
+  "challengedEstablishedRefs": [],
+  "receiptValidation": {
+    "valid": true,
+    "issues": []
+  },
+  "dcirEvents": [
+    {
+      "id": "dcir-evt-msuq43jl-1-mwy5o4",
+      "kind": "InvariantSupported",
+      "runtime": "observation",
+      "summary": "invariant supported: neg-0 — tests/context-binding-axis-scope.test.ts — \"does not import from types/invariantEnvelope.ts\" passed",
+      "tier": "t1-browser-safe",
+      "artefactRefs": [
+        "neg-0"
+      ],
+      "capsuleScope": "implementation",
+      "occurredAt": "2026-08-15T18:42:42.033Z"
+    },
+    {
+      "id": "dcir-evt-msuq43jl-2-idqf07",
+      "kind": "InvariantSupported",
+      "runtime": "observation",
+      "summary": "invariant supported: neg-1 — tests/context-binding-axis-scope.test.ts — \"contains no T0-forbidden identifier key name\" passed",
+      "tier": "t1-browser-safe",
+      "artefactRefs": [
+        "neg-1"
+      ],
+      "capsuleScope": "implementation",
+      "occurredAt": "2026-08-15T18:42:42.033Z"
+    },
+    {
+      "id": "dcir-evt-msuq43jl-3-isi0sf",
+      "kind": "InvariantSupported",
+      "runtime": "observation",
+      "summary": "invariant supported: neg-2 — tests/context-binding-axis-scope.test.ts — \"has zero non-test production importers\" passed",
+      "tier": "t1-browser-safe",
+      "artefactRefs": [
+        "neg-2"
+      ],
+      "capsuleScope": "implementation",
+      "occurredAt": "2026-08-15T18:42:42.033Z"
+    },
+    {
+      "id": "dcir-evt-msuq43jm-4-l284u2",
+      "kind": "NewRiskObservation",
+      "runtime": "observation",
+      "summary": "new risk observed: ro-phase6-compression-crowdout — Live discovery (6/6 items) was entirely crowded out of the compressed implementation con",
+      "tier": "t1-browser-safe",
+      "artefactRefs": [],
+      "capsuleScope": "implementation",
+      "occurredAt": "2026-08-15T18:42:42.034Z"
+    }
+  ]
+}

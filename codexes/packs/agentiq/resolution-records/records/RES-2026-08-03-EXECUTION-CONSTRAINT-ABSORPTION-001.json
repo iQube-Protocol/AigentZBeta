@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-08-03-EXECUTION-CONSTRAINT-ABSORPTION-001",
+  "capability": "Track 2 — Stage 2 bulk admission (operator experience)",
+  "milestone": "Track 2 exception isolation — execution constraints absorbed by the system",
+  "problem": "The operator selected 33 sources, chose one disposition, one provenance class and one rationale, and was refused: '33 sources exceeds the 25-source batch limit… Split the selection.' The refusal reasoning was correct — a silently truncated batch reporting success is the population-shrink defect fixed at Stage 3 — but the system projected the REMEDY onto the operator while already holding every fact needed to perform it: the selection, the limit, one disposition, one provenance class, one rationale, and no constitutional difference whatever between executing it as one batch or two. The operator's verdict: 'technically honest but operationally poor. It has detected the constraint. It has not solved the operator's problem.'",
+  "observedFailure": [
+    "A 33-source selection with a single, fully-specified governed decision was refused outright rather than executed.",
+    "The remedy offered was 'Split the selection' — manual partitioning, then re-entering the same disposition, provenance class and rationale for the second batch.",
+    "The operator was required to hold an implementation detail (a 25-row server cap) in working memory in order to perform a constitutional act that the cap does not affect.",
+    "The duplicate warning rendered directly above the same control still read 'only you can say which copy is canonical' — stale since the in-place duplicate resolution board shipped earlier the same day, leaving a second warning on the same screen with no act attached."
+  ],
+  "rootCauses": [
+    "A non-constitutional execution constraint (batch size) was surfaced as an operator workflow decision. Batching, pagination, chunking, retries and rate limits alter no constitutional intent, so none of them may become operator decisions.",
+    "The client executor was a single-shot request builder with no notion of partitioning, so the server's cap could only ever reach the operator as a refusal.",
+    "The refusal was written as terminal — it named the constraint and the manual remedy, but nothing in the system was positioned to perform that remedy on the operator's behalf.",
+    "The duplicate warning's copy was written when no resolution path existed and was not revisited when one was built; a warning whose remedy has since been implemented becomes a dead end rather than merely being redundant."
+  ],
+  "resolution": [
+    "Added services/corpusScout/executionAbsorption.ts: deterministic client-side partitioning of a selection into batches that each satisfy the unchanged server limit, plus honest reconciliation of the per-batch outcomes.",
+    "The server's MAX_BATCH = 25 and its refuse-rather-than-truncate rule are UNCHANGED. The limit is absorbed by the executor, never raised and never relaxed; a canary pins the client mirror to the server's declared value so drift resurfaces as a build failure rather than as the old refusal.",
+    "One operator act now loops N batches, each carrying its own governed receipt. The disposition, provenance class and rationale are entered once and applied to every batch.",
+    "Partitioning sorts by source id before packing, so the same selection yields the same batches regardless of click order — the same determinism discipline the Stage 3 evidence partitioner carries.",
+    "Partial failure stays honest: the run stops at the first failed batch and reports how many were recorded, how many were not, which batch it stopped at, and the ids of every source not recorded. summariseAbsorbedExecution can never describe a partial run as complete.",
+    "Batching surfaces as progress ('Executing… batch 1 of 2'), with the explicit partition available as expandable detail rather than as a decision — the operator's preferred shape.",
+    "The stale duplicate warning now points at the resolution board that can actually resolve the group, rather than ending on a caveat with no act attached.",
+    "PENDING CROSS-REFERENCE: the Execution Constraint Absorption candidate invariant (CI-2026-08-03-EXECUTION-CONSTRAINT-ABSORPTION-001) is being authored by the agent that recorded the operator-experience family, and is deliberately NOT duplicated here. It is omitted from candidateInvariants rather than referenced, because the referential-integrity canary correctly refuses a record naming a candidate that does not exist on disk — a dangling reference is a broken registry, not a placeholder. Add this record's id to that candidate's derivedFrom, and that candidate's id here, when it lands; tests/execution-absorption.test.ts is its enforcement point and is already written."
+  ],
+  "rejectedApproaches": [
+    "Raising the server's MAX_BATCH to fit the selection. It moves the cliff rather than removing it, and the next larger selection meets the same wall.",
+    "Removing the server-side refusal and letting it truncate. This is the population-shrink defect explicitly — a partially applied batch reporting success — and the refusal exists precisely to prevent it.",
+    "Auto-splitting server-side inside the bulk-review route. The route's single-batch contract and its one-receipt-per-batch guarantee are what make each act auditable; splitting inside it would produce one receipt for several batches, collapsing the constitutional record.",
+    "Continuing past a failed batch to maximise throughput. It would leave the operator unable to tell which sources were recorded, which is the same opacity the refusal was protecting against.",
+    "Collapsing the per-batch receipts into one summary receipt. Simpler to read and constitutionally wrong: each batch is its own governed act. The operator's own framing — 'One click. Two receipts. Zero operator work.'",
+    "Leaving the duplicate warning as-is on the grounds that it is still literally true. A warning whose remedy now exists but which does not name it is a dead end, not a caution."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-03-UX-MINIMIZE-CONSTITUTIONAL-COGNITIVE-LOAD-001",
+    "CI-2026-08-03-UX-OPTIMIZE-COMPLETION-NOT-OBSTRUCTION-001",
+    "CI-2026-08-03-EXECUTION-CONSTRAINT-ABSORPTION-001"
+  ],
+  "canaries": [
+    "tests/execution-absorption.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [
+      "352fee7c3",
+      "07c7db033"
+    ],
+    "tests": [
+      "tests/execution-absorption.test.ts"
+    ],
+    "receipts": [
+      "research_lifecycle_transition"
+    ],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-08-03_track2-exception-isolation.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-03_track2-exception-isolation.md"
+  ],
+  "date": "2026-08-03",
+  "projections": {
+    "targets": [
+      "devon",
+      "ux-framework"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  }
+}

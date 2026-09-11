@@ -1,0 +1,16 @@
+{
+  "chain": "base",
+  "chainId": 8453,
+  "contract": "QCTReserve",
+  "address": "0x06Be2FbcBBB9cCA2D0Ce1753AdC18ab8021dc0FA",
+  "qct": "0x46CD79B8f795169FC59D5f1DE1a444c3C39fE7CE",
+  "usdc": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "mintRatio": 100,
+  "mintFee": "0.1%",
+  "burnFee": "0.1%",
+  "deployer": "0x0e3a4FDbE83F7e206380E6C61CA016F2127FF844",
+  "deployTxHash": "0xa8ea8d9b3630fa102cc8fe543002cff61b0957122b27422a4daf5718d55fcade",
+  "setReserveTxHash": "0x68e8a43ec6c299bb1b7f1b59a46352a4edee6d21e8719020d604867668f3508f",
+  "explorer": "https://basescan.org/address/0x06Be2FbcBBB9cCA2D0Ce1753AdC18ab8021dc0FA",
+  "deployedAt": "2026-05-28"
+}

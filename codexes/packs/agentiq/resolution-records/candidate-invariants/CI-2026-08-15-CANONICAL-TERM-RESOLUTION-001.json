@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-15-CANONICAL-TERM-RESOLUTION-001",
+  "statement": "A canonical term's meaning is resolved from governed Common Ground before it is inferred from context. Where the term is absent from canon, it is surfaced as unresolved rather than reconstructed.",
+  "classification": "Engineering/constitutional invariant. Governs the reliability of every specification an agent reads, in the same register as CI-2026-08-03-CANARY-REPRODUCES-DEFECT-001 governs the reliability of every canary.",
+  "family": "engineering",
+  "scope": "local",
+  "status": "candidate",
+  "ratifiedSource": null,
+  "parentCandidateId": null,
+  "supersededBy": null,
+  "governingPrinciple": false,
+  "derivedFrom": [
+    "RES-2026-08-15-CANONICAL-TERM-RESOLUTION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "Homecoming III bootstrap PRD — section 23 (Common Ground terminology)",
+      "defect": "The PRD instructed the implementing agent to establish 'DCIR = Development Constitutional Invariant Runtime' as canonical terminology. DCIR was already ratified as 'Dynamic Constitutional Interaction Runtime' under CFS-020, with types/dcir.ts, four service modules, four test files and live consumers. The wrong expansion changed the architecture rather than merely the wording: it implied building a second observation runtime parallel to the existing one, when services/dcir/eventStream.ts already emitted nine DevOn event types. The section mandating governed terminology was itself the section violated.",
+      "resolutionId": "RES-2026-08-15-CANONICAL-TERM-RESOLUTION-001",
+      "evidence": [
+        "types/dcir.ts",
+        "services/dcir/eventStream.ts",
+        "docs/platform-ontology.md"
+      ]
+    }
+  ],
+  "canaries": [],
+  "projections": {
+    "targets": [
+      "devon",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "notes": [
+    "STATED CAUSALLY, NOT AS A PROHIBITION. The prohibition form — 'never guess an acronym' — names the act rather than the condition, and would not have caught this: the agent was not aware of guessing. The causal form names the condition that must hold (the meaning is RESOLVED before it is INFERRED), which is checkable at the point of use and generates the enforcement mechanism directly. Discipline per Homecoming III PRD section 9.",
+    "OCCURRENCE COUNT IS DELIBERATELY ONE. The operator stated on 2026-08-15: 'We've now caught ourselves twice trying to reconstruct DCIR from context.' That second instance is OPERATOR-ATTESTED and is NOT recorded as an occurrence, because a second entry would make the count read as two independent evidenced observations and two occurrences is precisely the threshold for 'validated'. Promotion must not be manufactured by counting an attestation as evidence. If the second concrete instance is located, it is added and the status changes on that evidence.",
+    "SCOPE IS 'local' PENDING A SECOND CAPABILITY. The rule is expected to be cross-capability in nature — it plausibly governs any agent reading any specification — but 'cross-capability' is a claim the milestone-close check requires occurrences in more than one capability to earn. It is left at 'local' until that evidence exists rather than asserted and back-filled.",
+    "NO CANARY YET, STATED HONESTLY. The Phase 0 enforcement point is enforcement rule 5 in docs/platform-ontology.md — governed prose in an asset every agent must read before writing code. That is a real mechanism but not an executable one. The executable canary belongs with the terminology-resolution mechanism and is deferred to a later phase rather than claimed now; claiming an absent canary would violate CI-2026-08-03-CANARY-REPRODUCES-DEFECT-001, whose whole subject is instruments that do not do what they assert.",
+    "RELATIONSHIP TO THE TTV/TTR OBJECTIVE (CI-2026-08-03-TTV-TTR-OBJECTIVE-001): this invariant is a Time-to-Value rule before it is a correctness rule. Resolution from canon is O(1) and reliable; reconstruction is expensive and silently wrong. The operator's framing, 2026-08-15: 'Canon reduces inference where inference adds no value. Compute should be spent discovering what isn't known, not repeatedly guessing what the system has already established.'",
+    "GENERALISATION BEYOND ACRONYMS IS NOT YET CLAIMED. The evidenced occurrence concerns an acronym expansion. Whether the same rule governs role boundaries, status vocabularies and capability names is plausible and untested — recorded here as the open question rather than folded into the statement."
+  ]
+}

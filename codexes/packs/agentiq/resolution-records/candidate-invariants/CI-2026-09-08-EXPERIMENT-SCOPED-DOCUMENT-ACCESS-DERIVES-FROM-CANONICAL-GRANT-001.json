@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "When a default-deny document/resource-serving route needs to admit a non-admin external principal (a reviewer, partner, or other scoped participant), the admission check must be derived from the SAME canonical grant/invitation system that vetted that principal elsewhere in the platform — never a second, route-local allowlist keyed to the specific person or a hand-maintained path list.",
+    "The scope test itself should be OBJECT-AWARE: derive 'which governed object does this specific request concern' (here: which EXPERIMENT_REGISTRY entry a requested path falls under) from the SAME single source of truth the object's own identity already lives in (protocolRef), then check the caller's grant against THAT object id — never a blanket 'this whole route/pack is now open to any grant-holder' widening.",
+    "A resource outside the scope of every recognized object must remain exactly as restrictively gated as it was before the widening — the mechanism must be provably incapable of admitting anything beyond the specific object(s) a caller's grant actually names.",
+    "A delegated agent acting on a principal's behalf needs no separate delegation-authority mechanism when the agent authenticates AS the principal's own credential/session — the identical grant-scope check already bounds the agent to exactly what the principal itself could reach, and inventing a second 'agent scope' concept would only create a second thing that could drift from the first.",
+    "Revocation and expiry need no separate enforcement path when the grant query itself filters to active/unexpired rows at read time — a revoked grant is then observationally identical to 'never granted', which is the sufficient and correct behavior; a route must never cache or separately track 'is this grant still good' independently of that live query.",
+    "Discovered via the 2026-08-27 IRL OS containment pass, which correctly closed a confidential-IP leak by gating two document-serving routes to admin-only, but in doing so broke an ALREADY-APPROVED external review process (Austin/Autonomi's EXP-P1 reviewer flow) whose own invitation/grant vetting the routes had no way to see. The fix generalizes cleanly: any future scoped-experiment external reviewer gets the identical protection for free, with zero new code, because the mechanism keys off the registry and the grant system rather than a name."
+  ],
+  "canaries": [
+    {
+      "path": "tests/irl-reviewer-scoped-access-2026-09-08.test.ts",
+      "assertion": "an invited, non-admin reviewer with a research-lab grant scoped to EXP-P1 retrieves EXP-P1 material on both irl-pack document routes; the SAME reviewer is denied a path outside every registered experiment's folder even with a valid grant; a grant scoped to a DIFFERENT experiment (EXP-011) is denied EXP-P1 material yet still reaches its own experiment; an uninvited/unauthenticated caller and a revoked/expired grant are both denied identically; every col_experiments path tagged as an EXP-P1 document resolves, via the same predicate the routes gate on, to EXP-P1 — proving the agent package can never advertise a link its authorized reviewer cannot subsequently dereference.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/irl-os-containment.test.ts",
+      "assertion": "both irl-pack document routes' source explicitly names the scoped-grant call sites (resolveExperimentReviewGrant, experimentIdForIrlPackPath), and the public irl/doc route's every denial branch still resolves to a 404, never a 403 — the containment posture of no existence-signal-on-denial survives the widening.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "candidateId": "CI-2026-09-08-EXPERIMENT-SCOPED-DOCUMENT-ACCESS-DERIVES-FROM-CANONICAL-GRANT-001",
+  "statement": "A default-deny document/resource route that must admit a non-admin external principal (reviewer, partner, scoped participant) shall derive that admission from the SAME canonical grant/invitation system already used to vet that principal elsewhere — never a route-local, person-specific, or hand-maintained allowlist. The scope test shall be object-aware: derive which governed object (e.g. which registered experiment) a specific request concerns from the object's own single source of truth, then check the caller's grant against that object id specifically — a request outside every recognized object's scope must remain exactly as restrictively gated as before the widening. A delegated agent needs no separate delegation-authority mechanism when it authenticates as the principal's own credential; revocation/expiry needs no separate enforcement path when the grant query itself filters to active rows at read time. Every denial path (anonymous, wrong scope, revoked, out-of-object) must remain observationally uniform, preserving whatever existence-signal posture (e.g. neutral 404 vs explicit 403) the route already committed to.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-09-08-IRL-PHASE2-SCOPED-REVIEWER-RESTORATION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "app/api/codex/packs/[packId]/file/route.ts, app/api/public/irl/doc/route.ts, services/research/irlExperimentPathScope.ts",
+      "defect": "The 2026-08-27 containment pass's admin-only gate had no way to recognize an already-vetted, non-admin scoped reviewer (Austin/Autonomi's EXP-P1 review), regressing an already-approved external process while correctly closing a confidential-IP leak.",
+      "resolutionId": "RES-2026-09-08-IRL-PHASE2-SCOPED-REVIEWER-RESTORATION-001",
+      "evidence": [
+        "tests/irl-reviewer-scoped-access-2026-09-08.test.ts"
+      ]
+    },
+    {
+      "site": "app/api/research/readiness/[experimentId]/route.ts",
+      "defect": "The Readiness dashboard route was hard admin-only despite its own header comment already claiming 'a reviewer can also hit it directly' — a scoped, non-admin EXP-P1 reviewer had no path to Experimental Readiness anywhere, in Workspace or otherwise. Fixed by the SAME admin-OR-`resolveExperimentReviewGrant(experimentId)` pattern as the first occurrence — no new gate vocabulary.",
+      "resolutionId": "RES-2026-09-08-IRL-OS-WORKSPACE-CONSOLIDATION-001",
+      "evidence": [
+        "tests/workspace-capabilities-authorization-2026-09-08.test.ts"
+      ]
+    },
+    {
+      "site": "app/api/participation/workspace-capabilities/route.ts",
+      "defect": "New route generalizing the same admission pattern to a workspace's Reviewer Kit/protocol documents and its readiness/review-agreement availability flags, keyed off `EXPERIMENT_REGISTRY`/`resolveExperimentReviewGrant` rather than a per-experiment special case — the pattern applied to a genuinely new capability class (composed Workspace cards), not merely reapplied to an existing one.",
+      "resolutionId": "RES-2026-09-08-IRL-OS-WORKSPACE-CONSOLIDATION-001",
+      "evidence": [
+        "tests/workspace-capabilities-authorization-2026-09-08.test.ts"
+      ]
+    }
+  ],
+  "family": "engineering",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
+}

@@ -26,12 +26,25 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getExperienceQube } from '@/services/iqube/experienceQube';
 import { getIntentQube } from '@/services/iqube/intentQube';
 import { draftEmail, type DraftEmailContext } from '@/services/agents/draftEmail';
+import { resolveRecipientFromPrompt } from '@/services/contacts/resolveRecipient';
 
 export const dynamic = 'force-dynamic';
 
 interface PostBody {
   prompt?: string;
   intentId?: string;
+  /**
+   * Optional list of artifacts already produced in the current workflow
+   * (e.g. a Slides deck created by the operator moments before clicking
+   * "Draft for me" on the Gmail composer). The drafter weaves their
+   * URLs inline when the body references them — see the ATTACHMENT URL
+   * RULE in services/agents/draftEmail.ts.
+   */
+  relatedArtifacts?: Array<{
+    artifactType?: unknown;
+    title?: unknown;
+    locationUrl?: unknown;
+  }>;
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -92,9 +105,53 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
+  // Sanitise relatedArtifacts — only carry forward entries where all
+  // three fields are present and locationUrl is a real http(s) URL.
+  // Anything else is dropped silently so a malformed entry can't
+  // poison the LLM prompt.
+  if (Array.isArray(body.relatedArtifacts) && body.relatedArtifacts.length > 0) {
+    const cleaned = body.relatedArtifacts
+      .map((a) => ({
+        artifactType: typeof a?.artifactType === 'string' ? a.artifactType.trim() : '',
+        title: typeof a?.title === 'string' ? a.title.trim() : '',
+        locationUrl: typeof a?.locationUrl === 'string' ? a.locationUrl.trim() : '',
+      }))
+      .filter(
+        (a) =>
+          a.artifactType.length > 0 &&
+          a.title.length > 0 &&
+          /^https?:\/\//i.test(a.locationUrl),
+      )
+      .slice(0, 5);
+    if (cleaned.length > 0) draftCtx.relatedArtifacts = cleaned;
+  }
+
+  // Contact resolution — the ONE canonical resolver (services/contacts/
+  // resolveRecipient.ts) against persona_contacts. Ambiguity (2+ plausible
+  // contacts) is surfaced explicitly to the caller rather than silently
+  // guessed — see recipientAmbiguity in the response below.
+  let recipientAmbiguity: Array<{ contactId: string; displayName: string | null; email: string }> | undefined;
+  if (!draftCtx.recipientEmail) {
+    try {
+      const resolution = await resolveRecipientFromPrompt(context.personaId, prompt);
+      if (resolution.status === 'resolved') {
+        draftCtx.recipientEmail = resolution.candidate.email;
+        draftCtx.recipientName = resolution.candidate.displayName ?? undefined;
+      } else if (resolution.status === 'ambiguous') {
+        // Never guess — the draft proceeds with "to" left for the operator/
+        // LLM to fill by name; the caller surfaces recipientAmbiguity so the
+        // UI can ask "which <name> did you mean?" before a send is possible.
+        recipientAmbiguity = resolution.candidates;
+      }
+    } catch {
+      // Soft-fail — draft still works without the lookup.
+    }
+  }
+
   const draft = await draftEmail({ prompt, context: draftCtx });
 
-  return NextResponse.json(draft, {
-    headers: { 'Cache-Control': 'no-store' },
-  });
+  return NextResponse.json(
+    { ...draft, ...(recipientAmbiguity ? { recipientAmbiguity } : {}) },
+    { headers: { 'Cache-Control': 'no-store' } },
+  );
 }

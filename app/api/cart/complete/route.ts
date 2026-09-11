@@ -42,6 +42,7 @@
  * lines remain in cart for retry.
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { getActivePersona } from '@/services/identity/getActivePersona';
 import { PurchaseHandler } from '@/services/rewards/purchaseHandler';
 import { cartContentTypeToProductType, type CartItem } from '@/types/knyt-store';
 
@@ -87,8 +88,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
   }
 
+  /*
+   * SPINE AUTH — THIS ROUTE GRANTS ENTITLEMENTS (2026-08-02).
+   *
+   * `personaId` arrived in the body and nothing checked who was asking, so
+   * entitlements and numbered editions were claimable against any known
+   * persona UUID. The header comment already said "required (signed-in only)"
+   * — the intent was recorded and never enforced.
+   *
+   * The spine is the single authority on who is asking. A body-supplied
+   * personaId is a claim, not a credential, and is accepted only when it
+   * agrees with the resolved caller.
+   */
+  const caller = await getActivePersona(req);
+  if (!caller?.personaId) {
+    return NextResponse.json(
+      { ok: false, error: 'Not authenticated. A cart may only be completed by the persona that owns it.' },
+      { status: 401 },
+    );
+  }
   if (!body.personaId) {
     return NextResponse.json({ ok: false, error: 'personaId required' }, { status: 400 });
+  }
+  if (body.personaId !== caller.personaId) {
+    // Reported, never silently retargeted: a purchase completed against
+    // someone else's persona is the defect, and rewriting it would hide it.
+    return NextResponse.json(
+      { ok: false, error: 'The cart names a persona other than the authenticated caller.' },
+      { status: 403 },
+    );
   }
   if (!body.paymentRail || !['knyt', 'knyt_evm', 'qcents', 'usdc'].includes(body.paymentRail)) {
     return NextResponse.json(

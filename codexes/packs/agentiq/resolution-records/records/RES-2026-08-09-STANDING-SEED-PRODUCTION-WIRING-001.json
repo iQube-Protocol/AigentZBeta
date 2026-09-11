@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-09",
+  "resolutionId": "RES-2026-08-09-STANDING-SEED-PRODUCTION-WIRING-001",
+  "capability": "horizen-registration-standing-seed",
+  "milestone": "Every registrable agent's nominal, one-time registration Standing seed is actually awarded in production the first time factory ingestion is observed eligible — closing the gap between a fully-specified capability and zero production callers, generically for every agent in the registrable-agent registry, never a per-agent patch.",
+  "problem": "Horizen Pilot Closure item 2 (operator, 2026-08-09), following the operator's earlier correction (2026-08-03, recorded in registrationStandingSeed.ts's own header): factory ingestion may earn a nominal initial Standing award because registration is itself a consequential, receipted act — not merely passive eligibility. services/journey/registrationStandingSeed.ts specified the full contract (amount=1, basis, the settle-then-award sequence, idempotency via settleFact) but no route or service in the codebase ever called it.",
+  "observedFailure": [
+    "app/api/journey/moneypenny-horizen/state/route.ts read the settled fact (isSettled(readSettledFact(..., 'registry_standing_seeded'))) into registrationStandingSeeded, and used it to compute initialStandingAwarded — but nothing anywhere ever called settleFact for that predicate, so the read always returned unset and initialStandingAwarded was 0 for every agent, permanently.",
+    "The Standing stage's own completion (standingGatewayEnabled) resolved purely on hasReceipt('standing_accrued') — presence of ANY receipt of that type for the agent — so the seed's absence was invisible: an agent could reach Standing only via some other, unspecified standing_accrued write, never via the documented registration seed.",
+    "Repo-wide grep for shouldAwardRegistrationSeed / REGISTRATION_STANDING_SEED / registry_standing_seeded (settleFact call, not the read) found only two test files (tests/journey-admission-spine.test.ts, tests/journey-monotonic-admission.test.ts) exercising the pure spec module directly — zero production import sites."
+  ],
+  "rootCauses": [
+    "registrationStandingSeed.ts was authored as a pure, I/O-free spec module (constants + a boolean predicate) with an explicit, well-documented CALLER CONTRACT in its own comments — but authoring the contract is not the same act as wiring a caller to execute it, and no follow-on work item existed to close that gap until this closure pass named it explicitly."
+  ],
+  "resolution": [
+    "Added services/journey/registrationStandingSeedAward.ts — the ONE production implementation of the documented contract: settleFact('registry_standing_seeded') then, only when shouldAwardRegistrationSeed(settlement) is true, one standing_accrued receipt via the canonical createActivityReceipt, attributed to the real operator persona and tagged with the seed's own basis/tier/repeatable=false/impliesPerformance=false fields so it stays forever distinguishable from earned performance Standing.",
+    "Wired into app/api/journey/moneypenny-horizen/state/route.ts at the exact point the route already observes the Deploy/factory-ingestion completion boundary (admission.factoryPresent || capability_registered receipt) — mirroring the SAME inline-settle idiom this route already uses for passport_is_issued (line ~347), not a new architectural pattern.",
+    "Agent-generic by construction: the award function takes a RegistrableAgentConfig and never branches on slug; exercised identically for Nakamoto and MoneyPenny in tests/registration-standing-seed-award.test.ts.",
+    "Idempotent via settleFact's own alreadySettled semantics — re-running the state route on every page refresh, retried reconciliation, or concurrent tab attempts the settle every time and writes the receipt at most once. A concurrent settlement race (two requests both observing eligibility before either settles) is handled by re-checking shouldAwardRegistrationSeed AFTER settleFact returns, not by a caller-side lock.",
+    "Attribution uses the real active operator persona (getActivePersona), not a static resolver string — the operator's explicit requirement ('attributed to the correct person/operator and agent') — and skips (audit gap, never guessed) when no persona resolves.",
+    "Reflected within the SAME request/response: the route updates its own local registrationStandingSeeded flag and pushes the new receipt id into its already-built receiptRefs map, so standingGatewayEnabled and initialStandingAwarded in the response that triggered the award already show the awarded state, rather than lagging one request behind.",
+    "7 tests added (tests/registration-standing-seed-award.test.ts): skips when already seeded or not eligible (no settleFact call in either case), awards exactly once on genuine eligibility with correct attribution/tagging, works identically for a second agent, does not double-award on a settleFact-reported race, and never throws on a settle failure."
+  ],
+  "rejectedApproaches": [
+    "Inlining the settle-then-award logic directly in the state route (my first draft) — rejected in favour of extracting it to its own service module, mirroring registrationConfirmationDeps.ts from the same closure pass's item 1: a canonical mechanism gets one implementation, testable on its own without mocking the state route's ~15 other dependencies, and reusable from any future caller that observes the same completion boundary.",
+    "Deriving eligibility a second time inside the award function (a fresh admission-state/receipt query) — rejected: the caller (the state route) already computed admission.factoryPresent and the capability_registered receiptRefs for its own factoryIngested boolean: the award function accepts that as input rather than re-deriving a parallel eligibility check (inv.engineering.036/037).",
+    "Adding a dedicated Deploy-stage POST/action route for the operator to click — rejected after confirming no such route exists today (factoryIngested is entirely DERIVED, never actioned): inventing one would be new architecture for a boundary the codebase already observes passively, and the operator's own phrasing ('cannot award repeatedly because reconciliation/UI is retried') anticipates exactly the retried-GET shape this resolution implements.",
+    "Gating the settle attempt on the locally-read registrationStandingSeeded flag alone without also handling settleFact's own alreadySettled result — rejected: a request that reads registrationStandingSeeded as false just before a concurrent request settles it would otherwise risk a double-write; shouldAwardRegistrationSeed's post-settlement check is the actual idempotency guarantee, the local flag is only a fast-path skip."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-09-STANDING-SEED-PRODUCTION-WIRING-001"
+  ],
+  "canaries": [
+    "tests/registration-standing-seed-award.test.ts",
+    "tests/journey-admission-spine.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "workaround-replaced",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/registration-standing-seed-award.test.ts"
+    ],
+    "receipts": [
+      "standing_accrued"
+    ],
+    "incidentRefs": []
+  },
+  "sourceDocs": [],
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

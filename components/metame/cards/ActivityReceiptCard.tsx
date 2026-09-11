@@ -8,7 +8,7 @@
  * invoked, context shared, artifacts created, approvals granted.
  */
 
-import React from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Receipt,
   Users,
@@ -17,7 +17,25 @@ import {
   ShieldCheck,
   Clipboard,
   FileText,
+  ChevronDown,
+  Copy,
+  Check,
+  ExternalLink,
+  Link2,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
+import { personaFetch } from "@/utils/personaSpine";
+import { IntentChainPanel, type IntentChainDto } from "@/components/metame/workbench/IntentChainPanel";
+
+export interface ActivityReceiptSpecialistResponse {
+  title: string;
+  summary: string;
+  recommendations: string[];
+  suggestedArtifacts: string[];
+  confidence: "low" | "medium" | "high";
+  source: "llm" | "template";
+}
 
 export interface ActivityReceiptData {
   id: string;
@@ -35,6 +53,23 @@ export interface ActivityReceiptData {
   policyEnvelopeId: string | null;
   receiptStatus: "local" | "dvn_pending" | "dvn_recorded" | "dvn_failed";
   dvnReceiptId: string | null;
+  /**
+   * proof_of_state/Bitcoin leg state, independent of receiptStatus/dvnReceiptId
+   * (which describe the DVN leg only — see services/receipts/activityReceiptService.ts).
+   * Optional/possibly-absent so older cached data and pre-migration rows degrade
+   * to "not shown" rather than a client crash.
+   */
+  posStatus?: "pending" | "batched" | "broadcast" | "anchored" | "failed" | null;
+  btcAnchorTxid?: string | null;
+  /**
+   * cross_chain_service leg status ONLY (2026-08-08 dual-leg migration) —
+   * distinct from `receiptStatus`, which already folds DVN submission state
+   * into the badge below. Surfaced here purely so the badge tooltip can show
+   * the precise underlying value; the badge label itself stays terse.
+   */
+  dvnStatus?: "submitted" | "ready" | "failed" | null;
+  /** Specialist response body when actionType === 'specialist_consulted'. */
+  specialistResponse?: ActivityReceiptSpecialistResponse | null;
   createdAt: string;
 }
 
@@ -63,14 +98,48 @@ const ACTION_LABELS: Record<string, string> = {
   session_completed: "Session completed",
 };
 
+/**
+ * Compact badge vocabulary for the DVN receipt lifecycle (operator ruling,
+ * 2026-08-08 — "Horizen Journey — Simplify DVN / Bitcoin Receipt Badges").
+ * Four non-conflatable stages, each its own label — a receipt created in SQL
+ * is NOT "DVN Pending" (it hasn't been submitted yet), and "DVN Minted" is
+ * the deliberate replacement for "DVN recorded"/"DVN Local": `dvn_recorded`
+ * is the operational-finality threshold at which the receipt is usable DVN
+ * evidence. Precise underlying values (receiptStatus, dvnStatus) live in the
+ * badge's `title` tooltip, never in the label text itself.
+ */
 const STATUS_META: Record<
   ActivityReceiptData["receiptStatus"],
   { label: string; ring: string }
 > = {
-  local:        { label: "Local",        ring: "border-slate-700 text-slate-300" },
-  dvn_pending:  { label: "DVN pending",  ring: "border-amber-500/40 text-amber-300 bg-amber-500/10" },
-  dvn_recorded: { label: "DVN recorded", ring: "border-emerald-500/70 text-emerald-100 bg-emerald-500/15" },
-  dvn_failed:   { label: "DVN failed",   ring: "border-rose-500/40 text-rose-300 bg-rose-500/10" },
+  local:        { label: "Receipt Created", ring: "border-slate-700 text-slate-300" },
+  dvn_pending:  { label: "DVN Pending",     ring: "border-amber-500/40 text-amber-300 bg-amber-500/10" },
+  dvn_recorded: { label: "DVN Minted",      ring: "border-emerald-500/70 text-emerald-100 bg-emerald-500/15" },
+  dvn_failed:   { label: "DVN Failed",      ring: "border-rose-500/40 text-rose-300 bg-rose-500/10" },
+};
+
+/**
+ * proof_of_state/Bitcoin leg — deliberately separate from STATUS_META (the
+ * DVN leg): Bitcoin anchoring is a subsequent, independent finality layer,
+ * never a DVN state, so this is never folded into the badge above and never
+ * named "DVN Bitcoin Anchored". `queued`/`batched`/`broadcast` (and
+ * `null`/missing — POS_LEG_SUBMISSION_ENABLED is false platform-wide today,
+ * so this is the correct, current state for every receipt) all collapse to
+ * the single terse "BTC Pending" label; the exact sub-state is preserved in
+ * `posStatus` and surfaced via the badge's tooltip, never hidden. A receipt
+ * can be fully DVN Minted while this stays BTC Pending indefinitely — that is
+ * expected, not a defect.
+ */
+const BTC_STATUS_META: Record<
+  NonNullable<ActivityReceiptData["posStatus"]> | "not_started",
+  { label: string; ring: string }
+> = {
+  not_started: { label: "BTC Pending",  ring: "border-slate-700 text-slate-400" },
+  pending:     { label: "BTC Pending",  ring: "border-slate-700 text-slate-400" },
+  batched:     { label: "BTC Pending",  ring: "border-slate-700 text-slate-400" },
+  broadcast:   { label: "BTC Pending",  ring: "border-amber-500/40 text-amber-300 bg-amber-500/10" },
+  anchored:    { label: "BTC Anchored", ring: "border-emerald-500/70 text-emerald-100 bg-emerald-500/15" },
+  failed:      { label: "BTC Failed",   ring: "border-rose-500/40 text-rose-300 bg-rose-500/10" },
 };
 
 const CARTRIDGE_LABELS: Record<string, string> = {
@@ -78,7 +147,7 @@ const CARTRIDGE_LABELS: Record<string, string> = {
   knyt: "KNYT",
   qriptopian: "The Qriptopian",
   marketa: "Marketa",
-  avl: "AVL",
+  mvl: "MVL",
 };
 
 export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" }: Props) {
@@ -92,10 +161,100 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
     ? "bg-slate-800/60 border-slate-700 text-slate-300"
     : "bg-slate-100 border-slate-200 text-slate-700";
 
-  const status = STATUS_META[data.receiptStatus];
+  // Local override of the receipt status so a successful retry flips the
+  // badge from dvn_failed → dvn_pending without needing a parent refetch.
+  const [statusOverride, setStatusOverride] = useState<ActivityReceiptData["receiptStatus"] | null>(null);
+  const effectiveStatus = statusOverride ?? data.receiptStatus;
+  const status = STATUS_META[effectiveStatus];
+
+  const [copied, setCopied] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [showJson, setShowJson] = useState(false);
+  const [retryState, setRetryState] = useState<{ loading: boolean; error: string | null }>({
+    loading: false,
+    error: null,
+  });
+
+  const handleRetryDvn = useCallback(async () => {
+    setRetryState({ loading: true, error: null });
+    try {
+      const res = await personaFetch(
+        `/api/assistant/receipts/${encodeURIComponent(data.id)}/retry-dvn`,
+        { method: "POST" },
+      );
+      const body = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        receiptStatus?: ActivityReceiptData["receiptStatus"];
+        detail?: string;
+        error?: string;
+      };
+      if (!res.ok || !body.ok) {
+        throw new Error(body.detail || body.error || `Retry failed (${res.status})`);
+      }
+      setStatusOverride(body.receiptStatus ?? "dvn_pending");
+      setRetryState({ loading: false, error: null });
+    } catch (err) {
+      setRetryState({
+        loading: false,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }, [data.id]);
+  const [chainState, setChainState] = useState<{
+    loading: boolean;
+    error: string | null;
+    data: IntentChainDto | null;
+  }>({ loading: false, error: null, data: null });
+
+  // Fetch the intent-chain payload on mount when this receipt is
+  // intent-attached. Skips when no intentId or already loaded.
+  const fetchChain = useCallback(async () => {
+    if (!data.intentId) return;
+    setChainState({ loading: true, error: null, data: null });
+    try {
+      const res = await personaFetch(
+        `/api/assistant/intent-chain?intentId=${encodeURIComponent(data.intentId)}`,
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.detail || body?.error || `chain fetch failed (${res.status})`);
+      }
+      const json = (await res.json()) as IntentChainDto;
+      setChainState({ loading: false, error: null, data: json });
+    } catch (err) {
+      setChainState({
+        loading: false,
+        error: err instanceof Error ? err.message : String(err),
+        data: null,
+      });
+    }
+  }, [data.intentId]);
+
+  useEffect(() => {
+    if (!data.intentId) return;
+    if (chainState.data || chainState.loading) return;
+    void fetchChain();
+  }, [data.intentId, chainState.data, chainState.loading, fetchChain]);
+
+  const json = JSON.stringify(data, null, 2);
+
+  const handleCopy = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      try {
+        await navigator.clipboard.writeText(json);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      } catch {
+        /* ignore — clipboard permission edge case */
+      }
+    },
+    [json],
+  );
 
   return (
     <div className={`rounded-lg border p-4 ${surfaceClass} space-y-2`}>
+      {/* Header — action label, summary, status badge, retry. */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className={`flex items-center gap-2 text-xs uppercase tracking-wider ${mutedClass}`}>
@@ -106,11 +265,51 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
           </div>
           <h4 className="font-medium mt-0.5">{data.summary}</h4>
         </div>
-        <span className={`shrink-0 px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-full border ${status.ring}`}>
-          {status.label}
-        </span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span
+            className={`px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-full border ${status.ring}`}
+            title={`Constitutional receipt lifecycle — receiptStatus: ${effectiveStatus}${
+              data.dvnStatus ? `, dvnStatus: ${data.dvnStatus}` : ""
+            }`}
+          >
+            {status.label}
+          </span>
+          {effectiveStatus === "dvn_failed" && (
+            <button
+              type="button"
+              onClick={handleRetryDvn}
+              disabled={retryState.loading}
+              title="Resubmit this receipt to the DVN"
+              className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-full border transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+                isDark
+                  ? "border-violet-500/40 text-violet-200 hover:bg-violet-500/15"
+                  : "border-violet-400 text-violet-700 hover:bg-violet-50"
+              }`}
+            >
+              {retryState.loading ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3 w-3" />
+              )}
+              {retryState.loading ? "Retrying" : "Retry"}
+            </button>
+          )}
+        </div>
       </div>
 
+      {retryState.error && (
+        <div
+          className={`text-[11px] rounded-md border px-2 py-1 ${
+            isDark
+              ? "border-rose-500/40 bg-rose-500/10 text-rose-200"
+              : "border-rose-300 bg-rose-50 text-rose-700"
+          }`}
+        >
+          DVN retry failed: {retryState.error}
+        </div>
+      )}
+
+      {/* Chips: agents, tools, iQubes, context, artifacts, approvals. */}
       <div className="flex flex-wrap gap-2 text-[11px]">
         {data.agentsInvoked.length > 0 && (
           <ReceiptLine icon={<Users className="w-3 h-3" />} label="Agents" items={data.agentsInvoked} chipClass={chipClass} mutedClass={mutedClass} />
@@ -125,26 +324,236 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
           <ReceiptLine icon={<Clipboard className="w-3 h-3" />} label="Context" items={data.contextShared} chipClass={chipClass} mutedClass={mutedClass} />
         )}
         {data.artifactsCreated.length > 0 && (
-          <ReceiptLine icon={<FileText className="w-3 h-3" />} label="Artifacts" items={data.artifactsCreated} chipClass={chipClass} mutedClass={mutedClass} />
+          <ArtifactsReceiptLine items={data.artifactsCreated} chipClass={chipClass} mutedClass={mutedClass} isDark={isDark} />
         )}
         {data.approvalsGranted.length > 0 && (
           <ReceiptLine icon={<ShieldCheck className="w-3 h-3" />} label="Approvals" items={data.approvalsGranted.map((id) => `${id.slice(0, 8)}…`)} chipClass={chipClass} mutedClass={mutedClass} />
         )}
       </div>
 
+      {/* Footer: timestamp, persona, DVN receipt id. */}
       <div className={`text-[11px] ${mutedClass} flex flex-wrap items-center gap-2 pt-1 border-t border-slate-800/40`}>
         <span>{new Date(data.createdAt).toLocaleString()}</span>
         {personaDisplayLabel && (
-          // T1 persona display label only — never the persona id, root
-          // DiD, or auth profile. Per PersonaSpine / DiDQube contract.
           <span className="ml-2">
             Acting persona:{" "}
             <span className={accentClass}>{personaDisplayLabel}</span>
           </span>
         )}
-        {data.dvnReceiptId && (
-          <span className="ml-auto">DVN: <span className="font-mono">{data.dvnReceiptId.slice(0, 10)}…</span></span>
+        <span
+          className={`ml-auto px-1.5 py-0.5 rounded-full border text-[10px] uppercase tracking-wider ${
+            BTC_STATUS_META[data.posStatus ?? "not_started"].ring
+          }`}
+          title={`proof_of_state/Bitcoin leg — posStatus: ${
+            data.posStatus ?? "not started"
+          }. Independent of the DVN status above; pending here never blocks this receipt's completion.`}
+        >
+          {BTC_STATUS_META[data.posStatus ?? "not_started"].label}
+        </span>
+        {data.btcAnchorTxid && (
+          <span>BTC tx: <span className="font-mono">{data.btcAnchorTxid.slice(0, 10)}…</span></span>
         )}
+        {data.dvnReceiptId && (
+          <span>DVN: <span className="font-mono">{data.dvnReceiptId.slice(0, 10)}…</span></span>
+        )}
+      </div>
+
+      {/* Expand bar — always shown; toggles chain (if any) + JSON viewer. */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className={`w-full flex items-center justify-between gap-1 pt-1 text-[10px] uppercase tracking-wider ${mutedClass} ${
+          isDark ? "hover:text-slate-200" : "hover:text-slate-900"
+        } transition-colors`}
+        aria-expanded={expanded}
+        aria-label={expanded ? "Collapse receipt details" : "Expand receipt details"}
+      >
+        <span>
+          {expanded
+            ? data.intentId ? "Hide chain & receipt JSON" : "Hide receipt JSON"
+            : data.intentId ? "Show chain & receipt JSON" : "Show receipt JSON"}
+        </span>
+        <ChevronDown
+          className={`w-3.5 h-3.5 transition-transform ${expanded ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {expanded && (
+      <div className="space-y-2">
+        {data.intentId && (
+          <div
+            className={`rounded-md border overflow-hidden ${
+              isDark ? "border-slate-700/60" : "border-slate-200"
+            }`}
+          >
+            <div
+              className={`flex items-center gap-1.5 px-3 py-1.5 border-b ${
+                isDark ? "border-slate-700/60 bg-slate-900/60" : "border-slate-200 bg-slate-50"
+              }`}
+            >
+              <Link2 className={`w-3 h-3 ${isDark ? "text-violet-300" : "text-violet-700"}`} />
+              <span className={`text-[10px] uppercase tracking-wider ${mutedClass}`}>
+                Chain of intent
+              </span>
+            </div>
+            <IntentChainPanel
+              chainState={chainState}
+              isDark={isDark}
+              intentId={data.intentId ?? undefined}
+              intentStatus={
+                (chainState.data as IntentChainDto & { intent?: { status?: string } } | null)
+                  ?.intent?.status
+              }
+              onAdvanced={() => void fetchChain()}
+            />
+          </div>
+        )}
+
+        {/* Raw JSON — whole bar clickable, copy nested inside. */}
+        <div
+          className={`rounded-md border ${
+            isDark ? "border-slate-800/60 bg-slate-950/50" : "border-slate-200 bg-slate-50"
+          }`}
+        >
+          <button
+            type="button"
+            onClick={() => setShowJson((v) => !v)}
+            className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 text-left ${
+              showJson ? `border-b ${isDark ? "border-slate-800/60" : "border-slate-200"}` : ""
+            } ${isDark ? "hover:bg-slate-900/40" : "hover:bg-slate-100"} transition-colors`}
+            aria-expanded={showJson}
+          >
+            <span className={`inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.16em] ${mutedClass}`}>
+              <ChevronDown className={`w-3 h-3 transition-transform ${showJson ? "rotate-180" : ""}`} />
+              {showJson ? "Hide receipt JSON" : "Show receipt JSON"}
+            </span>
+            {showJson && (
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => { e.stopPropagation(); void handleCopy(e); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    void handleCopy(e as unknown as React.MouseEvent);
+                  }
+                }}
+                aria-label={copied ? "Copied" : "Copy receipt JSON"}
+                title={copied ? "Copied" : "Copy JSON"}
+                className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] cursor-pointer ${
+                  isDark
+                    ? "text-slate-300 hover:bg-slate-800/60"
+                    : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                {copied ? "Copied" : "Copy"}
+              </span>
+            )}
+          </button>
+          {showJson && (
+            <pre
+              className={`overflow-auto max-h-72 text-[11px] leading-snug p-3 font-mono ${
+                isDark ? "text-slate-300" : "text-slate-700"
+              }`}
+            >
+              {json}
+            </pre>
+          )}
+        </div>
+      </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Per-type viewable URL builders for artifact badges. Keyed by the
+ * prefix used in `activity_receipts.artifacts_created` (e.g. the
+ * artifact-create route emits `google-doc:<documentId>`,
+ * `gmail-draft:<draftId>`, etc.). Returning null means we can't link
+ * to it — the badge renders as a plain chip.
+ */
+const ARTIFACT_URL_BUILDERS: Record<string, (id: string) => string> = {
+  "google-doc":     (id) => `https://docs.google.com/document/d/${id}/edit`,
+  "google-sheet":   (id) => `https://docs.google.com/spreadsheets/d/${id}/edit`,
+  "google-slides":  (id) => `https://docs.google.com/presentation/d/${id}/edit`,
+  "slide-outline":  (id) => `https://docs.google.com/presentation/d/${id}/edit`,
+  "gmail-draft":    (id) => `https://mail.google.com/mail/u/0/#drafts/${id}`,
+  "calendar-block": (id) => `https://calendar.google.com/calendar/u/0/r/eventedit/${id}`,
+};
+
+const ARTIFACT_LABELS: Record<string, string> = {
+  "google-doc":     "Open in Drive",
+  "google-sheet":   "Open in Drive",
+  "google-slides":  "Open in Drive",
+  "slide-outline":  "Open in Drive",
+  "gmail-draft":    "Open in Gmail",
+  "calendar-block": "Open in Calendar",
+};
+
+function buildArtifactUrl(entry: string): { type: string; id: string; url: string | null; label: string } {
+  // Expected format: `<type>:<id>`. The artifact-create route always
+  // emits this shape (route.ts:468 etc). Anything else: plain chip.
+  const colonIdx = entry.indexOf(":");
+  if (colonIdx === -1) return { type: "", id: "", url: null, label: entry };
+  const type = entry.slice(0, colonIdx);
+  const id = entry.slice(colonIdx + 1);
+  const builder = ARTIFACT_URL_BUILDERS[type];
+  // Guard against id being a title fallback (when the connector
+  // didn't return a real id) — Drive ids are >=20 chars of [\w-]+.
+  if (!builder || !id || id.length < 15 || !/^[\w-]+$/.test(id)) {
+    return { type, id, url: null, label: entry };
+  }
+  return { type, id, url: builder(id), label: ARTIFACT_LABELS[type] ?? "Open" };
+}
+
+interface ArtifactsReceiptLineProps {
+  items: string[];
+  chipClass: string;
+  mutedClass: string;
+  isDark: boolean;
+}
+
+function ArtifactsReceiptLine({ items, chipClass, mutedClass, isDark }: ArtifactsReceiptLineProps) {
+  // Same visual rhythm as ReceiptLine, but each artifact entry that
+  // encodes a known Drive/Gmail/Calendar id renders as a clickable
+  // launch button — closes the loop on the user's bug where the
+  // receipt referenced an artifact but had no way to reach it.
+  const linkClass = isDark
+    ? "border-violet-500/40 bg-violet-500/10 text-violet-200 hover:bg-violet-500/20"
+    : "border-violet-400 bg-violet-50 text-violet-700 hover:bg-violet-100";
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className={`flex items-center gap-1 ${mutedClass}`}>
+        <FileText className="w-3 h-3" />
+        Artifacts:
+      </span>
+      <div className="flex flex-wrap gap-1">
+        {items.map((entry) => {
+          const { url, label, id } = buildArtifactUrl(entry);
+          if (url) {
+            return (
+              <a
+                key={entry}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border transition-colors ${linkClass}`}
+                title={`Open artifact ${id.slice(0, 12)}…`}
+              >
+                <ExternalLink className="w-2.5 h-2.5" />
+                {label}
+              </a>
+            );
+          }
+          return (
+            <span key={entry} className={`px-1.5 py-0.5 rounded border ${chipClass}`}>
+              {entry}
+            </span>
+          );
+        })}
       </div>
     </div>
   );

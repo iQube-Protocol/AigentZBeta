@@ -5,9 +5,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd /home/user/AigentZBeta && bash scripts/qubetalk-claude.sh send --thread dev-exec --title \"Claude Code session started\" --body \"Agent session active on $(git branch --show-current 2>/dev/null || echo unknown)\" --severity info 2>/dev/null || true",
+            "command": "cd /home/user/AigentZBeta && cat docs/agent-harness/prospective-evolution-capture.md && printf '\n---\n' && bash scripts/qubetalk-claude.sh send --thread dev-exec --title \"Claude Code session started\" --body \"Agent session active on $(git branch --show-current 2>/dev/null || echo unknown)\" --severity info 2>/dev/null || true",
             "timeout": 15,
-            "statusMessage": "Announcing to QubeTalk..."
+            "statusMessage": "Loading prospective evolution rule and announcing to QubeTalk..."
           }
         ]
       }

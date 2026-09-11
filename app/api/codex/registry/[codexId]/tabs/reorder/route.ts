@@ -23,14 +23,15 @@ import { ReorderTabsRequest, CodexRegistryResponse } from '@/types/codex';
 export const dynamic = 'force-dynamic';
 
 interface RouteContext {
-  params: { codexId: string };
+  params: Promise<{ codexId: string }>;
 }
 
 /**
  * POST /api/codex/registry/[codexId]/tabs/reorder
  * Reorder tabs by providing new order array
  */
-export async function POST(request: NextRequest, { params }: RouteContext) {
+export async function POST(request: NextRequest, props: RouteContext) {
+  const params = await props.params;
   try {
     const { codexId } = params;
     const body: ReorderTabsRequest = await request.json();

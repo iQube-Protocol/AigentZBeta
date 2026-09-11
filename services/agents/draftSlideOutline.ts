@@ -7,6 +7,7 @@
  */
 
 import type { ExperienceQubeMeta } from '@/services/iqube/experienceQube';
+import { callDraftLlm } from './_lib/llmDraftHelper';
 
 export interface DraftSlideContext {
   experience?: Pick<
@@ -126,7 +127,7 @@ export async function draftSlideOutline(input: DraftSlideInput): Promise<DraftSl
   const generatedAt = new Date().toISOString();
   const prompt = (input.prompt || '').trim();
   if (!prompt) return { ...templateDraft({ ...input, prompt: 'Untitled' }), source: 'template', generatedAt };
-  const raw = await callOpenAi(SYSTEM_PROMPT, userPrompt({ ...input, prompt }));
+  const raw = await callDraftLlm(SYSTEM_PROMPT, userPrompt({ ...input, prompt }), 1000);
   if (raw) {
     try {
       const parsed = JSON.parse(raw) as Partial<DraftSlideOutput> & { sections?: unknown };

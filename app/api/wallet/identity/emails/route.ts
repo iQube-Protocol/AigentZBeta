@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCallerAuthProfileId } from '@/services/wallet/personaRepo';
-import { listEmailAliases, upsertEmailAlias, normalizeEmail, db } from '@/services/wallet/multiEmailIdentity';
+import { listEmailAliases, upsertEmailAlias, normalizeEmail, getDb } from '@/services/wallet/multiEmailIdentity';
 
 export async function GET(request: NextRequest) {
   const authProfileId = await getCallerAuthProfileId(request);
@@ -24,7 +24,7 @@ export async function DELETE(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const email = searchParams.get('email');
   if (!email) return NextResponse.json({ error: 'email query param required' }, { status: 400 });
-  const { error } = await db
+  const { error } = await getDb()
     .from('crm_auth_profile_emails')
     .update({ status: 'inactive' })
     .eq('auth_profile_id', authProfileId)

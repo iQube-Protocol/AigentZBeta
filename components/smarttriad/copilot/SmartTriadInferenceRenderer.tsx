@@ -12,6 +12,9 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Bot, User, AlertTriangle, Clock, Zap } from 'lucide-react';
 import { AgentModelSelector, type AgentOption, type ModelOption } from './AgentModelSelector';
 import type { A2UISurfacePayload } from '@/services/a2ui/types';
+import { extractRichBlocksFromText } from '@/services/smarttriad/richBlocks';
+import { SmartTriadRichBlockListRenderer } from '@/components/smarttriad/richblocks/SmartTriadRichBlockRenderer';
+import type { SmartTriadRichBlockEnvelope } from '@/types/smarttriad/richBlocks';
 
 // Types
 export interface SmartTriadMessage {
@@ -20,6 +23,12 @@ export interface SmartTriadMessage {
   content: string;
   timestamp: Date;
   variant?: 'bubble' | 'panel';
+  /** First-class structured content (Workstream 2, 2026-09-04) — rich blocks
+   *  transported alongside `response` text rather than embedded as fenced
+   *  JSON inside it. Additive: a message with no `blocks` behaves exactly as
+   *  before (legacy fenced-JSON extraction, below, remains the compatibility
+   *  path for any reply that still embeds one). */
+  blocks?: SmartTriadRichBlockEnvelope[];
   metadata?: {
     model?: string;
     provider?: string;
@@ -53,6 +62,10 @@ export interface SmartTriadInferenceRendererProps {
   modelOptions?: ModelOption[];
   onAgentChange?: (agent: AgentOption) => void;
   onModelSelectorChange?: (model: ModelOption) => void;
+  /** 'continue-prompt' rich-block action — the host sends it as a new
+   *  message. Omitted entirely on a host that hasn't wired it (the action
+   *  simply renders inert rather than throwing). */
+  onRichBlockContinuePrompt?: (prompt: string) => void;
 }
 
 // Key terms for highlighting
@@ -77,14 +90,43 @@ export function SmartTriadInferenceRenderer({
   modelOptions = [],
   onAgentChange,
   onModelSelectorChange,
+  onRichBlockContinuePrompt,
 }: SmartTriadInferenceRendererProps) {
-  const a2uiPayload = useMemo(() => extractA2UIPayload(message.content), [message.content]);
+  const a2uiExtraction = useMemo(() => extractA2UIPayload(message.content), [message.content]);
+  const a2uiPayload = a2uiExtraction?.payload ?? null;
 
-  
+  // SmartTriad Rich Blocks (2026-09-04) — the shared, platform-wide
+  // media-video primitive promoted out of this file's former
+  // MoneyPenny-only extractMediaVideoPayload/MediaVideoPreview. Recognizes
+  // BOTH the current `smarttriad.block.v1` envelope AND the legacy
+  // `smarttriad.media.video.v0` MoneyPenny payload (compatibility adapter),
+  // via services/smarttriad/richBlocks.ts — the ONE parser every copilot
+  // renderer family shares (see app/components/codex/CopilotInferenceBodyRenderer.tsx).
+  const richBlockExtraction = useMemo(() => extractRichBlocksFromText(message.content), [message.content]);
+  // First-class `blocks` transport (Workstream 2) renders alongside any
+  // legacy fenced-JSON blocks still embedded in `content` — deterministic
+  // order: transport blocks first, then extracted-from-text blocks.
+  const renderedBlocks = useMemo(() => {
+    const transportBlocks = (message.blocks ?? []).map((envelope) => ({ envelope, invalid: false, rawMatch: '' }));
+    return [...transportBlocks, ...richBlockExtraction.blocks];
+  }, [message.blocks, richBlockExtraction.blocks]);
+
+  // A structured payload (A2UI surface, rich block) renders its OWN rich
+  // preview component below — the fenced JSON block it was parsed FROM must
+  // never ALSO reach the generic line-level renderer, or the operator sees
+  // the raw JSON a second time directly underneath the rendered preview
+  // (2026-09-04 fix: extraction previously only READ the fenced block,
+  // never removed it from what still got rendered).
+  const contentForDisplay = useMemo(() => {
+    let next = richBlockExtraction.contentWithoutBlocks;
+    if (a2uiExtraction) next = next.replace(a2uiExtraction.rawMatch, '');
+    return next;
+  }, [richBlockExtraction.contentWithoutBlocks, a2uiExtraction]);
+
   // Process content through sanitization and markdown transformation
   const processedContent = useMemo(() => {
-    return processMessageContent(message.content);
-  }, [message.content]);
+    return processMessageContent(contentForDisplay);
+  }, [contentForDisplay]);
 
   // Render line-level content
   const renderContent = useCallback(() => {
@@ -130,6 +172,7 @@ export function SmartTriadInferenceRenderer({
       {/* Processed Content */}
       <div className="smarttriad-conversational-content">
         {a2uiPayload && <A2UIPayloadPreview payload={a2uiPayload} />}
+        <SmartTriadRichBlockListRenderer blocks={renderedBlocks} onContinuePrompt={onRichBlockContinuePrompt} />
         {renderContent()}
       </div>
 
@@ -153,7 +196,15 @@ export function SmartTriadInferenceRenderer({
   );
 }
 
-function extractA2UIPayload(content: string): A2UISurfacePayload | null {
+interface A2UIExtraction {
+  payload: A2UISurfacePayload;
+  /** The exact substring matched — whole fenced block, or the whole trimmed
+   *  content for a bare-JSON message — so the caller can strip precisely
+   *  what was parsed, never a guessed/re-derived span. */
+  rawMatch: string;
+}
+
+function extractA2UIPayload(content: string): A2UIExtraction | null {
   const parseCandidate = (raw: string): A2UISurfacePayload | null => {
     try {
       const parsed = JSON.parse(raw);
@@ -166,7 +217,7 @@ function extractA2UIPayload(content: string): A2UISurfacePayload | null {
   const trimmed = content.trim();
   if (trimmed.startsWith("{") && trimmed.includes("a2ui.surface.v0")) {
     const direct = parseCandidate(trimmed);
-    if (direct) return direct;
+    if (direct) return { payload: direct, rawMatch: trimmed };
   }
 
   const fenceRegex = /```(?:json)?\s*([\s\S]*?)```/gi;
@@ -174,7 +225,7 @@ function extractA2UIPayload(content: string): A2UISurfacePayload | null {
 
   while ((match = fenceRegex.exec(content)) !== null) {
     const parsed = parseCandidate(match[1]);
-    if (parsed) return parsed;
+    if (parsed) return { payload: parsed, rawMatch: match[0] };
   }
 
   return null;
@@ -478,10 +529,20 @@ function MermaidDiagram({ code }: { code: string }) {
 // ========================================
 
 function processInlineFormatting(text: string): string {
-  // Key term highlighting
-  KEY_TERMS.forEach(term => {
+  // Key term highlighting — use NUL-bracketed placeholders so later
+  // iterations don't match inside the class attribute of earlier-
+  // wrapped terms. The case-insensitive 'SmartTriad' regex used to
+  // collide with the 'smarttriad' inside class="smarttriad-key-term"
+  // from a previously-wrapped 'metaKnyts', producing garbled HTML
+  // like 'SmartTriad-key-term">metaKnyts universe' (2026-05-26 fix).
+  const placeholders: string[] = [];
+  KEY_TERMS.forEach((term) => {
     const regex = new RegExp(`\\b${term}\\b`, 'gi');
-    text = text.replace(regex, `<span class="smarttriad-key-term">${term}</span>`);
+    text = text.replace(regex, (match) => {
+      const i = placeholders.length;
+      placeholders.push(`<span class="smarttriad-key-term">${match}</span>`);
+      return ` KT${i} `;
+    });
   });
 
   // Bold formatting
@@ -495,6 +556,10 @@ function processInlineFormatting(text: string): string {
     /!\[([^\]]*)\]\(([^)]+)\)/g,
     '<div class="smarttriad-image-container"><img src="$2" alt="$1" class="smarttriad-image" /><div class="smarttriad-image-caption">$1</div></div>'
   );
+
+  // Expand key-term placeholders last so the surrounding formatting
+  // passes can't re-match inside the inserted span attributes.
+  text = text.replace(/ KT(\d+) /g, (_, i) => placeholders[Number(i)] ?? '');
 
   return text;
 }

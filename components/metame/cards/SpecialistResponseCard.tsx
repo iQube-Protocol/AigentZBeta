@@ -18,15 +18,29 @@ import React from "react";
 import {
   Sparkles,
   ChevronRight,
+  ChevronDown,
   Pencil,
   Loader2,
   X,
   Bot,
 } from "lucide-react";
 import { IqubeContextDisclosure, type IqubeKind } from "./IqubeContextDisclosure";
+import { PreflightByline, PreflightChip } from "./PreflightByline";
+import type { PreflightContext } from "@/services/capabilities/preflight";
+import type { SpecialistId } from "@/services/agents/specialistRouter";
+import type {
+  FactorActionDescriptor,
+  FactorCapabilityId,
+  FactorCapabilityStatus,
+} from "@/services/factor/factorCapabilityManifest";
 
 export interface SpecialistResponseData {
-  specialistId: "marketa" | "quill" | "kn0w1" | "aigent-z" | "aigent-c" | "aigent-nakamoto";
+  // Derived from the canonical SpecialistId union (services/agents/
+  // specialistRouter.ts) rather than a second, hand-copied list — this card
+  // was previously missing moneypenny/metaye/researcher/aletheon/factor/aegis
+  // despite services/agents/specialistRouter.ts already supporting all of
+  // them (Extend-Don't-Duplicate).
+  specialistId: SpecialistId;
   specialistLabel: string;
   requestType: string;
   title: string;
@@ -37,6 +51,26 @@ export interface SpecialistResponseData {
   confidence: "low" | "medium" | "high";
   source: "llm" | "template";
   generatedAt: string;
+  preflightContext?: PreflightContext;
+  handoffFrom?: { specialistId: SpecialistResponseData["specialistId"]; priorTitle: string };
+  /** Additive, optional (services/agents/specialistRouter.ts's SpecialistResponse.affordance) — states
+   *  plainly whether this response can be acted on. Only Factor's template path sets this today. */
+  affordance?: "ADVISORY" | "PREPARABLE" | "ACTION_AVAILABLE" | "BLOCKED" | "PLANNED";
+  /**
+   * The remaining Factor runtime-contract fields — already sent by the
+   * server (services/agents/specialistRouter.ts's SpecialistResponse) but
+   * previously dropped by this client type and never rendered. Factor-only;
+   * absent for every other specialist.
+   */
+  resolvedCapabilityId?: FactorCapabilityId;
+  capabilityStatus?: FactorCapabilityStatus;
+  /** Typed next actions — the `explain` action is always present; others
+   *  only when `affordance` is ACTION_AVAILABLE/PREPARABLE and their own
+   *  scope is bound. Rendered as non-interactive labels today (Phase 6 wires
+   *  real click-through handlers per action). */
+  availableActions?: FactorActionDescriptor[];
+  /** Unmet prerequisites when `affordance` is BLOCKED. */
+  blockers?: string[];
 }
 
 interface Props {
@@ -47,6 +81,22 @@ interface Props {
   onDismiss?: () => void;
   /** Click an artifact chip → request Aigent Me create it. */
   onCreateArtifact?: (artifactType: string) => void;
+  /**
+   * When set, the "Approval required to implement" footer pill becomes
+   * a button that scrolls to / opens the implement-approval surface
+   * (the second-tier approval on the matching artifact, or the
+   * suggested-artifact chips when no artifact has been drafted yet).
+   */
+  onRequestApproval?: () => void;
+  /**
+   * Click-through for a typed `availableActions` entry (Phase 6 — replaces
+   * the prior inert, non-clickable pills). When omitted, actions render as
+   * they always have: informational, non-interactive labels. The consuming
+   * surface decides what happens (e.g. invoking the matching Bankr route
+   * via useBankrTokenLaunch and rendering the result inline) — this card
+   * never calls a route itself.
+   */
+  onAction?: (action: FactorActionDescriptor) => void;
   theme?: "light" | "dark";
 }
 
@@ -70,6 +120,17 @@ const CONFIDENCE_META: Record<
   high:   { label: "High confidence",   ring: "border-violet-500/70 text-violet-100 bg-violet-500/10" },
 };
 
+const AFFORDANCE_META: Record<
+  NonNullable<SpecialistResponseData["affordance"]>,
+  { label: string; className: string }
+> = {
+  ADVISORY:        { label: "Advisory",         className: "border-sky-700/60 text-sky-200 bg-sky-500/10" },
+  PREPARABLE:      { label: "Preparable",       className: "border-slate-600 text-slate-300 bg-slate-800/50" },
+  ACTION_AVAILABLE:{ label: "Action available", className: "border-emerald-700/60 text-emerald-200 bg-emerald-500/10" },
+  BLOCKED:         { label: "Blocked",          className: "border-orange-700/60 text-orange-200 bg-orange-500/10" },
+  PLANNED:         { label: "Planned — not yet live", className: "border-amber-600/60 text-amber-200 bg-amber-500/10" },
+};
+
 export function SpecialistResponseCard({
   data,
   loading,
@@ -77,6 +138,8 @@ export function SpecialistResponseCard({
   using = ["PersonaQube", "ExperienceQube", "IntentQube"],
   onDismiss,
   onCreateArtifact,
+  onRequestApproval,
+  onAction,
   theme = "dark",
 }: Props) {
   const isDark = theme === "dark";
@@ -88,6 +151,9 @@ export function SpecialistResponseCard({
   const chipClass = isDark
     ? "border-slate-700 text-slate-300 hover:border-violet-500/60"
     : "border-slate-300 text-slate-700 hover:border-violet-400";
+
+  // Must be declared before any early returns (Rules of Hooks).
+  const [detailsOpen, setDetailsOpen] = React.useState(false);
 
   if (loading) {
     return (
@@ -115,21 +181,40 @@ export function SpecialistResponseCard({
 
   const conf = CONFIDENCE_META[data.confidence];
   const requestLabel = REQUEST_TYPE_LABELS[data.requestType] ?? data.requestType;
+  const hasDetails = data.recommendations.length > 0;
 
   return (
     <div className={`rounded-lg border p-5 ${surfaceClass} space-y-4`}>
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <Bot className={`w-4 h-4 ${accentClass}`} />
             <span className={`text-xs uppercase tracking-wider ${mutedClass}`}>
               {data.specialistLabel} · {requestLabel}
             </span>
+            {data.handoffFrom && (
+              <span
+                className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${chipClass}`}
+                title={data.handoffFrom.priorTitle ? `Hand-off from ${data.handoffFrom.specialistId} — prior take: "${data.handoffFrom.priorTitle}"` : `Hand-off from ${data.handoffFrom.specialistId}`}
+              >
+                ← {data.handoffFrom.specialistId}
+              </span>
+            )}
+            <PreflightChip preflight={data.preflightContext} theme={theme} />
           </div>
           <h3 className="text-lg font-semibold leading-tight">{data.title}</h3>
+          <PreflightByline preflight={data.preflightContext} theme={theme} />
         </div>
         <div className="flex items-start gap-2 shrink-0">
+          {data.affordance && (
+            <span
+              className={`px-2 py-0.5 text-[10px] uppercase tracking-wider rounded border ${AFFORDANCE_META[data.affordance].className}`}
+              title="Whether this response can be acted on — never treat a Planned capability as live"
+            >
+              {AFFORDANCE_META[data.affordance].label}
+            </span>
+          )}
           {data.source === "template" && (
             <span
               className={`px-2 py-0.5 text-[10px] uppercase tracking-wider rounded border ${chipClass}`}
@@ -152,31 +237,55 @@ export function SpecialistResponseCard({
 
       <p className={`text-sm ${mutedClass}`}>{data.summary}</p>
 
+      {/* Blockers — why this is BLOCKED, named rather than left to the badge alone. */}
+      {data.blockers && data.blockers.length > 0 && (
+        <ul className="space-y-1 rounded-lg border border-orange-800/50 bg-orange-500/5 p-2.5 text-xs text-orange-200">
+          {data.blockers.map((b, i) => (
+            <li key={i}>{b}</li>
+          ))}
+        </ul>
+      )}
+
+      {/* Typed next actions — server-derived, allowlisted-handler-backed.
+          Clickable when the host supplies onAction (Phase 6); otherwise
+          renders as an informational label, unchanged from before. */}
+      {data.availableActions && data.availableActions.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {data.availableActions.map((a) =>
+            onAction ? (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => onAction(a)}
+                title={a.requiresApproval ? "Requires approval before this action executes" : "Does not require approval"}
+                className={`px-2.5 py-1 text-xs rounded-full border transition ${chipClass}`}
+              >
+                {a.label}
+                {a.requiresApproval && <span className="ml-1 text-amber-400">•</span>}
+              </button>
+            ) : (
+              <span
+                key={a.id}
+                title={a.requiresApproval ? "Requires approval before this action executes" : "Does not require approval"}
+                className={`px-2.5 py-1 text-xs rounded-full border ${chipClass}`}
+              >
+                {a.label}
+                {a.requiresApproval && <span className="ml-1 text-amber-400">•</span>}
+              </span>
+            ),
+          )}
+        </div>
+      )}
+
       {/* iQube disclosure */}
       <IqubeContextDisclosure using={using} theme={theme} />
 
-      {/* Recommendations */}
-      {data.recommendations.length > 0 && (
-        <section>
-          <h4 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
-            Recommendations
-          </h4>
-          <ul className="space-y-1.5 text-sm">
-            {data.recommendations.map((r, i) => (
-              <li key={i} className="flex gap-2 items-start">
-                <ChevronRight className={`w-4 h-4 mt-0.5 shrink-0 ${accentClass}`} />
-                <span>{r}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* Suggested artifacts */}
+      {/* Suggested artifacts — always-visible primary CTAs so operator
+          never has to expand to find the action. */}
       {data.suggestedArtifacts.length > 0 && (
         <section>
           <h4 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
-            Suggested artifacts
+            Suggested next steps
           </h4>
           <div className="flex flex-wrap gap-1.5">
             {data.suggestedArtifacts.map((a) => (
@@ -197,6 +306,35 @@ export function SpecialistResponseCard({
         </section>
       )}
 
+      {/* Expand toggle — text recommendations only, collapsed by default */}
+      {hasDetails && (
+        <button
+          type="button"
+          onClick={() => setDetailsOpen((v) => !v)}
+          className={`flex items-center gap-1 text-xs uppercase tracking-wider ${accentClass} hover:opacity-80 transition`}
+          aria-expanded={detailsOpen}
+        >
+          <ChevronDown
+            className={`w-3.5 h-3.5 transition-transform ${detailsOpen ? "" : "-rotate-90"}`}
+          />
+          {detailsOpen ? "Hide further recommendations" : "Show further recommendations"}
+        </button>
+      )}
+
+      {/* Recommendations — behind toggle */}
+      {detailsOpen && data.recommendations.length > 0 && (
+        <section>
+          <ul className="space-y-1.5 text-sm">
+            {data.recommendations.map((r, i) => (
+              <li key={i} className="flex gap-2 items-start">
+                <ChevronRight className={`w-4 h-4 mt-0.5 shrink-0 ${accentClass}`} />
+                <span>{r}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* Footer */}
       <footer
         className={`flex flex-wrap items-center gap-2 text-xs ${mutedClass} pt-3 border-t border-slate-800/40`}
@@ -205,9 +343,20 @@ export function SpecialistResponseCard({
           {conf.label}
         </span>
         {data.requiresApproval && (
-          <span className="px-2 py-0.5 rounded-full border border-amber-500/40 text-amber-300 bg-amber-500/10">
-            Approval required to implement
-          </span>
+          onRequestApproval ? (
+            <button
+              type="button"
+              onClick={onRequestApproval}
+              title="Jump to the approval gate for this recommendation"
+              className="px-2 py-0.5 rounded-full border border-amber-500/60 text-amber-200 bg-amber-500/15 hover:bg-amber-500/25 hover:border-amber-400/80 transition cursor-pointer"
+            >
+              Approval required to implement →
+            </button>
+          ) : (
+            <span className="px-2 py-0.5 rounded-full border border-amber-500/40 text-amber-300 bg-amber-500/10">
+              Approval required to implement
+            </span>
+          )
         )}
         <span className="ml-auto flex items-center gap-1">
           <Sparkles className="w-3 h-3" />

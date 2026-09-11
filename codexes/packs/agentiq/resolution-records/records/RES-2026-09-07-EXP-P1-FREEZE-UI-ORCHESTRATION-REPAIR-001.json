@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-09-07-EXP-P1-FREEZE-UI-ORCHESTRATION-REPAIR-001",
+  "capability": "exp-p1-crystal-freeze-gate",
+  "milestone": "EXP-P1 / Crystal vP2 — closing the loop: exposing the already-authorized internal-pilot freeze in the deployed UI",
+  "problem": "The backend freeze mechanism (executionDesignation: 'internal-pilot', the freeze/freeze-preview routes, the operator's already-recorded authorization) was fully implemented and deployed, but the deployed UI never surfaced it: the Research Copilot's 'Inspect Track 2' control opened an unrelated experiment (EXP-001 Bundle Evaluation), and the freeze control itself was nested inside Track2ProgrammePanel's stage list, gated on `loadTrack2ProgrammeState()` (a heavy, multi-signal composition unrelated to the Crystal artifact's own lifecycle) succeeding AND on the confirmatory readiness gate completing. Two independently-authorized facts (the artifact is `validated`; the operator authorized an internal-pilot deviation) were being hidden behind a THIRD, unrelated fact (whether Track 2's programme composition finished within its own 15s budget). Operator framing, verbatim: \"Track 2 is allowed to say science still has limitations. It is not allowed to hide a separately authorized lifecycle act.\"",
+  "observedFailure": [
+    "`components/composer/IRLResearchCopilotTab.tsx`'s 'Inspect Track 2' button called `goToExperimentLab` (`onOpenDetail={goToExperimentLab}`), which dispatches `codex:navigate-tab` WITHOUT calling `setPendingTrack2Stage` first. `InvariantExperimentLab.tsx` reads its initial tab as `initialTrack2Intent ? \"track2\" : \"bundle\"` — with no intent recorded, every click landed on the `\"bundle\"` tab (EXP-001 Bundle Evaluation), a wholly unrelated experiment. `goToTrack2Stage` (the ONLY function that writes that intent) already existed and was already used elsewhere in the same file for the pending-decision CTA — this control simply was not wired to it.",
+    "`tests/track2-copilot-deep-link.test.ts` contained a test — '\"Inspect Track 2\" and the exceptions overflow link remain generic — only the pending-decision CTA deep-links' — that asserted `onOpenDetail={goToExperimentLab}` as the CORRECT, intended wiring. This is the canary-encoded-the-defect pattern: the test detected exactly the buggy wiring and certified it as working as designed.",
+    "`components/research/Track2ProgrammePanel.tsx` rendered its Crystal-freeze UI (both the confirmatory `FreezeControl` ceremony and, after an earlier session's own fix, an internal-pilot action) entirely inside `{programme && (...)}`, where `programme` is the product of this panel's own `load()` call to `GET /api/research/track2/[experimentId]`, which in turn calls `loadTrack2ProgrammeState` directly. That composition (readiness + cohort reconciliation + acquisition-pending-decision + more) is a materially different, slower computation than the Crystal artifact's own lifecycle state, and its own success/failure has zero bearing on whether the artifact is `validated` and internal-pilot-authorized. A slow or failed `programme` load therefore hid an independently-ready governed act.",
+    "Even within `{programme && (...)}`, the internal-pilot freeze action from the immediately-preceding session's own fix additionally depended on a `readiness` prop sourced from that SAME slow composition, when the exact same failing-check data (`derivation-headroom`, `boundary-coverage`) was already available, faster and independently, embedded in the freeze-preview route's own response (`package.recommendation.readiness.checks` — `services/research/crystalFreezeRecommendation.ts` calls `runCrystalReadinessReport` directly and never imports `loadTrack2ProgrammeState`)."
+  ],
+  "rootCauses": [
+    "Two different questions were collapsed into one gate: 'is the eleven-stage Track 2 programme fully composed and current-stage-labelled Freeze' and 'is THIS specific Crystal artifact eligible for an internal-pilot freeze, right now, on its own authoritative lifecycle state'. Only the first was ever checked by the rendering condition; the second — the actually-authorized fact — was never asked independently.",
+    "`Track2DeepLink`-based navigation (`goToTrack2Stage`) and generic navigation (`goToExperimentLab`) coexisted as two functions with the same visible effect (switch the active lab tab) but materially different side effects (one records WHICH stage to land on; the other does not) — a call site that only needs 'switch tabs' has no compile-time signal steering it toward the one that also sets up the correct landing stage, so a control added without that context defaults to the simpler-looking, actually-incomplete one.",
+    "The internal-pilot freeze action (added the immediately preceding session) reused the HOST panel's own `readiness` prop out of local convenience/consistency with the rest of the panel's rendering, rather than deriving it from the SAME fast route (`freeze-preview`) the action already called for `contentHash` — an avoidable coupling introduced at the moment of writing, not an existing constraint."
+  ],
+  "resolution": [
+    "Extracted the freeze action into its own standalone, exported component (`components/research/FreezeVP2InternalPilotAction.tsx`) that derives EVERYTHING it needs from fast, Track-2-composition-independent reads: `GET .../freeze` (artifact lifecycle only — `getArtifactById`, no `loadTrack2ProgrammeState`) to decide eligible/frozen/not-eligible, and `POST .../freeze-preview` (which calls `runCrystalReadinessReport`/`runCrystalStatisticsReport` directly) for `contentHash`, the ratified boundary, AND the live failing scientific-readiness checks (via the preview package's embedded `recommendation.readiness.checks` — no separate readiness fetch needed, and no dependency on a parent-supplied `readiness` prop at all).",
+    "Mounted this ONE component, unconditionally (gated only on `experimentId === \"EXP-P1\"`, never on `programme`), in BOTH host surfaces — `Track2ProgrammePanel.tsx` (near the top, before `{programme && (...)}`) and `IRLResearchCopilotTab.tsx`'s `ObjectiveCard` (before its own `{programme && (...)}` block) — one implementation, never a fork (`inv.engineering.036`/`037`).",
+    "Removed the freeze action's prior placement inside the freeze-stage's readiness-incomplete branch (which only rendered when `programme` had already loaded) and removed its `readiness` prop dependency entirely.",
+    "Suppressed the OLD `FrozenSummary` component's hardcoded 'Next constitutional act: Publish as Canonical' text specifically for `experimentId === \"EXP-P1\"` (returns `null` instead) so it can never render alongside, and contradict, the new component's own server-derived `nextGovernedAction` text once frozen.",
+    "Fixed 'Inspect Track 2': added `goToTrack2Overview(experimentId)`, which ALWAYS resolves through `goToTrack2Stage` (never `goToExperimentLab`) — preferring the real, server-resolved `pendingDecisionPreview.deepLink`, falling back to `buildTrack2DeepLink` against the durable `programmePreview`'s own `experimentId`/`currentStageId`, and falling back to an explicit Track-2-named deep-link (never the lab's generic/first-experiment default) only when nothing has ever loaded. Wired to the 'Inspect Track 2' button in place of `goToExperimentLab`.",
+    "Corrected the canary that had encoded the defect: `tests/track2-copilot-deep-link.test.ts`'s '\"Inspect Track 2\"...remain generic' test now asserts the FIXED wiring (`onOpenDetail={() => goToTrack2Overview(objective.experimentId)}`) and explicitly asserts `goToExperimentLab` is NOT used there; a second test pins `goToTrack2Overview`'s own fallback chain.",
+    "Added `tests/freeze-vp2-internal-pilot-action.test.tsx` (React Testing Library, real component, `personaFetch` mocked at the one IO seam) proving: renders from artifact lifecycle + freeze-preview alone; nothing typed in (operatorRef resolved via active-persona + identity-references); the POST body carries `executionDesignation: 'internal-pilot'`, `boundaryAcknowledged: true`, and `scientificDeviations` derived from the LIVE failing checks; the frozen state renders the server's own `nextGovernedAction`; a failed first read never fabricates data. Added `tests/freeze-vp2-independent-of-programme-composition.test.ts` (source-text canary, mirroring this repo's convention for these exact large panel files) proving both host surfaces mount the component before their `{programme && (...)}` gate and pass it no `readiness`/`programme` prop.",
+    "Verified via `npx tsc --noEmit` (679 errors — identical to the established baseline) and the full repository test suite (17 pre-existing-and-independently-confirmed-unrelated failing files, identical set before and after this change; zero new failures)."
+  ],
+  "rejectedApproaches": [
+    "Fixing 'Inspect Track 2' by hand-constructing a `Track2DeepLink`-shaped object inline at the call site — rejected: `buildTrack2DeepLink` already exists as 'the ONE place a Track 2 deep-link is constructed' per its own doc comment, and a second, ad hoc construction is exactly the reconstruct-a-generic-URL-client-side pattern the deep-link contract exists to prevent.",
+    "Leaving the freeze action nested inside Track2ProgrammePanel's stage list and instead trying to make `loadTrack2ProgrammeState` itself faster or more reliable — rejected: the operator's own ruling is explicit that Track 2's programme composition is allowed to be slow or incomplete; the fix is to stop treating that composition's success as a precondition for a fact (the artifact's own lifecycle) that composition does not even need to answer, never to chase the composition's own performance.",
+    "Increasing `STATE_COMPOSITION_DEADLINE_MS` (the 15s safety budget) — explicitly out of scope per the operator's own instruction ('Do not increase the 15s timeout'); the defect was never that 15s was too short, it was that an unrelated act was wrongly coupled to that budget at all.",
+    "Building a second, cheaper 'is Track 2 in the Freeze stage' derivation as a shortcut, rather than deriving eligibility from the Crystal artifact's own lifecycle directly — rejected: that would still be answering 'what does Track 2's stage bookkeeping currently say' rather than 'is this artifact actually eligible', reintroducing the same category error at smaller scale.",
+    "Duplicating the freeze action's rendering logic separately in each host surface (Track2ProgrammePanel and the Research Copilot) with copy-pasted markup — rejected outright per `inv.engineering.036`/`037`; extracted into one standalone, shared component instead."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-07-GOVERNED-ACT-ELIGIBILITY-INDEPENDENT-OF-SLOW-COMPOSITION-001"
+  ],
+  "canaries": [
+    "tests/freeze-vp2-internal-pilot-action.test.tsx",
+    "tests/freeze-vp2-independent-of-programme-composition.test.ts",
+    "tests/track2-copilot-deep-link.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "canary-encoded-the-defect",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/freeze-vp2-internal-pilot-action.test.tsx",
+      "tests/freeze-vp2-independent-of-programme-composition.test.ts",
+      "tests/track2-copilot-deep-link.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "Operator report, 2026-09-07, verbatim: \"the deployed UI still loops back to Discover Sources, does not render the freeze control, and intermittently fails programme-state composition\"; and the closing architectural framing: \"Track 2 is allowed to say science still has limitations. It is not allowed to hide a separately authorized lifecycle act. The Freeze button should not be waiting for the programme projector to decide the whole world is perfect. We already made the operator decision. Now the UI needs to honor it and close this.\"",
+      "The prior session's own resolution record RES-2026-09-06-RECONCILE-PARALLEL-CRYSTAL-FREEZE-IMPLEMENTATIONS-001 and RES-2026-09-06-ITERATIVE-CRYSTAL-VERSIONING-001 established the BACKEND mechanism this record's UI repair exposes; nothing about the backend gate, thresholds, namespace ontology, or remediation profile was touched here."
+    ]
+  },
+  "sourceDocs": [],
+  "date": "2026-09-07",
+  "projections": {
+    "targets": [
+      "devon",
+      "ux-framework",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

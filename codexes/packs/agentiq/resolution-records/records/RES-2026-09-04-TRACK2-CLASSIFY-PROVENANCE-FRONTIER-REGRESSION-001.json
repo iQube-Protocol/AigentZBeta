@@ -1,0 +1,69 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-04",
+  "resolutionId": "RES-2026-09-04-TRACK2-CLASSIFY-PROVENANCE-FRONTIER-REGRESSION-001",
+  "capability": "exp-p1-track2-programme-state-composition",
+  "milestone": "EXP-P1 / Track 2 — Classify Provenance close-out (post RES-2026-09-04-TRACK2-COMPOSITION-COST-001)",
+  "problem": "Live on EXP-P1: the Research Copilot correctly showed 'Classify Provenance — 53/58' with a working deep link at one point, then on a later refresh reverted to 'Discover Sources' with 'candidate-source substrate could not be read — status unknown, not assumed' and a targeted-acquisition-approval prompt, even though the 58-member successor cohort and its Stage 5/6/7 outstanding work (53 unclassified, 55 unvalidated, 3 unresolved relationships) were untouched throughout. Separately, GET /api/research/track2/[experimentId]/provenance-cohort itself failed with HTTP 504 ('the provenance cohort could not be read').",
+  "observedFailure": [
+    "buildTrack2Programme (services/research/track2Programme.ts) computed `currentStageId` as `stages.find((st) => st.status !== 'complete') ?? stages[stages.length - 1]` — a stage's `'unknown'` status (its own substrate read failed) was treated identically to a genuinely open status for the purpose of picking 'the stage the operator should look at'. Stage 1 (discover-sources) reports 'unknown' whenever its `candidateSources` read fails; being ordinal 1, it always won this scan regardless of what real work sat at Stage 5.",
+    "`unblockedStageIds` was computed via `stages.filter((st) => stages.every((earlier) => earlier.ordinal >= st.ordinal || PASSES_THROUGH.has(earlier.status)))` with `PASSES_THROUGH = {'complete','partially-complete'}`. Because 'unknown' was not in that set, Stage 1 reporting 'unknown' excluded EVERY later stage — not just its own display label — from `unblockedStageIds`. This is the field `services/research/researchProgrammeOrchestrator.ts`'s `unblockedStage()`/`firstPendingDecision()` gate real act-offering on, so the failure was not cosmetic: `firstPendingDecision` had no unblocked stage to offer except Stage 1 itself, fell through to `buildAcquisitionPendingDecision`, and surfaced the targeted-acquisition prompt seen live — exactly reproducing the screenshot even though the Copilot's OWN display logic (see below) was working correctly on the input it was given.",
+    "Confirmed the Research Copilot (components/composer/IRLResearchCopilotTab.tsx) required NO change: it already implements RES-2026-09-01-TRACK2-FAIL-SOFT-SWALLOWED-001 section 13's rule of preferring `decision?.stageLabel` over the raw `currentStageId` label for its headline. That existing protection could not save this case because the corruption was upstream of `decision` itself — `firstPendingDecision`'s own input (`unblockedStageIds`) was empty of every real stage, so `decision` legitimately WAS the acquisition-brief prompt, not a stale label.",
+    "Independently, services/research/provenanceCohortPreparation.ts's `prepareProvenanceCohort` resolved each DISTINCT source-document signature's suggestion (one real `callSovereign` inference round-trip via `suggestProvenanceClass`, services/constitutional/modelRouter.ts) in a strictly sequential `for...of` loop. The live EXP-P1 corpus collapses its unclassified members onto seven distinct signatures (documented in that module's own header), so the route serialised seven real inference calls inside one `maxDuration = 60` request — a previously-unaddressed cost driver distinct from the 2026-09-03 N+1 fix to the same module's deterministic triage half (that fix batched a `discovery_evidence` DB read; it never touched this per-signature inference loop)."
+  ],
+  "rootCauses": [
+    "`'unknown'` (a substrate-read failure — an infrastructure/observability condition) was conflated with the ordinary non-complete lifecycle statuses ('not-started' | 'blocked' | 'in-progress' | 'partially-complete' — genuine outstanding scientific/governance work) in both the `current`-stage selection and the `unblockedStageIds` pass-through set. The two are categorically different: one means 'we do not know', the other means 'there is real, well-defined work'. Collapsing them let an unrelated read failure masquerade as a constitutional block on unrelated, independently-verified downstream work.",
+    "The first drafted fix over-corrected: it initially proposed treating ANY stage's 'unknown' as universally pass-through, which would have been unsafe in general (a later stage that genuinely trusted an earlier stage's reported completion to know whether its own work is real could be fooled by an earlier stage's mere read failure). The correction was verified, not assumed: every stage in this pipeline (Stage 2 from `candidateSources`, Stages 3-4 from `discoveryCandidates`, Stages 5-7 from `promotedCohort` via the shared `cohortGate()`) derives its OWN status from its OWN direct substrate read, never by inheriting a completion judgement from the stage before it — so an earlier stage's 'unknown' never has any bearing on whether a LATER stage's own, independently-confirmed status is real. This was confirmed by reading every stage's status derivation in `track2Programme.ts`, not assumed from the Stage-1 case alone (see rejectedApproaches).",
+    "`prepareProvenanceCohort`'s per-signature loop had no data dependency between signatures (each signature's suggestion is independent of every other's), so there was no reason for the loop to be sequential — it was written as a plain `for...of`+`await` before the corpus grew past a handful of signatures, and nobody revisited it when the cost of that per-signature call (a live model round-trip) became the dominant latency once the deterministic triage half was already fixed."
+  ],
+  "resolution": [
+    "`track2Programme.ts`: `PASSES_THROUGH` now includes `'unknown'`, and `current`-stage selection is `stages.find((st) => st.status !== 'complete' && st.status !== 'unknown') ?? stages.find((st) => st.status !== 'complete') ?? stages[stages.length - 1]` — the second, unknown-inclusive branch is reached ONLY when no stage anywhere in the programme has a genuinely actionable non-complete status, so an honest 'we don't know' is still surfaced as `current` when it is truly the only open question, never silently swallowed.",
+    "Every stage's OWN status computation is untouched — a stage whose own substrate read fails still reports 'unknown' for itself, unaffected by this change; the change governs only what an earlier stage's 'unknown' WITHHOLDS from later stages, never what may be concluded about the unreadable stage itself.",
+    "`provenanceCohortPreparation.ts`: the per-distinct-signature `suggestClassification`+`suggestProvenanceClass` pair now runs via `Promise.all` across all distinct signatures rather than a sequential loop — deliberately no concurrency limiter, since the realistic scale (a handful of distinct signatures per the module's own documented live finding) does not warrant one; every existing exception-cause semantic (`suggestion-unavailable`, evidenceRefs, confidence) is preserved exactly per signature, and a genuine throw (from the substrate read) still aborts the whole preparation exactly as before, propagated by `Promise.all`.",
+    "Verified query-count/behaviour is unaffected by the earlier 2026-09-04 composition-cost and 2026-09-03 sub-domain-visibility fixes — `resolveSuccessorConstructionCohort`/`reconcilePromotedCohort` (the source of the 58-member cohort) already use the membership-only/batched paths those fixes established; this repair touches only the stage-status-selection layer above them and the previously-unaddressed inference-parallelization layer below the already-fixed DB-triage batching."
+  ],
+  "rejectedApproaches": [
+    "A blanket 'any stage's unknown status passes through' rule scoped by status value alone, with no verification of per-stage independence — this was the FIRST drafted fix, flagged by the operator before implementation: 'verify unknown doesn't get over-corrected into always pass through... at minimum an explicit rule that Stage 1 acquisition observability failure does not block already-established downstream cohort work.' Implemented only after tracing every stage's status derivation and confirming none of them inherit a completion judgement from an earlier stage — see rootCauses.",
+    "A narrow, stage-ID-scoped allowlist (e.g. 'only discover-sources may pass through as unknown') — considered as the safer minimum the operator explicitly offered, but rejected once verification showed the broader, status-level rule is actually correct FOR THIS PIPELINE'S ARCHITECTURE (every stage self-verifies), and a stage-ID allowlist would silently need updating every time a new stage gained its own independent 'unknown' path, which is a worse long-term property than the verified general rule with an explicit boundary test.",
+    "Adding a bounded-concurrency limiter (e.g. a small semaphore/queue library) to the parallelized suggestion loop — rejected as over-engineering for the documented, realistic scale (a handful of distinct signatures); would be machinery in place of a fix.",
+    "Isolating a per-signature THROW (as opposed to a reported `{ok:false}` failure) so one signature's substrate-read exception cannot abort the whole preparation — a real, separate improvement, deliberately NOT smuggled into this performance fix; `suggestProvenanceClass` already reports failures as values, and only `suggestClassification`'s own substrate read can throw. Flagged for a future pass rather than silently changing what the operator is shown for that failure mode.",
+    "Increasing the provenance-cohort route's `maxDuration` or the programme-state composition's timeout budget to work around the sequential-inference latency — explicitly forbidden by the operator's own instruction for this repair ('do not fix by raising the timeout')."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-04-UNKNOWN-STATUS-NEVER-HIJACKS-VERIFIED-DOWNSTREAM-FRONTIER-001",
+    "CI-2026-09-04-PARALLELIZE-INDEPENDENT-PER-KEY-INFERENCE-CALLS-001"
+  ],
+  "canaries": [
+    "tests/track2-classify-provenance-monotonic-projection.test.ts",
+    "tests/provenance-cohort-preparation-concurrency.test.ts",
+    "tests/pipeline-continuity.test.ts",
+    "tests/research-programme-orchestrator.test.ts",
+    "tests/track2-copilot-deep-link.test.ts",
+    "tests/provenance-cohort-preparation.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "governance-boundary-confused",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/track2-classify-provenance-monotonic-projection.test.ts",
+      "tests/provenance-cohort-preparation-concurrency.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "Operator-relayed live screenshots, 2026-09-04, 14:01-14:03: Research Copilot showing 'Classify Provenance — 53/58' then, on refresh, 'Discover Sources / candidate-source substrate could not be read'; admin Track2ProgrammePanel showing Stage 5/6/7 real outstanding detail concurrently ('55 member(s) require validation', '3 member(s) carry neither an admitted relationship...'); Classify Provenance's 'Open Classification Queue' action failing with 'the provenance cohort could not be read (HTTP 504)'."
+    ]
+  },
+  "sourceDocs": [],
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  }
+}

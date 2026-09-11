@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-07",
+  "resolutionId": "RES-2026-09-07-DIDQUBE-PHASE-4-CTP-CONSUMER-MIGRATION-001",
+  "capability": "ctp-constitutional-runtime-subject-identity-resolution",
+  "milestone": "DiDQube Phase 4 item 3 (execution plan §Phase 4): CTP (the Constitutional Transition Primitive runtime) is the third real consumer of the canonical resolveDiDQube resolver.",
+  "problem": "The Constitutional Runtime (services/ctp/constitutionalRuntime.ts) is the ONE canonical invocation seam every CTP primitive executes through, and every current primitive's resolveParticipants() resolves a subjectPersonaId -- but nothing anywhere in the CTP evidence chain (ctp_transition_evidence) recorded which constitutional identity (DiDQube) that subject persona actually corresponds to. Per the execution plan's item 3 ('consume the resolver for who is the subject / which anchor / which Passport questions'), this closes that gap ONCE, at the shared runtime layer, rather than requiring each individual primitive to re-derive it.",
+  "observedFailure": [
+    "Code inspection: ConstitutionalTransitionEvidence (types/ctp.ts) carried subjectPersonaId but no DiDQube-resolved fields at all prior to this change; neither existing primitive (ctp.exchange.artifact.confirm, ctp.wallet.asset.convert) nor the runtime itself ever called resolveDiDQube.",
+    "No direct personaId -> DiDQube mapping exists anywhere in this codebase -- personas.auth_profile_id was checked empirically against root_identity.auth_user_id (the resolver's own auth_user_id walk) via a live JOIN against the 'Aigent Z' Supabase project (bsjhfvctmduxhohtllly) and returned ZERO matching rows, confirming the two are NOT interchangeable values and ruling out the seemingly-obvious 'just pass ctx.callerAuthProfileId to resolveDiDQube' shortcut before it could ship as a subtly wrong resolution.",
+    "The verified-safe path instead goes through polity_passport_records (which already carries both persona_id and kybe_identity_id as columns, confirmed live) -- but a live count against citizen passports found only 1 of 14 rows with a populated kybe_identity_id, meaning most CTP subjects will honestly resolve as unresolved today; this was verified BEFORE shipping so the null-heavy result is an expected, understood outcome rather than a silent surprise discovered later."
+  ],
+  "rootCauses": [
+    "CTP's evidence model (charter-driven, 2026-08-31) predates the DiDQube resolver entirely -- there was no canonical mechanism for 'which identity' to point to when the evidence shape was designed.",
+    "subjectPersonaId's own resolution (each primitive's resolveParticipants) is entirely persona/session-scoped by design (subjectRequirement is 'PERSONHOOD' for every primitive registered so far) -- there is no existing agent_root_identity-anchored CTP primitive yet, so the human/kybe_identity walk is the only one presently exercised in production."
+  ],
+  "resolution": [
+    "New services/ctp/subjectIdentityResolution.ts: resolveSubjectDiDQubeSnapshot(admin, subjectPersonaId) walks polity_passport_records.persona_id -> kybe_identity_id -> resolveDiDQube({kind:'kybe_identity_id', ...}), returning an empty (all-null) snapshot on any unresolved/conflicted/ambiguous outcome, absent linkage, OR any thrown exception -- wrapped in try/catch specifically so a caller-supplied admin double that doesn't support this exact query shape (observed live in tests/ocsga-exchange-actions-route.test.ts's minimal insert-only stub) can never abort an otherwise-unrelated CTP transition or refusal write.",
+    "types/ctp.ts: ConstitutionalTransitionEvidence gained four additive, nullable fields (subjectDidqubeId/subjectDidqubeClass/subjectResolutionCommitment/subjectResolutionCommitmentVersion). services/ctp/evidence.ts's WriteTransitionReceiptInput/WriteRefusalEvidenceInput and toRow() extended to carry them through to the ctp_transition_evidence row.",
+    "services/ctp/constitutionalRuntime.ts: resolves the subject's DiDQube snapshot ONCE, immediately after step 2 (participant resolution) succeeds, and threads it into every subsequent refuse() call (steps 3, 6, 8) AND the final success receipt (step 11) -- never into the earliest refusals (unknown primitive, disallowed channel, failed participant resolution) where no subjectPersonaId is known yet, honestly reflecting that nothing could have been resolved.",
+    "supabase/migrations/20260930320000_ctp_transition_evidence_didqube_resolution.sql (applied live, verified via information_schema.columns): four additive nullable columns on ctp_transition_evidence, mirroring the exact pattern already shipped for aegis_assessments (20260930310000).",
+    "5 new tests in tests/ctp-constitutional-runtime.test.ts: an unresolvable persona leaves the receipt's subjectDidqubeId null; a resolvable persona->kybe_identity->DiDQube chain populates all four fields; a minimal admin double that cannot support the read never aborts the transition (resolves to null instead of throwing -- this is the exact defect the try/catch fix in this same resolution addresses); a refusal AFTER participant resolution still carries the subject snapshot; the earliest refusal (before participants resolve) carries none."
+  ],
+  "rejectedApproaches": [
+    "Passing ctx.callerAuthProfileId directly to resolveDiDQube({kind:'auth_user_id', ...}) -- the seemingly obvious shortcut, since ConstitutionalContext already carries callerAuthProfileId and the resolver already has an auth_user_id input kind. REJECTED after a live empirical check (JOIN personas.auth_profile_id against root_identity.auth_user_id) returned zero matches -- the two values are not interchangeable, and this would have silently resolved the WRONG identity (or none) for every CTP transition had it shipped unverified. This is exactly the class of defect the No-Guessing rule and this whole DiDQube effort exist to prevent.",
+    "Having each primitive resolve its own subject DiDQube inside resolveParticipants() -- rejected: the Constitutional Runtime is the ONE canonical seam every primitive already goes through (the entire point of CTP's architecture), so resolving this ONCE there, generically, is both less code and structurally guaranteed to cover every future primitive without each one remembering to do it.",
+    "Skipping the try/catch defensive wrapper on the theory that a real Supabase client always supports .select() -- rejected after tests/ocsga-exchange-actions-route.test.ts's existing minimal admin stub (insert-only, by design, for a narrow test) broke the instant the new read was added without one. A caller-supplied admin double narrower than the full query surface is a normal, expected shape in this codebase's own test conventions, not a defect to work around elsewhere."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-07-DIDQUBE-CONSUMER-RESOLVER-NOT-RAW-ANCHOR-001"
+  ],
+  "canaries": [
+    "tests/ctp-constitutional-runtime.test.ts",
+    "tests/ocsga-exchange-actions-route.test.ts",
+    "tests/didqube-resolver.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/ctp-constitutional-runtime.test.ts",
+      "tests/ocsga-exchange-actions-route.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-07_didqube-canonical-resolver-execution-plan.md",
+    "services/ctp/constitutionalRuntime.ts",
+    "services/ctp/subjectIdentityResolution.ts",
+    "services/ctp/evidence.ts",
+    "types/ctp.ts",
+    "supabase/migrations/20260930320000_ctp_transition_evidence_didqube_resolution.sql"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "unresolvedRisks": [
+    "No CTP primitive registered so far is agent-anchored (subjectRequirement is 'PERSONHOOD' throughout) -- resolveSubjectDiDQubeSnapshot's kybe_identity-only walk has never been exercised against an agent-subject CTP transition. A future agent-subject primitive would need its own walk added here (or a generalized dispatch keyed on subjectRequirement), not assumed to work identically.",
+    "Only 1 of 14 live citizen passport rows carries a populated kybe_identity_id (verified 2026-09-07) -- the snapshot will be null for most real CTP transitions today. This is honest, not a defect, but it means the evidentiary value of this migration is currently limited until the underlying kybe_identity_id backfill gap (a pre-existing condition, not introduced by this change) is separately addressed.",
+    "A single, unreproduced full-suite test failure (tests/vela-confidential-projection-provider.test.ts, asserting a random hex string does not contain the substring '500') appeared once during this migration's regression sweep and was confirmed, via 5 repeated standalone runs plus a clean second full-suite sweep, to be a pre-existing probabilistic flake in that test's own random value generation -- unrelated to this migration's files, and not reproduced again. Flagged here for visibility, not treated as caused by this change."
+  ]
+}

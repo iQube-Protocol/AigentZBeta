@@ -396,6 +396,47 @@ interface ChainTokenEntry {
   explorerUrl: string;
 }
 
+/**
+ * The persona's iQube trinity, as returned by
+ * GET/POST /api/iqube/persona/<type>/mint.
+ *
+ * `metaQubeId` is the registry MetaQube (iq_meta_qubes) id — it becomes the
+ * on-chain metaIdentifier. `tokenQubeId` is the iq_token_qubes row that
+ * receives chain_token_id / chain_tx_hash after a successful mint.
+ */
+interface PersonaTrinity {
+  stubId: string;
+  status: string;
+  metaQubeId: string;
+  blakQubeId: string;
+  tokenQubeId: string;
+  metaQube: Record<string, unknown> | null;
+  blakQube: {
+    payloadPointer: string;
+    payloadProvider: string;
+    payloadType: string;
+    payloadSize: number | null;
+    encryptionAlg: string;
+    checksum: string | null;
+    autonomysCid: string | null;
+  } | null;
+  chainAnchor: {
+    chainTokenId: number | null;
+    chainId: number | null;
+    chainTxHash: string | null;
+    chainMinter: string | null;
+    explorerUrl: string | null;
+  } | null;
+  recipientAddress: string | null;
+  usingDevKey: boolean;
+}
+
+function formatBytes(n: number | null): string {
+  if (n === null) return "—";
+  if (n < 1024) return `${n} B`;
+  return `${(n / 1024).toFixed(1)} KiB`;
+}
+
 // ─── Main drawer ──────────────────────────────────────────────────────────────
 
 export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
@@ -419,6 +460,10 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
   const [tokensLoading, setTokensLoading] = useState(false);
   const [resolvedRecipient, setResolvedRecipient] = useState<string | null>(null);
 
+  // The persona's registered iQube trinity — drives the metaQube + blakQube
+  // tabs and supplies the ids the mint call anchors to.
+  const [trinity, setTrinity] = useState<PersonaTrinity | null>(null);
+
   const displayName = type === "knyt" ? "KNYT Persona" : "Qripto Persona";
   const sections = type === "knyt" ? KNYT_SECTIONS : QRIPTO_SECTIONS;
 
@@ -426,10 +471,12 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
     setLoading(true);
     setError(null);
     try {
-      // Bind + persona load in parallel — bind stamps did_persona_id on the row
-      const [bindRes, personaRes] = await Promise.all([
+      // Bind + persona + trinity in parallel — bind stamps did_persona_id on
+      // the row; the trinity read is non-staging (it never mints on open).
+      const [bindRes, personaRes, trinityRes] = await Promise.all([
         personaFetch("/api/identity/root-did/bind", { method: "POST" }),
         personaFetch(`/api/iqube/persona/${type}`),
+        personaFetch(`/api/iqube/persona/${type}/mint`),
       ]);
 
       // Extract only this persona's DID ID for the tokenQube wallet binding row
@@ -439,6 +486,13 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
         };
         const match = bindJson.personas?.find((p) => p.personaType === type);
         if (match) setDidPersonaId(match.didPersonaId);
+      }
+
+      // Trinity is optional — a persona that has never been staged renders the
+      // "not staged yet" state rather than failing the whole load.
+      if (trinityRes.ok) {
+        const trinityJson = await trinityRes.json() as PersonaTrinity & { staged?: boolean };
+        setTrinity(trinityJson.staged ? trinityJson : null);
       }
 
       const json = await personaRes.json();
@@ -484,10 +538,24 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
     }
   };
 
+  /**
+   * Re-read the trinity alone. Deliberately not `load()` — that flips the
+   * whole drawer into its loading state and hides the mint result the operator
+   * is looking at.
+   */
+  const refreshTrinity = useCallback(async () => {
+    try {
+      const res = await personaFetch(`/api/iqube/persona/${type}/mint`);
+      if (!res.ok) return;
+      const json = await res.json() as PersonaTrinity & { staged?: boolean };
+      if (json.staged) setTrinity(json);
+    } catch { /* non-fatal — the in-session mint result still renders */ }
+  }, [type]);
+
   const loadTokens = useCallback(async () => {
     setTokensLoading(true);
     try {
-      const res = await fetch("/api/core/mint-tokenqube");
+      const res = await personaFetch("/api/core/mint-tokenqube");
       const data = await res.json() as { tokens?: ChainTokenEntry[] };
       if (data.tokens) setChainTokens(data.tokens);
     } catch { /* non-fatal */ } finally {
@@ -521,21 +589,34 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
         }
       }
 
-      // Step 2: stage + encrypt persona blakQube
+      // Step 2: stage — encrypts the blakQube, pushes it to Auto Drive, and
+      // creates/refreshes the iQube trinity. Returns the registry ids.
       const stageRes = await personaFetch(`/api/iqube/persona/${type}/mint`, {
         method: "POST",
       });
-      const stageData = await stageRes.json() as { stub_id?: string; error?: string };
-      if (!stageRes.ok) throw new Error(stageData.error ?? "Staging failed");
-      const stubId = stageData.stub_id ?? "unknown";
+      const staged = await stageRes.json() as PersonaTrinity & { error?: string };
+      if (!stageRes.ok) throw new Error(staged.error ?? "Staging failed");
+      if (!staged.metaQubeId) throw new Error("Staging returned no MetaQube id");
+      setTrinity(staged);
 
-      // Step 3: mint on-chain — stubId becomes the on-chain URI
-      const mintRes = await fetch("/api/core/mint-tokenqube", {
+      // The recipient is the persona's OWN wallet, never the deployer: an
+      // explicit entry wins, otherwise the persona's connected EVM address.
+      const owner = recipientAddr || staged.recipientAddress || "";
+      if (!owner) {
+        throw new Error(
+          "No recipient wallet. Connect an EVM address on the blakQube tab, or enter one above.",
+        );
+      }
+
+      // Step 3: mint on-chain. metaIdentifier is the registry MetaQube id, and
+      // tokenQubeId lets the route write the chain anchor back to Supabase.
+      const mintRes = await personaFetch("/api/core/mint-tokenqube", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          metaIdentifier: `iq:persona/${type}/${stubId}`,
-          recipientAddress: recipientAddr || undefined,
+          metaIdentifier: staged.metaQubeId,
+          tokenQubeId: staged.tokenQubeId,
+          recipientAddress: owner,
           network: mintNetwork,
         }),
       });
@@ -544,6 +625,9 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
 
       setMintResult(mintData);
       void loadTokens();
+      // Re-read so the tabs show the persisted chain anchor, not just the
+      // in-flight mint response.
+      void refreshTrinity();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Mint failed");
     } finally {
@@ -555,6 +639,15 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
   const metaQube = iqubeData?.metaQube ?? {};
   const tokenQube = iqubeData?.tokenQube ?? {};
   const hasDirty = Object.keys(editValues).length > 0;
+
+  // The persona's connected wallet — the default mint recipient. Prefer the
+  // server's resolved value; fall back to the row so the hint still renders
+  // before the persona has ever been staged.
+  const personaWallet =
+    trinity?.recipientAddress ??
+    (typeof blakQube["EVM-Public-Key"] === "string" && blakQube["EVM-Public-Key"].trim()
+      ? (blakQube["EVM-Public-Key"] as string).trim()
+      : null);
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "metaQube", label: "metaQube" },
@@ -620,13 +713,34 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
             </div>
           ) : (
             <>
-              {/* metaQube tab */}
+              {/* metaQube tab — the registered iq_meta_qubes row once the
+                  persona has been staged, otherwise the shape it will take. */}
               {activeTab === "metaQube" && (
                 <div className="space-y-2">
                   <p className="text-[11px] text-slate-500 mb-3">
                     Public provenance and risk metadata — never contains PII.
                   </p>
-                  {Object.entries(metaQube).map(([k, v]) => (
+
+                  {trinity?.metaQubeId ? (
+                    <div className="rounded-xl bg-slate-900/40 ring-1 ring-slate-800 p-3 mb-3">
+                      <p className="text-[10px] uppercase tracking-wider text-white/40 mb-1.5">
+                        Registry Record
+                      </p>
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-[11px] text-slate-500 shrink-0">MetaQube ID</span>
+                        <span className="text-[11px] font-mono text-slate-300 break-all text-right">
+                          {trinity.metaQubeId}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 mb-3 text-[11px] text-amber-300">
+                      Not yet registered. Minting on the tokenQube tab creates the
+                      iq_meta_qubes record and shows its live fields here.
+                    </div>
+                  )}
+
+                  {Object.entries(trinity?.metaQube ?? metaQube).map(([k, v]) => (
                     <div key={k} className="grid grid-cols-[160px_1fr] gap-2 py-1 border-b border-slate-800/40">
                       <span className="text-[11px] text-slate-500">{k}</span>
                       <span className="text-[11px] text-slate-300 break-all">
@@ -645,6 +759,56 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
                       No {displayName} iQube found. Fill in your details below to create one.
                     </div>
                   )}
+
+                  {/* Encrypted payload — the at-rest form of everything below.
+                      Shows the pointer and cipher parameters only; the
+                      plaintext and the key never cross this boundary. */}
+                  <section className="rounded-xl bg-slate-900/40 ring-1 ring-slate-800 p-3 mb-3">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Lock className="h-3 w-3 text-slate-500" />
+                      <p className="text-[10px] uppercase tracking-wider text-white/40">
+                        Encrypted Payload
+                      </p>
+                    </div>
+
+                    {trinity?.blakQube ? (
+                      <>
+                        {([
+                          ["BlakQube ID", trinity.blakQubeId],
+                          [
+                            "Storage",
+                            trinity.blakQube.payloadProvider === "autonomys"
+                              ? "Autonomys Auto Drive"
+                              : "Supabase (Auto Drive unconfigured)",
+                          ],
+                          [
+                            trinity.blakQube.autonomysCid ? "Auto Drive CID" : "Payload Pointer",
+                            trinity.blakQube.autonomysCid ?? trinity.blakQube.payloadPointer,
+                          ],
+                          ["Cipher", trinity.blakQube.encryptionAlg],
+                          ["Size", formatBytes(trinity.blakQube.payloadSize)],
+                          ["Checksum (SHA-256)", trinity.blakQube.checksum ?? "—"],
+                        ] as [string, string][]).map(([label, val]) => (
+                          <div key={label} className="flex items-start justify-between gap-2 py-1 border-b border-slate-800/40 last:border-0">
+                            <span className="text-[11px] text-slate-500 shrink-0">{label}</span>
+                            <span className="text-[11px] font-mono text-slate-300 break-all text-right">{val}</span>
+                          </div>
+                        ))}
+                        {trinity.usingDevKey && (
+                          <p className="mt-2 text-[10px] text-amber-400/80">
+                            Encrypted under the dev zero-key — set
+                            PERSONA_IQUBE_ENCRYPTION_KEY before treating this as custody.
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-[11px] text-slate-600">
+                        Not yet encrypted. Minting on the tokenQube tab encrypts these
+                        fields (AES-256-GCM) and stores the ciphertext on Auto Drive.
+                      </p>
+                    )}
+                  </section>
+
                   {sections.map((sec, i) => (
                     <Section
                       key={sec.title}
@@ -690,7 +854,14 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
                           "—"
                         ),
                       },
-                      { label: "Mint Status", val: String(tokenQube.mintStatus ?? "unminted"), accent: true },
+                      { label: "TokenQube ID", val: trinity?.tokenQubeId || "— not staged —" },
+                      {
+                        label: "Mint Status",
+                        val: trinity?.chainAnchor?.chainTokenId != null
+                          ? "minted"
+                          : String(tokenQube.mintStatus ?? "unminted"),
+                        accent: true,
+                      },
                     ] as { label: string; val: string; accent?: boolean }[]).map(({ label, val, accent }) => (
                       <div key={label} className="flex items-start justify-between gap-2 py-1 border-b border-slate-800/40 last:border-0">
                         <span className="text-[11px] text-slate-500 shrink-0">{label}</span>
@@ -698,6 +869,36 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
                       </div>
                     ))}
                   </section>
+
+                  {/* Persisted chain anchor — survives closing the drawer,
+                      unlike mintResult which lives only for this session. */}
+                  {!mintResult && trinity?.chainAnchor?.chainTokenId != null && (
+                    <section className="rounded-xl bg-emerald-950/30 ring-1 ring-emerald-700/30 p-3 space-y-1">
+                      <p className="text-[10px] uppercase tracking-wider text-emerald-400 mb-2">
+                        Anchored ✓ — Token #{trinity.chainAnchor.chainTokenId}
+                      </p>
+                      {([
+                        ["Chain ID", String(trinity.chainAnchor.chainId ?? "—")],
+                        ["Minter", trinity.chainAnchor.chainMinter ?? "—"],
+                        ["Tx Hash", trinity.chainAnchor.chainTxHash ?? "—"],
+                      ] as [string, string][]).map(([label, val]) => (
+                        <div key={label} className="flex items-start justify-between gap-2 py-0.5">
+                          <span className="text-[10px] text-slate-500 shrink-0">{label}</span>
+                          <span className="text-[10px] font-mono text-slate-300 break-all text-right">{val}</span>
+                        </div>
+                      ))}
+                      {trinity.chainAnchor.explorerUrl && (
+                        <a
+                          href={trinity.chainAnchor.explorerUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-[11px] text-indigo-400 hover:text-indigo-300 mt-2"
+                        >
+                          <ExternalLink className="h-3 w-3" /> View on Basescan
+                        </a>
+                      )}
+                    </section>
+                  )}
 
                   {/* Post-mint result card */}
                   {mintResult && (
@@ -800,11 +1001,26 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
                         type="text"
                         value={mintRecipient}
                         onChange={(e) => { setMintRecipient(e.target.value); setResolvedRecipient(null); }}
-                        placeholder="0x… or @knyt or name@domain"
+                        placeholder={personaWallet ?? "0x… or @knyt or name@domain"}
                         className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50"
                       />
                       {resolvedRecipient && (
                         <p className="text-[10px] text-emerald-400 font-mono">→ {resolvedRecipient}</p>
+                      )}
+                      {/* The token is minted TO the persona's own wallet. The
+                          deployer only signs (and pays gas) — it never owns. */}
+                      {!mintRecipient.trim() && (
+                        personaWallet ? (
+                          <p className="text-[10px] text-slate-500">
+                            Mints to your wallet{" "}
+                            <span className="font-mono text-slate-400">{personaWallet}</span>
+                          </p>
+                        ) : (
+                          <p className="text-[10px] text-amber-400/80">
+                            No EVM address on this persona — set one in the blakQube tab
+                            (Crypto Wallet), or enter a recipient above.
+                          </p>
+                        )
                       )}
                       <p className="text-[10px] text-slate-600">
                         EVM address, FIO handle (name@domain), or persona (@knyt, @qripto)

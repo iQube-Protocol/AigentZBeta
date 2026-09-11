@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "exploration-item/v1.0",
+  "explorationId": "EXP-2026-08-03-PARTIAL-COMPLETION-IDENTITY-001",
+  "becameCandidateId": null,
+  "disposition": "open",
+  "raisedBy": [
+    "RES-2026-08-03-KNOWLEDGE-PIPELINE-001"
+  ],
+  "notes": [],
+  "date": "2026-08-03",
+  "question": "What is the IDENTITY of a partially completed governed act — is a cohort that advanced 26 of 32 records one act with disclosed exclusions, or a different act from the one authorised?",
+  "context": "Raised by cohort authorization and batched extraction. The platform already commits to a cohort hash over the sorted id set, so the SET is the identity — but that answers \"what was authorised\", not \"is a resumed batch the same act\". CI-2026-08-03-BOUNDED-PROCESSOR-PARTIAL-COMPLETION-001 captures the disclosure rule; the identity question is upstream of it.",
+  "wouldRequire": [
+    "A ruling on whether resuming an interrupted batch continues the original authorization or requires a new one.",
+    "A position on receipt lineage when a batch is resumed — one receipt amended, or two receipts linked.",
+    "Evidence from a real resumed batch; the question is currently theoretical."
+  ],
+  "projections": {
+    "targets": [
+      "constitutional-computing",
+      "irl"
+    ],
+    "researchRequired": true,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

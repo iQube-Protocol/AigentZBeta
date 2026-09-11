@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-23",
+  "resolutionId": "RES-2026-08-23-FSVC-DELEGATION-VS-ASSIGNMENT-ELIGIBILITY-001",
+  "capability": "phase-3-moneypenny-financial-services-runtime",
+  "milestone": "Phase 3 Track A second repair pass — the operator observed that the NEW NOT_DELEGATED_TO_CURRENT_PRINCIPAL result from RES-2026-08-23-FSVC-INTEGRATION-REPAIR-001, while truthfully computed, exposed a genuine structural model error rather than another stale-badge bug.",
+  "problem": "Repair A/F (the prior pass) made Financial Services eligibility depend on `readActiveGrant(personaId)` — the same delegation_grants store used by the constitutional-context 'current runtime authority' concept. That store deliberately allows exactly ONE active grant per persona (creating a new grant supersedes the old one). Using it as the eligibility roster meant a persona with several structurally assigned agents (Nakamoto AND Know1, say) could only ever have ONE of them read as eligible at a time — eligibility flickered based on which agent's grant happened to be the currently active one, not on which agents were actually admitted/assigned/verified/in-good-standing.",
+  "observedFailure": [
+    "After the first repair pass shipped, the live console correctly stopped reporting a uniform NOT_ADMITTED — but any agent without a CURRENTLY active delegation grant (the normal state for a persona managing several assigned agents) now read NOT_DELEGATED_TO_CURRENT_PRINCIPAL, which is a per-action AUTHORITY fact wrongly promoted into a discoverability gate."
+  ],
+  "rootCauses": [
+    "Conflated two genuinely different questions under one mechanism: 'is this agent structurally admitted/assigned to this principal at all' (a durable, multi-agent, persona_agent_assignments fact) versus 'does this principal currently hold live consequential authority to direct this exact agent's next action' (a single-slot, delegation_grants fact, correctly scoped to exactly one grant at a time because it represents live runtime control, not roster membership).",
+    "The prior repair pass (RES-2026-08-23-FSVC-INTEGRATION-REPAIR-001) correctly identified that the delegation query needed persona-scoping (Repair A) but did not question whether the delegation_grants store was the right STRUCTURAL source for eligibility/discovery at all — it fixed the scoping of the wrong mechanism rather than replacing the mechanism."
+  ],
+  "resolution": [
+    "Split the single `personaScopedDelegationActive` fact into two independently-resolved context fields (services/financialServices/agentEligibilityContext.ts): `structurallyAssigned` (persona_agent_assignments via the existing services/identity/personaAssignmentStore.ts::listAssignments, matched against admission.agentRootId) for eligibility/discovery, and `hasCurrentDelegationToAgent` (delegation_grants via readActiveGrant, matched against admission.agentRootDid) retained exclusively for the Authority Plane.",
+    "Rewrote eligibility.ts to compose admission + structural assignment + Financial Services verification + Standing — replacing the DELEGATION_UNRESOLVED/NOT_DELEGATED_TO_CURRENT_PRINCIPAL codes with ASSIGNMENT_UNRESOLVED/NOT_ASSIGNED_TO_PRINCIPAL. A service is now `eligible` independent of whether a delegation grant currently targets that exact agent.",
+    "Added a non-blocking `authority` prerequisite to discovery.ts (Runtime/executionReachable services only), surfacing the SAME ConstitutionalAuthority state (NONE/PENDING/BOUNDED/ACTIVE) the request-time adapter already computes, so an eligible-but-not-currently-authorised Runtime service reads as 'eligible, authority pending' rather than INELIGIBLE.",
+    "Repaired Gate 1 (services/registry/capabilityInvocationGates.ts::evaluateIdentityAndAuthorityGate) to check `registryActivated` (canonical constitutional admission) instead of `delegationActive` for both the orchestrator and provider admission checks — 'no current bounded delegation' no longer reads as 'not admitted' at the governance-gate layer either.",
+    "Added the genuinely missing third invocation shape to Gate 1: a principal-directed CONSUMER request (requester != resolved provider, no orchestratorAgentId) — the actual Phase 3 relationship (an admitted agent like Nakamoto requesting a MoneyPenny Financial Service) that the prior implementation faked by setting `orchestratorAgentId = requestingAgentId`, misrepresenting a consumer as an orchestrator. serviceRequestOrchestrator.ts's envelope now omits `orchestratorAgentId` entirely for this pattern.",
+    "Track A picker (app/api/moneypenny/service-orchestration/route.ts): excluded MoneyPenny (the provider) from the consumer picker — she would hit PROVIDER_MAY_NOT_ORCHESTRATE under the orchestrated pattern and was never a real self-consuming test case; Nakamoto and Kn0w1 remain the initial-proof consumers."
+  ],
+  "rejectedApproaches": [
+    "Widening delegation_grants to allow multiple simultaneous active grants per persona — rejected: that store's single-active-grant invariant represents genuine live runtime control semantics used elsewhere in the codebase (constitutional-context 'current aigentMe/delegate'); weakening it to serve as an eligibility roster would be a structural regression to an unrelated, already-correct mechanism.",
+    "Keeping delegation as the eligibility gate but treating an inactive/missing grant as an audit gap (undefined) rather than a real negative — rejected: a missing grant for an otherwise-fine agent is not evidence of an unresolved READ, it is simply a true fact about which single agent currently holds the persona's one live grant slot; mislabeling it as an audit gap would misrepresent a structurally sound single-slot design as a data-quality problem."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-23-STRUCTURAL-ADMISSION-VS-LIVE-AUTHORITY-001"
+  ],
+  "canaries": [
+    "tests/financial-services-runtime.test.ts",
+    "tests/governed-capability-invocation.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "governance-boundary-confused",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/financial-services-runtime.test.ts",
+      "tests/governed-capability-invocation.test.ts",
+      "tests/vela-slice2f-capability-invocation.test.ts",
+      "tests/vela-slice2g-execution-observation-validation.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-22_phase3-track-a-service-orchestration-console.md",
+    "docs/vela/VELA-LIVE-ACTIVATION-001.md",
+    "services/delegation/delegationGrantStore.ts",
+    "services/identity/personaAssignmentStore.ts"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

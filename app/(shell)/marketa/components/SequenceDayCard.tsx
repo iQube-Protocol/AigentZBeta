@@ -40,7 +40,7 @@ export function SequenceDayCard({ item, theme = "dark", size = "sm", onAssetClic
   const statusColor =
     item.status === "ready"   ? (dark ? "text-emerald-400" : "text-emerald-600") :
     item.status === "viewed"  ? (dark ? "text-sky-400"     : "text-sky-600")     :
-    item.status === "clicked" ? (dark ? "text-rose-400"    : "text-rose-600")    :
+    item.status === "clicked" ? (dark ? "text-pink-300"    : "text-pink-500")    :
                                 (dark ? "text-white/30"    : "text-black/30");
 
   function handleWatch(e: React.MouseEvent) {
@@ -85,7 +85,7 @@ export function SequenceDayCard({ item, theme = "dark", size = "sm", onAssetClic
             onClick={hasVideoUrl ? handleWatch : handleExternal}
             className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity"
           >
-            <Play className="w-6 h-6 text-rose-400 fill-rose-400" />
+            <Play className="w-6 h-6 text-pink-300 fill-pink-300" />
           </button>
         )}
 
@@ -98,7 +98,7 @@ export function SequenceDayCard({ item, theme = "dark", size = "sm", onAssetClic
 
         {/* Explainer badge */}
         {item.explainer && (
-          <div className="absolute top-1.5 left-1.5 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-rose-500 text-white">
+          <div className="absolute top-1.5 left-1.5 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-pink-400/30 backdrop-blur-sm border border-pink-400/40 text-pink-100">
             <Sparkles className="w-2.5 h-2.5" />
             Explainer
           </div>
@@ -138,7 +138,7 @@ export function SequenceDayCard({ item, theme = "dark", size = "sm", onAssetClic
             {hasVideoUrl && (
               <button
                 onClick={handleWatch}
-                className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-rose-500/50 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 transition-colors backdrop-blur-sm"
+                className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-pink-400/50 bg-pink-400/20 hover:bg-pink-400/30 text-pink-300 transition-colors backdrop-blur-sm"
               >
                 <Video className="w-3 h-3" />
                 Watch

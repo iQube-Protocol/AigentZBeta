@@ -1,3 +1,5 @@
+import { btcApiBase, btcCanonicalApiBase } from './btcExplorer';
+
 export type ChainStatus = { ok: boolean; details?: string; at: string };
 export type AnchorStatus = {
   ok: boolean;
@@ -12,20 +14,16 @@ export type AnchorStatus = {
 };
 
 export async function getTestnetStatus(): Promise<ChainStatus & { blockHeight?: number }> {
-  const endpoint = process.env.NEXT_PUBLIC_RPC_BTC_TESTNET;
-  if (!endpoint) {
-    return {
-      ok: false,
-      details: 'endpoint: not configured',
-      at: new Date().toISOString(),
-    };
+  // btcApiBase(): env override (NEXT_PUBLIC_RPC_BTC_TESTNET) or the canonical
+  // blockstream Esplora base — the old "endpoint: not configured" dead-end
+  // (which skipped even the fallback) is gone.
+  const primary = btcApiBase();
+  const canonical = btcCanonicalApiBase();
+  const hostOf = (u: string) => u.replace(/^https?:\/\//, '').split('/')[0];
+  const apis = [{ url: `${primary}/blocks/tip/height`, name: hostOf(primary) }];
+  if (primary !== canonical) {
+    apis.push({ url: `${canonical}/blocks/tip/height`, name: hostOf(canonical) });
   }
-
-  // Try multiple BTC testnet APIs with shorter timeout
-  const apis = [
-    { url: endpoint.replace(/\/$/, '') + '/blocks/tip/height', name: 'mempool.space' },
-    { url: 'https://blockstream.info/testnet/api/blocks/tip/height', name: 'blockstream.info' }
-  ];
 
   for (const api of apis) {
     try {
@@ -89,7 +87,7 @@ export async function getTestnetStatus(): Promise<ChainStatus & { blockHeight?: 
   return {
     ok: false,
     blockHeight: fallbackHeight, // Include cached block height if available
-    details: `endpoint: ${endpoint.replace(/^https?:\/\//, '').replace(/\/api\/?$/, '')} (unreachable)${fallbackHeight ? ` - cached: ${fallbackHeight}` : ''}`,
+    details: `endpoint: ${hostOf(primary)} (unreachable)${fallbackHeight ? ` - cached: ${fallbackHeight}` : ''}`,
     at: new Date().toISOString(),
   };
 }

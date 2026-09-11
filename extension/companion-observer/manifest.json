@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "metaMe Companion",
+  "short_name": "metaMe",
+  "version": "0.1.0",
+  "description": "Access metaMe Companion, securely observe approved browser context, and capture content with explicit user consent.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArgTXJtiVHwp1uGxJTPggnd5PT50LVrSc44mBGVCJlvzpmRDlyg9kU8Hn1wb5UugIOsNQCVN9PPVlczVhOcx2NCxb2ZX/ZsIzrBF+sms/M5ob7TnvzFiBlN3vzzmEXAcu44B5lfxyWgPPkbQSVdKfDeY74/iw67D86ZtUHIJ7qsbSJu0f6e7tRjiuxyjZpMVLLDWVuROBmdQAOlp2Meo+V8xthmj3vXN5iWN/2x5CENBTBgZdeqcR9v0LO2KamAuVRNleHE+4kXmDx2YvcudeLW5Du/LAVZjKwTFsuduZOgeoAvRYw87RPPB6d5f+AKxt5Egc18hqAOm4kcCg7dh/zQIDAQAB",
+  "permissions": ["storage", "activeTab", "scripting", "sidePanel", "contextMenus"],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "icons": {
+    "16": "icon16.png",
+    "32": "icon32.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["constants.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "metaMe Companion",
+    "default_icon": {
+      "16": "icon16.png",
+      "32": "icon32.png",
+      "48": "icon48.png"
+    }
+  }
+}

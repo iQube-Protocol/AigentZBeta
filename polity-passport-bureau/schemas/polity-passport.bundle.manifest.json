@@ -1,0 +1,90 @@
+{
+  "bundle_id": "polity.passport.schema.bundle.v0.1",
+  "title": "Polity Passport Bureau Schema Bundle",
+  "version": "0.1.0",
+  "status": "draft",
+  "description": "Schema bundle for Polity Citizen Passport and Agent Participant Passport applications, credentials, review decisions, and iQube Registry records.",
+  "canonical_namespace": "polity.passport",
+  "schemas": [
+    {
+      "name": "Common Definitions",
+      "file": "polity-passport.common.schema.json",
+      "schema_id": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json"
+    },
+    {
+      "name": "Citizen Passport Application",
+      "file": "citizen-passport.application.schema.json",
+      "schema_id": "https://schemas.metame.com/polity/passport/v0.1/citizen-passport.application.schema.json"
+    },
+    {
+      "name": "Participant Passport Application",
+      "file": "participant-passport.application.schema.json",
+      "schema_id": "https://schemas.metame.com/polity/passport/v0.1/participant-passport.application.schema.json"
+    },
+    {
+      "name": "Polity Passport Credential",
+      "file": "polity-passport.credential.schema.json",
+      "schema_id": "https://schemas.metame.com/polity/passport/v0.1/polity-passport.credential.schema.json"
+    },
+    {
+      "name": "Polity Passport Registry Record",
+      "file": "polity-passport.registry-record.schema.json",
+      "schema_id": "https://schemas.metame.com/polity/passport/v0.1/polity-passport.registry-record.schema.json"
+    },
+    {
+      "name": "Polity Passport Review Decision",
+      "file": "polity-passport.review-decision.schema.json",
+      "schema_id": "https://schemas.metame.com/polity/passport/v0.1/polity-passport.review-decision.schema.json"
+    },
+    {
+      "name": "Polity Passport Status Transition",
+      "file": "polity-passport.status-transition.schema.json",
+      "schema_id": "https://schemas.metame.com/polity/passport/v0.1/polity-passport.status-transition.schema.json"
+    },
+    {
+      "name": "Polity Passport Reputation Binding",
+      "file": "polity-passport.reputation-binding.schema.json",
+      "schema_id": "https://schemas.metame.com/polity/passport/v0.1/polity-passport.reputation-binding.schema.json"
+    },
+    {
+      "name": "Citizen Privilege Standing",
+      "file": "polity-passport.citizen-privilege-standing.schema.json",
+      "schema_id": "https://schemas.metame.com/polity/passport/v0.1/polity-passport.citizen-privilege-standing.schema.json"
+    },
+    {
+      "name": "Polity Passport Reputation Infraction",
+      "file": "polity-passport.reputation-infraction.schema.json",
+      "schema_id": "https://schemas.metame.com/polity/passport/v0.1/polity-passport.reputation-infraction.schema.json"
+    },
+    {
+      "name": "Participant Standing",
+      "file": "polity-passport.participant-standing.schema.json",
+      "schema_id": "https://schemas.metame.com/polity/passport/v0.1/polity-passport.participant-standing.schema.json"
+    }
+  ],
+  "storage_policy": {
+    "private_payload_storage_model": "self_custody_autodrive_only",
+    "supabase_private_payload_storage_allowed": false,
+    "server_plaintext_access_allowed": false,
+    "sysadmin_plaintext_access_allowed": false,
+    "client_side_encryption_required": true,
+    "holder_controlled_decryption_required": true,
+    "recovery_warning_required": true,
+    "policy_statement": "Private blakQube passport data must be encrypted client-side and stored only as encrypted files in Auto Drive. The Passport Bureau, Registry, system operators, and sysadmins must never receive plaintext private passport data or holder decryption keys."
+  },
+  "design_principles": [
+    "Citizen passports may be anonymous.",
+    "Citizen passport applications require proof of personhood but do not require public PII.",
+    "Weak proof establishes human presence.",
+    "Strong proof establishes higher-confidence personhood.",
+    "KybeDID anchors unique personhood and continuity.",
+    "RootDID anchors reputation and may rotate.",
+    "Reputation continuity may be inherited through KybeDID after RootDID rotation.",
+    "Optional personal details must be stored as blackQube data.",
+    "Agent passports grant participant standing, not citizenship.",
+    "Agent participants must declare capabilities, constraints, obligations, risk, auditability, and operator authority where available.",
+    "Every submitted application should create a pending iQube Registry record.",
+    "Citizen Passports are irrevocable recognitions of human personhood; reputation may restrict citizen privileges but never personhood recognition.",
+    "Agent Participant Passports are revocable standing credentials conditioned on reputation, compliance, and auditability."
+  ]
+}

@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { invokeAsset } from "@/services/registry/invocationGateway";
 
-type Params = { params: { assetId: string } };
+type Params = { params: Promise<{ assetId: string }> };
 
 /** POST /api/registry/assets/[assetId]/invoke — governed asset invocation */
-export async function POST(req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     const body = await req.json() as {
       invokedBy?: string;

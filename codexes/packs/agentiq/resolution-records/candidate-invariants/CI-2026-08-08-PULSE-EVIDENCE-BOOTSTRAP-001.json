@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-08-PULSE-EVIDENCE-BOOTSTRAP-001",
+  "statement": "Establishing receipted evidence for the FIRST time on an already-CONFIRMED row (no baseline exists yet) is a distinct act from reconciliation (which compares a fresh read against a baseline that must already exist). The two are never folded into one function: a bootstrap that finds no prior evidence makes exactly one live, read-only call and mints the supported fine-grained receipts; once it succeeds, ordinary reconciliation is the only external reread mechanism that row needs afterward.",
+  "family": "constitutional",
+  "governingPrinciple": false,
+  "parentCandidateId": "CI-2026-08-08-RECEIPTED-CONSTITUTIONAL-STATE-001",
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "classification": "Operator directive, 2026-08-08, verbatim: \"Implement bootstrapPulseEvidenceFromLiveReread. Preconditions: authorization row exists and is CONFIRMED; no canonical pulse_enrollment_verified receipt exists... do not sign, submit, re-enroll, mutate authorization state, or invoke reconciliation... After bootstrap, ordinary reconciliation becomes the only external reread mechanism.\"",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/horizen-authorization-client.test.ts",
+      "assertion": "bootstrapPulseEvidenceFromLiveReread describe block: a CONFIRMED row with no existing evidence proceeds to exactly one live get_onboarding_status call and mints only the receipts its structured read supports; a row with existing evidence is a no-op making NO live call; negative/ambiguous/wrong-chain/transport-failure all refuse and mint nothing; the function never calls reconcilePulseConstitutionalState and never writes `state`.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "horizen-pulse-admission",
+      "defect": "materializePulseEvidenceFromHistoricalConfirmation correctly refused NO_HISTORICAL_SNAPSHOT for Nakamoto's real row (confirmed via the pre-structured-extraction prose classifier), and reconcilePulseConstitutionalState correctly refused NO_RECEIPTED_EVIDENCE for the same row (nothing to compare against) — neither existing function could establish a first-ever baseline for a legacy CONFIRMED row, because neither was designed to.",
+      "resolutionId": "RES-2026-08-08-PULSE-EVIDENCE-BOOTSTRAP-001",
+      "evidence": [
+        "37c9edf",
+        "tests/horizen-authorization-client.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-08-PULSE-EVIDENCE-BOOTSTRAP-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "Deliberately NOT folded into reconcilePulseConstitutionalState — the operator directed a separate, explicitly-named function so reconciliation's own contract ('compares a fresh read against an existing baseline', CI-2026-08-08-RECONCILIATION-NEVER-REWRITES-001) stays exactly that narrow.",
+    "pulseEnrolled and pulseCommitmentRecorded are gated independently within a single bootstrap call — a read that supports only enrollment mints only the enrollment receipt. This is NOT an incremental top-up mechanism across multiple runs: once a row has ANY receipted evidence (from bootstrap or materialization), every subsequent call is an idempotent no-op: 'existing receipts -> return success/no-op' is the operator's own stated rule. A later change in commitment status is caught by ordinary reconciliation's discrepancy mechanism, not by re-running bootstrap.",
+    "A thrown transport error from the live get_onboarding_status call is deliberately CAUGHT and converted to an explicit TRANSPORT_FAILURE refusal here, unlike the pre-existing verifyHorizenTransparencyActivation/reconcilePulseConstitutionalState (which let such an exception propagate uncaught) — because the operator's own spec named 'transport failure' as a required scenario with an explicit refusal outcome, not a thrown exception. This is a narrower, function-specific strengthening, not a claim that the older functions are wrong."
+  ]
+}

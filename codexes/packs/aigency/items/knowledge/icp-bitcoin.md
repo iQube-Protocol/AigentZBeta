@@ -12,7 +12,8 @@ The protocol deploys four specialised ICP canisters:
 |----------|----|---------|
 | `cross_chain_service` | `u6s2n-gx777-77774-qaaba-cai` | LayerZero DVN quorum verification, cross-chain messaging |
 | `proof_of_state` | `ulvla-h7777-77774-qaacq-cai` | Bitcoin state anchoring, batch receipts |
-| `btc_signer_psbt` | `uxrrr-q7777-77774-qaaaq-cai` | Bitcoin PSBT signing and broadcast (tECDSA) |
+| `btc_signer_psbt` | _(none — not deployed to IC)_ | Bitcoin PSBT signing and broadcast (tECDSA) |
+<!-- NOT ON IC — `uxrrr-q7777-77774-qaaaq-cai` is the LOCAL dfx id (.dfx/local/canister_ids.json @ cebf998, iQubeBeta-Program); it resolves `canister_not_found` on mainnet. Census 2026-08-08. No IC-mainnet btc_signer has ever existed. -->
 | `evm_rpc` | `uzt4z-lp777-77774-qaabq-cai` | EVM chain RPC relay via ICP HTTP outcalls |
 
 > Note: `NEXT_PUBLIC_CROSS_CHAIN_SERVICE_CANISTER_ID` env var overrides the `cross_chain_service` ID in AigentZBeta runtime.

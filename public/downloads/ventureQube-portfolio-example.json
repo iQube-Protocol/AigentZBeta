@@ -1,0 +1,106 @@
+{
+  "schemaVersion": "venture-iqube-portfolio/v1.0",
+  "emittedAt": "2026-01-01T00:00:00.000Z",
+  "operator": {
+    "displayLabel": "Example Founder",
+    "archetype": "Founder",
+    "tagline": "A generic reference portfolio — replace with your own."
+  },
+  "strategy": {
+    "headline": "Example Portfolio — reference operating brief",
+    "thesis": "A worked, non-proprietary example showing how a multi-venture operator fills the Venture Portfolio schema: a portfolio thesis, an operating model, and two fully-formed ventures. Replace every field with your own content.",
+    "currentStage": "growth",
+    "constraints": ["Small team", "Limited runway"]
+  },
+  "experienceGoals": ["Reach product-market fit on the lead venture", "Build a repeatable acquisition motion", "Sign the first strategic partnerships"],
+  "priorityPartners": ["A channel partner", "A platform integration", "A distribution partner"],
+  "experienceGuide": {
+    "focusIntent": "Concentrate effort on the lead venture's path to product-market fit."
+  },
+  "standing": {
+    "core": {
+      "whoYouAre": "A founder operator building a small portfolio of software ventures.",
+      "whatYouKnow": "Product, go-to-market, and small-team operating.",
+      "whatYouveDone": "Shipped early versions of two products and run them to first users.",
+      "interests": "Product strategy, distribution, operating leverage.",
+      "intentions": "Reach sustainable revenue across the portfolio.",
+      "experiencesThatMatter": "Taking products from zero to first paying customers.",
+      "accomplish": "Product-market fit on the lead venture and a validated path to recurring revenue."
+    }
+  },
+  "plan": {
+    "today": { "focus": "Talk to five prospective customers.", "actions": [ { "title": "Run five discovery calls", "ventureId": "atlas-crm" } ] },
+    "next24h": { "focus": "Summarise discovery insights.", "actions": [ { "title": "Synthesize call notes into top three needs", "ventureId": "atlas-crm" } ] },
+    "next7d": { "focus": "Ship the most-requested improvement.", "actions": [ { "title": "Build and release the top feature request", "ventureId": "atlas-crm" } ] },
+    "next30d": { "focus": "Stand up a repeatable acquisition channel.", "actions": [ { "title": "Launch one acquisition experiment", "ventureId": "beacon-analytics" } ] },
+    "next90d": { "focus": "Reach the first revenue milestone across the portfolio.", "actions": [ { "title": "Convert the first cohort of paying customers", "ventureId": "atlas-crm" } ] }
+  },
+  "kpiBoard": [
+    { "name": "Active users", "metric": "count", "current": 0, "target": 1000, "horizon": "next90d" },
+    { "name": "MRR", "metric": "USD", "current": 0, "target": "$10k", "horizon": "next90d" },
+    { "name": "Partnerships signed", "metric": "count", "current": 0, "target": 3, "horizon": "next90d" }
+  ],
+  "operatingModel": {
+    "mission": "Reach a validated path to recurring revenue across the portfolio through focused product iteration and a repeatable acquisition motion.",
+    "successMetrics": ["1,000 active users", "$10k MRR", "3 partnerships signed"],
+    "activeObjectives": [
+      { "objective": "Identify your first 50 customers", "status": "active" },
+      { "objective": "Ship the most-requested feature on the lead venture", "status": "active" },
+      { "objective": "Launch one acquisition experiment", "status": "active" }
+    ],
+    "priorityPartners": ["A channel partner", "A platform integration", "A distribution partner"],
+    "priorityActions": ["Run customer discovery", "Ship the top feature request", "Launch an acquisition experiment"],
+    "reviewCadence": "weekly",
+    "primaryMetric": "Net Value Acceleration — did our actions reduce time-to-value?"
+  },
+  "ventures": [
+    {
+      "identity": { "name": "Atlas CRM", "slug": "atlas-crm", "stage": "growth" },
+      "thesis": {
+        "ventureCategory": "B2B SaaS",
+        "mission": "Give small teams a CRM they actually keep up to date.",
+        "valueProposition": "A lightweight CRM that reduces admin time so teams spend more time selling.",
+        "industryTags": ["saas", "sales"],
+        "marketTags": ["smb"]
+      },
+      "intent": { "founderIntents": ["Reach product-market fit"], "ventureIntents": ["Win the first 100 paying teams"] },
+      "signalEvidence": { "items": [], "demandConfidence": null, "capabilityConfidence": null, "opportunityConfidence": null, "signalConfidence": null },
+      "archetypes": [ { "kind": "executive", "label": "Sales Lead", "painPoints": ["CRM data goes stale"], "desiredOutcomes": ["Less admin"], "willingnessToPay": "moderate" } ],
+      "revenueArchitecture": { "engines": [ { "engineType": "subscription", "engineName": "Team subscription", "pricingModel": "per-seat", "estimatedRevenue": "primary" } ] },
+      "commercialModel": { "revenueTargets": ["$10k MRR"], "mrrTargets": ["$10k"] },
+      "capability": { "requiredCapabilities": ["product", "go-to-market"], "availableCapabilities": [], "capabilityGaps": ["scaled onboarding"], "capabilityPriorities": ["onboarding"] },
+      "resource": { "requiredTools": ["analytics", "email"] },
+      "execution": { "phases": [ { "phaseName": "Product-market fit", "objectives": ["Win first 100 paying teams"], "deliverables": ["Validated onboarding flow"] } ] },
+      "delegation": { "assignments": [ { "agentType": "aigentMe", "responsibility": "Customer discovery and follow-up", "deliverables": ["Discovery summaries"] } ] },
+      "outcome": { "outcomes": [], "proofOfOutcomeClaims": [] },
+      "governance": {},
+      "institutional": { "ventureLabStatus": "active", "commonsVisibility": "private" }
+    },
+    {
+      "identity": { "name": "Beacon Analytics", "slug": "beacon-analytics", "stage": "launch" },
+      "thesis": {
+        "ventureCategory": "Analytics",
+        "valueProposition": "Plain-language analytics for non-technical operators.",
+        "industryTags": ["analytics"],
+        "marketTags": ["smb"]
+      },
+      "intent": { "founderIntents": ["Validate demand"], "ventureIntents": ["Ship a usable v1 and find early adopters"] },
+      "signalEvidence": { "items": [], "demandConfidence": null, "capabilityConfidence": null, "opportunityConfidence": null, "signalConfidence": null },
+      "archetypes": [ { "kind": "other", "label": "Operations Manager", "desiredOutcomes": ["Answers without a data team"], "willingnessToPay": "low-to-moderate" } ],
+      "revenueArchitecture": { "engines": [ { "engineType": "subscription", "engineName": "Monthly plan", "pricingModel": "tiered" } ] },
+      "commercialModel": { "growthAssumptions": ["Atlas CRM users adopt Beacon for reporting"] },
+      "capability": { "requiredCapabilities": ["data", "product"], "availableCapabilities": [], "capabilityGaps": ["distribution"], "capabilityPriorities": ["distribution"] },
+      "resource": { "requiredTools": ["data warehouse"] },
+      "execution": { "phases": [ { "phaseName": "Launch", "objectives": ["Ship v1", "Find 10 early adopters"], "deliverables": ["v1 release"] } ] },
+      "delegation": { "assignments": [ { "agentType": "marketa", "responsibility": "Run the acquisition experiment", "deliverables": ["Experiment results"] } ] },
+      "outcome": { "outcomes": [], "proofOfOutcomeClaims": [] },
+      "governance": {},
+      "institutional": { "ventureLabStatus": "active", "commonsVisibility": "private" }
+    }
+  ],
+  "portfolio": {
+    "thesis": "Two complementary software ventures that share a customer base: Atlas CRM is the lead revenue venture; Beacon Analytics extends it with reporting. The portfolio compounds because the same small teams need both.",
+    "priorities": ["Atlas CRM", "Beacon Analytics"],
+    "notes": "This is a generic reference example — replace all content with your own ventures, thesis, and operating model. The lead venture gets the operating focus; the second is sequenced behind it."
+  }
+}

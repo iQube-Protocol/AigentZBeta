@@ -34,12 +34,13 @@ import {
 export const runtime = 'nodejs';
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     issueId: string;
-  };
+  }>;
 }
 
-export async function GET(req: NextRequest, { params }: RouteParams) {
+export async function GET(req: NextRequest, props: RouteParams) {
+  const params = await props.params;
   try {
     const { issueId } = params;
 

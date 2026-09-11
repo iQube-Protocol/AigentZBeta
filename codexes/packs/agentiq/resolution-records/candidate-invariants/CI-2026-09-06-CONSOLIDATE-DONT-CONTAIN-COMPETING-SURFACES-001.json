@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-06-CONSOLIDATE-DONT-CONTAIN-COMPETING-SURFACES-001",
+  "statement": "When two independent, simultaneously-openable UI surfaces present overlapping or duplicate information about the SAME thing, the fix is to consolidate them into ONE surface (one owns the state, the other becomes a control that opens/focuses it), never to add containment (a backdrop, a z-index bump, an opacity change) around the extra surface. Containment can make the SYMPTOM (visual overlap) disappear while leaving the actual defect — two competing surfaces — in place, where it can resurface as a worse regression (e.g. a full-viewport backdrop combining with the surface underneath to look like one broken modal).",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": ["devon"],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  },
+  "classification": null,
+  "ratifiedSource": null,
+  "scope": "cross-capability",
+  "status": "candidate",
+  "notes": [
+    "First observed in components/journey/JourneyRunSurface.tsx: the header's own 'Evidence N/M' popover duplicated a subset of what StageReceiptsDrawer already showed further down the same stage body. A first fix pass (commit 3ba5ef913) added a fixed inset-0 backdrop to contain the popover's overlap with the drawer — this made the deployed experience WORSE (a full-viewport translucent layer combined with the drawer's own content to look like one broken modal), because the underlying two-surfaces-for-one-concept problem was untouched.",
+    "The actual fix (2026-09-06) removed the header's own popover entirely and made its control drive the ONE remaining surface (StageReceiptsDrawer) via controlled open/onOpenChange props — any information the removed surface uniquely showed (here, missing-evidence pills) was migrated INTO the surviving surface, never dropped.",
+    "Generalizes beyond this one case: any 'add a backdrop / raise the z-index / dim everything else' fix for an overlap between two content-bearing UI elements is a signal to ask whether they are actually the same concern rendered twice, before reaching for containment."
+  ],
+  "derivedFrom": ["RES-2026-09-06-JOURNEY-EVIDENCE-SURFACE-CONSOLIDATION-001"],
+  "occurrences": [
+    {
+      "site": "components/journey/JourneyRunSurface.tsx — header Evidence popover vs. StageReceiptsDrawer",
+      "defect": "A fixed inset-0 backdrop was added to contain the header popover's overlap with StageReceiptsDrawer underneath, combining with the drawer's own visible content to read as one broken, translucent modal in production.",
+      "resolutionId": "RES-2026-09-06-JOURNEY-EVIDENCE-SURFACE-CONSOLIDATION-001",
+      "evidence": ["tests/journey-evidence-layout-browser-regression.test.tsx"]
+    }
+  ],
+  "canaries": [
+    {
+      "path": "tests/journey-evidence-layout-browser-regression.test.tsx",
+      "assertion": "a real Chromium browser, driven against the real rendered DOM styled with the project's own compiled Tailwind CSS, confirms no fixed full-viewport layer exists (open or closed), the header control never overlaps the (now sole) drawer, and receipt cards render contained inside it.",
+      "verifiedFailingBeforeFix": true
+    }
+  ]
+}

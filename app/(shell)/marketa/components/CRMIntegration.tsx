@@ -232,7 +232,7 @@ export default function CRMIntegration({ tenantId = 'kn0w1', personaId }: CRMInt
       {/* Quick Actions */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Button 
-          className="bg-rose-500 hover:bg-rose-600 text-white"
+          className="bg-pink-400/20 hover:bg-pink-400/30 border border-pink-400/40 text-pink-100 backdrop-blur-sm"
           onClick={() => recordContribution('campaign_created', 1)}
         >
           <Plus className="w-4 h-4 mr-2" />

@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
         deep_link: data.deepLink,
         user_agent: data.userAgent || null,
         referrer: data.referrer || null,
-        ip_address: request.ip || null,
+        ip_address: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null,
         created_at: new Date().toISOString(),
       });
 

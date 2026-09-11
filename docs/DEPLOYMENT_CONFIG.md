@@ -19,13 +19,25 @@ NEXT_PUBLIC_CROSS_CHAIN_SERVICE_CANISTER_ID=sp5ye-2qaaa-aaaao-qkqla-cai
 PROOF_OF_STATE_CANISTER_ID=n2hhv-aaaaa-aaaas-qccza-cai
 NEXT_PUBLIC_PROOF_OF_STATE_CANISTER_ID=n2hhv-aaaaa-aaaas-qccza-cai
 
-# Bitcoin Signer - LIVE MAINNET
-BTC_SIGNER_CANISTER_ID=uxrrr-q7777-77774-qaaaq-cai
-NEXT_PUBLIC_BTC_SIGNER_CANISTER_ID=uxrrr-q7777-77774-qaaaq-cai
+# Bitcoin Signer - NOT DEPLOYED TO MAINNET (corrected 2026-08-08)
+# `uxrrr-q7777-77774-qaaaq-cai` was a LOCAL dfx id promoted into this file under
+# a "LIVE MAINNET" heading. It resolves `canister_not_found` on the IC. Leaving
+# it set makes proof_of_state's anchor call fail into a synthesised txid, which
+# is how 76 batches recorded "mock_btc_txid_*" as Bitcoin anchors.
+# Set these ONLY once Constitutional Anchor v2 is genuinely deployed.
+# BTC_SIGNER_CANISTER_ID=<unset — no mainnet signer exists>
+# NEXT_PUBLIC_BTC_SIGNER_CANISTER_ID=<unset — no mainnet signer exists>
 
-# EVM RPC - LIVE MAINNET
-EVM_RPC_CANISTER_ID=uzt4z-lp777-77774-qaabq-cai
-NEXT_PUBLIC_EVM_RPC_CANISTER_ID=uzt4z-lp777-77774-qaabq-cai
+# EVM RPC - CORRECTED 2026-08-08
+# `uzt4z-lp777-77774-qaabq-cai` was the SECOND local dfx id promoted into this
+# file under a "LIVE MAINNET" heading (same commit as the BTC signer above). It
+# resolves `canister_not_found` on the IC.
+# The census DID find a live mainnet EVM RPC at 7hfb6-caaaa-aaaar-qadga-cai
+# (module hash f61b3c29...), which canister_ids.json already records under "ic".
+# Left unset rather than swapped in: pointing production at a different canister
+# is a runtime change for the operator to make deliberately, not a cleanup.
+# EVM_RPC_CANISTER_ID=<unset — see 7hfb6-caaaa-aaaar-qadga-cai>
+# NEXT_PUBLIC_EVM_RPC_CANISTER_ID=<unset — see 7hfb6-caaaa-aaaar-qadga-cai>
 ```
 
 ### **ICP Network Configuration**

@@ -30,6 +30,9 @@ import { SocialSharingModal } from '@/packages/smarttriad/src/SocialSharingModal
 import { InviteModal } from '@/components/shared/InviteModal';
 import { PDFLiteReaderModal } from '@/app/triad/components/content/PDFLiteReaderModal';
 import { PDFPageViewer } from '@/app/triad/components/content/PDFPageViewer';
+import { useOptionalSmartContentAudio } from '@/services/smartcontent/smartContentAudioController';
+import { buildSpeechScript } from '@/services/smartcontent/readableTextForSpeech';
+import { SmartContentListenButton } from '@/components/shared/SmartContentListenButton';
 
 interface SmartContentActionContextValue {
   /**
@@ -78,8 +81,14 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [inviteItem, setInviteItem] = useState<SmartContentItem | null>(null);
   
-  // TODO: Add audio player state when implemented
-  // const [audioItem, setAudioItem] = useState<SmartContentItem | null>(null);
+  // Listen (text-to-speech) — delegates to the ONE shared SmartContent
+  // audio controller (services/smartcontent/smartContentAudioController.tsx),
+  // mounted as an ancestor of this Provider in app/(shell)/layout.tsx.
+  // Optional because KnytTab.tsx also mounts SmartContentActionProvider
+  // standalone (without that ancestor) for an isolated embed context;
+  // 'listen' degrades to a no-op there rather than throwing, the same
+  // fail-open posture the rest of this file already uses.
+  const smartAudio = useOptionalSmartContentAudio();
 
   useEffect(() => {
     const ensurePersonaId = async () => {
@@ -209,8 +218,15 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
       }
         
       case 'listen':
-        // TODO: Implement audio player when ready
-        console.log('[SmartContentAction] Audio player not yet implemented');
+        if (smartAudio) {
+          smartAudio.toggle({
+            id: item.id,
+            title: item.title,
+            getText: () => buildSpeechScript(item.title, item.modalities?.read?.text ?? ''),
+          });
+        } else {
+          console.warn('[SmartContentAction] Listen requested but no SmartContentAudioProvider ancestor is mounted');
+        }
         break;
         
       case 'share':
@@ -293,7 +309,7 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
         console.log('[SmartContentAction] Expand action not yet implemented');
         break;
     }
-  }, [handlePaymentAction]);
+  }, [handlePaymentAction, smartAudio]);
 
   // Listen for custom SmartContent action events
   useEffect(() => {
@@ -364,15 +380,27 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
           <div className="bg-slate-900 rounded-xl border border-white/10 w-full max-w-4xl max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b border-white/10">
               <h2 className="text-xl font-semibold text-white">{readArticle.title}</h2>
-              <button
-                onClick={() => {
-                  setArticleModalOpen(false);
-                  setReadArticle(null);
-                }}
-                className="text-white/60 hover:text-white"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-2">
+                {readArticle.modalities?.read?.text && (
+                  <SmartContentListenButton
+                    compact
+                    item={{
+                      id: readArticle.id,
+                      title: readArticle.title,
+                      getText: () => buildSpeechScript(readArticle.title, readArticle.modalities?.read?.text ?? ''),
+                    }}
+                  />
+                )}
+                <button
+                  onClick={() => {
+                    setArticleModalOpen(false);
+                    setReadArticle(null);
+                  }}
+                  className="text-white/60 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
             <div className="p-6 overflow-y-auto max-h-[60vh] text-white">
               <div className="prose prose-invert max-w-none">

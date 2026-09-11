@@ -80,7 +80,7 @@ function ProgressBar({ pct, isDark }: { pct: number | null; isDark: boolean }) {
   return (
     <div className={`w-full h-1.5 rounded-full ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}>
       <div
-        className="h-full rounded-full bg-gradient-to-r from-rose-500 to-pink-400 transition-all duration-500"
+        className="h-full rounded-full bg-gradient-to-r from-pink-400 to-pink-400 transition-all duration-500"
         style={{ width: `${p}%` }}
       />
     </div>
@@ -307,7 +307,7 @@ export default function MarketaLaunchOpsTab({ theme = 'dark' }: Props) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-40">
-        <Loader2 className="w-6 h-6 animate-spin text-rose-400" />
+        <Loader2 className="w-6 h-6 animate-spin text-pink-300" />
         <span className={`ml-2 text-sm ${s.textMuted}`}>Loading launch ops…</span>
       </div>
     );
@@ -335,9 +335,9 @@ export default function MarketaLaunchOpsTab({ theme = 'dark' }: Props) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 mb-0.5">
-              <TrendingUp className="w-4 h-4 text-rose-400" />
+              <TrendingUp className="w-4 h-4 text-pink-300" />
               <h2 className={`text-base font-bold ${s.textPrimary}`}>{program.name}</h2>
-              <Badge variant="outline" className="text-[10px] capitalize border-rose-500/40 text-rose-400">
+              <Badge variant="outline" className="text-[10px] capitalize border-pink-400/40 text-pink-300">
                 {program.status}
               </Badge>
             </div>
@@ -354,7 +354,7 @@ export default function MarketaLaunchOpsTab({ theme = 'dark' }: Props) {
             { label: 'Tasks Done',    value: `${totalDone}/${totalAll}`, accent: 'text-emerald-400' },
             { label: 'Blocked',       value: health.blocked_tasks,       accent: 'text-red-400' },
             { label: 'Proof Assets',  value: `${data.approvedProofCount}/${data.proofCount}`, accent: 'text-purple-400' },
-            { label: 'Sprint',        value: `${completionPct}%`,        accent: 'text-rose-400' },
+            { label: 'Sprint',        value: `${completionPct}%`,        accent: 'text-pink-300' },
           ].map(({ label, value, accent }) => (
             <div key={label} className={`rounded-lg ${s.innerCard} p-2 text-center`}>
               <p className={`text-lg font-bold ${accent}`}>{value}</p>

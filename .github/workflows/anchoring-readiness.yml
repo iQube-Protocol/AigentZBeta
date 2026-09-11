@@ -1,0 +1,67 @@
+name: anchoring-readiness
+
+# Operational canary for the DVN anchoring destination (operator ruling
+# 2026-07-27: "A configured allowlist is not proof of a configured runtime…
+# add an operational canary that fails deployment readiness when ratification
+# receipts remain local because the anchoring destination is absent. It should
+# not block local development, but it must make the degraded state explicit").
+#
+# Fails ONLY on `degraded` — a destination is configured and receipts are not
+# reaching it. `unconfigured` is reported as a warning, never a failure: that
+# is the expected local-development posture and failing on it would train
+# everyone to ignore this job within a day.
+#
+# Required repo secret: ADMIN_OPS_TOKEN (the same value in Amplify env).
+#
+# Manual trigger: Actions → anchoring-readiness → Run workflow.
+
+on:
+  schedule:
+    # Twice daily. Anchoring degradation is not urgent by the minute, but a
+    # governance receipt stuck local for a week is a hole in the provenance
+    # trail nobody noticed.
+    - cron: '0 8,20 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: anchoring-readiness
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the anchoring destination
+        env:
+          ADMIN_OPS_TOKEN: ${{ secrets.ADMIN_OPS_TOKEN }}
+        run: |
+          if [ -z "$ADMIN_OPS_TOKEN" ]; then
+            echo "::error::ADMIN_OPS_TOKEN secret not set in repo settings"
+            exit 1
+          fi
+          response=$(curl -fsS --max-time 30 \
+            -H "Authorization: Bearer $ADMIN_OPS_TOKEN" \
+            "https://dev-beta.aigentz.me/api/ops/dvn/readiness")
+          echo "$response"
+
+          verdict=$(echo "$response" | python3 -c "import sys,json; print(json.load(sys.stdin).get('verdict','unknown'))")
+          reasons=$(echo "$response" | python3 -c "import sys,json; print(' | '.join(json.load(sys.stdin).get('reasons',[])) or 'none')")
+
+          case "$verdict" in
+            ready)
+              echo "::notice::Anchoring ready"
+              ;;
+            unconfigured)
+              # Explicit, but NOT a failure — the degraded state the operator
+              # asked to be surfaced is `degraded`, not this one.
+              echo "::warning::Anchoring UNCONFIGURED — receipts are staying local by design. $reasons"
+              ;;
+            degraded)
+              echo "::error::Anchoring DEGRADED — $reasons"
+              exit 1
+              ;;
+            *)
+              echo "::error::Unrecognised readiness verdict '$verdict' — the readiness surface changed shape"
+              exit 1
+              ;;
+          esac

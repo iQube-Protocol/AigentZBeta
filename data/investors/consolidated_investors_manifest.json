@@ -1,6 +1,5 @@
 {
-  "description": "Verified manifest for consolidated_investors.json prepared from uploaded CRM import file.",
-  "intended_repo_path": "data/investors/consolidated_investors.json",
+  "description": "Pointer record for consolidated_investors.json. The payload is NOT tracked in git (CLAUDE.md > Dense Materials); this manifest carries its identity, provenance and integrity hash.",
   "source_file": "metaKnyts_Nov_investment_report_-_Sheet9.csv",
   "source_row_count": 3970,
   "consolidated_investor_count": 3501,
@@ -31,9 +30,19 @@
     "investment_count": "Number of separate investment transactions",
     "investments": "Chronological list of individual investment transactions"
   },
-  "claude_handoff": {
-    "status": "raw_json_not_committed_by_chatgpt_interface",
-    "reason": "The full uploaded JSON is multi-megabyte and cannot be written directly through the simple GitHub contents path available in this interface.",
-    "next_step": "Commit the verified uploaded file itself to data/investors/consolidated_investors.json on dev so repo tooling can consume it directly."
+  "payload": {
+    "status": "untracked_pending_upload",
+    "removed_from_git": "2026-08-02",
+    "reason": "Bulk data dump, 2.5 MB. CLAUDE.md > Dense Materials: bulk data dumps never enter git.",
+    "home": "Supabase Storage",
+    "storage_path": null,
+    "storage_path_note": "PENDING — set to the real Supabase Storage path once uploaded. Do not fabricate this value.",
+    "sha256": "5c8ccb86a1c225dbf671aca88d21bb30f58591c865c6849c8fcc3d54ac9ae13c",
+    "size_bytes": 2587831,
+    "local_disk_note": "Left on the operator's working copy by `git rm --cached`; the blob also remains in git history and is recoverable.",
+    "consumer": "scripts/investor_json_import.py --json <path>  (manual import script; not app runtime)"
+  },
+  "supersedes": {
+    "claude_handoff.next_step": "'Commit the verified uploaded file itself to data/investors/consolidated_investors.json on dev' is SUPERSEDED by the Dense Materials rule (2026-08-02). The payload must not be committed."
   }
 }

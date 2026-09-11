@@ -1,0 +1,324 @@
+{
+  "document": {
+    "id": "agentiq_constitution_of_aigents",
+    "title": "AgentiQ Constitution of Aigents",
+    "subtitle": "Constitutional Framework for Sovereign Fulfillment, Representation, and Agent Governance",
+    "version": "1.0",
+    "status": "ratified_architecture",
+    "initiative": "Operation Chrysalis",
+    "ratified": "2026-06-11"
+  },
+
+  "constitutional_principles": [
+    {
+      "id": "sovereignty_first",
+      "statement": "Sovereignty precedes fulfillment."
+    },
+    {
+      "id": "representation",
+      "statement": "No single agent may represent all interests."
+    },
+    {
+      "id": "bounded_delegation",
+      "statement": "Delegated authority must remain bounded, auditable, and revocable."
+    },
+    {
+      "id": "constitutional_guardrails",
+      "statement": "Execution, composition, and governance operate within constitutional constraints."
+    },
+    {
+      "id": "dual_representation",
+      "statement": "Platform interests and collective interests must remain explicitly represented."
+    },
+    {
+      "id": "individual_sovereignty",
+      "statement": "The individual remains the ultimate beneficiary of the system."
+    },
+    {
+      "id": "fulfillment",
+      "statement": "Intent without fulfillment is unrealized potential. Fulfillment without sovereignty is extraction."
+    }
+  ],
+
+  "governance_model": {
+    "type": "constitutional",
+    "note": "This model defines governance relationships and authority boundaries. It does not define runtime routing or orchestration paths."
+  },
+
+  "constitutional_hierarchy": {
+    "guardian": {
+      "id": "metame_guardian",
+      "brand": "myGuard",
+      "constitutional_role": "sovereignty_layer",
+      "authority": [
+        "policy_enforcement",
+        "consent_enforcement",
+        "bounded_delegation_enforcement",
+        "constitutional_review",
+        "veto_authority"
+      ],
+      "purpose": "Protect sovereignty and enforce constitutional constraints.",
+      "primary_question": "Is this action compatible with sovereignty?"
+    },
+
+    "individual_agency": {
+      "id": "aigentMe",
+      "brand": "metaMe",
+      "constitutional_role": "individual_agency",
+      "purpose": "Represent the interests of the individual.",
+      "responsibilities": [
+        "experience_management",
+        "venture_coordination",
+        "goal_management",
+        "time_sovereignty",
+        "personal_agency"
+      ],
+      "primary_question": "What is best for this individual?"
+    },
+
+    "collective_agency": {
+      "id": "aigentC",
+      "brand": "aigentC",
+      "constitutional_role": "collective_agency",
+      "purpose": "Represent collective interests.",
+      "collective_definition": [
+        "customers",
+        "contributors",
+        "builders",
+        "communities",
+        "citizens",
+        "ecosystem_participants"
+      ],
+      "responsibilities": [
+        "customer_advocacy",
+        "community_advocacy",
+        "builder_advocacy",
+        "participant_advocacy",
+        "collective_outcomes"
+      ],
+      "primary_question": "What is best for the collective?"
+    },
+
+    "platform_agency": {
+      "id": "aigentZ",
+      "brand": "AgentiQ",
+      "constitutional_role": "platform_agency",
+      "purpose": "Represent platform interests and sovereign fulfillment.",
+      "responsibilities": [
+        "platform_operations",
+        "fulfillment_orchestration",
+        "registry_stewardship",
+        "runtime_stewardship",
+        "development_coordination",
+        "infrastructure_continuity",
+        "agent_orchestration"
+      ],
+      "primary_question": "What is best for the ecosystem?"
+    }
+  },
+
+  "representation_model": {
+    "individual": "aigentMe",
+    "collective": "aigentC",
+    "platform": "aigentZ",
+    "constitutional_protection": "metaMe Guardian"
+  },
+
+  "agency_principle": {
+    "decision": "Agency is a constitutional principle, not an executable runtime principal.",
+    "definition": "Agency represents the preservation and balancing of individual, collective, and platform agency.",
+    "implementation": "Agency shall not be implemented as a root runtime agent unless explicitly ratified by future constitutional amendment."
+  },
+
+  "agentiq_ecosystem": {
+    "registry": {
+      "role": "coordination_layer",
+      "responsibilities": [
+        "provenance",
+        "attribution",
+        "governance",
+        "discovery",
+        "accountability"
+      ]
+    },
+    "runtime": {
+      "role": "execution_layer",
+      "principle": "Runtime executes within constitutional constraints."
+    },
+    "studio": {
+      "role": "composition_layer",
+      "principle": "Studio composes within constitutional constraints."
+    }
+  },
+
+  "ecosystem_domains": {
+    "metame": {
+      "domain": "intent",
+      "represents": [
+        "experience_sovereignty",
+        "personal_agency",
+        "venture_coordination",
+        "intent_discovery"
+      ]
+    },
+    "registry": {
+      "domain": "coordination",
+      "represents": [
+        "provenance",
+        "attribution",
+        "governance",
+        "discovery",
+        "accountability"
+      ]
+    },
+    "agentiq": {
+      "domain": "fulfillment",
+      "represents": [
+        "fulfillment",
+        "implementation",
+        "development",
+        "orchestration",
+        "platform_operations"
+      ]
+    }
+  },
+
+  "aigent_classification": {
+    "generic_ai_agent": {
+      "description": "Any autonomous or semi-autonomous AI system.",
+      "standing": "none"
+    },
+    "aigent": {
+      "description": "A polity-compliant AI agent holding a valid Participant Passport and operating under bounded delegation and constitutional governance.",
+      "standing": "recognized_participant"
+    }
+  },
+
+  "participant_passport_model": {
+    "credential_type": "W3C Verifiable Credential",
+    "activation_requirements": [
+      "participant_passport",
+      "root_did",
+      "reputation_record",
+      "aigent_handle"
+    ],
+    "identity_stack": {
+      "participant_passport": "governance_credential",
+      "root_did": "cryptographic_identity",
+      "persona_id": "registry_identity",
+      "aigent_handle": "human_readable_identity"
+    },
+    "activation_flow": [
+      "passport_application",
+      "passport_approval",
+      "passport_vc_issuance",
+      "root_did_creation",
+      "aigent_handle_claim",
+      "reputation_initialization",
+      "participant_activation"
+    ]
+  },
+
+  "aigent_handle_model": {
+    "required_for": ["passported_aigents"],
+    "format": "@<name>.aigent",
+    "examples": [
+      "@marketa.aigent",
+      "@quill.aigent",
+      "@nakamoto.aigent",
+      "@kn0w1.aigent"
+    ],
+    "principle": "The @aigent handle is the human-readable representation of a polity-recognized participant identity."
+  },
+
+  "storage_model": {
+    "registry": [
+      "passport_id",
+      "aigent_handle",
+      "passport_status",
+      "issuer",
+      "public_metadata"
+    ],
+    "blakqube": [
+      "private_keys",
+      "delegation_state",
+      "private_identity_attributes",
+      "recovery_material"
+    ],
+    "wallet": [
+      "passport_vc",
+      "did_keys",
+      "signing_keys"
+    ]
+  },
+
+  "operation_chrysalis": {
+    "objective": "Transform AgentiQ into the sovereign fulfillment wing of the ecosystem.",
+    "metaphor": {
+      "caterpillar": "Current AgentiQ cartridge",
+      "chrysalis": "Operation Chrysalis transformation process",
+      "butterfly": "AgentiQ Studio and sovereign fulfillment ecosystem"
+    },
+    "phase_0": [
+      "Canonical Sovereign Agent Constitution",
+      "Machine-readable role model",
+      "Governance menu structure",
+      "Authority matrix",
+      "Escalation matrix",
+      "Governance decision log"
+    ],
+    "phase_1": [
+      "aigentZ becomes primary development interface",
+      "All development requests routed through aigentZ",
+      "Repository memory integration",
+      "Development receipt integration"
+    ],
+    "phase_2": [
+      "AgentiQ builds AgentiQ",
+      "Pattern capture",
+      "Development genealogy",
+      "Model routing abstraction"
+    ],
+    "phase_3": [
+      "AgentiQ Cartridge vNext",
+      "Builder workspace emergence",
+      "Governance surfaces",
+      "Development context engine"
+    ],
+    "phase_4": [
+      "AgentiQ Studio",
+      "Development Composing",
+      "Dev Vibing"
+    ]
+  },
+
+  "cartridge_reorganization": {
+    "target_navigation": [
+      "aigentZ",
+      "Projects",
+      "Development",
+      "Memory",
+      "Registry",
+      "Governance",
+      "Operations",
+      "Ecosystem"
+    ],
+    "governance_section": [
+      "Constitution",
+      "Roles",
+      "Authority Matrix",
+      "Escalation Matrix",
+      "Policy Envelopes",
+      "Governance Decision Log",
+      "Receipts"
+    ]
+  },
+
+  "explicit_non_goals": [
+    "Do not create Agency as a runtime principal",
+    "Do not replace metaMe Guardian",
+    "Do not collapse aigentMe, aigentC, and aigentZ into a single agent",
+    "Do not expose blakQube identity data",
+    "Do not require generic AI agents to become passported participants"
+  ]
+}

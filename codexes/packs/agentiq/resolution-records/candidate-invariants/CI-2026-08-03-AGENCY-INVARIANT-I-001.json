@@ -1,0 +1,94 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-03-AGENCY-INVARIANT-I-001",
+  "statement": "Every constitutional workflow shall maximize the operator's ability to progress safely. Constitutional safeguards constrain unsafe acts; they shall not unnecessarily constrain safe acts or diminish operator agency.",
+  "classification": "Operator Agency — a direct child of the ratified TTV/TTR Constitutional Principle in the operator's hierarchy (2026-08-03), and the head of the agency family. Consequences the operator named: isolate unsafe acts rather than freezing safe work; minimize cognitive load; present the next safe action; preserve optionality; make consequences explicit; never require unnecessary navigation.",
+  "family": "execution",
+  "parentCandidateId": null,
+  "scope": "cross-capability",
+  "status": "deprecated",
+  "ratifiedSource": null,
+  "projections": {
+    "targets": [],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": null
+  },
+  "derivedFrom": [
+    "RES-2026-08-03-KNOWLEDGE-PIPELINE-001"
+  ],
+  "occurrences": [
+    {
+      "site": "Duplicate review — services/corpusScout/duplicateResolution.ts",
+      "defect": "The operator had to hunt for duplicates in a separate queue instead of resolving them where they surfaced.",
+      "resolutionId": "RES-2026-08-03-KNOWLEDGE-PIPELINE-001",
+      "evidence": [
+        "fb4543c7e",
+        "352fee7c3",
+        "tests/duplicate-resolution.test.ts"
+      ]
+    },
+    {
+      "site": "Exception review — components/research/Track2ProgrammePanel.tsx",
+      "defect": "The exception surface diagnosed the problem and required navigating elsewhere to act on it.",
+      "resolutionId": "RES-2026-08-03-EXCEPTION-SURFACE-TERMINATES-IN-ACT-001",
+      "evidence": [
+        "55813f14e",
+        "tests/exception-isolation.test.ts"
+      ]
+    },
+    {
+      "site": "Stage progression — services/research/track2Programme.ts",
+      "defect": "Safe work was blocked because unsafe work existed; a stage holding exceptions reported blocked although every ready record had been processed.",
+      "resolutionId": "RES-2026-08-03-TRACK2-EXCEPTION-ISOLATION-001",
+      "evidence": [
+        "9d86b3a1c",
+        "tests/track2-steward-workflow.test.ts"
+      ]
+    },
+    {
+      "site": "Batch limit — Track 2 Stage 2 bulk admission",
+      "defect": "The operator was asked to manually partition 33 sources against a 25-source limit the machine already understood.",
+      "resolutionId": "RES-2026-08-03-BATCH-LIMIT-PROJECTED-ONTO-OPERATOR-001",
+      "evidence": [
+        "Operator live-surface report, 2026-08-03"
+      ]
+    },
+    {
+      "site": "Diagnosable refusals — services/horizen/authorizationClient.ts + the Bitcent testnet balance row",
+      "defect": "Two refusals named only what was not found, discarding the diagnostic reason they already held, so the operator could not act on either.",
+      "resolutionId": "RES-2026-08-03-DIAGNOSABLE-REFUSALS-001",
+      "evidence": [
+        "ebb6c165a",
+        "tests/bitcent-explorer-fallback.test.ts"
+      ]
+    }
+  ],
+  "canaries": [
+    {
+      "path": "tests/resolution-records.test.ts",
+      "assertion": "Agency Invariant I has exactly six corollaries, each an EXISTING record re-parented rather than a twin, and every corollary shares its parent's family.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/duplicate-resolution.test.ts",
+      "assertion": "The exception carries its own decision — the operator acts where the problem is surfaced (the shipped instance of \"isolate unsafe acts rather than freezing safe work\").",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "notes": [
+    "COLLAPSED 2026-08-03 into CI-2026-08-03-TTV-TTR-OBJECTIVE-001. The operator removed the Agency/UX family: \"Don't create 'UX invariants' as a separate canonical family. Instead say: these constitutional execution principles PROJECT into UX.\" This record is retained as a TOMBSTONE, not deleted — every doc that already cited this id must still be able to find where the rule went.",
+    "WHAT THE COLLAPSE COSTS, stated rather than assumed: This is the significant one, and it is FLAGGED rather than quietly done. Agency Invariant I was the head of the family the operator has now removed. Its content — \"safeguards constrain unsafe acts; they shall not unnecessarily constrain safe acts or diminish operator agency\" — is the ratified Constitutional Time Principle's own third sentence plus Exception Isolation. Its five recorded occurrence sites are the evidence that produced the Execution family and are preserved on this record as a tombstone.",
+    "SIX SITES, operator-enumerated 2026-08-03 as \"all manifestations of the same constitutional computing principle\": duplicate review (do not make me hunt); exception review (do not make me navigate elsewhere); missing ceremony receipt (do not make me open SQL); stage progression (do not block safe work because unsafe work exists); batch limit (do not make me partition what the machine already understands); and — the operator's own \"arguably\" — the Bitcent/Horizen refusals that discarded their own diagnostic reason.",
+    "FIVE are recorded as occurrences above. The SIXTH — \"missing ceremony receipt: do not make me open SQL\" — is NOT recorded, because no resolution record in this registry covers it and the No-Guessing rule forbids inventing its evidence. It is named here so it is not lost, and should be captured when that instance is worked.",
+    "WHAT THIS CHANGES, reported and not acted on: the family's `cross-capability` scope is now EVIDENCED across five distinct subsystems rather than asserted from one. On the mechanical bar this candidate now qualifies for `validated` (>=2 occurrences, canary present). It is deliberately left at `candidate` — the operator asked for this to be reported, not ratified, and promotion is theirs.",
+    "RE-PARENTED 2026-08-03 to the operator's own hierarchy as \"Operator Agency\". An earlier pass in this same session had filed it as a numbered corollary of Agency Invariant I; the operator's classification places it directly beneath the TTV/TTR principle instead, with Operator Agency as a SIBLING rather than the parent. The statement is unchanged — it is what the canaries and occurrences were recorded against.",
+    "STATUS IS NOT INHERITED. Its parent is `ratified`; this rule stays at whatever its OWN evidence and enforcement point justify (operator, verbatim: \"The child UX and engineering constructs need not all be independently ratified merely because the parent is ratified\").",
+    "AGENCY IS THE MEANS, NOT THE TARGET (operator, 2026-08-03): \"agency is not the optimization target. It is the means.\" This rule is therefore a CHILD of the TTV/TTR principle, and the operator's own classification lists operator agency as that principle's OPERATIONAL MECHANISM. Read operationally: reduce Time to Value by increasing operator agency while keeping Time to Repair within constitutional bounds.",
+    "The statement is the operator's own text for Constitutional UX Invariant I, kept verbatim.",
+    "RESTRUCTURED TWICE IN ONE SESSION, recorded because the churn is itself information: first as the parent of six numbered corollaries, then re-parented under the TTV/TTR principle as a SIBLING of the other six children when the operator supplied their own hierarchy. Nothing was duplicated in either pass; only parentage changed.",
+    "STATUS IS NOT INHERITED from the ratified parent. This stays at `candidate` until its own evidence and enforcement point justify promotion."
+  ],
+  "governingPrinciple": false,
+  "supersededBy": "CI-2026-08-03-TTV-TTR-OBJECTIVE-001"
+}

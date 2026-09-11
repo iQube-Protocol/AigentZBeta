@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { personaFetch } from "@/utils/personaSpine";
 import { 
   Receipt,
   CheckCircle2, 
@@ -124,9 +125,21 @@ function parseReceiptFromMessage(message: any): DVNReceipt | null {
   }
 }
 
-async function resolveDvnChannelId(tenantId: string): Promise<string | null> {
-  const params = new URLSearchParams({ tenant_id: tenantId, limit: "250" });
-  const response = await fetch(`/api/qubetalk/channels?${params.toString()}`, {
+/**
+ * `/api/qubetalk/channels` became a spine endpoint on 2026-07-28 (the anonymous
+ * QubeTalk read leak). Two consequences for this panel:
+ *
+ *  1. It MUST go through `personaFetch` — raw `fetch` sends no Bearer, so the
+ *     route 401s and the panel silently shows local receipts only.
+ *  2. `tenant_id` is now DERIVED from the caller. It is sent only when a host
+ *     explicitly asks for a specific tenant (an admin-only request the gate
+ *     honours); the panel's own default no longer names one, because a
+ *     hardcoded default tenant is not a deliberate cross-tenant request.
+ */
+async function resolveDvnChannelId(tenantId?: string): Promise<string | null> {
+  const params = new URLSearchParams({ limit: "250" });
+  if (tenantId) params.set("tenant_id", tenantId);
+  const response = await personaFetch(`/api/qubetalk/channels?${params.toString()}`, {
     cache: "no-store",
   });
   if (!response.ok) {
@@ -154,7 +167,10 @@ function dedupeReceipts(receipts: DVNReceipt[]) {
 export default function DVNReceiptsPanel({
   experienceId,
   requestId,
-  tenantId = "tnt_clawhack",
+  // No default tenant. The old `"tnt_clawhack"` default made every mount of
+  // this panel a cross-tenant read request; the server now derives the caller's
+  // own tenant when none is named.
+  tenantId,
   autoRefresh = false,
   refreshInterval = 5000,
 }: DVNReceiptsPanelProps) {
@@ -216,11 +232,11 @@ export default function DVNReceiptsPanel({
       }
 
       const params = new URLSearchParams({
-        tenant_id: tenantId,
         limit: "200",
         order: "desc",
       });
-      const messageResponse = await fetch(
+      if (tenantId) params.set("tenant_id", tenantId);
+      const messageResponse = await personaFetch(
         `/api/qubetalk/channels/${encodeURIComponent(resolvedChannelId)}/messages?${params.toString()}`,
         { cache: "no-store" }
       );

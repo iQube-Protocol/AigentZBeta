@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-08-15-CANONICAL-TERM-RESOLUTION-001",
+  "capability": "Homecoming III bootstrap — invariant-driven DevOn + IDE 2.0 kernel",
+  "milestone": "Phase 0 — preflight, reuse map, Common Ground terminology",
+  "problem": "The Homecoming III PRD instructed the implementing agent to establish 'DCIR = Development Constitutional Invariant Runtime' as canonical Common Ground terminology. DCIR was already canonical in this codebase for 'Dynamic Constitutional Interaction Runtime' (CFS-020, Operation Chrysalis 2.0 Phase 3), with a 278-line type contract, four service modules, four test files and live consumers. The wrong expansion was not a spelling variance: it changed the architecture. Reading DCIR as development-specific implied building a SECOND observation runtime alongside the existing one, when the existing DCIR already emits nine DevOn event types and needed only an appended vocabulary. Implemented as drafted, the bootstrap would have produced exactly the parallel-implementation defect inv.engineering.037 governs — while the PRD section mandating Common Ground terminology was the section being violated.",
+  "observedFailure": [
+    "PRD section 23 asserted an expansion of DCIR that no file in the repository supports.",
+    "The PRD's architecture diagram placed DCIR as a peer of DevOn and IDE 2.0 inside a development-only loop, which is narrower than the ratified runtime's actual scope.",
+    "PRD section 17 was scoped as 'DCIR integration', as though integrating an absent component, when services/dcir/eventStream.ts already ships nine DevOn emitters: devStageAdvancedEvent, devStageProposalReceivedEvent, devProposalApprovedEvent, devProposalDismissedEvent, devCapsuleOpenedEvent, devCapsuleClosedEvent, devImplementationPackGeneratedEvent, devDeploymentProposedEvent, devToolUsedEvent.",
+    "docs/platform-ontology.md — the asset CLAUDE.md makes mandatory reading before any code is written — contained no entry for DCIR, DevOn, IDE 2.0 or Crystal, so the terms most likely to be reconstructed were exactly the terms the governed asset was silent on."
+  ],
+  "rootCauses": [
+    "The canonical expansion of DCIR existed only inside the source it named (the doc comment of types/dcir.ts). It was not resolvable from any governed terminology asset an agent is required to read, so an agent meeting the term in a PRD had no cheap way to resolve it and reconstructed a plausible expansion instead.",
+    "The ontology's existing rule was MISSCOPED rather than absent: it governs canonical SPELLING of terms it lists, and says nothing about resolving a term's MEANING or EXPANSION before inferring one. A correctly-spelled acronym expanded wrongly passes every rule the asset had.",
+    "The acronym is independently plausible under both expansions in a constitutional-computing context, so the wrong reconstruction produced no felt uncertainty and therefore triggered no lookup. Inference is cheapest precisely where it is least reliable.",
+    "Terminology correctness had no enforcement point. Unlike a spelling variance, an inferred expansion fails silently and is discovered only once it has already shaped a design."
+  ],
+  "resolution": [
+    "Ruled by the operator, 2026-08-15: DCIR remains Dynamic Constitutional Interaction Runtime. The PRD is corrected, not the codebase. The operator further ruled the existing expansion is the better term, since it describes a general runtime of which development observation is one application.",
+    "'Development Constitutional Invariant Runtime' recorded as INCORRECT and explicitly NOT registered as an alias — a glossary listing a wrong meaning still teaches it. Retained in the ontology only as a labelled known-wrong expansion so a future agent meeting it in a draft recognises the error.",
+    "Added a 'four development-lifecycle runtimes' section to docs/platform-ontology.md defining DevOn, IDE 2.0, DCIR and Crystal — each by its ROLE BOUNDARY, not its expansion alone, because a term whose meaning is guessable but whose boundary is not still produces the wrong architecture.",
+    "Added enforcement rule 5 to the ontology, closing the misscope named in root cause 2: resolve a canonical term from the file before inferring it from context; surface absent terms as unresolved rather than reconstructing them.",
+    "Recorded the causal candidate invariant CI-2026-08-15-CANONICAL-TERM-RESOLUTION-001 at status 'candidate'.",
+    "Architectural consequence carried into the Homecoming III plan: development-consequence observation is an application of DCIR, not a sibling of it. The bootstrap's Phase 5 changed from building a runtime to appending kinds to DcirEventKind, whose own contract sanctions extension by appending."
+  ],
+  "rejectedApproaches": [
+    "Adopting the PRD's expansion and renaming the ratified runtime. Rejected: the existing DCIR is ratified, shipped and has live consumers in CodexCopilotLayer, ComposerStudio and AigentMeWelcomeSplitTab; the PRD's runtime had neither code nor history. Renaming the thing that does not yet exist costs nothing.",
+    "Qualifying both as DCIR-I and DCIR-D. Rejected: reads clean in a spec and is unusable in speech, so it decays back to an unqualified 'DCIR' within one session and reintroduces the ambiguity under a longer name.",
+    "Registering the wrong expansion as an alias 'for recognition'. Rejected: an alias entry is indistinguishable from a permitted synonym at the point of use. Recorded as explicitly incorrect instead.",
+    "Building the development-observation runtime anyway, reasoning that development consequence and operator interaction are different subjects. Rejected: the subjects do differ, but services/dcir/eventStream.ts already observes DevOn — a second runtime would have been a parallel implementation of a live capability.",
+    "Creating a new glossary asset for the four terms. Rejected in favour of extending docs/platform-ontology.md: reuse over create, and more importantly that file is already mandatory reading, so a definition placed there is resolvable by construction rather than by an agent choosing to go looking.",
+    "Deferring the terminology fix until after the kernel shipped. Rejected: the wrong expansion was actively shaping the architecture of the very work it would have been deferred behind.",
+    "Claiming a canary for this record. Rejected: the Phase 0 enforcement point is a governed prose rule, not an executable check. Asserting a canary that does not exist would itself violate CI-2026-08-03-CANARY-REPRODUCES-DEFECT-001."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-15-CANONICAL-TERM-RESOLUTION-001"
+  ],
+  "canaries": [],
+  "scope": "local",
+  "status": "observed",
+  "trigger": "invariant-incomplete-or-misscoped",
+  "evidence": {
+    "commits": [],
+    "tests": [],
+    "receipts": [],
+    "incidentRefs": [
+      "docs/platform-ontology.md",
+      "types/dcir.ts",
+      "services/dcir/eventStream.ts",
+      "codexes/packs/agentiq/updates/2026-08-15_homecoming-iii-bootstrap-architecture-audit.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-15_homecoming-iii-bootstrap-architecture-audit.md"
+  ],
+  "date": "2026-08-15",
+  "projections": {
+    "targets": [
+      "devon",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

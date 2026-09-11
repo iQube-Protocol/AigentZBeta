@@ -1,6 +1,6 @@
 {
-  "version": "0.1.1",
-  "generated_at": "2026-01-09T05:30:36Z",
+  "version": "0.1.7",
+  "generated_at": "2026-08-31T21:04:00Z",
   "repo": "AigentZBeta",
   "entries": [
     {
@@ -102,6 +102,76 @@
       "tags": ["pr-brief", "update", "agentiq"],
       "owners": ["Aigent C"],
       "last_updated": "2026-01-09T04:16:23Z"
+    },
+    {
+      "id": "aee-architectural-framework-2026-08-31",
+      "path": "codexes/packs/agentiq/updates/2026-08-31_aee-architectural-framework-and-operating-model.md",
+      "type": "architecture",
+      "title": "AEE-001B — Adaptive Experience Engine: Architectural Framework & Operating Model",
+      "summary": "Canonical estate-wide AEE direction: person-centred continuity, Journey/Experience/AEE/AgentiQ separation, fixed-to-adaptive rendering modes, provider boundaries, feedback loop, CTP relationship, and Financial Services reference vertical.",
+      "tags": ["aee", "adaptive-experience", "architecture", "experience-model", "experience-matrix", "journey-spine", "copilotkit", "differ", "financial-services", "constitutional-computing"],
+      "owners": ["Aigent Z", "Aigent C"],
+      "last_updated": "2026-08-31T15:56:00Z"
+    },
+    {
+      "id": "aee-financial-services-reference-2026-08-31",
+      "path": "codexes/packs/agentiq/updates/2026-08-31_aee-fs-financial-services-runtime-reference-architecture.md",
+      "type": "architecture",
+      "title": "AEE-FS-001 — Financial Services Runtime Reference Architecture",
+      "summary": "Financial Services as the first deep AEE reference vertical: person-centred financial context, experience models and matrices, MoneyPenny modes, consequence and governance-path separation, R0–R3 rendering, wallet/constitutional handoffs, Differ/CopilotKit roles, IRL experiments, and DevOn feedback.",
+      "tags": ["aee", "financial-services", "moneypenny", "journey-spine", "experience-model", "experience-matrix", "differ", "copilotkit", "wallet", "dvn", "irl", "devon", "constitutional-computing"],
+      "owners": ["Aigent Z", "Aigent C"],
+      "last_updated": "2026-08-31T16:00:00Z"
+    },
+    {
+      "id": "aee-fs-progressive-financial-sovereignty-correction-2026-08-31",
+      "path": "codexes/packs/agentiq/updates/2026-08-31_aee-fs-paper3-scope-correction-metaknyt-progressive-financial-sovereignty.md",
+      "type": "architecture-amendment",
+      "title": "AEE-FS-001C — Paper III Scope Correction: metaKnyt + Progressive Financial Sovereignty",
+      "summary": "Canonical correction: metaKnyt spelling; Progressive Financial Sovereignty as sibling umbrella to Progressive Creative Sovereignty; Financial Services Learning as the broad capability with crypto, digital assets, trading and other specialist disciplines beneath it.",
+      "tags": ["aee", "financial-services", "metaknyt", "knights-bridge", "progressive-financial-sovereignty", "progressive-creative-sovereignty", "financial-literacy", "learning"],
+      "owners": ["Aigent Z", "Aigent C"],
+      "last_updated": "2026-08-31T17:14:00Z"
+    },
+    {
+      "id": "aee-aigentme-companion-amendment-2026-08-31",
+      "path": "codexes/packs/agentiq/updates/2026-08-31_aee-aigentme-estate-wide-constitutional-companion-amendment.md",
+      "type": "architecture-amendment",
+      "title": "AEE-001D — aigentMe Estate-Wide Constitutional Companion Amendment",
+      "summary": "Estate-wide invariant: aigentMe remains the person's primary constitutional companion at every expertise level; AEE determines NBE, aigentMe orchestrates it across domains; the companion role may be delegated to another eligible agent under bounded authority and disclosure.",
+      "tags": ["aee", "aigentme", "constitutional-companion", "next-best-experience", "journey-spine", "bounded-delegation", "personhood", "cross-domain"],
+      "owners": ["Aigent Z", "Aigent C"],
+      "last_updated": "2026-08-31T17:16:00Z"
+    },
+    {
+      "id": "aee-knights-bridge-progressive-sovereignty-2026-08-31",
+      "path": "codexes/packs/agentiq/updates/2026-08-31_aee-kb-knights-bridge-progressive-sovereignty-experience-architecture.md",
+      "type": "architecture",
+      "title": "AEE-KB-001 — Knights Bridge: Progressive Sovereignty Experience Architecture",
+      "summary": "Paper III: metaKnyt / Knights Bridge as the adaptive zero-to-expert application of AEE, combining Progressive Creative Sovereignty and Progressive Financial Sovereignty over one professional-grade capability substrate, with aigentMe cross-Bridge NBE orchestration and delegable companion role.",
+      "tags": ["aee", "metaknyt", "knights-bridge", "progressive-sovereignty", "progressive-financial-sovereignty", "progressive-creative-sovereignty", "financial-services-learning", "experience-altitude", "aigentme", "next-best-experience"],
+      "owners": ["Aigent Z", "Aigent C"],
+      "last_updated": "2026-08-31T17:16:00Z"
+    },
+    {
+      "id": "aee-xp-three-paper-execution-build-spec-2026-08-31",
+      "path": "codexes/packs/agentiq/updates/2026-08-31_aee-xp-three-paper-execution-build-spec.md",
+      "type": "build-spec",
+      "title": "AEE-XP-001 — Three-Paper Execution Build Specification",
+      "summary": "Implementation-grade programme turning the AEE trilogy into one executable system: CI/KNYTS Progressive Sovereignty on-ramps, shared Financial Services spine, AEE/NBE convergence, authoritative-state adapters, aigentMe orchestration, reusable ExperienceHandoff, IRL and DevOn branch/resume paths, AR/CPS + DCIR alignment, and mandatory CTP delivery under AEE-XP-001A.",
+      "tags": ["aee", "build-spec", "financial-services", "progressive-sovereignty", "knyts-bridge", "constitutional-internet", "aigentme", "journey-spine", "nbe", "experience-handoff", "irl", "research", "devon", "artifact-runtime", "dcir", "ctp", "dvn"],
+      "owners": ["Aigent Z", "Aigent C"],
+      "last_updated": "2026-08-31T21:04:00Z"
+    },
+    {
+      "id": "aee-xp-ctp-required-delivery-amendment-2026-08-31",
+      "path": "codexes/packs/agentiq/updates/2026-08-31_aee-xp-ctp-required-delivery-amendment.md",
+      "type": "build-spec-amendment",
+      "title": "AEE-XP-001A — CTP Required Delivery Amendment",
+      "summary": "Mandatory AEE-XP delivery: working CTP registry/resolver, Constitutional Runtime execute seam, normalized transition/refusal evidence, implementation singularity and cross-channel equivalence, OCSGA-first migration, consequential Financial Services capstone adoption, and DevOn enforcement.",
+      "tags": ["aee", "build-spec", "ctp", "constitutional-runtime", "implementation-singularity", "ocsga", "financial-services", "devon", "dvn", "receipts", "constitutional-computing"],
+      "owners": ["Aigent Z", "Aigent C"],
+      "last_updated": "2026-08-31T21:04:00Z"
     }
   ]
 }

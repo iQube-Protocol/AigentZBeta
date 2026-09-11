@@ -1,0 +1,231 @@
+/**
+ * Constitutional Overlay — domain → shape mapping.
+ *
+ * PRD-MMC-IMPL-002 Increment 2, Step 2 (RATIFIED 2026-07-23).
+ * See: codexes/packs/agentiq/updates/2026-07-23_prd-mmc-impl-002-companion-phase3-implementation-plan.md §3.
+ *
+ * A SMALL, EXPLICIT domain → shape table — NOT a general-purpose arbitrary-
+ * app classifier (plan §4 non-goal, ratified). Two illustrative shapes:
+ * `github.com`/`*.github.com` → `'github-repo'`; a set of hostnames →
+ * `'financial-context'` (QriptoCENT/Wallet/Standing/Passport/Delegations).
+ *
+ * SPEC-CDR-001 P2 (D-14, D-15 — RATIFIED 2026-07-25) changed BOTH halves of
+ * that second mapping:
+ *
+ *   1. The shape is now `'financial-context'`, not `'banking'`. It is a
+ *      RENDERING CONTEXT informed by domain profiles — never a financial
+ *      domain, and never a fourth ontology competing with the runtime
+ *      `FinancialDomain` taxonomy (SPEC-CDR-001 §4.3).
+ *   2. The hardcoded `BANKING_DOMAINS` hostname `Set` is GONE. Membership now
+ *      comes from the verified Domain Profile registry
+ *      (`services/resolution/domainProfileRegistry.ts`), where every hostname
+ *      carries its provenance, verification status, asserting authority, and
+ *      rationale. The five hosts are the same; they are seeds re-entered under
+ *      D-15, NOT inherited from the old set.
+ *
+ * P3 (D-9/D-10) added the third change: membership alone no longer decides.
+ * `services/resolution/domainResolver.ts` applies the four-level precedence,
+ * and this function receives a context only when the resolver is willing to
+ * ASSERT it (L1/L2). An unverified profile abstains. Abstention is preferable
+ * to fabricated context (§6.2).
+ *
+ * `google.com` is still deliberately absent: it doesn't fit either shape's
+ * data model, and forcing it into one would violate this file's own ratified
+ * principle (no fabricated card for an unmapped domain) -- for google.com the
+ * honest "no overlay available" empty state is correct behaviour, not a bug.
+ *
+ * Pure, no I/O. Returns `null` for any unmapped domain — the caller renders
+ * an honest "no overlay available for this page" rather than a fabricated
+ * generic card.
+ */
+
+import type { OverlayContext } from '@/services/resolution/domainProfileRegistry';
+import { assertedContextFor } from '@/services/resolution/domainResolver';
+
+/**
+ * `OverlayContext` is folded in rather than restated, so the registry stays
+ * the single source of truth for the context name (`inv.engineering.036`).
+ * Adding a context there widens this union automatically.
+ */
+export type OverlayShape = 'github-repo' | OverlayContext;
+
+const GITHUB_DOMAIN_RE = /(^|\.)github\.com$/i;
+
+export function shapeForDomain(domain: string | null | undefined): OverlayShape | null {
+  if (!domain) return null;
+  const normalized = domain.trim().toLowerCase();
+  if (normalized.length === 0) return null;
+  if (GITHUB_DOMAIN_RE.test(normalized)) return 'github-repo';
+  // P3: the four-level resolver decides. `assertedContextFor` returns a
+  // context ONLY at L1/L2 (verified) — an unverified profile abstains, and an
+  // unmapped domain abstains. This function never sees an unverified context,
+  // so it cannot render one by accident.
+  return assertedContextFor(normalized);
+}
+
+/**
+ * P4 SUPERSEDED THE SHAPE → CCB CAPABILITY IDS TABLE.
+ *
+ * A hand-declared `Record<OverlayShape, capabilityIds>` used to live here.
+ * Capability ids now hang off the **capability module** a resolved Domain
+ * Profile names (`services/resolution/capabilityModules.ts`), so there is one
+ * mapping instead of two — the module IS the thing that knows which registry
+ * ids it surfaces. Keeping both would have been the `inv.engineering.036`
+ * duplicate the module model exists to remove.
+ *
+ * `github-repo` correspondingly declares nothing: it has no Domain Profile
+ * and therefore no modules. That is unchanged behaviour, and still deliberate
+ * — the shape already carries its own capability signal via
+ * `recommendProducers('software', 'operational')`, which reads a different
+ * system (the closed `CapabilityId` producer graph). Mixing CCB ids in would
+ * put two unrelated capability notions in one card.
+ *
+ * KNOWN TRAP (hit 2026-07-25, both deep links 404'd as "Codex not found"):
+ * the embed route (`app/(embed)/triad/embed/codex/[codexSlug]/page.tsx`)
+ * builds its lookup key by appending `-codex` to whatever string sits in the
+ * URL path UNLESS it already ends in `-codex`/`-cartridge`, then matches
+ * that against each `CodexConfig.id` — NOT `.slug`. For `MONEYPENNY_CARTRIDGE`
+ * (`id: 'moneypenny-codex'`, `slug: 'moneypenny'`) slug+`-codex` happens to
+ * equal id. For `VENTURE_LAB_CODEX` it does NOT: `id: 'alpha-knyt-codex'`
+ * (kept for historical reasons — CLAUDE.md's Venture Lab α naming note),
+ * `slug: 'venture-lab'`; `'venture-lab' + '-codex'` matches nothing. So
+ * `CAPABILITY_ROUTES.slug` below is always the codex's real `id` (already
+ * carrying the `-codex`/`-cartridge` suffix), which the embed route passes
+ * through UNCHANGED — the one value that survives its suffix logic
+ * regardless of how slug and id happen to relate. The parity canary
+ * (tests/companion-observer.test.ts) asserts against `.id`, matching this.
+ */
+
+/**
+ * CAPABILITY → THE SURFACE WHERE IT ACTUALLY OPERATES (2026-07-25).
+ *
+ * Operator, on seeing the capability rows render for the first time: *"I now
+ * see the capability but what can be done with them?"* — a fair question,
+ * because a registered capability with no route to its operating surface is
+ * a label, not an affordance. This table is the answer: it turns each row
+ * into a way IN.
+ *
+ * Deliberately a DEEP LINK to the existing surface, not a second
+ * implementation of it. The Financial Services Capability Suite is a live
+ * 12-step pipeline mounted at Venture Lab α → Financial Services
+ * (`data/codex-configs.ts`, `VENTURE_LAB_CODEX` tab slug
+ * `financial-services`, rendered by `FinancialServicesTab`). Rebuilding any
+ * part of it inside a ~400px side panel would be the parallel-implementation
+ * defect CLAUDE.md's "Extend, Don't Duplicate" forbids — and would fork a
+ * money-moving surface, the worst possible place for two implementations to
+ * drift.
+ *
+ * IDENTIFIER-FREE, exactly like `types/companionSearch.ts`'s routing
+ * metadata: `{ slug, tab }` only. The persona is attached at RENDER time by
+ * the panel via `buildCodexUrl(..., { personaId })` — this table never sees
+ * or stores an identifier, so it stays a pure static constant safe to log.
+ *
+ * A capability absent from this table renders exactly as it does today (text
+ * + brief ref, no link) rather than a dead or invented route — the same
+ * "degrade honestly" contract as the shape table above. `slug`/`tab` values
+ * below are read from `data/codex-configs.ts`, never guessed.
+ */
+export interface CapabilityRoute {
+  /** For `buildCodexUrl`'s first argument — MUST be the codex's real `id`
+   *  (e.g. 'alpha-knyt-codex'), NOT its `.slug`. See the "KNOWN TRAP" note
+   *  above: the embed route matches by id, and only
+   *  a value that already carries the `-codex`/`-cartridge` suffix survives
+   *  its suffix logic unchanged regardless of how slug and id relate. */
+  readonly slug: string;
+  /** Tab slug within that codex — `CodexTab.slug`. */
+  readonly tab: string;
+  /** Button label. Names the surface, so the operator knows where they land. */
+  readonly label: string;
+}
+
+export const CAPABILITY_ROUTES: Record<string, CapabilityRoute> = {
+  // VENTURE_LAB_CODEX.id === 'alpha-knyt-codex' (product name "Venture Lab α",
+  // slug 'venture-lab' — id kept for historical reasons, see CLAUDE.md).
+  // Tab id/slug 'financial-services' (CRP-003a Increment 3 — the Founder
+  // Office Capability Suite).
+  'financial-services-capability-suite': {
+    slug: 'alpha-knyt-codex',
+    tab: 'financial-services',
+    label: 'Open Financial Services',
+  },
+  // MoneyPenny's runtime drives that same pipeline, so its operating surface
+  // is the same tab — the runtime is the agent mode, not a separate console.
+  'cap-moneypenny-financial-services': {
+    slug: 'alpha-knyt-codex',
+    tab: 'financial-services',
+    label: 'Open Financial Services',
+  },
+};
+
+/** PURE — the operating surface for a capability, or null when none is
+ *  declared (render the row without a link; never invent a route). */
+export function routeForCapability(capabilityId: string): CapabilityRoute | null {
+  return CAPABILITY_ROUTES[capabilityId] ?? null;
+}
+
+/**
+ * Best-effort repo-name candidate extracted from a GitHub tab title. GitHub
+ * page titles commonly take the shape `owner/repo: description` or
+ * `GitHub - owner/repo: description` or `owner/repo`. This is a heuristic,
+ * not a parser — it exists only to produce a search query string for the
+ * registry-match lookup (Step 2's own "best-effort match against the
+ * registry by repo name" language); a query that turns out too broad or too
+ * narrow degrades to more/fewer matches, never a wrong-account exposure.
+ */
+export function repoNameCandidateFromTitle(title: string | null | undefined): string | null {
+  if (!title) return null;
+  let candidate = title.trim();
+  candidate = candidate.replace(/^GitHub\s*-\s*/i, '');
+  const colonIdx = candidate.indexOf(':');
+  if (colonIdx > 0) candidate = candidate.slice(0, colonIdx);
+  const dotIdx = candidate.indexOf(' · ');
+  if (dotIdx > 0) candidate = candidate.slice(0, dotIdx);
+  candidate = candidate.trim();
+  return candidate.length > 0 ? candidate : null;
+}
+
+/**
+ * DOMAIN → PRODUCT SEARCH HINT (found 2026-07-25, live-verifying the generic
+ * card on mail.google.com).
+ *
+ * The generic overlay card's registry search (`composeGenericOverlayCard`,
+ * `overlayComposition.ts`) uses the page's OWN title as its query. That
+ * degrades honestly for most pages (no title match -> no fabricated match),
+ * but for Gmail specifically it under-covers the exact case the operator
+ * named as the most-used one: the tab title is the INBOX CONTENT ("Inbox
+ * (72,138)"), never the word "Gmail" — so a real, already-registered
+ * `Gmail · Create draft` / `Gmail · Send` asset (services/google/
+ * connectors.ts) never matches, not because the registry sweep is
+ * incomplete, but because the query itself never contained "Gmail".
+ *
+ * This is the SAME class of problem `repoNameCandidateFromTitle` above
+ * already solves for GitHub (deriving a smarter query from a raw title) —
+ * here the smarter query comes from the DOMAIN instead, for the handful of
+ * Google Workspace product hosts whose own tab titles are usually the
+ * document/inbox content, not the product name. Small, explicit, honest:
+ * every value here names a real product with real registered connector
+ * assets (services/google/connectors.ts); an unlisted domain returns `null`
+ * and the generic card falls back to title-only search, same as before.
+ *
+ * `docs.google.com` hosts Docs, Sheets, Slides, AND Forms under one
+ * hostname (distinguished only by URL path, e.g. /spreadsheets/,
+ * /presentation/) — mapped to the coarser `'Google Docs'` rather than
+ * guessing which one from the domain alone. A Sheets or Slides FILE page
+ * (title = the file's own name) therefore still won't precision-match its
+ * specific product's connectors — a known, named limitation, not a silent
+ * one. Path-based disambiguation is a real follow-on, not built here.
+ */
+const GOOGLE_WORKSPACE_DOMAIN_HINTS: Record<string, string> = {
+  'mail.google.com': 'Gmail',
+  'drive.google.com': 'Google Drive',
+  'docs.google.com': 'Google Docs',
+  'calendar.google.com': 'Google Calendar',
+  'tasks.google.com': 'Google Tasks',
+};
+
+/** PURE — the product search hint for a domain, or `null` for anything not
+ *  in the table above (falls back to title-only search). */
+export function domainSearchHint(domain: string | null | undefined): string | null {
+  if (!domain) return null;
+  return GOOGLE_WORKSPACE_DOMAIN_HINTS[domain.trim().toLowerCase()] ?? null;
+}

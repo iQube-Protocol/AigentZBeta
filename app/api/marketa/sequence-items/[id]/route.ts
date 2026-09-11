@@ -23,10 +23,8 @@ const EDITABLE = new Set([
   'experience_goal_id', 'studio_artifact_id', 'metaproof_milestone',
 ]);
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const client = db();
   if (!client) return NextResponse.json({ ok: false, error: 'DB unavailable' }, { status: 503 });
 
@@ -40,10 +38,8 @@ export async function GET(
   return NextResponse.json({ ok: true, item: data });
 }
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const client = db();
   if (!client) return NextResponse.json({ ok: false, error: 'DB unavailable' }, { status: 503 });
 

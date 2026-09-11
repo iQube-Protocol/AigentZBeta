@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-08-15-PHASE6-COMPRESSION-CROWDOUT-001",
+  "capability": "Homecoming III — invariant-driven DevOn + IDE 2.0 kernel",
+  "milestone": "Phase 6 — live dogfood and Homecoming threshold verdict",
+  "problem": "Live-model dogfood of the full retrieval -> discovery -> compression chain (buildInvariantEnvelope, discoverBearings, composeImplementationContext), run for the first time end-to-end against the REAL, 33-member devon-projected candidate registry rather than a small test fixture, found that live discovery is systematically crowded out of the compressed implementation context, and that the single most relevant registered candidate can be omitted while unrelated candidates are carried instead.",
+  "observedFailure": [
+    "All 6 live-discovery items from a genuine positive+negative bearing pass (3 positive, 3 risk-driven negative) were omitted from composeImplementationContext's output — none survived into carried['live-discoveries'].",
+    "CI-2026-08-15-SCOPE-CONTEXT-BINDING-AXIS-001 -- the single candidate most directly on point for the dogfood's own intent (scoping the context-binding axis) -- was omitted, while several candidates about an unrelated subsystem (Pulse admission, P&L verification, RootDID authority, receipt-subject-scoping) were carried into the 9 signal slots instead.",
+    "Root cause traced to composeImplementationContext's fixed partition-priority allocation (established, then signals, then discoveries, each via take()) combined with every devon-projected candidate carrying materiality: 'unknown' (fromCandidate() in invariantEnvelope.ts always sets this), so ranking falls back to a per-scope constant with ties broken by array insertion order -- not by relevance to the specific intent being served."
+  ],
+  "rootCauses": [
+    "compressEnvelope/composeImplementationContext were designed and canary-tested (Phase 1/4) against small, controlled fixture populations where the non-established budget was never actually exhausted -- the crowding-out failure mode was structurally possible from the design's first day but never observable until run against the real, growing registry.",
+    "fromCandidate() (invariantEnvelope.ts) always sets materiality: 'unknown' for a devon-projected candidate rather than computing (or leaving room for a caller to supply) a per-intent relevance score, so 33 candidates of wildly differing relevance to a given task all tie at the same scope-derived base score.",
+    "The fixed section order (established admitted first and unbounded, then signals, then discoveries, in that order via sequential take()) has no mechanism to reserve budget for discoveries or for the highest-relevance signal once the registry population exceeds the budget -- the design's own comment ('established members are never crowded out') solved one crowding-out failure (established vs. signals) while leaving a second, worse one (signals vs. discoveries, and low-relevance signals vs. high-relevance ones) unaddressed.",
+    "This is a structural growth problem: the devon-projected candidate registry has grown from a handful of members at Phase 1 to 33 at Phase 6 and will keep growing as the Resolution -> Invariant loop (CLAUDE.md) does its job -- the defect gets systematically worse over time, not better, unless addressed."
+  ],
+  "resolution": [
+    "Recorded as an observed resolution rather than silently patched: per the operator's Phase 6 instruction, structural success from Phases 0-5 does not imply behavioral success, and 'do not tune the acceptance task after inspecting the result merely to manufacture a PASS' extends to not quietly patching the compression algorithm mid-verdict either.",
+    "A RiskObservation was recorded for this cycle (ro-phase6-compression-crowdout) via the REAL failureLearning.ts::recordRiskObservation -- no parallel mechanism.",
+    "assessRecurrencePortability was run against it with an empty priorObservations list (this is the first occurrence): recurrenceCount 1, distinctSites 1, portable FALSE. Per CANARY-05, abstractCausalCandidate therefore correctly refused to produce a candidate invariant from this single occurrence -- candidateInvariants below is empty by design, not by omission.",
+    "This resolution record exists so a SECOND occurrence (a future dogfood run, or a production DevOn use, hitting the same crowding-out shape) has something to accumulate against -- the resolution-to-invariant loop's own point.",
+    "Reported as a material open gap in the Phase 6 verdict rather than resolved unilaterally: whether to fix via a per-intent relevance score, a reserved discovery quota, a devon-projection domain filter (mirroring how the DB-backed substrate legs already scope by opts.domains, which loadDevonProjectedCandidates does not honor), or another mechanism is an implementation decision for the operator to direct, not one this record makes for them."
+  ],
+  "rejectedApproaches": [
+    "Silently patching compressEnvelope/composeImplementationContext to fix the crowding-out before reporting the Phase 6 verdict. Rejected: this is exactly the 'tune the acceptance task after inspecting the result' the operator's Phase 6 instruction forbids, applied to the mechanism rather than the task.",
+    "Treating this as validated/portable from one occurrence because the failure mode is obviously going to recur. Rejected: CANARY-05 exists precisely to prevent an agent's confidence standing in for a second recorded occurrence; the honest state is 'observed candidate', not 'validated'.",
+    "Omitting a resolution record because no candidate invariant resulted. Rejected: RESOLUTION_TRIGGERS #10 (an invariant/mechanism was found incomplete or misscoped) fired regardless of whether the observation cleared the portability gate -- the record captures the FINDING, not a promotion."
+  ],
+  "candidateInvariants": [],
+  "canaries": [],
+  "scope": "local",
+  "status": "observed",
+  "trigger": "invariant-incomplete-or-misscoped",
+  "evidence": {
+    "commits": [
+      "4db726815"
+    ],
+    "tests": [
+      "tests/context-binding-axis-scope.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-08-15_phase6-dogfood-trace.json",
+      "codexes/packs/agentiq/updates/2026-08-15_phase6-learning-receipt.json",
+      "scripts/homecoming-iii-phase6-dogfood.ts",
+      "scripts/homecoming-iii-phase6-dcir-consequence.ts"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-15_phase6-dogfood-trace.json",
+    "codexes/packs/agentiq/updates/2026-08-15_phase6-learning-receipt.json"
+  ],
+  "date": "2026-08-15",
+  "projections": {
+    "targets": [
+      "devon",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

@@ -20,6 +20,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServer } from '../../../_lib/supabaseServer';
+import { requireAdminPersona } from '../../../_lib/requireAdmin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -55,23 +56,34 @@ interface CategoryAsset {
 }
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const series = searchParams.get('series') || 'metaKnyts';
-  const category = (searchParams.get('category') || '') as Category;
-  const includeArchived = searchParams.get('includeArchived') === 'true';
-
-  if (!category) {
-    return NextResponse.json({ error: 'Missing category' }, { status: 400 });
-  }
-
-  const supabase = getSupabaseServer();
-  if (!supabase) {
-    return NextResponse.json({ error: 'Supabase unavailable' }, { status: 503 });
-  }
-
-  const statusFilter = includeArchived ? ['active', 'archived'] : ['active'];
-
   try {
+    // AUTHORIZATION REPAIR (2026-09-02): this route previously had NO auth
+    // check at all — any unauthenticated caller could list titles, CIDs,
+    // and status of every internal codex asset by category. Its one
+    // existing caller (QriptopianAdminTab.tsx) is switched to personaFetch
+    // in the same change so the Bearer token this check requires is
+    // actually sent.
+    const isAdmin = await requireAdminPersona(req);
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'admin required' }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const series = searchParams.get('series') || 'metaKnyts';
+    const category = (searchParams.get('category') || '') as Category;
+    const includeArchived = searchParams.get('includeArchived') === 'true';
+
+    if (!category) {
+      return NextResponse.json({ error: 'Missing category' }, { status: 400 });
+    }
+
+    const supabase = getSupabaseServer();
+    if (!supabase) {
+      return NextResponse.json({ error: 'Supabase unavailable' }, { status: 503 });
+    }
+
+    const statusFilter = includeArchived ? ['active', 'archived'] : ['active'];
+
     if (category === 'episode-masters' || category === 'still-masters') {
       // Motion = episode_motion only. Still = everything non-motion (still + print).
       const contentTypeFilter = category === 'episode-masters'

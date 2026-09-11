@@ -15,6 +15,11 @@ export type ExperienceBlockKind =
   | "image_generation"
   | "video_generation"
   | "article_draft"
+  // Coherent Bundle Generation (2026-07-19): ONE block that produces a
+  // constitutional video + companion article from one invariant substrate,
+  // coherent by construction. Judgement is a post-accept affordance, not a
+  // block (the sequencing engine cannot express a never-gating block).
+  | "coherent_bundle"
   | "deployment";
 
 export type ExperienceBlockState = "ready" | "partial" | "stubbed";
@@ -106,14 +111,44 @@ function inferVideoLike(experience: ExperienceLike) {
   return /(video|watch|trailer|motion|clip|sora)/.test(haystack);
 }
 
+function hasCoherentBundle(experience: ExperienceLike, metadata: RecordLike) {
+  if (experience.template_id === "constitutional-video") return true;
+  const outputs = asRecord(metadata.block_outputs);
+  return Boolean(outputs && asRecord(outputs.coherent_bundle));
+}
+
 export function buildExperienceBlockManifest(experience: ExperienceLike | null): ExperienceBlockManifest {
   const metadata = asRecord(experience?.metadata) ?? {};
+  const hasCoherentBundleBlock = hasCoherentBundle(experience || {}, metadata);
+  // The coherent-bundle block owns video + article jointly — don't also infer
+  // them as separate blocks when it's present.
   const hasImageBlock = hasGeneratedAssetType(metadata, "image");
-  const hasVideoBlock = hasGeneratedAssetType(metadata, "video") || inferVideoLike(experience || {});
-  const hasArticleBlock = inferArticleLike(experience || {}, metadata);
+  const hasVideoBlock = !hasCoherentBundleBlock && (hasGeneratedAssetType(metadata, "video") || inferVideoLike(experience || {}));
+  const hasArticleBlock = !hasCoherentBundleBlock && inferArticleLike(experience || {}, metadata);
   const hasDeploymentBlock = hasDeploymentState(metadata);
 
   const blocks: ExperienceBlockDescriptor[] = [];
+
+  if (hasCoherentBundleBlock) {
+    const outputs = asRecord(metadata.block_outputs);
+    const bundleOut = outputs ? asRecord(outputs.coherent_bundle) : null;
+    const hasVideo = Boolean(bundleOut && firstString([bundleOut.video_url]));
+    const hasArticle = Boolean(bundleOut && (bundleOut.article || firstString([bundleOut.article_ref])));
+    blocks.push({
+      id: "coherent_bundle",
+      kind: "coherent_bundle",
+      label: "Coherent Bundle",
+      state: hasVideo && hasArticle ? "ready" : bundleOut ? "partial" : "stubbed",
+      inputs: ["content direction", "invariant grounding", "duration + CTA", "asset kinds"],
+      outputs: ["shared brief", "voiced constitutional video", "companion article", "built-in coherence evidence"],
+      dependsOn: [],
+      evidence: ["built-in coherence score", "optional independent judgement"],
+      notes: [
+        "One invariant substrate -> mutually-coherent assets, coherent by construction (operationalizes EXP-001).",
+        "Independent judgement is an optional post-accept affordance, never required to advance.",
+      ],
+    });
+  }
 
   if (hasImageBlock) {
     blocks.push({

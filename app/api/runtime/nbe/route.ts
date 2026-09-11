@@ -8,11 +8,33 @@
  * Emits a 'nbe_recommendation' telemetry event on every computed plan.
  *
  * Phase 1 — KNYT Sprint 1
+ *
+ * XP-1 CONVERGENCE STATUS (AEE-XP-001 §6, 2026-09-01): this route is now a
+ * CANDIDATE/FALLBACK/COMPATIBILITY source, never an independent decision
+ * authority, for any journey that has adopted the Journey Spine + AEE loop
+ * (`services/adaptive/journeyAeeOrchestrator.ts` — the KNYTS/CI Financial
+ * Sovereignty branch is the first). Canonical semantics: AEE determines the
+ * Next Best Experience; this route's own depth-ladder ranking MAY contribute
+ * a candidate into that determination via the orchestrator's
+ * `legacyCandidateStageId` seam — it never decides unilaterally for an
+ * AEE-adopted journey.
+ *
+ * This route is UNCHANGED and remains the live, independent decision path
+ * for every KNYT persona-stage/depth-ladder caller that has not adopted the
+ * Journey Spine model (`journey_states`/`experience_matrices`/`nbe_plans` —
+ * a different vocabulary from `JourneyDefinition` stage ids, with no
+ * natural 1:1 mapping to migrate). Nothing here is deleted, and
+ * `nbe_plans` persistence is preserved exactly as-is — a real integration
+ * mapping a specific KNYT depth-ladder recommendation onto a specific
+ * Journey Spine stage id is future work, not assumed by this comment.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { emitJourneyTelemetry } from '@/services/orchestration/journeyTelemetry';
+import { runValueShadow } from '@/services/invariants/engine';
+import { DEPTH_LADDER, journeyProgressionProjector } from '@/services/invariants/nodes/journeyProgression';
+import type { JourneyStage } from '@/types/orchestration';
 
 export const dynamic = 'force-dynamic';
 
@@ -119,6 +141,16 @@ export async function GET(request: NextRequest) {
   const disposition = dispositionForStage(stage);
   const rationale = rationaleForStage(stage, depth, recDepth);
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24h TTL
+
+  // CFS-035 — the journey-progression Invariant Decision Node runs in SHADOW on
+  // the universal ExperienceStage axis: it re-expresses the next-depth decision
+  // as a transparent value projection and emits the delta vs the incumbent
+  // (matrix-or-ladder) depth. Observe-only — `recDepth`/`disposition` are served
+  // unchanged. runValueShadow never throws.
+  runValueShadow(
+    DEPTH_LADDER.indexOf(recDepth as (typeof DEPTH_LADDER)[number]),
+    journeyProgressionProjector({ journeyStage: stage as JourneyStage, currentDepth: depth }),
+  );
 
   // 4. Persist computed plan
   const { data: nbe, error } = await db

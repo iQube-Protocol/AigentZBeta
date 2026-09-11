@@ -3,6 +3,14 @@
 import { useState, useEffect, useRef } from "react";
 import { X, ExternalLink, ShieldCheck, ClipboardList, Receipt, Star, Plus, Play, Terminal, Loader2, Brain, Layers, Coins, ArrowRight } from "lucide-react";
 import { SmartTriadCopilotLayer } from "@/components/smarttriad/copilot";
+import { useDcirSeam } from "@/services/dcir/useDcirSeam";
+import {
+  registryAssetOpenedEvent,
+  registryValidationRunEvent,
+  registryReviewSubmittedEvent,
+  registryAssetPublishedEvent,
+  registryCopilotOpenedEvent,
+} from "@/services/dcir/eventStream";
 import { TrustPanel } from "./TrustPanel";
 import { ValidationPanel } from "./ValidationPanel";
 import type {
@@ -53,9 +61,26 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
   const [reviewBand, setReviewBand] = useState<TrustBand>("L2_VERIFIED_COMMUNITY");
   const [submittingReview, setSubmittingReview] = useState(false);
 
+  // DCIR observation seam (CFS-020 D4 frontier — fifth adopted surface). Adopt by
+  // declaration (Extend-Don't-Duplicate): the hook owns the event buffer + the
+  // three-field ground observation; we emit generic events at the panel's real
+  // interaction moments and spread `groundObservation` into the copilot's ground
+  // context. Observe-mode only — nothing here blocks a render or gates an action.
+  const { observe, groundObservation } = useDcirSeam({
+    surface: "registry-asset-detail",
+    workflowStage: activeTab,
+    activeCapsule: copilotOpen ? "asset-detail" : null,
+  });
+
   useEffect(() => {
     loadAll();
   }, [assetId]);
+
+  // Observe the asset opening once it has loaded — asset class only (T2-safe).
+  useEffect(() => {
+    if (asset?.assetClass) observe(registryAssetOpenedEvent(asset.assetClass));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [asset?.assetClass]);
 
   // Close panel when clicking outside — disabled while copilot is open so copilot backdrop clicks don't cascade
   useEffect(() => {
@@ -100,6 +125,7 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
       });
       const data = await res.json();
       if (data.ok) {
+        observe(registryValidationRunEvent()); // DCIR: produced output (review-able)
         setScore(data.data.score ?? null);
         setValidation(null); // clear while reloading
         // Reload asset + validation
@@ -132,6 +158,7 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
       await loadAll();
       // Notify sibling components (e.g. IngestionFactoryPanel) so listing cards update too
       if (data.ok) {
+        observe(registryAssetPublishedEvent()); // DCIR: publication system event
         window.dispatchEvent(new CustomEvent('iqube-asset-published', { detail: { assetId } }));
       }
     } finally {
@@ -156,6 +183,7 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
       });
       const data = await res.json();
       if (data.ok) {
+        observe(registryReviewSubmittedEvent(reviewBand)); // DCIR: review artefact approved
         setShowReviewForm(false);
         setReviewNotes("");
         const reviewsRes = await fetch(`/api/registry/assets/${assetId}/reviews`).then((r) => r.json());
@@ -327,6 +355,7 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
                       onChat={(key) => {
                         setCopilotAgent({ id: key, name: asset.name });
                         setCopilotOpen(true);
+                        observe(registryCopilotOpenedEvent(asset.name)); // DCIR: copilot navigation
                       }}
                     />
                   )}
@@ -597,6 +626,7 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
         agent={copilotAgent}
         personaId={copilotAgent.id}
         promptPlaceholder={`Ask ${copilotAgent.name}…`}
+        groundContext={{ ...groundObservation }}
         quickPrompts={[
           "What can you help me with?",
           "Summarise your capabilities",

@@ -13,6 +13,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { getSupabaseBrowserClient } from "@/utils/supabaseBrowser";
+import { isAgentPersonaKind } from "@/utils/personaKind";
 import type { PersonaState } from "@/types/smartWallet";
 
 const AUTH_PROFILE_STORAGE_KEYS = ["authProfileId", "agentiq_auth_profile_id"] as const;
@@ -55,19 +56,17 @@ async function linkDeviceProfile(accessToken: string): Promise<void> {
  */
 async function consolidateIdentity(accessToken: string): Promise<void> {
   try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8_000);
     await fetch("/api/wallet/identity/consolidate", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}` },
+      signal: ctrl.signal,
     });
-  } catch {
-    // non-fatal
+    clearTimeout(timer);
+  } catch (err) {
+    console.warn('[useSupabaseSessionPersonas] consolidateIdentity failed (non-fatal):', err instanceof Error ? err.message : err);
   }
-}
-
-function isAgentPersona(fioHandle?: string | null, displayName?: string): boolean {
-  const h = (fioHandle ?? "").toLowerCase();
-  const n = (displayName ?? "").toLowerCase();
-  return h.includes("aigent") || h.includes("@aigent") || n.includes("aigent") || n.includes("agent");
 }
 
 function mapToPersonaState(record: Record<string, unknown>): PersonaState {
@@ -88,7 +87,7 @@ function mapToPersonaState(record: Record<string, unknown>): PersonaState {
       worldIdStatus === "verified_human" || worldIdStatus === "agent_declared"
         ? worldIdStatus
         : "unverified",
-    isAgent: isAgentPersona(fioHandle, displayName),
+    isAgent: isAgentPersonaKind(worldIdStatus),
     appOrigin: typeof record.appOrigin === "string" ? record.appOrigin : "",
     badges: Array.isArray(record.badges) ? (record.badges as string[]) : [],
     evmAddress: typeof record.evmAddress === "string" && /^0x[0-9a-fA-F]{40}$/.test(record.evmAddress)
@@ -100,6 +99,16 @@ function mapToPersonaState(record: Record<string, unknown>): PersonaState {
 export interface SessionIdentity {
   sessionEmail: string | null;
   sessionPersonas: PersonaState[];
+  /**
+   * `null` when the last persona load succeeded (or has not run yet); the HTTP
+   * status when it failed; `0` when the request threw or was aborted.
+   *
+   * Consumers MUST distinguish this from `sessionPersonas.length === 0`.
+   * An empty list means "this account has no personas". A non-null value here
+   * means "we do not know what this account has" — and must never render as
+   * absence, nor offer to create a persona.
+   */
+  personasLoadFailed: number | null;
   isLoading: boolean;
   signOut: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
@@ -120,6 +129,22 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const [sessionPersonas, setSessionPersonas] = useState<PersonaState[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  /**
+   * Did the last persona load FAIL, as opposed to returning none?
+   *
+   * THE DEFECT THIS CLOSES (operator report, 2026-08-02): on a non-OK
+   * response — 401, 500, or the 12s abort — this hook logged a warning and
+   * returned WITHOUT setting anything, leaving `sessionPersonas` at `[]`.
+   * The drawer renders `[]` as "No personas yet. Create one to get started."
+   *
+   * So a transient failure was indistinguishable from an empty account, and
+   * the remedy it offered was actively harmful: an operator with existing
+   * personas is invited to create a duplicate. Worse, the real cause stayed
+   * invisible — nothing on screen said a request had failed at all.
+   *
+   * `null` = not yet determined. Fail UNKNOWN, never as absence.
+   */
+  const [personasLoadFailed, setPersonasLoadFailed] = useState<number | null>(null);
 
   const signOut = useCallback(async () => {
     const supabase = getSupabaseBrowserClient();
@@ -129,10 +154,19 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
   }, []);
 
   const signIn = useCallback(async (email: string, password: string): Promise<{ error: string | null }> => {
-    const supabase = getSupabaseBrowserClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error: error.message };
-    return { error: null };
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        console.error('[useSupabaseSessionPersonas] signIn returned error:', error.message, error);
+        return { error: error.message };
+      }
+      return { error: null };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[useSupabaseSessionPersonas] signIn threw:', msg, err);
+      return { error: `Auth service unreachable — ${msg}` };
+    }
   }, []);
 
   const signUp = useCallback(async (
@@ -177,10 +211,20 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
         // mode only and must be an explicit user action to preserve identity sovereignty.
         await consolidateIdentity(accessToken);
       }
+      const personaCtrl = new AbortController();
+      const personaTimer = setTimeout(() => personaCtrl.abort(), 12_000);
       const res = await fetch("/api/wallet/personas", {
         headers: { Authorization: `Bearer ${accessToken}` },
+        signal: personaCtrl.signal,
       });
-      if (!res.ok) return;
+      clearTimeout(personaTimer);
+      if (!res.ok) {
+        console.warn('[useSupabaseSessionPersonas] /api/wallet/personas returned', res.status);
+        // Record the status so the surface can say "could not load" instead
+        // of "you have none" — and name the code, so the cause is visible.
+        setPersonasLoadFailed(res.status);
+        return;
+      }
       const data = await res.json();
       const list = Array.isArray(data) ? data : [];
 
@@ -195,9 +239,13 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
       // callers but is no longer the default path. The hook signals
       // "must complete setup" via the empty list — see SessionIdentity
       // consumers in SmartWalletDrawer.
+      setPersonasLoadFailed(null);
       setSessionPersonas(list.map((r: Record<string, unknown>) => mapToPersonaState(r)));
     } catch {
-      // non-fatal — wallet still works without session personas
+      // non-fatal for the wallet, but the operator must still be told the
+      // list is UNKNOWN rather than empty — 0 stands for "the request threw
+      // or timed out", distinct from any real HTTP status.
+      setPersonasLoadFailed(0);
     } finally {
       setIsLoading(false);
     }
@@ -242,5 +290,5 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
     return () => subscription.unsubscribe();
   }, [fetchPersonas]);
 
-  return { sessionEmail, sessionPersonas, isLoading, signOut, signIn, signUp, refreshPersonas };
+  return { sessionEmail, sessionPersonas, personasLoadFailed, isLoading, signOut, signIn, signUp, refreshPersonas };
 }

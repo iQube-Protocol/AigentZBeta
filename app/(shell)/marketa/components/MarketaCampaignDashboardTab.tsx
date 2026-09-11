@@ -92,7 +92,7 @@ export function MarketaCampaignDashboardTab({ theme = 'dark' }: Props) {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-16">
-        <Loader2 className="w-6 h-6 animate-spin text-rose-400" />
+        <Loader2 className="w-6 h-6 animate-spin text-pink-300" />
       </div>
     );
   }
@@ -119,8 +119,8 @@ export function MarketaCampaignDashboardTab({ theme = 'dark' }: Props) {
       bg:     d ? 'border-violet-500/20 bg-violet-500/[0.06]' : 'border-violet-200 bg-violet-50',
     },
     knyt_partners: {
-      accent: d ? 'text-rose-300'  : 'text-rose-700',
-      bg:     d ? 'border-rose-500/20 bg-rose-500/[0.06]' : 'border-rose-200 bg-rose-50',
+      accent: d ? 'text-pink-300'  : 'text-pink-600',
+      bg:     d ? 'border-pink-400/20 bg-pink-400/[0.06]' : 'border-pink-200 bg-pink-50',
     },
   };
 
@@ -130,7 +130,7 @@ export function MarketaCampaignDashboardTab({ theme = 'dark' }: Props) {
       {/* Header row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-rose-400" />
+          <TrendingUp className="w-4 h-4 text-pink-300" />
           <span className={`text-sm font-semibold ${s.textPrimary}`}>Live Campaign Overview</span>
         </div>
         <Button
@@ -146,7 +146,7 @@ export function MarketaCampaignDashboardTab({ theme = 'dark' }: Props) {
 
       {/* Global KPI strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatTile label="Emails Sent"   value={totalSent.toLocaleString()}   accent="text-rose-400"    isDark={d} Icon={Mail} />
+        <StatTile label="Emails Sent"   value={totalSent.toLocaleString()}   accent="text-pink-300"    isDark={d} Icon={Mail} />
         <StatTile label="Open Rate"     value={`${openRate}%`}               accent="text-amber-400"   isDark={d} Icon={Zap} />
         <StatTile label="Click Rate"    value={`${ctr}%`}                    accent="text-sky-400"     isDark={d} Icon={MousePointerClick} />
         <StatTile label="Active Partners" value={partners?.committed ?? 0}   accent="text-emerald-400" isDark={d} Icon={Users} />
@@ -183,7 +183,7 @@ export function MarketaCampaignDashboardTab({ theme = 'dark' }: Props) {
                   <p className={`text-xs ${s.textMuted}`}>{cohort.total.toLocaleString()} total · {cohort.active.toLocaleString()} active</p>
                 </div>
                 {cohort.next_email && (
-                  <Badge className={d ? 'bg-rose-500/10 text-rose-300 border-rose-500/20' : 'bg-rose-50 text-rose-700 border-rose-200'}>
+                  <Badge className={d ? 'bg-pink-400/10 text-pink-300 border-pink-400/20' : 'bg-pink-50 text-pink-600 border-pink-200'}>
                     Next: Email {cohort.next_email}
                   </Badge>
                 )}

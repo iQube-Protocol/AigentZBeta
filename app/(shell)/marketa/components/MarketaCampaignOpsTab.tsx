@@ -93,7 +93,7 @@ function th(d: boolean) {
     emailRow:      d ? 'bg-slate-900/40 border border-white/[0.05] hover:bg-slate-900/60' : 'bg-white border border-slate-100 hover:bg-slate-50',
     codeBlock:     d ? 'bg-black/40 border border-white/[0.06] text-emerald-400' : 'bg-slate-100 border border-slate-200 text-emerald-700',
     btnGhost:      d ? 'border border-white/10 bg-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]' : 'border border-slate-200 bg-transparent text-slate-600 hover:text-slate-800 hover:bg-slate-50',
-    btnRose:       d ? 'border border-rose-500/30 bg-rose-500/[0.08] text-rose-300 hover:bg-rose-500/[0.15] hover:border-rose-500/40' : 'border border-rose-500/40 bg-rose-50 text-rose-700 hover:bg-rose-100',
+    btnRose:       d ? 'border border-pink-400/30 bg-pink-400/[0.08] text-pink-300 hover:bg-pink-400/[0.15] hover:border-pink-400/40' : 'border border-pink-400/40 bg-pink-50 text-pink-600 hover:bg-pink-100',
     btnViolet:     d ? 'border border-violet-500/30 bg-violet-500/[0.08] text-violet-300 hover:bg-violet-500/[0.15] hover:border-violet-500/40' : 'border border-violet-500/40 bg-violet-50 text-violet-700 hover:bg-violet-100',
     btnSky:        d ? 'border border-sky-500/30 bg-sky-500/[0.08] text-sky-300 hover:bg-sky-500/[0.15] hover:border-sky-500/40' : 'border border-sky-500/40 bg-sky-50 text-sky-700 hover:bg-sky-100',
     btnAmber:      d ? 'border border-amber-500/30 bg-amber-500/[0.08] text-amber-300 hover:bg-amber-500/[0.15] hover:border-amber-500/40' : 'border border-amber-500/40 bg-amber-50 text-amber-700 hover:bg-amber-100',
@@ -104,7 +104,7 @@ function th(d: boolean) {
 const COHORT_ACCENT: Record<string, string> = {
   amber:  'text-amber-400',
   violet: 'text-violet-400',
-  rose:   'text-rose-400',
+  rose:   'text-pink-300',
   sky:    'text-sky-400',
 };
 
@@ -193,7 +193,7 @@ function EmailRow({
           isSent
             ? isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-50 text-emerald-600'
             : isNext
-              ? isDark ? 'bg-rose-500/20 text-rose-400' : 'bg-rose-50 text-rose-700'
+              ? isDark ? 'bg-pink-400/20 text-pink-300' : 'bg-pink-50 text-pink-600'
               : isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400'
         }`}>
           {isSent ? <CheckCircle2 className="w-3.5 h-3.5" /> : email.n}
@@ -209,7 +209,7 @@ function EmailRow({
                 </Badge>
               )}
               {isNext && !isSent && (
-                <Badge className={isDark ? 'bg-rose-500/10 text-rose-300 border-rose-500/20 text-[9px]' : 'bg-rose-50 text-rose-700 border-rose-200 text-[9px]'}>
+                <Badge className={isDark ? 'bg-pink-400/10 text-pink-300 border-pink-400/20 text-[9px]' : 'bg-pink-50 text-pink-600 border-pink-200 text-[9px]'}>
                   Next
                 </Badge>
               )}
@@ -428,7 +428,7 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
       <div className={`rounded-xl ${s.card} p-3 sm:p-4`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Zap className="w-4 h-4 text-rose-400" />
+            <Zap className="w-4 h-4 text-pink-300" />
             <span className={`text-sm font-semibold ${s.textPrimary}`}>Campaign Commander</span>
             <span className={`text-[10px] ${s.textSubtle}`}>· 3 live campaigns</span>
           </div>
@@ -447,7 +447,7 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
 
       {loading ? (
         <div className="flex items-center justify-center p-12">
-          <Loader2 className="w-6 h-6 animate-spin text-rose-400" />
+          <Loader2 className="w-6 h-6 animate-spin text-pink-300" />
         </div>
       ) : (
         <div className="space-y-3">
@@ -474,9 +474,9 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
                     <div key={seq.id} className={`rounded-lg border p-3 space-y-2 ${s.innerCard}`}>
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
-                          {seq.name.toLowerCase().includes('awaken') && <Sparkles className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />}
+                          {seq.name.toLowerCase().includes('awaken') && <Sparkles className="w-3.5 h-3.5 text-pink-300 flex-shrink-0" />}
                           <span className={`text-sm font-medium truncate ${s.textPrimary}`}>{seq.name}</span>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${seq.campaign_type === 'sequence' ? 'bg-rose-500/15 text-rose-400 border-rose-500/30' : 'bg-amber-500/15 text-amber-400 border-amber-500/30'} flex-shrink-0`}>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${seq.campaign_type === 'sequence' ? 'bg-pink-400/15 text-pink-300 border-pink-400/30' : 'bg-amber-500/15 text-amber-400 border-amber-500/30'} flex-shrink-0`}>
                             {seq.campaign_type}
                           </span>
                           {seq.duration_days && (
@@ -542,7 +542,7 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
                           {delState === 'loading' ? <Loader2 className="w-3 h-3 animate-spin inline" /> : '✕ Delete'}
                         </button>
                         {actionState === 'done' && <span className="text-[10px] text-emerald-400">✓ Updated</span>}
-                        {actionState === 'error' && <span className="text-[10px] text-rose-400">Error</span>}
+                        {actionState === 'error' && <span className="text-[10px] text-pink-300">Error</span>}
                       </div>
 
                       {/* Expanded items */}
@@ -732,10 +732,10 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
             <Section
               title="KS Prospects"
               icon={Target}
-              accent="text-rose-400"
+              accent="text-pink-300"
               badge={ksStat && (
                 <div className="flex items-center gap-1.5 mr-1">
-                  <Badge className={d ? 'bg-rose-500/10 text-rose-300 border-rose-500/20 text-[9px]' : 'bg-rose-50 text-rose-700 border-rose-200 text-[9px]'}>
+                  <Badge className={d ? 'bg-pink-400/10 text-pink-300 border-pink-400/20 text-[9px]' : 'bg-pink-50 text-pink-600 border-pink-200 text-[9px]'}>
                     {ksStat.active ?? 0} active
                   </Badge>
                   {(ksStat.emails_sent ?? 0) > 0 && (
@@ -764,8 +764,8 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
                 </div>
               )}
               {content?.ks_prospects && (
-                <div className={`mb-3 rounded-lg px-3 py-2 ${d ? 'bg-rose-950/20 border border-rose-500/20' : 'bg-rose-50 border border-rose-200'}`}>
-                  <p className={`text-[10px] font-semibold ${d ? 'text-rose-300' : 'text-rose-700'}`}>
+                <div className={`mb-3 rounded-lg px-3 py-2 ${d ? 'bg-pink-950/20 border border-pink-400/20' : 'bg-pink-50 border border-pink-200'}`}>
+                  <p className={`text-[10px] font-semibold ${d ? 'text-pink-300' : 'text-pink-600'}`}>
                     Next: Fire Email {content.ks_prospects.next_to_fire}
                   </p>
                   <p className={`text-[10px] mt-0.5 ${s.textSubtle}`}>
@@ -801,10 +801,10 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
             <Section
               title="Partners"
               icon={Users}
-              accent="text-rose-400"
+              accent="text-pink-300"
               badge={partStat && (
                 <div className="flex items-center gap-1.5 mr-1">
-                  <Badge className={d ? 'bg-rose-500/10 text-rose-300 border-rose-500/20 text-[9px]' : 'bg-rose-50 text-rose-700 border-rose-200 text-[9px]'}>
+                  <Badge className={d ? 'bg-pink-400/10 text-pink-300 border-pink-400/20 text-[9px]' : 'bg-pink-50 text-pink-600 border-pink-200 text-[9px]'}>
                     Wave 1: {partStat.wave_1?.total ?? 0}
                   </Badge>
                   <Badge className={d ? 'bg-slate-700/50 text-slate-400 border-slate-600 text-[9px]' : 'bg-slate-100 text-slate-500 border-slate-300 text-[9px]'}>
@@ -818,7 +818,7 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
               {partStat && (
                 <div className="space-y-2">
                   {[
-                    { label: 'Wave 1', data: partStat.wave_1, accent: d ? 'text-rose-400' : 'text-rose-700' },
+                    { label: 'Wave 1', data: partStat.wave_1, accent: d ? 'text-pink-300' : 'text-pink-600' },
                     { label: 'Wave 2', data: partStat.wave_2, accent: d ? 'text-slate-300' : 'text-slate-700' },
                   ].map(({ label, data, accent: ac }) => data && (
                     <div key={label} className={`rounded-xl ${s.innerCard} p-3`}>

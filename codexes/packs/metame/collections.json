@@ -9,6 +9,13 @@
         "items/METAME_EXPERIENCE_LADDER.md",
         "items/METAME_SOVEREIGNTY_LADDER.md"
       ]
+    },
+    {
+      "id": "col_agent_architecture",
+      "title": "Agent Architecture",
+      "items": [
+        "items/AIGENT_TRINITY_Z_C_ME.md"
+      ]
     }
   ]
 }

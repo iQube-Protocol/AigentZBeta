@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-08",
+  "resolutionId": "RES-2026-08-08-RECEIPTED-CONSTITUTIONAL-STATE-001",
+  "capability": "horizen-pulse-admission",
+  "milestone": "Horizen Pilot — Pulse admission reads receipted constitutional state instead of reinterpreting Horizen on every render",
+  "problem": "Every surface downstream of the Pulse ceremony (PulseTransparencyToggle, the Verify status route) derived its current-state display by re-parsing Horizen's raw get_onboarding_status response at read time — first via a prose regex classifier, then (once that classifier's cross-capability veto bug was fixed the same day) via a structured-first classifier that still ran fresh, on every 'Check status again' click. The partner's response WAS the runtime's source of truth for what the UI showed, rather than a fact the runtime verified once and then recorded.",
+  "observedFailure": [
+    "The same rendered surface simultaneously showed a local projection of 'Pulse is not enrolled' alongside an authoritative Horizen response reporting enrolled=true — because the projection was reconstructed from prose on every read rather than read from a settled record.",
+    "Fixing the immediate classifier bug (an unrelated capability's own 'next step: enroll' text vetoing Pulse's own positive evidence) closed that specific defect, but every future 'Check status' click still re-ran full classification against live partner text — the SAME class of risk (a parsing regression, a partner wording change, a cross-capability veto nobody has found yet) remained architecturally live, only patched at its one known trigger.",
+    "There was no way to ask 'does Horizen still agree with what we already decided?' without re-deciding from scratch — verification and reconciliation were the same code path, so a reconciliation read could silently overwrite a settled CONFIRMED outcome with a misclassification, and there was no record of what was actually verified at confirmation time versus what a later read happened to say."
+  ],
+  "rootCauses": [
+    "No receipt captured WHAT was verified at the moment of confirmation — horizen_pulse_authorized's actionInput carried identifiers (tokenId, network, controllerWallet) but not the structured facts (pulseEnrolled, pulseCommitmentRecorded, verifiablePnlRegistered, endpointWarning) that justified the CONFIRMED transition, nor a commitment over the complete source response.",
+    "verifyHorizenTransparencyActivation conflated two distinct operations — verify-and-transition (legitimate for a row that has not yet confirmed) and read-for-display (which should never re-run classification against live prose) — into one function, so every caller wanting 'what is the current Pulse state' had no choice but to re-derive it from a fresh or cached partner read.",
+    "External-network state (a partner's HTTP/MCP response) was treated as directly authoritative for the RUNTIME's rendering decision, rather than as evidence to be verified once and converted into a constitutional fact via a receipted transition — the ordinary multichain-app pattern of asking a network what reality is at render time, applied to a domain (constitutional admission state) that has its own receipted ledger for exactly this purpose."
+  ],
+  "resolution": [
+    "writeConfirmedPulseActivation now builds and persists a complete evidence commitment on CONFIRMED — network, tokenId, controllerWallet, authorizationId, every structured fact (pulseEnrolled/pulseCommitmentRecorded/verifiablePnlRegistered/endpointWarning), a sha256 commitment over the COMPLETE source response (never the pre-existing 500-char partnerStatus truncation), a verification timestamp, and a named verifier/policy version — carried in horizen_pulse_authorized's actionInput.evidence.",
+    "Added two fine-grained, independently-gated receipt types alongside the existing horizen_pulse_authorized: pulse_enrollment_verified (fires whenever the transition confirms) and pulse_commitment_verified (fires only when the SAME confirmation also verified pulseCommitmentRecorded) — additive, never replacing the existing receipt, so every current reader (the journey-state route's hasReceipt('horizen_pulse_authorized') among them) is unaffected.",
+    "Added getPulseAuthorizationEvidence — a three-valued reader (found / not-found / read-failed, never conflated) of the receipted evidence by receiptRef — and wired verify/status/route.ts's already-confirmed-and-enriched fast path to serve structuredStatus from it instead of leaving the field undefined. This is a pure activity_receipts row read, not a partner call, so the pre-existing zero-latency short-circuit is unchanged.",
+    "Added reconcilePulseConstitutionalState as a SEPARATE primitive (never the same code path as verify-and-transition) for checking an already-CONFIRMED row against a fresh partner read: agreement records the check and changes nothing else; disagreement writes a NEW reconciliation_discrepancy_recorded receipt naming exactly which fields disagreed and leaves `state` untouched. Exposed via POST /api/journey/moneypenny-horizen/verify/reconcile. Deliberately not wired into any automatic cadence this pass — see rejectedApproaches.",
+    "Rebuilt activity_receipts_action_type_check (migration 20260930002000) with the three new action types, per the existing 2026-07-15 constraint-drift incident's own regression guard (tests/activity-receipts-action-type-parity.test.ts).",
+    "Same day, corrected: renamed horizen_reconciliation_discrepancy_recorded to reconciliation_discrepancy_recorded (migration 20260930002100) — the reconciliation mechanism is protocol-level, never partner-specific, per the operator's own correction. pulse_enrollment_verified/pulse_commitment_verified stayed partner-scoped on purpose (Pulse-specific EVENT TYPES, distinct from the mechanism).",
+    "Added materializePulseEvidenceFromHistoricalConfirmation — the acceptance test for this whole pass: converts an ALREADY-CONFIRMED row's historical partnerStatus snapshot into pulse_enrollment_verified/pulse_commitment_verified receipts, idempotently, with zero live Horizen calls, then repoints the row's receiptRef pointer at the new receipt (never mutating the original horizen_pulse_authorized receipt). Shipped with scripts/materialize-pulse-evidence.ts for the operator to run against Nakamoto's live row.",
+    "Demoted 'Run correlated trace' out of the default Ratify/Verify ceremony — PulseTransparencyToggle's tracePanel now renders only when showDiagnostics is true, threaded from PilotJourneyTab's own isAdmin prop (previously declared but dead-ended, per this same day's CFS diagnosis finding it unused) — the existing adminOnly-prop convention, not a new gating mechanism."
+  ],
+  "rejectedApproaches": [
+    "Wiring reconciliation directly into the existing 'already confirmed and enriched' fast path on every 'Check status again' click — rejected for this pass because it silently changes an existing surface's latency/cost profile (a zero-latency short-circuit would gain a live partner round trip) without the operator having decided that tradeoff; left as an explicit, separately-callable route instead, flagged for a deliberate decision.",
+    "Replacing horizen_pulse_authorized with the new fine-grained receipt types — rejected: it is the ONLY receipt several existing readers (the journey-state route's JOURNEY_ACTION_TYPES list, multiple tests) already depend on, and inv.engineering.036/037 forbids an unreviewed behavior change to an existing capability when an additive extension satisfies the same requirement.",
+    "Auto-issuing a revocation/expiry transition (e.g. PULSE_ENROLLMENT_REVOKED) directly from reconcilePulseConstitutionalState when a disagreement is found — rejected per the operator's own framing: 'that discrepancy itself becomes a new event requiring treatment — not an excuse to silently rewrite history'; a genuine state change is a separate, deliberate constitutional act, not something a read response gets to decide unilaterally.",
+    "Adding PULSE_HEALTH_VERIFIED and VERIFIABLE_PNL_VERIFIED action types now, alongside the two that were wired — rejected as speculative: neither has a real verified-event source in this codebase yet (no SLA-proof ingestion path, and Verifiable PnL is currently false for this pilot's live agent), and declaring an action type nothing ever issues is the half-finished-implementation CLAUDE.md's Change Sizing section forbids."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-08-RECEIPTED-CONSTITUTIONAL-STATE-001",
+    "CI-2026-08-08-RECONCILIATION-NEVER-REWRITES-001"
+  ],
+  "canaries": [
+    "tests/horizen-authorization-client.test.ts",
+    "tests/horizen-verify-status-route.test.ts",
+    "tests/journey-verify-status-route.test.ts",
+    "tests/horizen-verify-reconcile-route.test.ts",
+    "tests/activity-receipts-action-type-parity.test.ts",
+    "tests/pulse-plnl-split-and-correlation-trace.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [
+      "59af8eff0",
+      "c7aa3aa",
+      "6e89919",
+      "352387b",
+      "b0e5487",
+      "8eaa27f"
+    ],
+    "tests": [
+      "tests/horizen-authorization-client.test.ts",
+      "tests/horizen-verify-status-route.test.ts",
+      "tests/journey-verify-status-route.test.ts",
+      "tests/horizen-verify-reconcile-route.test.ts",
+      "tests/partner-authorization-store.test.ts",
+      "tests/pulse-plnl-split-and-correlation-trace.test.ts",
+      "tests/journey-admission-spine.test.ts"
+    ],
+    "receipts": [
+      "horizen_pulse_authorized",
+      "pulse_enrollment_verified",
+      "pulse_commitment_verified",
+      "reconciliation_discrepancy_recorded"
+    ],
+    "incidentRefs": []
+  },
+  "sourceDocs": [],
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

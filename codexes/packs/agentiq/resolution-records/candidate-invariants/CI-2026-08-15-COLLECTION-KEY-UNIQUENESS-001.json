@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-15-COLLECTION-KEY-UNIQUENESS-001",
+  "statement": "A completeness guarantee computed by set difference is sound only where the key it uses is unique within the collection; where the collection permits the key to repeat, the bookkeeping keys on occurrence identity instead.",
+  "classification": "Structural invariant (candidate causal pattern). Governs the reliability of 'nothing was silently dropped' claims.",
+  "family": "engineering",
+  "scope": "local",
+  "status": "observed",
+  "ratifiedSource": null,
+  "parentCandidateId": null,
+  "supersededBy": null,
+  "governingPrinciple": false,
+  "derivedFrom": [
+    "RES-2026-08-15-PHASE2-SELF-REVIEW-OBSERVATIONS-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/devCommandCenter/invariantEnvelope.ts — compressEnvelope()",
+      "defect": "Omissions were computed as `ranked.filter(i => !keptRefs.has(i.ref))`. But `ref` identifies an INVARIANT while envelope members are OCCURRENCES of invariants at scopes, and the contract deliberately permits one invariant at several scopes. With the constitutional-scoped copy carried and the cross-domain copy cut, `keptRefs.has(ref)` was true for both, so the cut copy was absent from omittedRefs — excluded from the prompt and named nowhere. The 'no silent omission' guarantee was defeated by the bookkeeping rather than by the budget. Fixed by keying on object identity.",
+      "resolutionId": "RES-2026-08-15-PHASE2-SELF-REVIEW-OBSERVATIONS-001",
+      "evidence": [
+        "5b4120341",
+        "tests/invariant-envelope-devon-wiring.test.ts"
+      ]
+    }
+  ],
+  "canaries": [
+    {
+      "path": "tests/invariant-envelope-devon-wiring.test.ts",
+      "assertion": "A member sharing a ref with a carried member is still named in omittedRefs. Reports one omitted ref against the defective ref-keyed Set and two against the identity-keyed fix.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "notes": [
+    "RECORDED AT `observed`, NOT `candidate` (operator ruling, 2026-08-15). One occurrence, in code written during this milestone. The causal abstraction is plausible and untested elsewhere; whether it generalises beyond this collection is the open question, not an assertion.",
+    "WHY TYPE CHECKING CANNOT CATCH IT. `Set<string>` of refs and `Set<Occurrence>` are both well-typed. The defect lives in the semantic gap between 'identifies the invariant' and 'identifies this retrieval of it' — a distinction the type system has no way to know matters.",
+    "WHY EVERY OTHER TEST MISSED IT. Every other case in the suite used distinct refs, which is the ordinary shape. The defect only surfaces when the collection actually exercises the multiplicity its own contract permits — so the canary had to be written from the CONTRACT, not from observed behaviour.",
+    "PORTABILITY IS UNTESTED. The same shape plausibly appears wherever a 'what was dropped' set is computed over a collection with non-unique business keys — receipts by actionType, assets by slug, stage evidence by predicate name. None of those has been checked. Recording the hypothesis rather than the sweep."
+  ]
+}

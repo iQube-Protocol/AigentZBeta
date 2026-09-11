@@ -13,7 +13,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Sun, Moon, LayoutDashboard, Target, Users, ClipboardList,
   MessageSquare, Megaphone, Sparkles, Package, BarChart3,
-  TrendingUp, FileEdit,
+  TrendingUp, FileEdit, Bot,
 } from 'lucide-react';
 import { CodexCopilotLayer } from '@/app/components/codex/CodexCopilotLayer';
 
@@ -28,6 +28,7 @@ import { MarketaMyPacksTab }           from '@/app/(shell)/marketa/components/Ma
 import { MarketaMyReportsTab }         from '@/app/(shell)/marketa/components/MarketaMyReportsTab';
 import MarketaQubeTalk                 from '@/app/(shell)/marketa/components/MarketaQubeTalk';
 import { MarketaPublishTab }           from '@/app/(shell)/marketa/components/MarketaPublishTab';
+import MarketaActivationEngineTab      from '@/app/(shell)/marketa/components/activation/MarketaActivationEngineTab';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -55,6 +56,7 @@ const ADMIN_TABS: SubTab[] = [
   { id: 'dashboard',  label: 'Dashboard',     Icon: LayoutDashboard, Component: MarketaCampaignDashboardTab },
   { id: 'campaigns',  label: 'Campaign Ops',  Icon: Target,          Component: MarketaCampaignOpsTab },
   { id: 'op-propose', label: 'Propose',       Icon: Sparkles,        Component: MarketaOperatorProposeTab },
+  { id: 'activation', label: 'Activation Engine', Icon: Bot,         Component: MarketaActivationEngineTab },
   { id: 'partners',   label: 'Partners',      Icon: Users,           Component: MarketaPartnersAdminTab },
   { id: 'approvals',  label: 'Queue',         Icon: ClipboardList,   Component: MarketaApprovalQueueTab },
   { id: 'publish',    label: 'Publish',       Icon: FileEdit,        Component: MarketaPublishTab },
@@ -79,15 +81,15 @@ function th(d: boolean) {
     content:     d ? 'bg-slate-950/30' : 'bg-[#f9f8f6]',
     // Parent pill
     parentActive: d
-      ? 'ring-1 ring-rose-500/30 bg-rose-500/[0.08] text-rose-300'
-      : 'ring-1 ring-rose-500/30 bg-rose-500/[0.06] text-rose-700',
+      ? 'ring-1 ring-pink-400/30 bg-pink-400/[0.08] text-pink-300'
+      : 'ring-1 ring-pink-400/30 bg-pink-400/[0.06] text-pink-600',
     parentInactive: d
       ? 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'
       : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100/60',
     // Sub-tab
     subActive: d
-      ? 'text-slate-100 border-b-2 border-rose-500/60'
-      : 'text-slate-900 border-b-2 border-rose-600/70',
+      ? 'text-slate-100 border-b-2 border-pink-400/60'
+      : 'text-slate-900 border-b-2 border-pink-500/70',
     subInactive: d
       ? 'text-slate-500 hover:text-slate-300 border-b-2 border-transparent'
       : 'text-slate-400 hover:text-slate-700 border-b-2 border-transparent',

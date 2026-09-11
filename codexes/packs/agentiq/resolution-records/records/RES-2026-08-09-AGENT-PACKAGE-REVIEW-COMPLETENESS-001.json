@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-09",
+  "resolutionId": "RES-2026-08-09-AGENT-PACKAGE-REVIEW-COMPLETENESS-001",
+  "capability": "validation-programme-agent-package",
+  "milestone": "Validation Programme JSON Agent Package — External Review Completeness Pass",
+  "problem": "The Agent Package told Austin's delegated agent WHERE to go (endpoints, agreement status, journey stages) very well, but not WHAT immutable thing it was reviewing, against what experimental design, under what limitations, or what its decision meant — an onboarding manifest, not an auditable external-review package. A completeness audit against the operator's own ten-point spec found two live defects in this exact area and fixed both in the same pass.",
+  "observedFailure": [
+    "No field in the package stated the frozen crystal's exact member list — a delegated agent could not inspect what it was reviewing without separately guessing at a live query that could have drifted since freeze.",
+    "GET /api/research/observer-review/[experimentId] returned EVERY assigned observer's decision (rationale included) to any caller with review-read access — a peer observer (e.g. Avi) could read another's rationale/outcome (e.g. Austin's) before submitting their own decision, defeating independent review.",
+    "The experiment-design facts Austin's agent would need (arms, task-set composition, statistics thresholds) existed only in prose the agent had to separately fetch and parse, with no structured, section-cited extract."
+  ],
+  "rootCauses": [
+    "freezeArtifact() (services/research/artifacts.ts) persists only {contentHash, commitmentHash, frozenAt, signedBy} — it never links the freeze ceremony's disclosure fields or a member snapshot to the frozen row, so no persisted 'what was in the crystal at freeze' record exists beyond a content hash.",
+    "The observer-review GET route was built (Post-Freeze Observer Review Closure, 2026-08-09 earlier same day) with an authority boundary for WHO may read the round (callerMayReadExperimentReview) but no boundary for WHAT a peer observer may see within it — R1/R2's own peer-isolation discipline (review/isolation.ts) was never generalized to N human observer principals.",
+    "The Agent Package route was built as a navigation manifest (Phase 2, 2026-08-01) before the Post-Freeze Observer Review Closure existed, and was never revisited against the fuller review-package bar once that closure landed."
+  ],
+  "resolution": [
+    "Built services/research/crystalFrozenManifest.ts: recomputes the live domain corpus's content hash via the SAME projection crystalStatistics.ts hashes, compares it to the persisted frozen artifact.contentHash, and serves full per-invariant detail ONLY on a match — refusing (members: null) rather than silently substituting the live corpus on a mismatch.",
+    "Added deriveCallerObserverStatus/blindOtherObserverDecisions to crystalObserverReview.ts — the ONE derivation now shared by both the observer-review GET route and the Agent Package, so a peer observer's decision is blinded from another caller until that caller has decided, the round is closed, or the caller is a steward/admin (not a voting peer).",
+    "Extended the Agent Package with lifecycle/frozenCrystal/experimentDesign/reviewMandate/scientificLimitations/governingResources/reviewerReadiness/reviewOutputGuidance/machineContract — experimentDesign extracts real README.md sections verbatim rather than restating them."
+  ],
+  "rejectedApproaches": [
+    "Recomputing freeze-ceremony disclosure fields (population, exclusions, freeze rationale) live and presenting them under the frozen-artifact heading — rejected: they were never persisted at the real freeze, and presenting a live recomputation as a frozen historical fact is exactly the substitution this pass exists to prevent. Reported as an honest gap instead.",
+    "Hand-typing the experiment design (arms, task counts, statistics) as a parallel spec from the operator's message — rejected per the operator's own instruction to derive from canonical documents; implemented as verbatim section extraction from the real README.md instead.",
+    "Blinding observer decisions by role alone (e.g. 'reviewer' vs 'steward') — rejected: a steward should see everything (oversight), but a reviewer who HAS ALREADY DECIDED should also see everything (their own independence is no longer at risk). Blinding is keyed on (isSteward OR callerHasDecided OR roundClosed), not role alone."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-09-HASH-VERIFIED-FROZEN-PROJECTION-001"
+  ],
+  "canaries": [
+    "tests/crystal-frozen-manifest.test.ts",
+    "tests/validation-programme-agent-package-completeness.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "invariant-incomplete-or-misscoped",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/crystal-frozen-manifest.test.ts",
+      "tests/validation-programme-agent-package-completeness.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-08-09_validation-programme-agent-package-external-review-completeness.md",
+      "codexes/packs/agentiq/updates/2026-08-09_post-freeze-observer-review-closure.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/resolution-records/records/RES-2026-08-09-POST-FREEZE-OBSERVER-REVIEW-001.json"
+  ],
+  "projections": {
+    "targets": ["irl"],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  }
+}

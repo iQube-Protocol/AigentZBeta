@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-15-DESTINATION-ADDRESSABLE-001",
+  "statement": "Committed work is addressable by the name the process tracks it under, verified before the work is made rather than after it is attempted.",
+  "classification": "Engineering invariant. Governs whether work survives, which is prior to whether it is correct.",
+  "family": "engineering",
+  "scope": "local",
+  "status": "candidate",
+  "ratifiedSource": null,
+  "parentCandidateId": null,
+  "supersededBy": null,
+  "governingPrinciple": false,
+  "derivedFrom": [
+    "RES-2026-08-15-DEVON-WIRING-PROCESS-RISK-001"
+  ],
+  "occurrences": [
+    {
+      "site": "Homecoming III bootstrap — Phase 0/1 session, claude/resume-consumer-session-qm3v7c",
+      "defect": "The session operated in detached HEAD. Three commits (terminology lock, repo-weight hygiene, envelope contract) were authored against no branch. `git push -u origin <branch>` reported 'Everything up-to-date' — truthfully, since the branch ref had not moved — while the work sat 283 commits ahead of that ref, reachable only by hash. The push SUCCEEDED and delivered nothing; had the container been reclaimed at that point, the work would have been unrecoverable by any name the process tracks. Recovery was clean only because the remote branch happened to be an ancestor of HEAD, permitting a fast-forward with no force.",
+      "resolutionId": "RES-2026-08-15-DEVON-WIRING-PROCESS-RISK-001",
+      "evidence": [
+        "codexes/packs/agentiq/updates/2026-08-15_homecoming-iii-bootstrap-architecture-audit.md"
+      ]
+    }
+  ],
+  "canaries": [],
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "notes": [
+    "STATED CAUSALLY, NOT AS A PROHIBITION. 'Never work in detached HEAD' names one mechanism of one tool. The condition that must hold is ADDRESSABILITY: the work is reachable by the identifier the surrounding process uses. Detached HEAD is one way to lose it; an unpushed branch, a stale worktree and a wrong remote are others, and the causal form covers them without enumerating them.",
+    "VERIFIED BEFORE, NOT AFTER — the load-bearing clause. Verification after the fact is what happened here, and it worked only by luck: the ancestry check that made recovery safe could equally have failed, at which point the choice would have been between losing the work and rewriting history. A preflight costs one command; the recovery it avoids is unbounded.",
+    "WHY THE FAILURE IS SILENT. Every individual operation succeeded. `git commit` succeeded. `git push` succeeded and reported 'Everything up-to-date', which was TRUE. Nothing errored. The defect is only visible by asking a question no step in the workflow asked — a shape shared with CI-2026-08-03-CANONICAL-READER-OWNERSHIP-001 and MS-7 ('an inert mechanism is a defect'): the system is behaving correctly and delivering nothing.",
+    "MECHANISED IN THIS MILESTONE, NOT YET CANARIED. The preflight is now run before mutation in each phase (operator ruling, 2026-08-15) and its output is reported at each gate. That is a procedural control, not an executable one — a future agent could simply not run it. An executable canary would have to run in the agent harness rather than in vitest, since it asserts a property of the working environment and not of the repository; recording that as the open question rather than claiming a canary that does not exist (CI-2026-08-03-CANARY-REPRODUCES-DEFECT-001).",
+    "SCOPE IS 'local' ON ONE OCCURRENCE. The rule plausibly binds any agent committing in any repository, but 'cross-capability' requires occurrences in more than one capability at milestone-close. Left at 'local' rather than asserted and back-filled.",
+    "RELATIONSHIP TO THE REMOTE EXECUTION ENVIRONMENT. This session runs in an ephemeral container where unpushed work is lost on reclamation. That raises the cost of the defect but is not its cause — the same shape loses work on a laptop, more slowly."
+  ]
+}

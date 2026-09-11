@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getWorkflow, updateWorkflow, deleteWorkflow } from "@/services/workflows/store";
 import { assertEnvelope, assertAuthority } from "@/services/workflows/identityEnvelope";
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const workflow = await getWorkflow(params.id);
     if (!workflow) {
@@ -22,10 +20,8 @@ export async function GET(
   }
 }
 
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const body = await req.json();
     const envelope = assertEnvelope(body);
@@ -59,10 +55,8 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const body = await req.json();
     const envelope = assertEnvelope(body);

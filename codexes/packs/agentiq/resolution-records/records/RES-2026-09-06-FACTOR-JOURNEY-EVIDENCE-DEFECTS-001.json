@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-06",
+  "resolutionId": "RES-2026-09-06-FACTOR-JOURNEY-EVIDENCE-DEFECTS-001",
+  "capability": "horizen-moneypenny-guided-journey-runtime",
+  "milestone": "Journey 0 closure, follow-on to the Operate ceremony-gate fix — three remaining evidence-integrity defects surfaced against Factor's live journey (DVN liveness masking, Stand cross-agent contamination, Evidence popover overlap)",
+  "problem": "With Factor's Operate stage now completing, three independent evidence-integrity defects remained: (1) the DVN attestation processor could report `idle: true` for a canister read failure exactly as it would for a genuinely empty queue, the same defect class the 2026-08-08 IC0504 incident named; (2) the Stand stage's historical/supplementary receipts drawer displayed Aigent Z's and MoneyPenny's own `standing_accrued` receipts under Factor, because the `standing` stage never opted into the `receiptsScopedToSubjectAgent` flag Register/Claim/Orient already use; (3) the header's Evidence checklist popover visually overlapped the stage body and StageReceiptsDrawer's own inline Evidence block from the instant it opened, not only after a scroll.",
+  "observedFailure": [
+    "services/ops/dvnAttestationProcessor.ts's `processPendingDvnAttestations`/`countDvnPendingMessages` both called `dvn.get_pending_messages().catch(() => [])` — a canister reject/timeout/oversize-response collapsed to the exact same `[]` a genuinely empty queue produces, so the cron route (app/api/ops/dvn/attestation-processor-cron/route.ts) reported `{ ok: true, idle: true }` for a real read failure.",
+    "services/journey/horizenMoneyPennyJourney.ts's `standing` stage declared `receiptTypes: ['standing_accrued']` with NO `receiptsScopedToSubjectAgent: true`, even though `standing_accrued` is written with `agentsInvoked: [subjectAgentRef]` whenever a subject agent is supplied (registrationStandingSeedAward.ts, services/crm/standingAccrualService.ts) — the exact precondition Register/Claim/Orient already satisfy for the same flag. StageReceiptsDrawer's historical/supplementary search therefore filtered by actionType only, across every agent the acting principal had ever accrued Standing for.",
+    "components/journey/JourneyRunSurface.tsx's header Evidence popover was `position: absolute` with a 95%-translucent background (`bg-slate-900/95`) and no backdrop — its only containment mechanism was closing on scroll, which does nothing for the reported initial-open overlap and lags behind fast/momentum scrolling."
+  ],
+  "rootCauses": [
+    "A canister read result and a canister read FAILURE were collapsed into the same `[]` return value at the one call site that decides cron liveness — the caller had no way to distinguish 'nothing pending' from 'could not find out'.",
+    "A per-stage opt-in flag (`receiptsScopedToSubjectAgent`) was added stage-by-stage as each stage's cross-agent contamination was independently discovered (Register/Claim 2026-08-08, Orient at its own introduction) with no canary asserting every stage whose receipt type IS subject-tagged also carries the flag — Standing's own receipt type satisfied the precondition from the day registrationStandingSeedAward.ts shipped, but the journey definition was never revisited.",
+    "A floating, absolutely-positioned overlay anchored to a header trigger was given only a REACTIVE containment mechanism (close-on-scroll) instead of a STRUCTURAL one (an opaque backdrop) — reactive containment cannot cover the interval between open and the next scroll event, including the initial-open case where no scroll has happened at all."
+  ],
+  "resolution": [
+    "dvnAttestationProcessor.ts's `get_pending_messages()` calls now route through a new `readPendingDvnMessages()` helper that never `.catch(() => [])`s — a canister failure or non-array response returns `{ readable: false, error }`, distinct from `{ readable: true, messages: [] }`. `countDvnPendingMessages` and `processPendingDvnAttestations` both surface this as a discriminated result (`DvnPendingCountResult`, `DvnAttestationBatchResult`'s new `{ ok: false, error }` branch) rather than a bare number/always-ok shape. The cron route now returns HTTP 500 with the underlying error on an unreadable canister response, never `idle: true`; the operator-UI route (app/api/ops/layerzero/process/route.ts) does the same. No canister capability was invented — the fix only stops discarding an existing error.",
+    "horizenMoneyPennyJourney.ts's `standing` stage now declares `receiptsScopedToSubjectAgent: true`, verified against the actual seed-award and accrual services' `agentsInvoked` tagging before opting in (the same verification discipline Register/Claim/Orient's own comments already document).",
+    "JourneyRunSurface.tsx's Evidence popover gained a `fixed inset-0` opaque backdrop (`bg-slate-950/70`) rendered at a LOWER z-index than the panel but above the stage body, present in the DOM the instant the popover opens (not gated on any scroll event), plus the panel's own background became fully opaque (`bg-slate-900`, no alpha suffix) rather than the prior `/95`. The existing outside-mousedown, Escape, and close-on-scroll handlers are all preserved unchanged — the backdrop is additive containment, not a replacement for any of them; clicking the backdrop is one more close path. SUPERSEDED 2026-09-06: deployed, this backdrop combined with StageReceiptsDrawer's own visible content to read as one broken, translucent modal — see RES-2026-09-06-JOURNEY-EVIDENCE-SURFACE-CONSOLIDATION-001, which removes the backdrop and the header's own popover entirely in favor of one consolidated Evidence surface."
+  ],
+  "rejectedApproaches": [
+    "Redirecting the header Evidence button to open StageReceiptsDrawer directly instead of fixing its own popover — rejected because the header popover uniquely displays MISSING evidence signals (evidenceMissing pills) that StageReceiptsDrawer's canonical section does not render at all; redirecting would have been a silent capability regression, not a layout fix.",
+    "Removing the close-on-scroll effect once the backdrop was added — kept as additional, redundant containment (belt-and-braces) rather than removed, since an existing passing test (tests/journey-run-surface-evidence-popover-overlap.test.tsx) already pins that specific behavior and nothing about the backdrop fix requires removing it.",
+    "Reusing the canister's global `get_ready_messages()`/pagination for the attestation processor's own pending-discovery leg — rejected: no pagination exists on `get_pending_messages()` and the live evidence gathered (GitHub Actions job logs) showed it currently succeeds at 4411 entries, well under the IC0504 cap that broke the UNRELATED `get_ready_messages()` call in the 2026-08-08 incident; inventing a new targeted read here would be scope creep beyond the stated defect (silent failure translation), not a fix for an observed cap breach."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-06-DVN-UNREADABLE-NOT-EMPTY-001",
+    "CI-2026-09-06-AGENT-EVIDENCE-SUBJECT-SCOPING-001"
+  ],
+  "canaries": [
+    "tests/dvn-liveness-e2e-canary.test.ts",
+    "tests/standing-stage-receipt-agent-isolation.test.ts",
+    "tests/journey-evidence-layout-browser-regression.test.tsx",
+    "tests/dvn-attestation-processor-liveness.test.ts",
+    "tests/journey-run-surface-evidence-popover-overlap.test.tsx"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "subsystems-disagreed",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/dvn-liveness-e2e-canary.test.ts",
+      "tests/standing-stage-receipt-agent-isolation.test.ts",
+      "tests/journey-evidence-layout-browser-regression.test.tsx"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "Operator's live-verified facts, 2026-09-06: Factor Operate complete; Ratify constitutionally complete with its receipt dvn_pending; ~90 dvn_pending/9 dvn_failed/1 dvn_recorded since 2026-09-05; Factor has no effective standing_accrued receipt; Stand's historical drawer displayed Aigent Z and MoneyPenny receipts under Factor; the header Evidence checklist overlays the stage body and its own StageReceiptsDrawer.",
+      "GitHub Actions job logs (mcp__github__get_job_logs), 2026-09-06: dvn-attestation-processor run 34005825312 showed a genuinely succeeding get_pending_messages() read (4411 entries); activity-receipts-finalizer run 34012929482 showed {readyMessageCount:1, pendingChecked:50, unresolvable:16}."
+    ]
+  },
+  "sourceDocs": [],
+  "projections": {
+    "targets": ["devon"],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  }
+}

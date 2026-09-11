@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServer } from '../../_lib/supabaseServer';
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { id } = params;
   const supabase = getSupabaseServer();
   if (!supabase) return NextResponse.json({ ok: false, error: 'Supabase not configured' }, { status: 500 });

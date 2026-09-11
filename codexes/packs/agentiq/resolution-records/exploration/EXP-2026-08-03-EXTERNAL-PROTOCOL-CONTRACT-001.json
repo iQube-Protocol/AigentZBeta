@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "exploration-item/v1.0",
+  "explorationId": "EXP-2026-08-03-EXTERNAL-PROTOCOL-CONTRACT-001",
+  "becameCandidateId": null,
+  "disposition": "open",
+  "raisedBy": [
+    "RES-2026-08-03-KNOWLEDGE-PIPELINE-001"
+  ],
+  "notes": [],
+  "date": "2026-08-03",
+  "question": "Should external protocol integration converge on a declared contract artifact — a schema the implementation validates against — rather than accumulating inference from observed responses?",
+  "context": "Raised by the Horizen integration, where argument shapes were inferred from partner responses across several repair cycles. Already partly captured as CI-2026-08-03-CONVERGE-ON-PROTOCOL-CONTRACT-001, which has one occurrence and one canary. The open question is the general mechanism, not the single rule.",
+  "wouldRequire": [
+    "A second and third integration to show the shape recurs beyond Horizen — one occurrence is an anecdote.",
+    "A decision on where a partner contract artifact would live and how it is versioned when the partner changes it without telling us.",
+    "A position on what happens when the declared contract and the observed behaviour disagree — the divergence-stated-in-both-directions posture already ratified for chain confirmation is the obvious candidate."
+  ],
+  "projections": {
+    "targets": [
+      "devon",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

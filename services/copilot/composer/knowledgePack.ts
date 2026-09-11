@@ -86,6 +86,31 @@ const studioPhases: ComposerPhaseKnowledgeEntry[] = [
 
 const templates: ComposerTemplateKnowledgeEntry[] = [
   {
+    id: "constitutional-video",
+    name: "Constitutional Video",
+    summary:
+      "A 24/36/48-second invariant-grounded constitutional video — a blank canvas bound by the constitutional grammar (12s micro-films, one constitutional threshold per segment, a threshold-crossing CTA). The operator supplies the subject; the skill supplies the rules + invariant grounding + full voiceover. Composes into the 'Constitutional Video + Integrated Artefacts' bundle (video + companion article from one substrate, with a built-in coherence score; independent judgement is optional, never required).",
+    bestFor: [
+      "constitutional/doctrine manifestos and explainers",
+      "invariant-grounded short-form video",
+      "threshold-crossing CTAs (claim passport, delegate, join a lab)",
+      "coherent video + article bundles from one invariant substrate",
+    ],
+    mediaTypes: ["video", "mixed"],
+    timebox: "20 minutes",
+    recommendedProviders: ["venice", "openai"],
+    customizationFocus: [
+      "content direction (what the video is about — blank canvas)",
+      "invariant grounding namespace/collection",
+      "duration (24/36/48s) + threshold CTA target and claim line",
+    ],
+    resourceImplications: [
+      "video generation provider (Venice/Sora) + TTS voiceover",
+      "invariant grounding source",
+      "optional companion article + optional fidelity judgement (spends credits)",
+    ],
+  },
+  {
     id: "micro-episode-capsule",
     name: "Micro-Episode Capsule",
     summary: "Short-form, high-impact capsule suited to image-led or video-led experiences.",

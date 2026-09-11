@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-08-15-SCOPE-CONTEXT-BINDING-AXIS-001",
+  "capability": "Homecoming III — invariant-driven DevOn + IDE 2.0 kernel",
+  "milestone": "Phase 5 — invariant-evidence / failure-learning loop, architectural clarification",
+  "problem": "Mid-Phase-5, the operator asked for an audit confirming Smart Triad Copilot and DevOn share one invariant-resolution substrate, and raised whether the pinned Phase 1 scope ladder (`INVARIANT_SCOPES`) needed a `developer`/`user` rung to represent personal and project context, since Phase 5's failure-learning path (`assessRecurrencePortability`) pools `RiskObservation`s with no structural containment by who or which project produced them. Extending the causal scope ladder to also represent WHO a claim is authorized-relevant to would have conflated two orthogonal questions — where a proposition applies, and which person's/project's context is relevant to the present resolution — under one vocabulary.",
+  "observedFailure": [
+    "`services/devCommandCenter/failureLearning.ts`'s `assessRecurrencePortability` took a flat `priorObservations` list with no scope-authority filtering — a live version of the exact risk the operator named: one developer's or one project's observation must not automatically become global software knowledge merely because the same DevOn capability serves multiple users.",
+    "The audit's own draft reasoning briefly treated the missing personal/developer rung as a gap IN `INVARIANT_SCOPES` (the causal scope ladder) before the operator corrected the framing: the gap is not in the scope ladder, which is complete for its own purpose, but in the absence of a SEPARATE context-binding axis."
+  ],
+  "rootCauses": [
+    "`INVARIANT_SCOPES` (types/invariantEnvelope.ts, pinned by exact-order canary at tests/invariant-envelope-contract.test.ts:374) answers 'where does this causal proposition hold' — constitutional through intent. It was never designed to answer 'whose context is authorized-relevant right now', and has no field for it.",
+    "`DevLoopState` deliberately forbids `personaId` as a state key (`DEV_LOOP_FORBIDDEN_STATE_KEYS`, T0-isolation) for good reason, but this left no structural home at all for authorized personal/project context in the development loop — not even a T2-safe derived reference — which is why the absence read, on first pass, as a scope-ladder gap rather than as a missing separate axis.",
+    "Recurrence/portability assessment (`assessRecurrencePortability`) is a pure function over whatever the caller supplies; nothing in its Phase 5 contract stated that a future caller wiring a persistent store must pre-filter `priorObservations` to an authorized scope before pooling them."
+  ],
+  "resolution": [
+    "Ruled by the operator, 2026-08-15: `INVARIANT_SCOPES` is not extended. Scope (causal applicability) and context-binding (authorized relevance) are orthogonal axes; personal/developer/user state must never be added to the scope ladder as an eighth rung.",
+    "Recorded a design requirement for a future context-binding axis — `platform / workspace / project / developer / principal-user / session-intent` — as an explicit Crystal 2.0 / post-threshold extension, not implemented now.",
+    "If Phase 6 needs personal/developer context, it must reuse the existing `groundContext` / authorized-context mechanisms already wired to the Copilot and DevOn, never a new session store, and must preserve the scope/context distinction.",
+    "T0/T2 discipline is unaffected and unconditional: context binding must never carry raw `personaId`, `rootDid`, or other prohibited identity material into `DevLoopState` or any DCIR/evidence payload; only existing authorized state, opaque references, or T2-safe derived context may represent it.",
+    "`assessRecurrencePortability`'s doc contract (services/devCommandCenter/failureLearning.ts, commit 5c2880d20) was tightened in place to require a future caller to pre-filter `priorObservations` to an authorized scope before pooling — the concrete enforcement point for the learning direction `context-specific observation → scoped evidence → governed portability/abstraction → broader Crystal only when justified`.",
+    "Agent architecture accepted as canonical without code change: Smart Triad Copilot is the generic interaction shell; Aigent C serves the customer/NBE side; Aigent Z is the engineering/platform intelligence; DevOn is a development-specialist Smart Triad Copilot backed by Aigent Z, per the existing contract under which Aigent C routes engineering/codebase work to Aigent Z. DevOn is not refactored under Aigent C to fit the earlier conceptual lineage diagram.",
+    "Recorded the causal candidate invariant CI-2026-08-15-SCOPE-CONTEXT-BINDING-AXIS-001 at status 'candidate'."
+  ],
+  "rejectedApproaches": [
+    "Adding `developer` and `user` rungs to `INVARIANT_SCOPES`. Rejected by the operator: this would represent authorized-relevance as if it were causal applicability, collapsing two dimensions the ruling requires kept separate, and would reopen a Phase 1 pinned contract for a concern the ladder was never meant to carry.",
+    "Implementing the context-binding axis now, ahead of a demonstrated Phase 6 need. Rejected: the operator scoped this explicitly as a design requirement to record, not a Phase 5 deliverable — 'leave the context-binding implementation as an explicit Crystal 2.0 / post-threshold extension.'",
+    "Refactoring DevOn to identify as `aigent-c` to match the earlier conceptual Z→C→specialist-copilot→DevOn lineage diagram literally. Rejected: the operator confirmed the lineage is conceptual, not a literal class hierarchy, and the existing contract already routes engineering/codebase work to Aigent Z — DevOn identifying as `aigent-z` is the contract working as designed.",
+    "Adding a `personaId`-shaped field to `DevLoopState` or `RiskObservation` to represent context binding directly. Rejected: violates T0-isolation (`DEV_LOOP_FORBIDDEN_STATE_KEYS`) and the ruling's explicit instruction that context binding use only authorized state, opaque references, or T2-safe derived context."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-15-SCOPE-CONTEXT-BINDING-AXIS-001"
+  ],
+  "canaries": [],
+  "scope": "local",
+  "status": "observed",
+  "trigger": "governance-boundary-confused",
+  "evidence": {
+    "commits": [
+      "5c2880d20"
+    ],
+    "tests": [
+      "tests/invariant-envelope-contract.test.ts",
+      "tests/homecoming-iii-phase5-invariant-evidence.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-08-15_scope-context-binding-axis-ruling.md",
+      "docs/agent-harness/aigent-z-aigent-c-contract.md",
+      "app/data/personas.ts",
+      "services/devCommandCenter/failureLearning.ts"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-15_scope-context-binding-axis-ruling.md"
+  ],
+  "date": "2026-08-15",
+  "projections": {
+    "targets": [
+      "devon",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

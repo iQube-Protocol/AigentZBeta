@@ -1,0 +1,44 @@
+{
+  "schema": "qriptopian.threshold-essay.admin-assets.v1",
+  "essay": {
+    "contentId": "05cf9d7a-7ecf-40b9-a6ba-1641778f94df",
+    "slug": "constitutional-media",
+    "title": "Constitutional Media",
+    "series": "Thresholds",
+    "seriesNumber": 3
+  },
+  "policy": {
+    "access": "free",
+    "shareable": true,
+    "adminManaged": true
+  },
+  "assets": {
+    "cover": {
+      "assetId": "f4ba6c5e-64b7-4605-8bef-d9d9919d677a",
+      "cid": "bafkr6iesh6egnviwemgom5vha5zak2fgtregvpwbgozdfp4ejwadzyo3gq",
+      "sha256": "648cd0c2407ce458d3e50bbe6d847b53810404300e8eba25c1bffadca3052346",
+      "role": "cover",
+      "source": "autonomys",
+      "primary": true,
+      "thumbnail": true,
+      "note": "Preferred domed Constitutional Media image; canonical card thumbnail/poster cover."
+    },
+    "hero": {
+      "assetId": "ad5e1801-5637-4ac6-aa3d-aacce6df3550",
+      "cid": "bafkr6idinfqyzlmj3ll3o6ykmw34hjg3wdrciksb4voluy4qr74fk725gi",
+      "sha256": "0287b6be58af1be95d4821b4770cb388ed5dcadebf2b94172e321c030475f8bc",
+      "role": "hero",
+      "source": "autonomys",
+      "social": true,
+      "note": "Supporting Constitutional Media visual for in-essay and social use."
+    }
+  },
+  "binding": {
+    "thumbnailRoute": "/api/qriptopian/essay-cover/f4ba6c5e-64b7-4605-8bef-d9d9919d677a",
+    "heroRoute": "/api/content/media/ad5e1801-5637-4ac6-aa3d-aacce6df3550"
+  },
+  "provenance": {
+    "registeredAt": "2026-08-22",
+    "storageSeries": "constitutional-internet"
+  }
+}

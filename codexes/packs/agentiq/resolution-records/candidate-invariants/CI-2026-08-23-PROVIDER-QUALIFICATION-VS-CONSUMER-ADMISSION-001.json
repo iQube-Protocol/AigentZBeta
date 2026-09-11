@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-23-PROVIDER-QUALIFICATION-VS-CONSUMER-ADMISSION-001",
+  "statement": "A qualification fact that answers 'may THIS agent independently PERFORM capability X' (a provider/specialist qualification) MUST NEVER be folded into the generic admission check for an agent that is merely CONSUMING a service which happens to involve capability X. Consumer eligibility for a governed service is composed from admission + structural assignment + (only where the service explicitly opts in) any consumer-specific qualification, declared as its own named policy field defaulting to NOT-required. A service that requires admission does not thereby require its consumers to hold the same qualification its own provider holds.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "A domain-boundary confusion: two questions with a similarly-shaped boolean read ('is X currently true for this agent') were bundled under one gate, even though one question is about the agent's OWN specialist qualification and the other is about whether the agent may reach a service at all. The bundling silently required every consumer to re-earn the provider's own qualification.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/financial-services-runtime.test.ts",
+      "assertion": "A structurally assigned, admitted consumer with NO Financial Services (Pulse+P&L) verification is still ELIGIBLE for every current catalog service (consumerVerificationRequirement: NOT_REQUIRED); a service that explicitly opts into consumerVerificationRequirement: REQUIRED still correctly gates on verification state.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/financialServices/eligibility.ts",
+      "defect": "Financial Services (Pulse+P&L) verification — a provider/specialist qualification fact — was checked unconditionally inside the `requiresAdmission` branch, so every consumer of every current MoneyPenny service (all of which require admission) was blocked as FINANCIAL_SERVICES_NOT_VERIFIED regardless of whether the service itself needed consumer-side FS qualification.",
+      "resolutionId": "RES-2026-08-23-FSVC-CONSUMER-VERIFICATION-OVERREACH-001",
+      "evidence": [
+        "services/financialServices/eligibility.ts",
+        "services/financialServices/serviceCatalog.ts",
+        "types/financialServices.ts",
+        "tests/financial-services-runtime.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-23-FSVC-CONSUMER-VERIFICATION-OVERREACH-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "A sibling case to CI-2026-08-23-STRUCTURAL-ADMISSION-VS-LIVE-AUTHORITY-001 from the same day's repair sequence: that one separated a durable structural fact from a single-slot live-authority fact; this one separates a consumer's OWN admission from a provider-grade qualification fact that happened to live on the same 'requiresAdmission' branch.",
+    "The generic shape to watch for elsewhere: any policy field named `requiresX` that silently implies a SECOND, unrelated qualification check inside its own branch — rather than that second check being its own named, opt-in field — is the same defect class."
+  ]
+}

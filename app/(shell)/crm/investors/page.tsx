@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Users,
   Search,
@@ -17,7 +16,6 @@ import {
   Edit2,
   BarChart3,
   X,
-  ExternalLink,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -48,7 +46,6 @@ interface Investor {
   csvFirstCommittedDate: string;
   isLinked: boolean;
   isActivated: boolean;
-  personaId: string | null;
   // Campaign fields (may be null until migration applied)
   campaign_cohort?: string | null;
   campaign_state?: string | null;
@@ -119,8 +116,6 @@ function MetricTile({ label, value, sub }: { label: string; value: number | stri
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function InvestorsPage() {
-  const router = useRouter();
-
   const [activeTab, setActiveTab] = useState<'investors' | 'dashboard'>('investors');
   const [investors, setInvestors] = useState<Investor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -773,15 +768,11 @@ export default function InvestorsPage() {
                           >
                             <Edit2 size={14} />
                           </button>
-                          {investor.personaId && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); router.push(`/crm/personas/${investor.personaId}`); }}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition"
-                              title="View persona"
-                            >
-                              <ExternalLink size={14} />
-                            </button>
-                          )}
+                          {/* "View persona" cross-nav removed 2026-07-28: it relied on the
+                              server serialising platform_auth_profile_id (a T0 identifier)
+                              into personaId, and even before that fix the link never
+                              resolved correctly (personas.id != auth_profile_id). See
+                              CLAUDE.md Identity & Access Spine. */}
                         </div>
                       </td>
                     </tr>

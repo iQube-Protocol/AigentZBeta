@@ -383,7 +383,8 @@ Registry returns: agent identity metadata (verified on-chain)
 |----------|----|------|
 | `cross_chain_service` | `sp5ye-2qaaa-aaaao-qkqla-cai` | DVN quorum verification, LayerZero |
 | `proof_of_state` | `ulvla-h7777-77774-qaacq-cai` | Bitcoin state anchoring |
-| `btc_signer_psbt` | `uxrrr-q7777-77774-qaaaq-cai` | Bitcoin PSBT signing (tECDSA) |
+| `btc_signer_psbt` | _(none — not deployed to IC)_ | Bitcoin PSBT signing (tECDSA) |
+<!-- NOT ON IC — `uxrrr-q7777-77774-qaaaq-cai` is the LOCAL dfx id (.dfx/local/canister_ids.json @ cebf998, iQubeBeta-Program); it resolves `canister_not_found` on mainnet. Census 2026-08-08. No IC-mainnet btc_signer has ever existed. -->
 | `evm_rpc` | `uzt4z-lp777-77774-qaabq-cai` | EVM chain RPC relay |
 
 **Protocol integration points**:

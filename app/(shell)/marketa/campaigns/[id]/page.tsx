@@ -10,7 +10,7 @@
  * - Delivery logs
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import {
   Card,
@@ -125,7 +125,8 @@ interface DeliveryLog {
   metrics?: any;
 }
 
-export default function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default function CampaignDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [sequenceItems, setSequenceItems] = useState<SequenceItem[]>([]);

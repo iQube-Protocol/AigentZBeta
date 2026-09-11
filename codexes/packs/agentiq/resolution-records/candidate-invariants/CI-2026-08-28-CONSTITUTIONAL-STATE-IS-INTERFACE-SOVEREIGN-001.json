@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-28-CONSTITUTIONAL-STATE-IS-INTERFACE-SOVEREIGN-001",
+  "statement": "There is exactly one constitutional state machine per governed capability. The bridge, the Journey Spine UI, Copilot/MCP, IRL OS, and any future interface are projections and actuation channels around that single runtime state -- never independent holders of it. A constitutional act (delegation, deposit, freeze, signature) is complete the moment the canonical write lands, regardless of which channel performed it; every other channel's next read must reflect it immediately, with no re-enactment and no channel-specific 'catch up' step.",
+  "family": "constitutional",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": ["constitutional-computing", "irl", "research-registry"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "The governing principle this episode's four sibling candidates (CI-2026-08-28-MEET-PRINCIPALS-WHERE-THEY-ARE-001, CI-2026-08-28-CHANNEL-INDEPENDENT-PROVENANCE-PRESERVING-001, CI-2026-08-28-NO-CEREMONIAL-DUPLICATION-ACROSS-CHANNELS-001, CI-2026-08-28-PRINCIPAL-AGENT-CHANNEL-ARE-DISTINCT-IDENTITIES-001) descend from -- each is a projection of this one, never a separate family of rules, matching the same discipline this codebase already applies to the Constitutional Execution Principles.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/journey-spine-channel-convergence.test.ts",
+      "assertion": "A constitutional act (freeze, sign, delegation-establish) performed via the MCP-path service function is read back as complete via the Journey Spine / bridge resolver's OWN function -- a genuinely different code path than the one that wrote it -- on the very next call, with no re-enactment. The reverse direction (native-UI-equivalent write, MCP read) is proven in the same file.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/journey/ianJourneyState.ts, services/threshold/constitutionalNavigator.ts, services/research/reciprocalExchange.ts",
+      "defect": "Not a discovered defect -- a property that already held structurally from an earlier admission-boundary fix (ensureBoundaryResearchExchangeMembership, 2026-08-26/27) and had never been proven by a real cross-path execution test until this resolution, nor exercised for the specific stages (artifact confirmation, agent identity) this episode added.",
+      "resolutionId": "RES-2026-08-28-RAX-OPERATOR-ASSISTED-CHANNEL-CONVERGENCE-001",
+      "evidence": [
+        "tests/journey-spine-channel-convergence.test.ts",
+        "services/journey/boundaryResearchExchangeAdmission.ts",
+        "services/threshold/mcpConstitutionalActs.ts"
+      ]
+    }
+  ],
+  "derivedFrom": ["RES-2026-08-28-RAX-OPERATOR-ASSISTED-CHANNEL-CONVERGENCE-001"],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "governingPrinciple is false here despite this being the conceptual root the other four descend from (parentCandidateId), because this registry's own canary refuses an agent-designated governing principle: 'only a ratified principle may be designated governing — an agent cannot promote its own rule to govern the others.' Once ratified, this field should be flipped to true in the same edit that populates ratifiedSource.",
+    "The operator directed this be treated as ratified doctrine effective 2026-08-28, citing the OCSGA/Copilot channel-convergence tests as first implementation evidence. Recorded here at 'candidate' per this repo's own consistent convention (every existing CI record in this registry is 'candidate'; none yet carry a populated ratifiedSource) and per CLAUDE.md's own caution that ratification requires a named operator act in ratifiedSource, which an agent may record but must not manufacture on the operator's behalf. If the operator confirms the exact ratifiedSource wording, this file should be updated to status: 'ratified' with that citation -- this note exists so that confirmation is a one-field edit, not a rediscovery.",
+    "Only one occurrence is recorded. 'validated' (>=2 occurrences or demonstrated regression prevention) has not been reached on the accumulated-evidence axis; the operator's ratification directive is a separate, operator-prerogative axis and does not itself manufacture a second occurrence."
+  ]
+}

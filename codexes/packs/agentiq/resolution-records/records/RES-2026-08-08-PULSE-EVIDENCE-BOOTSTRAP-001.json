@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-08",
+  "resolutionId": "RES-2026-08-08-PULSE-EVIDENCE-BOOTSTRAP-001",
+  "capability": "horizen-pulse-admission",
+  "milestone": "A CONFIRMED Pulse authorization whose historical snapshot predates structured extraction gets one live, read-only reread to establish receipted evidence for the first time — without being routed through reconciliation, which requires a baseline to already exist.",
+  "problem": "Running the acceptance test's own script (scripts/materialize-pulse-evidence.ts) against Nakamoto's real row surfaced a genuine architecture gap: the row was confirmed via the pre-structured-extraction prose classifier, so its persisted partnerStatus snapshot carries no pulseEnrolled/pulseCommitmentRecorded field to materialize from. Materialization correctly refused (NO_HISTORICAL_SNAPSHOT) rather than fabricating evidence. But the natural next suggestion — 'use the ordinary verify/reconcile path if fresh partner evidence is wanted', which materialize's own refusal message says — turned out not to cover this case either.",
+  "observedFailure": [
+    "verifyHorizenTransparencyActivation (the live verify-and-transition path) deliberately excludes CONFIRMED from RECONCILABLE_STATES, so it structurally refuses to touch Nakamoto's already-CONFIRMED row at all.",
+    "reconcilePulseConstitutionalState (the live reconciliation path) CAN run against a CONFIRMED row, but only to compare a fresh read against evidence that must already exist — it refuses NO_RECEIPTED_EVIDENCE when there is nothing to compare against, which is exactly Nakamoto's situation. Neither of the two existing live-capable functions can establish a first-ever baseline for a legacy CONFIRMED row."
+  ],
+  "rootCauses": [
+    "materializePulseEvidenceFromHistoricalConfirmation and reconcilePulseConstitutionalState were both designed against an implicit assumption that never held for a legacy row: that a CONFIRMED row's structured facts are recoverable either from its historical snapshot (materialize) or from a comparison against already-existing evidence (reconcile). A row confirmed before structured extraction existed satisfies neither assumption — there was no third function for 'no baseline exists yet, and no historical snapshot to recover one from, so make exactly one live call to establish one.'"
+  ],
+  "resolution": [
+    "Added bootstrapPulseEvidenceFromLiveReread (services/horizen/authorizationClient.ts), deliberately NOT folded into reconcilePulseConstitutionalState, per the operator: keeping it a separate, explicitly-named function preserves reconciliation's own contract ('compares a fresh read against an existing baseline') rather than overloading it with a second, unrelated 'there IS no baseline yet' case.",
+      "Preconditions: the row exists and is CONFIRMED (STATE_MISMATCH otherwise); no canonical receipted evidence exists yet at record.receiptRef (checked via the existing getPulseAuthorizationEvidence read — reused, not duplicated). Existing evidence makes this an idempotent no-op (alreadyBootstrapped:true) with NO live call made.",
+    "Makes exactly one read-only get_onboarding_status call, against the row's OWN recorded network (record.network) rather than trusting a caller-supplied one that might differ — a mismatch refuses WRONG_CHAIN before any live call happens.",
+    "pulseEnrolled and pulseCommitmentRecorded are gated independently, reusing buildPulseVerifiedEvidence and createActivityReceipt exactly as writeConfirmedPulseActivation/materializePulseEvidenceFromHistoricalConfirmation already do — a read that supports enrollment but not commitment mints only pulse_enrollment_verified.",
+    "pulseEnrolled===true is a hard precondition for minting anything. false live-contradicts the row's own CONFIRMED state (PULSE_NOT_ENROLLED_LIVE, refused rather than silently resolved either way); anything else (no structured field at all) is AMBIGUOUS_LIVE_STATUS, refused rather than guessed. A thrown transport/tool error is caught and returned as an explicit TRANSPORT_FAILURE refusal rather than propagating an exception.",
+    "Never signs, submits, re-enrolls, or writes `state` — the row is CONFIRMED before this runs and CONFIRMED after, on every path including refusal. Never invokes reconciliation.",
+    "9 tests added to tests/horizen-authorization-client.test.ts covering the operator's full named scenario list: confirmed+no-receipts (both the STATE_MISMATCH refusal and the proceeds-to-live-call path), already-bootstrapped, enrollment-only, enrollment+commitment, negative, ambiguous, wrong-chain, and transport failure.",
+    "Shipped with scripts/bootstrap-pulse-evidence.ts, mirroring scripts/materialize-pulse-evidence.ts's CLI shape, for the operator to run against Nakamoto's live row."
+  ],
+  "rejectedApproaches": [
+    "Widening reconcilePulseConstitutionalState to also handle the 'no evidence yet' case (bootstrap on first call, compare on later calls) — rejected per the operator's explicit instruction to implement a separate, explicitly-named function, so reconciliation's contract stays exactly 'compares two existing things' and the bootstrap function is named for what it actually does.",
+    "Re-contacting Horizen inside materializePulseEvidenceFromHistoricalConfirmation itself when the historical snapshot has nothing to recover — rejected: that function's own contract is 'never live, never a rewrite' (see its own header); conflating it with a live path would blur the exact distinction the operator drew between the two same-day acceptance-test functions.",
+    "Letting a transport exception from the live get_onboarding_status call propagate as an uncaught error (matching verifyHorizenTransparencyActivation/reconcilePulseConstitutionalState's own pre-existing behavior, which do not wrap that call in try/catch) — rejected specifically for this new function because the operator's spec named 'transport failure' as one of the required test scenarios with an explicit refusal outcome, not a thrown exception."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-08-PULSE-EVIDENCE-BOOTSTRAP-001"
+  ],
+  "canaries": [
+    "tests/horizen-authorization-client.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "invariant-incomplete-or-misscoped",
+  "evidence": {
+    "commits": [
+      "37c9edf"
+    ],
+    "tests": [
+      "tests/horizen-authorization-client.test.ts"
+    ],
+    "receipts": [
+      "pulse_enrollment_verified",
+      "pulse_commitment_verified"
+    ],
+    "incidentRefs": []
+  },
+  "sourceDocs": [],
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

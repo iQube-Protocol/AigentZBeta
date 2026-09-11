@@ -13,8 +13,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
+import {
+  ensureCorpusHydrated,
+  corpusReadFile,
+  corpusListMarkdown,
+} from '@/services/knowledge/packCorpusStore';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,17 +77,19 @@ export async function POST(req: NextRequest) {
   const db = getDb();
   const results: Array<{ file: string; status: string; chunks?: number; error?: string }> = [];
 
-  let files: string[];
-  try {
-    files = readdirSync(DOCS_DIR).filter(f => f.endsWith('.md'));
-  } catch (err) {
-    return NextResponse.json({ error: `Cannot read docs dir: ${err}` }, { status: 500 });
-  }
+  // Read through the pack-corpus seam (local FS in dev; remote in the SSR
+  // Lambda). Keep the original flat top-level listing (no nested subdirs).
+  await ensureCorpusHydrated();
+  const files = corpusListMarkdown(DOCS_DIR, DOCS_DIR).filter((f) => !f.includes('/'));
 
   for (const filename of files) {
     const sourceId = `knyt_wheel:${filename}`;
     try {
-      const content = readFileSync(join(DOCS_DIR, filename), 'utf-8');
+      const content = corpusReadFile(join(DOCS_DIR, filename));
+      if (content === null) {
+        results.push({ file: filename, status: 'error', error: 'file unavailable' });
+        continue;
+      }
       const title = titleFromFilename(filename);
 
       // Upsert document record

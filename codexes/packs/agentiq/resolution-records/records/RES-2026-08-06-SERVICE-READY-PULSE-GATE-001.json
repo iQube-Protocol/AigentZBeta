@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-06",
+  "resolutionId": "RES-2026-08-06-SERVICE-READY-PULSE-GATE-001",
+  "capability": "agent-bench-financial-services-membership",
+  "milestone": "Agent Bench / aigentMe Specialist Orchestration brief — Phase 2 (Financial Services agent selector)",
+  "problem": "buildFinancialServicesMembership()'s `fullyEligible` computation ANDed `pulseAuthorized && pnlEnabled` into the condition that produces runtime-membership status 'approved' (which `deriveLifecycleState` maps to Agent Bench lifecycle 'service-ready'). This directly contradicts the already-ratified rule that the journey's `verify` stage (Horizen Pulse/P&L transparency) is optional and must never become an accidental admission gate — the same rule task #13 ('Standing eligibility + confirm FS verification stays optional/non-gating') had already addressed for a different code path.",
+  "observedFailure": [
+    "Operator report (2026-08-06, screenshot evidence): Agent Bench showed 'Deploy (0)' — zero rows in Service Ready — while Aigent Nakamoto's Delegate Passport was approved (ppp-41545149293b97f4b09886f9, agent_participant, 2026-08-03) and her registry asset was published.",
+    "Operator statement: 'Pulse and PnL integration is not a requirement for being service ready' — naming the exact condition the code was enforcing as wrong.",
+    "tests/agent-bench-read-model.test.ts had a passing test titled '...never a fabricated pass' that asserted `lifecycleState` stays 'in-admission' (not 'service-ready') specifically WHEN Pulse/P&L are outstanding and every other admission fact holds — the canary encoded the defect as intended behavior rather than detecting it."
+  ],
+  "rootCauses": [
+    "The eligibility.satisfied/outstanding tracking (informational, correctly non-gating) and the fullyEligible boolean (gating) were computed from the SAME six-fact list without distinguishing which facts belong in each — Pulse/P&L were added to the tracking list once and never removed from the gate when the 'verify is optional' rule was ratified for the journey stage itself.",
+    "The design doc that specified Service Ready's computed condition (2026-08-05 Agent Bench plan, §5) explicitly named this risk ('Requiring every journey stage through standing would make an optional external service an accidental admission gate') but the implementation in `agentBenchReadModel.ts` was not checked against that specific sentence before this session."
+  ],
+  "resolution": [
+    "Dropped `args.pulseAuthorized && args.pnlEnabled` from the `fullyEligible` boolean in `buildFinancialServicesMembership()` (services/marketa/activation/agentBenchReadModel.ts) — Service Ready now requires only coreAdmissionHolds (sponsorship + Delegate Passport + active delegation) + registry published.",
+    "Pulse/P&L remain in the `satisfied`/`outstanding` eligibility lists unchanged — still visible to the operator as facts, just no longer gating.",
+    "Rewrote the test that had encoded the old gating behavior as the expected outcome: it now asserts Service Ready IS reached with Pulse/P&L outstanding, and documents why in its title and body so a future edit cannot silently reintroduce the gate without a visibly broken canary."
+  ],
+  "rejectedApproaches": [
+    "Add a separate 'Pulse required' flag on the runtime membership that a future policy could flip on — deferred as speculative; no capability in this codebase currently requires Pulse/P&L to gate Service Ready, and the 2026-08-06 Phase 4 design doc's Gate 2 already models Pulse/P&L requirements as a PER-CAPABILITY policy-binding signal, not a per-agent membership flag — building a second mechanism here would duplicate that design before it ships."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-06-OPTIONAL-VERIFICATION-NEVER-GATES-001"
+  ],
+  "canaries": [
+    "tests/agent-bench-read-model.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "defect-recurred",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/agent-bench-read-model.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-08-05_threshold-cohort-activation-and-agent-bench-plan.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-05_threshold-cohort-activation-and-agent-bench-plan.md",
+    "codexes/packs/agentiq/updates/2026-08-06_governed-capability-invocation-design.md"
+  ],
+  "projections": {
+    "targets": [
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  }
+}

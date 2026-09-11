@@ -1,0 +1,49 @@
+type BatchAnchorState = variant {
+  Anchored : record {
+    confirmations : nat32;
+    txid : text;
+    block_height : nat64;
+  };
+  AnchorRequested : record { txid : text };
+  Unanchored;
+};
+type BatchV2 = record {
+  h_hexes : vec text;
+  anchor_state : BatchAnchorState;
+  created_at_ns : nat64;
+  root_hex : text;
+};
+type InitArg = record {
+  authorized_operator_principal : principal;
+  authorized_reconciler_principal : principal;
+  anchor_signer_principal : principal;
+  min_confirmations : nat32;
+};
+type ProofStep = variant {
+  Sibling : record { hash_hex : text; side : Side };
+  Promoted;
+};
+type ReceiptV2 = record {
+  h_hex : text;
+  leaf_hex : text;
+  issued_at_ns : nat64;
+  inclusion_proof : vec ProofStep;
+  batch_root_hex : opt text;
+};
+type Result = variant { Ok : BatchV2; Err : text };
+type Result_1 = variant { Ok : ReceiptV2; Err : text };
+type Result_2 = variant { Ok : BatchAnchorState; Err : text };
+type Result_3 = variant { Ok : text; Err : text };
+type Result_4 = variant { Ok : bool; Err : text };
+type Side = variant { Left; Right };
+service : (InitArg) -> {
+  batch_now : () -> (Result);
+  get_batch : (text) -> (opt BatchV2) query;
+  get_config : () -> (opt record { text; text; text; nat32 }) query;
+  get_pending_count : () -> (nat64) query;
+  get_receipt : (text) -> (opt ReceiptV2) query;
+  issue_receipt : (text) -> (Result_1);
+  record_confirmation : (text, text, nat64, nat32) -> (Result_2);
+  request_anchor : (text) -> (Result_3);
+  verify_receipt : (text) -> (Result_4) query;
+};

@@ -1,0 +1,121 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-03-TTV-TTR-OBJECTIVE-001",
+  "statement": "Constitutional computing shall reduce Time to Value while keeping Time to Repair within constitutional bounds. A reduction in Time to Repair must not be achieved through a material increase in Time to Value, and a reduction in Time to Value must not create an unacceptable increase in Time to Repair. Constitutional safeguards constrain unsafe acts while accelerating constitutionally safe work.",
+  "classification": "TTV/TTR Constitutional Principle. Family: Constitutional invariant. Domain: Constitutional computing. Ratifying authority: Operator. Operational mechanism: operator agency, cognitive-load reduction, exception isolation, prepared recommendations, and absorption of non-governance execution complexity. Measurement: PoTS / Time to Value, together with Time to Repair and risk-repair scope. Scientific status: A GOVERNING CONSTITUTIONAL PRINCIPLE, NOT a claimed structural or scientific invariant.",
+  "family": "constitutional",
+  "parentCandidateId": null,
+  "scope": "cross-capability",
+  "status": "ratified",
+  "ratifiedSource": "Operator direction, 2026-08-03, confirmed on review: \"Yes — that was an explicit operator ratification, not merely a proposal.\" Ratified text, verbatim: \"Constitutional computing shall reduce Time to Value while keeping Time to Repair within constitutional bounds. A reduction in Time to Repair must not be achieved through a material increase in Time to Value, and a reduction in Time to Value must not create an unacceptable increase in Time to Repair. Constitutional safeguards constrain unsafe acts while accelerating constitutionally safe work.\"",
+  "projections": {
+    "targets": [
+      "constitutional-computing",
+      "devon",
+      "ux-framework",
+      "venture-methodology",
+      "invariant-corpus"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  },
+  "derivedFrom": [
+    "RES-2026-08-03-KNOWLEDGE-PIPELINE-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/corpusScout/duplicateResolution.ts — the duplicate workflow",
+      "defect": "The OLD duplicate workflow had excellent Time to Repair and terrible Time to Value: the operator had to leave the exception, find each duplicate in a separate queue, and act there. Optimising TTR alone produced a workflow nobody could complete. The NEW workflow resolves the duplicate where it appears — TTV excellent, TTR unchanged — which is the constitutionally superior design under this principle.",
+      "resolutionId": "RES-2026-08-03-KNOWLEDGE-PIPELINE-001",
+      "evidence": [
+        "fb4543c7e",
+        "352fee7c3",
+        "tests/duplicate-resolution.test.ts"
+      ]
+    },
+    {
+      "site": "services/research/exceptionIsolation.ts — Stage 2 admission",
+      "defect": "Three anomalous sources made thirty eligible ones unactionable. Perfect containment (TTR) at the cost of an executable cohort of zero (TTV). The exception-isolation model is the same trade made correctly.",
+      "resolutionId": "RES-2026-08-03-KNOWLEDGE-PIPELINE-001",
+      "evidence": [
+        "9d86b3a1c",
+        "tests/exception-isolation.test.ts"
+      ]
+    },
+    {
+      "site": "Duplicate review — services/corpusScout/duplicateResolution.ts",
+      "defect": "The operator had to hunt for duplicates in a separate queue instead of resolving them where they surfaced.",
+      "resolutionId": "RES-2026-08-03-KNOWLEDGE-PIPELINE-001",
+      "evidence": [
+        "fb4543c7e",
+        "352fee7c3",
+        "tests/duplicate-resolution.test.ts"
+      ]
+    },
+    {
+      "site": "Exception review — components/research/Track2ProgrammePanel.tsx",
+      "defect": "The exception surface diagnosed the problem and required navigating elsewhere to act on it.",
+      "resolutionId": "RES-2026-08-03-EXCEPTION-SURFACE-TERMINATES-IN-ACT-001",
+      "evidence": [
+        "55813f14e",
+        "tests/exception-isolation.test.ts"
+      ]
+    },
+    {
+      "site": "Stage progression — services/research/track2Programme.ts",
+      "defect": "Safe work was blocked because unsafe work existed; a stage holding exceptions reported blocked although every ready record had been processed.",
+      "resolutionId": "RES-2026-08-03-TRACK2-EXCEPTION-ISOLATION-001",
+      "evidence": [
+        "9d86b3a1c",
+        "tests/track2-steward-workflow.test.ts"
+      ]
+    },
+    {
+      "site": "Batch limit — Track 2 Stage 2 bulk admission",
+      "defect": "The operator was asked to manually partition 33 sources against a 25-source limit the machine already understood.",
+      "resolutionId": "RES-2026-08-03-BATCH-LIMIT-PROJECTED-ONTO-OPERATOR-001",
+      "evidence": [
+        "Operator live-surface report, 2026-08-03"
+      ]
+    },
+    {
+      "site": "Diagnosable refusals — services/horizen/authorizationClient.ts + the Bitcent testnet balance row",
+      "defect": "Two refusals named only what was not found, discarding the diagnostic reason they already held, so the operator could not act on either.",
+      "resolutionId": "RES-2026-08-03-DIAGNOSABLE-REFUSALS-001",
+      "evidence": [
+        "ebb6c165a",
+        "tests/bitcent-explorer-fallback.test.ts"
+      ]
+    }
+  ],
+  "canaries": [
+    {
+      "path": "tests/duplicate-resolution.test.ts",
+      "assertion": "The duplicate decision is taken in place, on the exception, carrying its evidence — the operator is never sent to another queue to act. This is the shipped instance of TTV reduced with TTR unchanged.",
+      "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/resolution-records.test.ts",
+      "assertion": "The ratified objective points at the EXISTING PoTS/Net-Value-Acceleration definition rather than restating the arithmetic, and every source it names resolves on disk.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "notes": [
+    "RECORDED AT `ratified` ON A NAMED OPERATOR ACT — not agent self-promotion. The validator requires ratifiedSource above `validated`, and this is what that field is for.",
+    "SCIENTIFIC STATUS, recorded explicitly at the operator's instruction: this is A GOVERNING CONSTITUTIONAL PRINCIPLE, NOT a claimed structural or scientific invariant. It is doctrine about how the platform is governed, not an empirical claim about the world — the same hypothesis-vs-canon discipline CLAUDE.md binds this repo to. Nothing may cite it as evidence that the pattern generalises beyond this platform.",
+    "CORRECTION RECORDED, and it is exactly the drift this registry exists to catch. An intermediate summary of this ruling framed it as the one-sided optimisation `Minimize(TTV) subject to TTR within constitutional bounds`, and that framing was written into an earlier version of this record. The operator corrected it, verbatim: \"That captures only one direction. Your ruling is explicitly bidirectional: neither TTV nor TTR may be improved by materially degrading the other. The canonical record should preserve that balance.\" The statement above is the canonical bidirectional wording; the asymmetric form is wrong and must not be reintroduced. A summary drifting from a ruling, caught only because the ruling was written down verbatim, is the loop working on itself.",
+    "THE PRINCIPLE IS A BIDIRECTIONAL BALANCED CONSTRAINT, not an optimisation with a single objective. Neither direction may be bought with the other: a TTR reduction that materially increases TTV is refused, and a TTV reduction that creates an unacceptable TTR increase is refused.",
+    "THE TWO QUESTIONS every design decision must answer: does this materially reduce Time to Value? does this materially increase Time to Repair? Only if the second is \"no\" (or within constitutional bounds) should it proceed.",
+    "REJECTION RULE, verbatim: \"Reject changes that reduce TTR by greatly increasing TTV; reduce TTV by greatly increasing TTR.\"",
+    "AGENCY IS THE MECHANISM, NOT THE CATEGORY. The operator classified this in the CONSTITUTIONAL family and named operator agency, cognitive-load reduction, exception isolation, prepared recommendations and execution-constraint absorption as its OPERATIONAL MECHANISM. An earlier pass in this session had put the principle in an invented fourth `governing` family; that family was removed and the structural fact it carried is now the `governingPrinciple` flag on this record — which is what lets an `agency` child such as Execution-Constraint Absorption descend from a `constitutional` parent without weakening the rule that a corollary of one family cannot belong to another.",
+    "STATUS DOES NOT CASCADE (operator, verbatim): \"The child UX and engineering constructs need not all be independently ratified merely because the parent is ratified. They may remain candidate or validated implementation invariants until their own evidence and enforcement points justify promotion.\" Every one of the seven children below is at `candidate`; nothing in the schema, the validator or the report derives a child status from a parent, and a canary pins that.",
+    "NOT A NEW PRIMITIVE. The platform already carries this structure: services/polity/frameworks/polity-papers-commentary.v1.json defines PoTS in three layers — \"(1) PUBLIC MENTAL MODEL = Time-to-Value; (2) INTERNAL METRIC = Proof of Time Saved, PoTS; (3) CONSTITUTIONAL PRINCIPLE = Net Value Acceleration = Time-to-Value minus Risk Repair Burden\" — and services/venture/ventureOutcomeAccrual.ts::netValueAccelerationHours computes max(0, timeSavedHours − riskRepairHours). This ratification makes binding at DESIGN time the objective the platform already measures at OUTCOME time. PoTS therefore becomes a first-class design objective WITHOUT a second definition.",
+    "MEASURABLE DIMENSIONS are pinned as data in types/resolutionRecords.ts — TTV: clicks, navigation, decisions, elapsed time, interruptions, operator interventions. TTR: scope of failure, rollback effort, recovery complexity, repair duration, downstream consequences.",
+    "THE CONSTITUTIONAL EXECUTION FAMILY — the six principles that descend from this one, in the operator's order: 1 Exception Isolation (CI-…-CONTROL-CONSTRAINS-RECORD-001); 2 Exception Terminates in an Act (CI-…-EXCEPTION-TERMINATES-IN-ACT-001); 3 Execution Constraint Absorption (CI-…-EXECUTION-CONSTRAINT-ABSORPTION-001); 4 Cognitive Load Minimization (CI-…-UX-MINIMIZE-CONSTITUTIONAL-COGNITIVE-LOAD-001); 5 Recommendation Before Interrogation (CI-…-UX-RECOMMENDATION-PREPARED-IN-ADVANCE-001); 6 Prepared Execution (CI-…-PREPARED-EXECUTION-001). Five are existing records re-parented; only Prepared Execution is new, because no prior record covered it.",
+    "WORDING DISCREPANCY, recorded rather than resolved by choosing quietly. Two renderings of this principle were supplied in the same session. The canonical one — used above — is the bidirectional text the operator issued as the correction: \"…shall reduce Time to Value while keeping Time to Repair within constitutional bounds. A reduction in Time to Repair must not be achieved through a material increase in Time to Value, and a reduction in Time to Value must not create an unacceptable increase in Time to Repair…\". A later summary rendered it as \"…shall minimize Time to Value while maintaining Time to Repair within constitutional bounds. Improvements in one shall not be achieved through material degradation of the other…\", which is the same constraint more compactly stated and was explicitly said to leave the earlier wording standing. The fuller text is kept because it names both directions explicitly, which is the property the operator corrected FOR. If the operator prefers the compact form, this is a one-line change.",
+    "ABSORBED 2026-08-03: CI-…-AGENCY-INVARIANT-I-001 (\"Every constitutional workflow shall maximize the operator's ability to progress safely…\"), whose content is this principle's own third sentence plus Exception Isolation. Its five recorded occurrence sites — duplicate review, exception review, stage progression, batch limit, diagnosable refusals — are preserved here as the evidence that produced the Execution family. That evidence is why the family's generality is EVIDENCED across five subsystems rather than asserted from one."
+  ],
+  "governingPrinciple": true,
+  "supersededBy": null
+}

@@ -1,0 +1,31 @@
+name: submit-specific-receipts
+
+# One-off, manually-triggered ops recovery (Horizen Pilot Closure, part B3,
+# 2026-08-09). Submits an EXPLICIT list of local activity_receipts ids to DVN
+# via the existing enqueueReceiptLeg primitive — never a backlog scan.
+on:
+  workflow_dispatch:
+    inputs:
+      ids_json:
+        description: 'JSON array of activity_receipts ids, e.g. ["id1","id2"]'
+        required: true
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Submit specific receipts
+        env:
+          CRON_TRIGGER_TOKEN: ${{ secrets.CRON_TRIGGER_TOKEN }}
+          IDS_JSON: ${{ inputs.ids_json }}
+        run: |
+          if [ -z "$CRON_TRIGGER_TOKEN" ]; then
+            echo "::error::CRON_TRIGGER_TOKEN secret not set in repo settings"
+            exit 1
+          fi
+          BODY=$(python3 -c "import os,json; print(json.dumps({'ids': json.loads(os.environ['IDS_JSON'])}))")
+          curl -sS --max-time 60 -X POST \
+            -H "x-cron-token: $CRON_TRIGGER_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$BODY" \
+            "https://dev-beta.aigentz.me/api/ops/dvn/submit-specific-receipts"

@@ -42,6 +42,7 @@ import {
   verifyApprovalToken,
   isApprovalTokenSigningConfigured,
 } from '@/services/access/approvalToken';
+import { checkDelegationAuthority, incrementActionsTaken } from '@/services/delegation/delegationAuthorityGate';
 
 export const dynamic = 'force-dynamic';
 
@@ -108,6 +109,39 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       { error: 'unknown-connector', detail: `connectorId ${body.connectorId} not registered` },
       { status: 400, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
+
+  // Delegation authority gate (Homecoming Closeout WP-C2, operator brief
+  // 2026-08-17) — a no-op when no real Agent is assigned to the aigentMe
+  // role (the Default identity never inherits a delegate's grant). When a
+  // real Agent IS assigned, her active grant must cover this action and
+  // surface, or execution is refused here, before the approval-token gate
+  // below even runs. This NEVER weakens or replaces that approval gate —
+  // both apply.
+  const surface = body.cartridge ?? 'metame';
+  const authority = await checkDelegationAuthority({
+    request,
+    connectorId: connector.id,
+    surface,
+    requiresApproval: connector.requiresApproval,
+  });
+  if (!authority.allowed) {
+    await createActivityReceipt({
+      personaId: context.personaId,
+      intentId: body.sourceIntentId ?? null,
+      activeCartridge: body.cartridge ?? 'metame',
+      actionType: 'artifact_created',
+      summary: `${authority.attribution.actingAgentDisplayName} acted as aigentMe for the principal under bounded delegation — refused: ${authority.reason}`,
+      agentsInvoked: [authority.attribution.actingAgentRootId],
+      toolsUsed: [connector.id],
+      contextShared: ['delegated-action-refusal'],
+      actionConnectorId: connector.id,
+      actionInput: { ...authority.attribution, outcome: 'refused', refusalCode: authority.code },
+    }).catch(() => undefined);
+    return NextResponse.json(
+      { ok: false, code: authority.code, reason: authority.reason },
+      { status: 403, headers: { 'Cache-Control': 'no-store' } },
     );
   }
 
@@ -180,18 +214,33 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     });
   }
 
+  // Delegated-action attribution (Homecoming Closeout WP-C3, operator brief
+  // 2026-08-17) — the SAME structured fields as the refusal receipt above,
+  // packed into actionInput per the existing receipt-JSON convention (no
+  // schema migration). Only present when a real Agent was acting under a
+  // grant; a non-delegated (Default aigentMe) execution keeps the exact
+  // pre-existing receipt shape.
+  if (authority.delegated) {
+    await incrementActionsTaken(authority.attribution.delegationGrantId);
+  }
+  const delegatedSummary = authority.delegated
+    ? `${authority.attribution.actingAgentDisplayName} acted as aigentMe for the principal under bounded delegation — ${connector.label} executed.`
+    : `${connector.label} executed`;
+
   // Emit receipt.
   await createActivityReceipt({
     personaId: context.personaId,
     intentId: body.sourceIntentId ?? null,
     activeCartridge: body.cartridge ?? 'metame',
     actionType: connector.requiresApproval ? 'artifact_sent' : 'artifact_created',
-    summary: `${connector.label} executed`,
-    agentsInvoked: ['aigent-me'],
+    summary: delegatedSummary,
+    agentsInvoked: authority.delegated ? [authority.attribution.actingAgentRootId] : ['aigent-me'],
     toolsUsed: [connector.id],
     iqubesUsed: ['PersonaQube', 'ExperienceQube', 'IntentQube'],
     contextShared: ['connector-input-summary'],
     artifactsCreated: [connector.id],
+    actionConnectorId: connector.id,
+    actionInput: authority.delegated ? { ...authority.attribution, outcome: 'executed' } : undefined,
     approvalsGranted: body.approvalToken ? [body.approvalToken] : [],
   }).catch(() => undefined);
 

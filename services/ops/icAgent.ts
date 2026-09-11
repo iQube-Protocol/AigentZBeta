@@ -1,5 +1,6 @@
 import { HttpAgent, Actor } from '@dfinity/agent';
 import fetch from 'cross-fetch';
+import { normalizePem, parsePemToIdentity } from './pemNormalizer';
 
 const IS_BUILD = process.env.NEXT_PHASE === 'phase-production-build';
 
@@ -29,31 +30,17 @@ export async function getActor<T = Record<string, any>>(canisterId: string, idlF
   }
 
   // Optional server identity for authenticated updates
-  let identity: any = undefined;
-  let pem: string | undefined = process.env.DFX_IDENTITY_PEM || process.env.NEXT_PUBLIC_DFX_IDENTITY_PEM;
+  let pem: string | null = normalizePem(process.env.DFX_IDENTITY_PEM || process.env.NEXT_PUBLIC_DFX_IDENTITY_PEM);
   const pemPath = process.env.DFX_IDENTITY_PEM_PATH;
   if (!pem && pemPath && typeof window === 'undefined') {
-    // Only try to read file on server-side
     try {
       const { readFileSync } = await import('fs');
-      pem = readFileSync(pemPath, 'utf8');
+      pem = normalizePem(readFileSync(pemPath, 'utf8'));
     } catch {
       // ignore file read errors and fall back to anonymous
     }
   }
-  if (pem && typeof pem === 'string' && pem.includes('BEGIN') && pem.includes('KEY')) {
-    try {
-      const idMod: any = await import('@dfinity/identity');
-      if (idMod?.Ed25519KeyIdentity?.fromPem) {
-        try { identity = idMod.Ed25519KeyIdentity.fromPem(pem); } catch {}
-      }
-      if (!identity && idMod?.Secp256k1KeyIdentity?.fromPem) {
-        try { identity = idMod.Secp256k1KeyIdentity.fromPem(pem); } catch {}
-      }
-    } catch {
-      // identity module not available; continue anonymously
-    }
-  }
+  const identity = await parsePemToIdentity(pem);
 
   const agent = new HttpAgent({ host, ...(identity ? { identity } : {}), fetch: fetch as any });
 

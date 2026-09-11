@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "exploration-item/v1.0",
+  "explorationId": "EXP-2026-08-03-CONSTITUTIONAL-WORKFLOW-OPTIMISATION-001",
+  "becameCandidateId": null,
+  "disposition": "open",
+  "raisedBy": [
+    "RES-2026-08-03-KNOWLEDGE-PIPELINE-001"
+  ],
+  "notes": [
+    "The operator: PoTS becomes \"a first-class DESIGN objective rather than only a business metric\" — \"How much operator time did this constitutional workflow save without creating additional repair burden?\" That is a measurement question, and it is open."
+  ],
+  "date": "2026-08-03",
+  "question": "Can Time to Value and Time to Repair be MEASURED per workflow rather than argued about — and should a constitutional workflow carry its own TTV/TTR budget?",
+  "context": "The operator ratified the TTV/TTR objective as a design rule and named measurable dimensions for both. The platform already computes Net Value Acceleration at outcome time from claimed hours. The open question is whether design-time TTV/TTR can be instrumented rather than estimated.",
+  "wouldRequire": [
+    "An instrument: the TTV dimensions the operator named (clicks, navigation, decisions, elapsed time, interruptions, operator interventions) are observable in principle, but nothing measures them today.",
+    "A decision on whether a measured TTV feeds PoTS directly, given PoTS accrues to Standing only after verification — an automatically measured input to a verification-gated metric needs its own gate.",
+    "A baseline. Without one, \"materially reduces Time to Value\" stays a judgement, which is what the two questions in the ratified principle currently are."
+  ],
+  "projections": {
+    "targets": [
+      "constitutional-computing",
+      "irl",
+      "venture-methodology"
+    ],
+    "researchRequired": true,
+    "ratificationRequired": false,
+    "track": "structural"
+  }
+}

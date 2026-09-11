@@ -100,19 +100,22 @@ export function FIOManager() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
+      <Card className="backdrop-blur-xl bg-slate-900/40 border border-slate-800">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Wallet className="h-5 w-5 text-blue-500" />
+                <Wallet className="h-5 w-5 text-emerald-400" />
                 FIO Manager
               </CardTitle>
               <CardDescription>
                 FIO handle management and crypto address resolution
               </CardDescription>
             </div>
-            <Button onClick={() => setIsRegistering(true)}>
+            <Button
+              onClick={() => setIsRegistering(true)}
+              className="bg-emerald-500/10 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/20"
+            >
               <Plus className="h-4 w-4 mr-2" />
               Register Handle
             </Button>
@@ -122,7 +125,7 @@ export function FIOManager() {
 
       {/* Register Handle Form */}
       {isRegistering && (
-        <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
+        <Card className="backdrop-blur-xl bg-slate-900/40 border border-slate-800">
           <CardHeader>
             <CardTitle>Register New FIO Handle</CardTitle>
             <CardDescription>
@@ -138,6 +141,7 @@ export function FIOManager() {
                   value={newHandle.handle}
                   onChange={(e) => setNewHandle({...newHandle, handle: e.target.value})}
                   placeholder="Enter handle name"
+                  className="bg-slate-900/40 border-slate-800"
                 />
               </div>
               <div>
@@ -147,15 +151,23 @@ export function FIOManager() {
                   value={newHandle.domain}
                   onChange={(e) => setNewHandle({...newHandle, domain: e.target.value})}
                   placeholder="Enter domain"
+                  className="bg-slate-900/40 border-slate-800"
                 />
               </div>
             </div>
 
             <div className="flex items-center justify-end space-x-2">
-              <Button variant="outline" onClick={() => setIsRegistering(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setIsRegistering(false)}
+                className="bg-slate-900/40 border-slate-800 text-slate-300 hover:bg-slate-800/60"
+              >
                 Cancel
               </Button>
-              <Button onClick={handleRegister}>
+              <Button
+                onClick={handleRegister}
+                className="bg-emerald-500/10 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/20"
+              >
                 Register Handle
               </Button>
             </div>
@@ -164,7 +176,7 @@ export function FIOManager() {
       )}
 
       {/* Address Resolver */}
-      <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
+      <Card className="backdrop-blur-xl bg-slate-900/40 border border-slate-800">
         <CardHeader>
           <CardTitle className="text-lg">Resolve FIO Address</CardTitle>
           <CardDescription>
@@ -177,36 +189,44 @@ export function FIOManager() {
               value={resolvingAddress}
               onChange={(e) => setResolvingAddress(e.target.value)}
               placeholder="Enter FIO address (e.g., user@domain)"
+              className="bg-slate-900/40 border-slate-800"
             />
-            <Button onClick={handleResolve}>
+            <Button
+              onClick={handleResolve}
+              className="bg-emerald-500/10 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/20"
+            >
               Resolve
             </Button>
           </div>
 
           {resolvedAddress && (
-            <Card className="bg-muted/50">
+            <Card className="bg-slate-900/40 border border-slate-800">
               <CardContent className="pt-6">
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <CheckCircle className="h-4 w-4 text-emerald-400" />
                     <span className="font-medium">{resolvedAddress.fioAddress}</span>
                   </div>
                   {resolvedAddress.walletAddresses.length > 0 ? (
                     <div className="space-y-2">
                       {resolvedAddress.walletAddresses.map((wallet, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 rounded border">
+                        <div key={index} className="flex items-center justify-between p-2 rounded border border-slate-800 bg-slate-900/40">
                           <div className="flex items-center gap-2">
                             <span>{getChainIcon(wallet.chain)}</span>
                             <span className="text-sm">{wallet.chain}</span>
                             {wallet.verified && (
-                              <Badge variant="secondary" className="text-xs">Verified</Badge>
+                              <Badge variant="secondary" className="text-xs bg-slate-800/60 text-slate-300 border border-slate-700">Verified</Badge>
                             )}
                           </div>
                           <div className="flex items-center gap-2">
-                            <code className="text-xs bg-muted px-2 py-1 rounded">
+                            <code className="text-xs bg-slate-950/60 border border-slate-800 px-2 py-1 rounded">
                               {formatAddress(wallet.address)}
                             </code>
-                            <Button variant="outline" size="sm">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="bg-slate-900/40 border-slate-800 text-slate-300 hover:bg-slate-800/60"
+                            >
                               <ExternalLink className="h-3 w-3" />
                             </Button>
                           </div>
@@ -228,12 +248,12 @@ export function FIOManager() {
       {/* Registered Handles */}
       <div className="space-y-4">
         {handles.map((handle) => (
-          <Card key={handle.fioAddress} className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
+          <Card key={handle.fioAddress} className="backdrop-blur-xl bg-slate-900/40 border border-slate-800">
             <CardContent className="pt-6">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Wallet className="h-5 w-5 text-blue-500" />
+                    <Wallet className="h-5 w-5 text-emerald-400" />
                     <div>
                       <div className="font-medium">{handle.fioAddress}</div>
                       <div className="text-sm text-muted-foreground">
@@ -243,7 +263,7 @@ export function FIOManager() {
                     </div>
                   </div>
                   {handle.personaId && (
-                    <Badge variant="outline">Persona Linked</Badge>
+                    <Badge variant="outline" className="bg-slate-900/40 border-slate-800 text-slate-300">Persona Linked</Badge>
                   )}
                 </div>
 
@@ -252,15 +272,15 @@ export function FIOManager() {
                     <h4 className="text-sm font-medium">Wallet Addresses</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                       {handle.walletAddresses.map((wallet, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 rounded border bg-muted/50">
+                        <div key={index} className="flex items-center justify-between p-2 rounded border border-slate-800 bg-slate-900/40">
                           <div className="flex items-center gap-2">
                             <span>{getChainIcon(wallet.chain)}</span>
                             <span className="text-sm">{wallet.chain}</span>
                             {wallet.verified && (
-                              <CheckCircle className="h-3 w-3 text-green-500" />
+                              <CheckCircle className="h-3 w-3 text-emerald-400" />
                             )}
                           </div>
-                          <code className="text-xs bg-background px-2 py-1 rounded">
+                          <code className="text-xs bg-slate-950/60 border border-slate-800 px-2 py-1 rounded">
                             {formatAddress(wallet.address)}
                           </code>
                         </div>

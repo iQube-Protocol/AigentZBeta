@@ -292,6 +292,18 @@ function buildArticleDraftContext(experience: any) {
 }
 
 function shouldIncludeArticleDraft(experience: any, compositionBundle: ReturnType<typeof getAppliedExperienceBundle>) {
+  // A plain video template with no applied bundle must NEVER surface a
+  // companion article — even if the row carries a residual
+  // article_draft.generated from the pre-2026-07-04 bug (where video
+  // completion wrote an article unconditionally by falling back to the
+  // experience name/description). Suppress it here so stale rows stop
+  // rendering an article without needing a data migration. The standalone
+  // article template (ai-article-draft) is a different template_id, and the
+  // video+article bundle applies a composition_bundle (compositionBundle
+  // truthy) — both are unaffected by this guard.
+  if (!compositionBundle && experience?.template_id === "sora-video-generation") {
+    return false;
+  }
   if (compositionBundle?.blockKinds.includes("article_draft")) return true;
   const acceptedArticleDraft = getBundleOutputRecord(experience, "article_draft");
   if (acceptedArticleDraft && typeof acceptedArticleDraft === "object") return true;
@@ -584,7 +596,7 @@ function buildSkillPacket(experience: any, personaLibraryAssets: any[] = []) {
       trust_override: skillSel.trust_override === true,
       venice_model: skillSel.venice_model || null,
       prompt: videoPrompt.prompt || "",
-      duration: videoPrompt.duration || 10,
+      duration: videoPrompt.duration || 12,
       aspect_ratio: videoPrompt.aspect_ratio || "16:9",
       style: videoPrompt.style || "cinematic",
       creative_pack: intent.creative_pack || null,
@@ -610,7 +622,7 @@ function buildSkillPacket(experience: any, personaLibraryAssets: any[] = []) {
           props: {
             skill_id: skillId,
             prompt: videoPrompt.prompt || "",
-            duration: videoPrompt.duration || 10,
+            duration: videoPrompt.duration || 12,
             aspect_ratio: videoPrompt.aspect_ratio || "16:9",
             style: videoPrompt.style || "cinematic",
             creative_pack: intent.creative_pack || null,
@@ -819,6 +831,11 @@ async function buildPacket(experience: any) {
   const wallet = config.wallet_rewards || {};
   const copilot = config.copilot_output || {};
   const primaryTemplate = selectPrimaryTemplate(experience);
+  const compositionBundle = getAppliedExperienceBundle(experience);
+  const sequencingState = resolveExperienceBundleSequencingState(experience, compositionBundle);
+  const articleDraft = shouldIncludeArticleDraft(experience, compositionBundle)
+    ? buildArticleDraftContext(experience)
+    : undefined;
 
   const featureId = content.feature_item_id;
   const supportingIds = Array.isArray(content.supporting_item_ids) ? content.supporting_item_ids : [];
@@ -863,6 +880,23 @@ async function buildPacket(experience: any) {
         reward_amount: rewardAmount,
       },
     },
+    composition: compositionBundle
+      ? {
+          ...compositionBundle,
+          media_mode: "read",
+          sequencing_state: sequencingState,
+        }
+      : {
+          presetId: "reading_sprint",
+          media_mode: "read",
+          nextActions: [
+            "Open the feature article",
+            "Read with preview + unlock",
+            "Capture copilot takeaways",
+            "Save the takeaways card",
+          ],
+        },
+    article_draft: articleDraft,
     ui: {
       primary_template: primaryTemplate.templateId,
       layout: "split",

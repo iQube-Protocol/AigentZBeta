@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polity://constitutional-internet/agents/accession-intent/v0.1",
+  "title": "Agent Accession Intent",
+  "type": "object",
+  "required": [
+    "documentType",
+    "version",
+    "agentStatus",
+    "principal",
+    "constitutionalAssessment",
+    "requestedNextAction",
+    "requiresHumanConsent"
+  ],
+  "properties": {
+    "documentType": {"const": "agent_accession_intent"},
+    "version": {"const": "0.1"},
+    "agentStatus": {
+      "type": "object",
+      "required": ["claimsPersonhood", "claimsIndependentAuthority", "syntheticStatusDisclosed"],
+      "properties": {
+        "claimsPersonhood": {"const": false},
+        "claimsIndependentAuthority": {"const": false},
+        "syntheticStatusDisclosed": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "principal": {
+      "type": "object",
+      "required": ["identified", "type", "verificationRequired"],
+      "properties": {
+        "identified": {"type": "boolean"},
+        "type": {
+          "type": ["string", "null"],
+          "enum": [null, "person", "enterprise", "community", "estate_or_trust", "public_institution", "polity"]
+        },
+        "verificationRequired": {"type": "boolean"}
+      }
+    },
+    "constitutionalAssessment": {
+      "type": "object",
+      "required": ["currentMandateExplicit", "actionBoundaryIdentified", "receiptCapabilityKnown", "revocationCapabilityKnown"],
+      "properties": {
+        "currentMandateExplicit": {"type": "boolean"},
+        "actionBoundaryIdentified": {"type": "boolean"},
+        "receiptCapabilityKnown": {"type": "boolean"},
+        "revocationCapabilityKnown": {"type": "boolean"}
+      }
+    },
+    "requestedNextAction": {
+      "enum": ["identify_and_invite_principal", "request_sponsorship", "await_principal_action"]
+    },
+    "requiresHumanConsent": {"const": true}
+  },
+  "additionalProperties": true
+}

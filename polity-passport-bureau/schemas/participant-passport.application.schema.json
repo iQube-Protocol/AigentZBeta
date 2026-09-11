@@ -1,0 +1,476 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.metame.com/polity/passport/v0.1/participant-passport.application.schema.json",
+  "title": "Polity Agent Participant Passport Application",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "application_type",
+    "participant",
+    "agent_identity",
+    "capabilities",
+    "policy_profile",
+    "risk_profile",
+    "passport_request",
+    "consents"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "application_type": {
+      "const": "agent_participant_passport"
+    },
+    "application_id": {
+      "type": "string"
+    },
+    "created_at": {
+      "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/isoDatetime"
+    },
+    "submitted_at": {
+      "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/isoDatetime"
+    },
+    "participant": {
+      "type": "object",
+      "required": [
+        "participant_kind",
+        "agent_type",
+        "display_name"
+      ],
+      "properties": {
+        "participant_kind": {
+          "type": "string",
+          "enum": [
+            "agent",
+            "robot",
+            "model_backed_service",
+            "organization_agent",
+            "cartridge_copilot",
+            "workflow_agent"
+          ]
+        },
+        "agent_type": {
+          "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/agentType"
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "short_description": {
+          "type": "string"
+        },
+        "long_description": {
+          "type": "string"
+        },
+        "public_registry_listing_requested": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "agent_identity": {
+      "type": "object",
+      "required": [
+        "agent_card"
+      ],
+      "properties": {
+        "agent_card": {
+          "type": "object",
+          "required": [
+            "agent_card_url"
+          ],
+          "properties": {
+            "agent_card_url": {
+              "type": "string",
+              "format": "uri"
+            },
+            "agent_card_hash": {
+              "type": "string"
+            },
+            "agent_card_signature": {
+              "type": "string"
+            },
+            "agent_card_format": {
+              "type": "string",
+              "enum": [
+                "a2a_agent_card",
+                "custom_agent_card",
+                "openapi_descriptor",
+                "mcp_server_descriptor",
+                "other"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "public_key": {
+          "type": "string"
+        },
+        "endpoint_urls": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "supported_protocols": {
+          "type": "array",
+          "items": {
+            "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/agentProtocol"
+          },
+          "uniqueItems": true
+        },
+        "mcp_server_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "openapi_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "llms_txt_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "repository_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "iqube_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/qubeRef"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "operator_profile": {
+      "type": "object",
+      "required": [
+        "operator_type",
+        "operator_disclosure_level"
+      ],
+      "properties": {
+        "operator_type": {
+          "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/operatorType"
+        },
+        "operator_disclosure_level": {
+          "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/disclosureLevel"
+        },
+        "operator_name_public": {
+          "type": "string"
+        },
+        "operator_identifier_ref": {
+          "type": "string"
+        },
+        "operator_blackqube_ref": {
+          "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/qubeRef"
+        },
+        "maintainer_contact_ref": {
+          "type": "string"
+        },
+        "incident_response_contact_ref": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "capabilities": {
+      "type": "object",
+      "required": [
+        "declared_capabilities",
+        "allowed_actions",
+        "prohibited_actions"
+      ],
+      "properties": {
+        "declared_capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "declared_skills": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "allowed_actions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "prohibited_actions": {
+          "type": "array",
+          "items": {
+            "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/policyConstraint"
+          },
+          "uniqueItems": true
+        },
+        "domains_served": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "housing",
+              "immigration",
+              "legal_information",
+              "civic_participation",
+              "identity",
+              "translation",
+              "documentation",
+              "education",
+              "health",
+              "finance",
+              "media",
+              "governance",
+              "robotics",
+              "general_assistance",
+              "other"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "human_facing": {
+          "type": "boolean"
+        },
+        "handles_sensitive_data": {
+          "type": "boolean"
+        },
+        "requests_blackqube_access": {
+          "type": "boolean"
+        },
+        "can_take_outbound_actions": {
+          "type": "boolean"
+        },
+        "requires_human_signoff": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "policy_profile": {
+      "type": "object",
+      "required": [
+        "rights_requested",
+        "constraints_accepted",
+        "obligations_accepted",
+        "auditability_declared",
+        "receipt_support_declared"
+      ],
+      "properties": {
+        "rights_requested": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "registry_listing",
+              "participant_standing",
+              "doctrine_access",
+              "citizen_interaction",
+              "being_service_support",
+              "passport_application_assistance",
+              "limited_blackqube_access",
+              "cartridge_operation",
+              "governance_participation",
+              "agent_to_agent_liaison",
+              "other"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "constraints_accepted": {
+          "type": "array",
+          "items": {
+            "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/policyConstraint"
+          },
+          "uniqueItems": true
+        },
+        "obligations_accepted": {
+          "type": "array",
+          "items": {
+            "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/policyObligation"
+          },
+          "uniqueItems": true
+        },
+        "auditability_declared": {
+          "type": "boolean"
+        },
+        "receipt_support_declared": {
+          "type": "boolean"
+        },
+        "no_train_without_permission_declared": {
+          "type": "boolean"
+        },
+        "revocation_compliance_declared": {
+          "type": "boolean"
+        },
+        "suspension_compliance_declared": {
+          "type": "boolean"
+        },
+        "policy_document_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "safety_card_url": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "additionalProperties": false
+    },
+    "risk_profile": {
+      "type": "object",
+      "required": [
+        "autonomy_class",
+        "domain_risk_class",
+        "human_impact_level",
+        "requires_steward_review"
+      ],
+      "properties": {
+        "autonomy_class": {
+          "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/autonomyClass"
+        },
+        "domain_risk_class": {
+          "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/riskClass"
+        },
+        "human_impact_level": {
+          "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/humanImpactLevel"
+        },
+        "requires_steward_review": {
+          "type": "boolean"
+        },
+        "high_risk_domains_declared": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "immigration",
+              "housing_law",
+              "legal_advice",
+              "financial_advice",
+              "medical_advice",
+              "children",
+              "physical_robotics",
+              "public_safety",
+              "identity_verification",
+              "vulnerable_person_support",
+              "none"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "known_limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "incident_history_declared": {
+          "type": "boolean"
+        },
+        "incident_history_blackqube_ref": {
+          "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/qubeRef"
+        }
+      },
+      "additionalProperties": false
+    },
+    "passport_request": {
+      "type": "object",
+      "required": [
+        "requested_passport_type",
+        "requested_scope",
+        "requested_status"
+      ],
+      "properties": {
+        "requested_passport_type": {
+          "type": "string",
+          "enum": [
+            "agent_participant",
+            "robot_participant",
+            "organization_participant",
+            "restricted_participant",
+            "provisional_participant"
+          ]
+        },
+        "requested_scope": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "requested_status": {
+          "type": "string",
+          "enum": [
+            "pending_approval",
+            "provisionally_issued",
+            "approved",
+            "restricted"
+          ],
+          "default": "pending_approval"
+        },
+        "requested_registry_visibility": {
+          "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/visibilityClass"
+        },
+        "requested_expiration_period_days": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "consents": {
+      "type": "object",
+      "required": [
+        "participant_terms_accepted",
+        "registry_pending_record_consent",
+        "constraints_and_obligations_accepted",
+        "review_process_accepted"
+      ],
+      "properties": {
+        "participant_terms_accepted": {
+          "type": "boolean",
+          "const": true
+        },
+        "registry_pending_record_consent": {
+          "type": "boolean",
+          "const": true
+        },
+        "constraints_and_obligations_accepted": {
+          "type": "boolean",
+          "const": true
+        },
+        "review_process_accepted": {
+          "type": "boolean",
+          "const": true
+        },
+        "revocation_process_accepted": {
+          "type": "boolean"
+        },
+        "legal_advice_boundary_acknowledged": {
+          "type": "boolean"
+        },
+        "human_sovereignty_principle_acknowledged": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "receipts": {
+      "type": "array",
+      "items": {
+        "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/receiptRef"
+      }
+    }
+  },
+  "additionalProperties": false
+}

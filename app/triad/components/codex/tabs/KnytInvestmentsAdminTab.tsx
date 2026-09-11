@@ -19,6 +19,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { personaFetch } from '@/utils/personaSpine';
 
 interface Props {
   personaId?: string;
@@ -343,7 +344,7 @@ function InvestorDetailPanel({ personaId, onMutated }: { personaId: string; onMu
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetch(`/api/admin/investor-dashboard?personaId=${encodeURIComponent(personaId)}`)
+    personaFetch(`/api/admin/investor-dashboard?personaId=${encodeURIComponent(personaId)}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((payload: InvestorDetail) => { if (!cancelled) setDetail(payload); })
       .catch((e: Error) => { if (!cancelled) setError(e.message); })
@@ -513,7 +514,7 @@ export function KnytInvestmentsAdminTab({ isAdmin }: Props) {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetch('/api/admin/investor-dashboard')
+    personaFetch('/api/admin/investor-dashboard')
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((payload: { investors: InvestorRow[] }) => { if (!cancelled) setInvestors(payload.investors ?? []); })
       .catch((e: Error) => { if (!cancelled) setError(e.message); })

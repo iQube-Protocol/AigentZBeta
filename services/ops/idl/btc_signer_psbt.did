@@ -1,0 +1,51 @@
+type BitcoinAddress = record {
+  public_key : blob;
+  derivation_path : vec blob;
+  address : text;
+};
+type InitArg = record {
+  ecdsa_key_name : text;
+  network : text;
+  authorized_pos_principal : principal;
+};
+type Result = variant { Ok : text; Err : text };
+type SignedTransaction = record {
+  fee : nat64;
+  size : nat32;
+  txid : text;
+  raw_tx : text;
+};
+service : (InitArg) -> {
+  // The full anchoring ceremony: fetch real UTXOs, build, sign, broadcast.
+  // 
+  // REFUSES rather than fabricating. The predecessor substituted a UTXO with an
+  // all-zero txid and proceeded — manufacturing the appearance of an anchor with
+  // nothing to spend.
+  // THE ONLY AUTHORIZED ENTRY POINT (P0.1, independent review 2026-08-08).
+  // 
+  // `create_anchor_transaction`, `sign_transaction` and `broadcast_transaction`
+  // are private. They were public `#[update]` methods, which meant ANY principal
+  // on the IC could make this canister sign with its threshold key, spend its
+  // UTXOs, or broadcast arbitrary bytes. A signer with an open signing surface
+  // is not a signer; it is a signing oracle for whoever asks.
+  // 
+  // ── THE CALLER IS CAPTURED BEFORE THE FIRST AWAIT ──────────────────────────
+  // 
+  // This is not stylistic. On the IC, `ic_cdk::caller()` returns whoever is
+  // replying AT THAT POINT IN EXECUTION. After an inter-canister `await` — and
+  // this function awaits `ecdsa_public_key`, `bitcoin_get_utxos`,
+  // `sign_with_ecdsa` and `bitcoin_send_transaction` — it returns the MANAGEMENT
+  // CANISTER, not the originator. An authorization check placed after any await
+  // would therefore compare the management canister against the configured
+  // proof_of_state principal, fail, and be "fixed" by whoever debugged it into
+  // something that passes for everyone. Capturing first makes that mistake
+  // impossible to make quietly.
+  create_and_broadcast_anchor : (text, nat64) -> (Result);
+  get_address_info : (text) -> (opt BitcoinAddress) query;
+  get_all_addresses : () -> (vec BitcoinAddress) query;
+  // Read the configuration. No secrets — the principal and key NAME are public
+  // facts about the deployment, and publishing them is what makes the
+  // authorization boundary auditable from outside.
+  get_config : () -> (opt record { text; text; text }) query;
+  get_transaction : (text) -> (opt SignedTransaction) query;
+}

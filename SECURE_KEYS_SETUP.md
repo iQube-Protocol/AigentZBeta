@@ -10,7 +10,7 @@
 **CRITICAL: Save this securely! You'll need it for both local and production.**
 
 ```bash
-AGENT_KEY_ENCRYPTION_SECRET=e35c7d79651daadd8723ff952c90fe55c567143065e1159d5e683ff3c9703fda
+AGENT_KEY_ENCRYPTION_SECRET=<REDACTED-2026-07-30-treat-as-compromised-rotate-before-use>
 ```
 
 **Where to store**:
@@ -116,7 +116,7 @@ Add this line to `/Users/hal1/CascadeProjects/AigentZBeta/.env.local`:
 
 ```bash
 # Master encryption key for agent private keys
-AGENT_KEY_ENCRYPTION_SECRET=e35c7d79651daadd8723ff952c90fe55c567143065e1159d5e683ff3c9703fda
+AGENT_KEY_ENCRYPTION_SECRET=<REDACTED-2026-07-30-treat-as-compromised-rotate-before-use>
 ```
 
 #### **AWS Amplify** (Production)
@@ -127,7 +127,7 @@ AGENT_KEY_ENCRYPTION_SECRET=e35c7d79651daadd8723ff952c90fe55c567143065e1159d5e68
 4. Click **Manage variables**
 5. Add:
    ```
-   AGENT_KEY_ENCRYPTION_SECRET = e35c7d79651daadd8723ff952c90fe55c567143065e1159d5e683ff3c9703fda
+   AGENT_KEY_ENCRYPTION_SECRET = <REDACTED-2026-07-30-treat-as-compromised-rotate-before-use>
    ```
 6. **Save**
 
@@ -225,5 +225,5 @@ Execute the SQL migration in Supabase, then I'll migrate the keys and clean up t
 
 ---
 
-**Master Encryption Key**: `e35c7d79651daadd8723ff952c90fe55c567143065e1159d5e683ff3c9703fda`  
+**Master Encryption Key**: `<REDACTED-2026-07-30-treat-as-compromised-rotate-before-use>`  
 **Save this securely!** 🔐
