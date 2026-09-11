@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-11T06:51:25.363Z",
+  "last_updated": "2026-09-11T07:10:18.931Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "2ae34b7e6cec36d12dc3df0daf9b0527062cab8c",
-  "latest_commit_short": "2ae34b7",
-  "latest_commit_title": "Restore canonical OCSGA constitutional act implementation",
+  "latest_commit": "cf302105648fc63cceb2cfc057fe0e1ddfff04ce",
+  "latest_commit_short": "cf30210",
+  "latest_commit_title": "Deploy Threshold discovery and persona semantics",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "cf30210",
+      "full_sha": "cf302105648fc63cceb2cfc057fe0e1ddfff04ce",
+      "title": "Deploy Threshold discovery and persona semantics",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-11T03:08:35-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-cf30210.md"
+    },
     {
       "sha": "2ae34b7",
       "full_sha": "2ae34b7e6cec36d12dc3df0daf9b0527062cab8c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T06:07:58Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-40a36b4.md"
-    },
-    {
-      "sha": "b6caadd",
-      "full_sha": "b6caadd7564996a26bad84aff326b75a444dbd42",
-      "title": "Add A2 completion / acceptance ledger / MoneyPenny shell audit doc",
-      "author": "Claude",
-      "timestamp": "2026-09-02T06:10:40Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-b6caadd.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
