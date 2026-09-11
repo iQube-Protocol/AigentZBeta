@@ -81,6 +81,27 @@ describe('readinessDashboard — Crystal section names the ACTUAL frozen generat
     expect(crystal?.detail).not.toContain('vP1');
     expect(crystal?.detail).toContain('internal-pilot');
   });
+
+  // 2026-09-11 recurrence: a plain `artifacts.find()` over `listArtifacts`'
+  // ascending-`updated_at` order returns whichever frozen generation sorts
+  // FIRST by array position — the OLDEST — once a SECOND generation is also
+  // frozen. Real EXP-P1 production state (both crystal-vP1 AND crystal-vP2
+  // frozen) hit exactly this: the dashboard kept reading "Crystal vP1" after
+  // vP2 had frozen. The single-frozen-row case above cannot catch this —
+  // this case requires BOTH rows frozen, in ASCENDING (oldest-first) order,
+  // matching listResearchObjects' real ordering.
+  it('names the LATEST generation (vP2) when BOTH vP1 and vP2 are frozen, oldest-first', async () => {
+    mockListResearchObjects.mockResolvedValue({
+      ok: true,
+      objects: [frozenCrystalRow(1, 'confirmatory'), frozenCrystalRow(2, 'internal-pilot')],
+    });
+    const d = await buildReadinessDashboard('EXP-P1');
+    const crystal = d.sections.find((s) => s.section === 'Crystal');
+    expect(crystal?.status).toBe('green');
+    expect(crystal?.detail).toContain('vP2');
+    expect(crystal?.detail).not.toContain('vP1');
+    expect(crystal?.detail).toContain('internal-pilot');
+  });
 });
 
 describe('readinessDashboard — Execution section excludes internal-rehearsal runs by construction', () => {
