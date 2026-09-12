@@ -31,7 +31,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { mergeInvariants } from '@/services/invariants/lifecycle';
+import { resolveCapability } from '@/services/research/accessCapabilities';
 import { loadTrack2ProgrammeState } from '@/services/research/researchProgrammeOrchestrator';
 
 export const dynamic = 'force-dynamic';
@@ -53,11 +55,32 @@ export async function POST(
   if (!persona?.personaId) {
     return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
   }
-  if (!persona.cartridgeFlags?.isAdmin) {
-    return NextResponse.json({ ok: false, error: 'Steward access required' }, { status: 403 });
-  }
-
   const { experimentId } = await params;
+  // Merging two invariants mutates the registry (unions contexts/edges onto
+  // the survivor, marks the merged row superseded) — unlike freeze/crystal_groom
+  // (see the assign/freeze routes' own comments), no prior ruling has ever
+  // excluded a non-admin role from this specific act, so it is wired the same
+  // way `run` was (IRL Stewardship Part 2, item 12): platform admin keeps
+  // unconditional authority; a non-admin caller needs the resource-bound
+  // `invariant_registry_mutate` capability at this experiment's scope, via
+  // the SAME fail-closed `resolveCapability` gate every surface must share.
+  if (!persona.cartridgeFlags?.isAdmin) {
+    const admin = getSupabaseServer();
+    const decision = admin
+      ? await resolveCapability(admin, {
+          personaId: persona.personaId,
+          scopeType: 'experiment',
+          scopeRef: experimentId,
+          capability: 'invariant_registry_mutate',
+        })
+      : { allowed: false, reason: 'no-database' };
+    if (!decision.allowed) {
+      return NextResponse.json(
+        { ok: false, error: 'Steward access or invariant_registry_mutate capability required' },
+        { status: 403 },
+      );
+    }
+  }
 
   let body: { survivorId?: unknown; mergedId?: unknown; operatorOverrideReason?: unknown };
   try {

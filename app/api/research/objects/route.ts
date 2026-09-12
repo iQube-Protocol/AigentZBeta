@@ -25,6 +25,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { resolveCapability } from '@/services/research/accessCapabilities';
 import {
   listResearchObjects,
   recordExperimentTransition,
@@ -73,9 +75,6 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const persona = await getActivePersona(request);
   if (!persona) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
-  if (!persona.cartridgeFlags?.isAdmin) {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
-  }
 
   let body: { kind?: string; proposal?: { summary?: string; data?: unknown } };
   try {
@@ -91,6 +90,14 @@ export async function POST(request: NextRequest) {
   const data = body.proposal?.data;
   if (!kind || !data || typeof data !== 'object' || Array.isArray(data)) {
     return NextResponse.json({ ok: false, error: 'kind and proposal.data required' }, { status: 400 });
+  }
+
+  // `protocol_draft` is checked further below, once the experiment id it
+  // transitions is known (IRL Stewardship Part 2, item 12 pattern) — every
+  // other proposal kind (experiment_proposal/finding/publication_draft) keeps
+  // its existing admin-only gate unchanged, checked here before anything else.
+  if (kind !== 'protocol_draft' && !persona.cartridgeFlags?.isAdmin) {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
   // T2 gate on the raw client payload BEFORE it touches anything else.
@@ -155,6 +162,31 @@ export async function POST(request: NextRequest) {
     payload = entry.experiment as unknown as Record<string, unknown>;
     lifecycleState = entry.lifecycle;
     governingInvariants = entry.experiment.governingInvariants;
+
+    // Platform admin keeps unconditional authority (unchanged). A non-admin
+    // caller may ratify a protocol only via the resource-bound
+    // `protocol_ratify` capability at THIS experiment's scope — the SAME
+    // fail-closed `resolveCapability` gate every surface must share (item
+    // 17/18). Checked here, not before, because `objectId` (the experiment
+    // being ratified) is only known once the pure apply above has resolved it
+    // — never trusted from the raw request body.
+    if (kind === 'protocol_draft' && !persona.cartridgeFlags?.isAdmin) {
+      const admin = getSupabaseServer();
+      const decision = admin
+        ? await resolveCapability(admin, {
+            personaId: persona.personaId,
+            scopeType: 'experiment',
+            scopeRef: objectId,
+            capability: 'protocol_ratify',
+          })
+        : { allowed: false, reason: 'no-database' };
+      if (!decision.allowed) {
+        return NextResponse.json(
+          { ok: false, error: 'Steward access or protocol_ratify capability required' },
+          { status: 403 },
+        );
+      }
+    }
   } else if (effect.object === 'finding') {
     const entry = applied.state.findings.find((f) => !state.findings.includes(f));
     if (!entry) return NextResponse.json({ ok: false, error: 'apply produced no object' }, { status: 500 });
