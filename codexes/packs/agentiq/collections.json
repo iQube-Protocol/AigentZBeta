@@ -48,6 +48,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-09-12_threshold-007-mandatory-lineage-anchors.md",
         "updates/2026-09-12_threshold-007-aletheon-draft-citation-hardening.md",
         "updates/2026-09-12_threshold-007.2-draft-received.md",
         "updates/2026-09-12_irl-os-workspace-information-architecture-correction.md",

@@ -1371,6 +1371,28 @@ Only after evidence resolution should the complete paper pass to the Adversary f
 
 **Status prior to this pass:** CANONICAL_DRAFT / EVIDENCE_RESOLUTION_REQUIRED / NOT_FOR_PUBLICATION.
 
+**Mandatory lineage preservation (added 2026-09-12, operator-directed — not optional, not satisfied by
+the general "carry forward 007.1" instruction above):** The Evidence Agent MUST preserve and
+re-resolve all valid 007.1 citations and implementation anchors relating to **Aegis**, **Trusted
+Intelligence / TII**, the **Golden Cycle**, **PoTS**, and the **Horizen/Horizon consequential pilot**.
+These are part of the intellectual and operational lineage of Threshold 007 and must not be dropped
+merely because the prose has been restructured. Where a previous citation no longer maps cleanly to
+the revised argument, it must be flagged for Aletheon rather than silently deleted. This was called
+out explicitly because the general carry-forward instruction above is too easy for an Evidence Agent
+to satisfy only implicitly, without visibly enumerating these four bodies of evidence as resolved
+citations — see the Evidence Resolution register below (§§ II007-IA19, II007-IA26–IA29) for where
+each is now resolved, and the two ancestral-lineage relationships this draft now states explicitly:
+
+**Golden Cycle → PoTS/RoR → Horizen Consequential Environment**
+
+Golden Cycle/Horizen grounds the value–consequence–repair side of the thesis (§§8, 9, 27, 32).
+
+**Aegis → TII → Trusted Intelligence → Trusted Superintelligence**
+
+Aegis/TII grounds the trust–capability–assessment side of the thesis (§§9, 23, 27, 30–31), and makes
+explicit that this paper's definition of Trusted Superintelligence (§27) is downstream of the
+already-published Threshold 005 "Trusted Intelligence" work, not appearing de novo.
+
 ---
 
 ## Evidence Resolution — Implementation-Evidence Register
@@ -1414,6 +1436,10 @@ the ARR Gate's citation-integrity requirement.
 | II007-IA23 | Standing Graph — **new in this draft** | [`services/standing/buildStandingGraph.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/services/standing/buildStandingGraph.ts) | Implementation |
 | II007-IA24 | myGuard (one of the three §17 companion functions) | [`services/governance/sovereignAgentRoles.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/services/governance/sovereignAgentRoles.ts) (role `brand: 'myGuard'`, handle `@myguard.aigent`) | Implementation |
 | II007-IA25 | myClaw, myBot (the other two §17 companion functions) | **Unresolved** — searched by exact and case-insensitive match across this repository; found only inside the two Threshold 007 essay files themselves. No corresponding `myClaw`/`myBot` role, service or type exists alongside `myGuard` in `sovereignAgentRoles.ts` or elsewhere | Unresolved |
+| II007-IA26 | Horizen/MoneyPenny journey — **mandatory lineage anchor, operator-directed** | [`services/journey/horizenMoneyPennyJourney.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/services/journey/horizenMoneyPennyJourney.ts) and [`services/journey/horizenMoneyPennyJourneyAdapted.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/services/journey/horizenMoneyPennyJourneyAdapted.ts) | Implementation |
+| II007-IA27 | Horizen Constitutional Admission Pilot (doctrine ratified from the pilot; not the pilot's own runtime, which is II007-IA26) — **mandatory lineage anchor** | [`codexes/packs/irl/foundation/CFS-055_proof-of-state-in-time-and-state-coherence.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/codexes/packs/irl/foundation/CFS-055_proof-of-state-in-time-and-state-coherence.md) — ratified 2026-08-10; states of itself "The Horizen pilot is the first reference implementation, not the boundary of the doctrine" | Doctrine (Ratified) |
+| II007-IA28 | TII — Trusted Intelligence Index — **mandatory lineage anchor** | [`codexes/packs/agentiq/items/FACTOR_AEGIS_MONEYPENNY_PRD_0.1.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/codexes/packs/agentiq/items/FACTOR_AEGIS_MONEYPENNY_PRD_0.1.md) — the PRD names TII as a goal Factor+Aegis's assessment framework "can later support," not as an already-built index. No separate TII implementation module exists yet. This is the same status 007.1 gave the analogous NIST/Operational-Trust comparator: doctrine-level, not implemented | Doctrine (Planned, not yet implemented) |
+| II007-IA29 | Trusted Intelligence lineage (Threshold 005) — **mandatory lineage anchor; makes explicit that §27's Trusted Superintelligence definition is downstream of this prior work, not de novo** | Canonical Qriptopian Research Edition, content ID `c25eb589-65f3-46af-b840-af544e8bf8ae`, slug `trusted-intelligence`, machine endpoint `/api/codex/qripto/essays/trusted-intelligence/machine` (same citation as 007.1's [T005], reaffirmed here per the operator's explicit mandatory-lineage instruction rather than left implicit in the References section alone) | Research Evidence (prior canonical publication) |
 
 Two entries (II007-IA14, DevOn; and II007-IA20, Aegis Crucible) remain explicitly unresolved, carried
 forward unchanged from 007.1. One new entry (II007-IA25, myClaw/myBot) is unresolved in this pass:
@@ -1442,7 +1468,20 @@ this repository's own 007.1 pass left unresolved — CI, PE, IRL-010, IRL-010A, 
 AEGIS-CRUCIBLE-0.0, GC-0.1 — none load-bearing, all carried forward unchanged), and the external
 methodological bibliography are unchanged from the 007.1 Research Edition and are carried forward by
 reference rather than being retyped here, per this draft's own §36 instruction not to reconstruct the
-apparatus from zero. The full text of that carried-forward material is preserved in git history at
+apparatus from zero.
+
+**Note on Golden Cycle, distinguishing the label from the standalone thesis document (per the
+operator's mandatory-lineage instruction above):** two different things share the name "Golden
+Cycle" in this repository's own materials. (1) **The operational programme label** — "Golden Cycle"
+is this repo's own name for the P1 Compression → P2 Consequential Performance → P3 Representation →
+P4 Interaction research spine, stated explicitly in
+[`docs/vela/accelerator/constitutional-financial-services/README.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/docs/vela/accelerator/constitutional-financial-services/README.md) — this is resolved (II007-IA19, and the EXP-P1–P4 anchors II007-IA15–18). (2) **A standalone "Golden Cycle Research
+Thesis v0.1"** document — searched again in this pass across the full repository (including
+`docs/vela/accelerator/constitutional-financial-services/`, which extends it as "a v0.3 extension to
+the Golden Cycle research thesis" without including the v0.1/v0.2 original) — **remains unresolved**,
+unchanged from 007.1's GC-0.1 finding. AEGIS-0.0 (the standalone "Constitutional Admission and
+Calibration Doctrine 0.0" document, as distinct from the real, resolved Factor Aegis implementation at
+II007-IA11) was likewise searched again in this pass and remains unresolved, unchanged from 007.1. The full text of that carried-forward material is preserved in git history at
 commit `a3c77375` (`docs/qriptopian/thresholds/007-research-edition.md`) and in
 `codexes/packs/agentiq/updates/2026-09-12_threshold-007-arr-gate-and-final-hardening.md`.
 
