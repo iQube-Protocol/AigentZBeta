@@ -489,6 +489,14 @@ export type ActivityActionType =
   | 'exchange_derivative_created'
   | 'exchange_withdrawn'
   | 'exchange_access_revoked'
+  // A mistaken revocation, corrected by hand (2026-09-12). The exchange
+  // state machine deliberately has NO forward transition out of
+  // REVOKED_ACCESS_POST_EXCHANGE (types/reciprocalExchange.ts's own comment:
+  // exception states are terminal for forward progress; reversal is "an
+  // operator-governed act outside this state machine's own vocabulary").
+  // This type records exactly that class of act — never a first-class
+  // "restore" product transition.
+  | 'exchange_access_restored_operator_correction'
   // Operator-assisted custodial artifact registration (2026-08-28) — an
   // operator entered an artifact on a bound principal's behalf under
   // explicit out-of-band authorization (registerArtifactOperatorAssisted),

@@ -1750,6 +1750,38 @@ available as a connector on claude.ai.
 If the endpoint changes (e.g. promoted from `dev-beta` to a production host), update `.mcp.json`
 and this section together — never let them drift.
 
+### Uploading content assets — use `upload_content_asset`, never ask the operator for upload secrets
+
+The Threshold MCP server exposes `upload_content_asset` (covers, thumbnails, PDFs, documents,
+media — roles `cover | thumbnail | hero | social | pdf | video | audio | attachment`). It runs the
+SAME canonical pipeline as every other codex asset upload (`services/threshold/uploadContentAsset.ts`
+→ `handleCodexAssetUpload` → `uploadCodexMediaAsset`: AES-256-GCM encryption, Autonomys Auto Drive
+upload, iQube trinity + `codex_media_assets` registration) but with its OWN credentials on the
+server side — it needs none of `AUTONOMYS_API_KEY`, `CODEX_MASTER_KEY`, or
+`SUPABASE_SERVICE_ROLE_KEY` from the calling session.
+
+**Before reaching for a manual encrypt-and-upload script, or asking the operator for any of those
+three secrets, try `upload_content_asset` first.** Asking an operator for `SUPABASE_SERVICE_ROLE_KEY`
+in particular is close to asking for the keys to the whole database (it bypasses RLS entirely) —
+a reasonable operator will decline, as happened in the incident this rule was written from
+(2026-09-12, Threshold 007 PDF uploads). Even where a manual path is used for another reason,
+prefer running the encryption/upload half through the app's own credentials or the MCP tool over
+requesting secrets whose blast radius is broader than the task needs.
+
+**Known real limitation, not a reason to avoid the tool for normal-sized assets:** `fileBase64` must
+be the ENTIRE file as one literal string in a single call — there is no chunked/streaming upload.
+For a typical cover image, thumbnail, or a few-hundred-KB document this is fine. For anything whose
+base64 encoding is large enough that an agent's own tool environment can't reliably surface that
+much literal text back into its context in one piece (Bash/Read output commonly truncates and
+persists-to-file past a few KB, and there is no mechanism to hand a persisted file to another tool's
+string parameter), attempting the upload risks silent transcription corruption of the payload with
+no cheap way to catch it except a full post-upload decrypt-and-checksum comparison. In that case,
+say so plainly rather than either (a) grinding through dozens of manual slice-and-reconstruct tool
+calls for an asset that isn't worth that risk, or (b) falling back to asking for
+`SUPABASE_SERVICE_ROLE_KEY` — a local script using `AUTONOMYS_API_KEY` + `CODEX_MASTER_KEY` only
+(the two upload-side secrets, never the DB-wide one) plus a direct Supabase MCP write for the
+resulting registry rows is the fallback that keeps credential exposure narrowest.
+
 ---
 
 ## Session Start — Verify Connector/MCP Access, Don't Assume It (MANDATORY)
