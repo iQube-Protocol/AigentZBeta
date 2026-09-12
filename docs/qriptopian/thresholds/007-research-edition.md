@@ -20,7 +20,7 @@ The dominant approach to increasing artificial-intelligence capability emphasize
 
 The thesis contains three independently falsifiable mechanisms. **Structural Invariance** proposes that sufficiently evidenced, bounded and reopenable structural relationships can operate as reusable pre-reasoning, reducing the cost of repeatedly traversing already established reasoning terrain. **Cybernetic Amplification** proposes that human and machine reasoning can become shared computational substrate, allowing discoveries by each to improve subsequent reasoning by the other. **Constitutional Expansion** proposes that computationally explicit authority, mandate, constraint, evidence, risk and consequence can increase warranted delegation and therefore expand both Effective Capability and the consequential learning surface available to intelligence.
 
-None of these mechanisms is established here as a general intelligence-scaling law. However, they are no longer purely conceptual. The Invariant Research Lab (IRL), Crucible, invariant substrate, Crystal, IDE, DevOn and constitutional runtime lineage provide emerging machinery for candidate discovery, protocol-controlled testing, evidence capture, falsification and consequence observation. Current EXP-P1–P4 lines establish bounded experimental questions rather than omnibus proof: P1 examines minimum sufficient invariant substrate under controlled informational budgets; P2 examines condition-directed gated verification, correctness, effort and repair; P3 is representation-focused; P4 remains reserved for a future interaction/field-like hypothesis and supplies no present evidence for such a claim. The Aegis research programme separately introduces falsifiable families around proclaimed, Raw and Effective Capability, Risk of Repair, Proof of Time Saved and evidence/Standing portability. These instruments make the thesis increasingly testable without validating it.
+None of these mechanisms is established here as a general intelligence-scaling law. However, they are no longer purely conceptual. The Invariant Research Lab (IRL), Crucible, invariant substrate, Crystal, IDE, DevOn and constitutional runtime lineage provide emerging machinery for candidate discovery, protocol-controlled testing, evidence capture, falsification and consequence observation. Current EXP-P1–P4 lines establish bounded experimental questions rather than omnibus proof: P1, per its own registered protocol (§6), isolates five arm-specific deltas (curated context, invariant representation, live runtime selection, generative sufficiency, mutation locality) and explicitly does not test the invariant-substrate-vs-raw-experience question in general form; P2, per its own registered primary question (§18), tests whether a condition-directed gated verification workflow improves consequential correctness and/or reduces expert effort relative to condition-directed prose review; P3 is representation-focused; P4 remains reserved for a future interaction/field-like hypothesis and supplies no present evidence for such a claim. The Aegis (Constitutional Admission Doctrine) research programme separately introduces falsifiable families around proclaimed, Raw and Effective Capability, Risk of Repair, Proof of Time Saved and evidence/Standing portability — distinct from the operational "Factor Aegis" implementation cited later in this paper (§16). These instruments make the thesis increasingly testable without validating it.
 
 The resulting research question is whether **accumulated falsifiable reasoning structure constitutes a distinct scaling mechanism for intelligence**. If Structural Invariance can compress the reasoning surface, cybernetic reasoning can enrich it, and Constitutional Invariance can expand the consequential learning surface without exporting unacceptable repair, Invariant Intelligence may offer a complementary path not merely toward Superintelligence, but toward **Trusted Superintelligence**: extraordinary intelligence whose consequential authority remains computationally legible, bounded, evidenced and revocable.
 
@@ -84,7 +84,7 @@ An implemented invariant graph does not establish that invariants accelerate rea
 
 A deployed constitutional runtime does not establish that constitutionality increases intelligence.
 
-An operational Aegis assessment does not validate a universal Trusted Intelligence Index.
+An operational Aegis (Factor Aegis, `services/aegis/aegisAssessmentService.ts`) assessment does not validate a universal Trusted Intelligence Index.
 
 A commercially successful deployment does not prove the mechanism believed to have produced its outcome.
 
@@ -284,23 +284,35 @@ It is:
 
 The current IRL programme provides an experimental substrate but not general validation.
 
-The current canonical description of **EXP-P1** asks whether a **minimum sufficient invariant substrate and runtime can preserve or improve reasoning under controlled informational budgets**. P1 is therefore directly relevant to H1, but any result inherits only the evidentiary scope of its registered protocol.
+### II007-EX01 — EXP-P1 (primary description: the registered protocol's own scope)
 
-The present paper must not convert individual prior measured runs into a general "invariance accelerates intelligence" result.
+**Per ARR Gate frozen-protocol supremacy (`docs/research/adversarial-research-review-gate.md`), the protocol's own text is the primary description below, not an essay-level summary corrected afterward.**
 
-### II007-EX01 — EXP-P1
+The registered protocol (`EXP-P1 — The Representation & Runtime Gauntlet`) states its purpose and scope as follows, verbatim:
 
-**Research relationship:** Structural Compression / minimum sufficient invariant substrate.
+> "EXP-P1 tests, in one factorial design, the questions this exchange has converged on. It does **not** test IRL's primary structural hypothesis (invariant substrate vs raw experience, 'Layer 1 vs Layer 2'); that is the companion experiment (**EXP-P2**...), to be run under identical rigor."
+
+By arm-delta, EXP-P1 isolates five distinct questions (D−A: does curated context help at all; C−D: does invariant representation outperform expert prose at equal tokens; B−C: does the live runtime add value beyond a frozen flattened export; a sufficiency probe on generative reconstructability; a mutation probe on update locality). None of these five deltas is, by the protocol's own framing, a direct test of "does a minimum sufficient invariant substrate and runtime preserve or improve reasoning under controlled informational budgets" as a single general proposition — that broader framing belongs to H1 as this paper states it, and EXP-P1 is *relevant* evidence toward it only through these narrower, arm-specific deltas.
+
+**Research relationship:** Structural Compression / minimum sufficient invariant substrate — indirectly, via the arm-deltas above, not via a single direct test of H1's general form.
 
 **Current status:** **Research Evidence / IRL**, limited to the registered/frozen protocol and completed experimental runs.
 
-**What it can test:** whether bounded invariant substrate conditions alter reasoning performance under controlled informational budgets.
+**What it can test:** the five arm-deltas listed above, individually, at equal token budget, under externally specified controls.
 
-**What it cannot establish:** that structural invariance generally accelerates intelligence, that observed effects transfer across domains, or that any effect compounds toward superintelligence.
+**What it cannot establish:** H1 in its general form ("invariance accelerates intelligence"), that any observed effect transfers across domains, or that any effect compounds toward superintelligence.
+
+**A second naming collision, found by ARR review and disclosed rather than papered over:** EXP-P1's own text (§14, "Companion Experiment Interface") charters IRL's Layer-1-vs-Layer-2 structural hypothesis (raw corpus vs. expert summary vs. invariant substrate at matched tokens) as a *separate* experiment, also named **EXP-P2**, at path `foundation/experiments/exp-p2-structural-invariance/`. **That directory does not exist in this repository.** The EXP-P2 that *does* exist and that this paper's §18 actually describes (`exp-p2-consequential-performance/02_protocol-v0.5.md`) is a different, later-registered protocol under the same name — its own text states it was "recentered on **process**... distinguishing it from EXP-P3, whose scientific object is **representation**," explicitly superseding the earlier structural-substrate framing. So "EXP-P2" names two non-identical registered artifacts across this project's experimental lineage, exactly the pattern the naming-collision rule exists to catch — just for an experiment ID rather than a proper noun like "Aegis."
+
+**Net, disclosed gap:** no currently registered protocol in this repository tests H1's Layer-1-vs-Layer-2 proposition directly. This is not inferred from prose — see the machine-readable marker below.
+
+```json
+{ "claimId": "II007-H1-layer1-vs-layer2", "directExperiment": null, "note": "EXP-P1 README §14 charters this as a separate 'EXP-P2' at foundation/experiments/exp-p2-structural-invariance/, which was never instantiated; the EXP-P2 that exists (exp-p2-consequential-performance/) is a different, later protocol under the same ID, per its own supersession notice. Disclosed gap, not inferred." }
+```
 
 **Resolved citation:** https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md (protocol README; companion documents `AUSTIN_ONE_PAGER.md`, `CRYSTAL-ENLARGEMENT_plan.md`, `STAGE-0_HANDOFF.md` in the same directory).
 
-**Framing note, stated honestly:** the registered EXP-P1 protocol's own text scopes itself narrower than, and in places differently from, this section's summary of it (it is framed as a four-arm Representation & Runtime Gauntlet with sufficiency/mutation probes, not as a general "invariant substrate vs. raw experience" test). This paper's framing is preserved as written by its author; readers checking the claim against the registered protocol should expect the protocol's own scope statement to govern, not this summary.
+**Editorial gloss (secondary, non-authoritative):** an earlier draft of this section summarized EXP-P1 as testing "whether a minimum sufficient invariant substrate and runtime can preserve or improve reasoning under controlled informational budgets" — a framing broader than, and in one respect (the Layer-1-vs-Layer-2 question) contrary to, the protocol's own stated scope above. That summary is retained here only as a labeled example of exactly the framing drift the ARR Gate's frozen-protocol-supremacy rule exists to catch; it is not evidence of anything and must not be cited as the section's claim.
 
 ---
 
@@ -649,11 +661,13 @@ Permalink: https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160
 
 ---
 
-# 16. Aegis: From Trust Thesis to Research Instrument
+# 16. Aegis (Constitutional Admission Doctrine): From Trust Thesis to Research Instrument
 
-Aegis is particularly important to H3 because it converts part of the trust proposition into inspectable machinery.
+**Naming-collision notice (ARR Gate rule — "Aegis" alone is never a sufficient citation):** two distinct systems in this project's namespace are both called "Aegis." This section is about **Aegis — Constitutional Admission and Calibration Doctrine 0.0** (the doctrine-level trust/admission research programme), which is not the same artifact as **`services/aegis/aegisAssessmentService.ts`** (the "Factor Aegis" operational trust-assessment service that backs the MoneyPenny Aegis panel and related API routes). Every reference to "Aegis" below names which one is meant.
 
-The current doctrine describes Aegis as an independent constitutional assessment membrane designed to distinguish proclaimed, Raw and Effective Capability; evaluate trust-for-purpose; model Proof of Risk and Risk of Repair; and route unresolved propositions into falsifiable research.
+**Aegis (Constitutional Admission Doctrine)** is particularly important to H3 because it converts part of the trust proposition into inspectable machinery.
+
+The current doctrine describes Aegis (Constitutional Admission Doctrine) as an independent constitutional assessment membrane designed to distinguish proclaimed, Raw and Effective Capability; evaluate trust-for-purpose; model Proof of Risk and Risk of Repair; and route unresolved propositions into falsifiable research.
 
 This changes the status of Trusted Intelligence without validating it.
 
@@ -663,21 +677,21 @@ The correct statement is:
 
 Its dimensions, aggregation rules, evidence thresholds and predictive validity remain open research questions.
 
-Aegis therefore establishes something narrower but important:
+Aegis (Constitutional Admission Doctrine) therefore establishes something narrower but important:
 
 > **The trust thesis can be instantiated as machinery capable of being tested.**
 
 It does not establish that the machinery measures trust correctly.
 
-### II007-IA11 — Aegis assessment/admission architecture
+### II007-IA11 — Aegis (Factor Aegis) assessment/admission architecture — a DIFFERENT artifact from the doctrine above
 
-**Implementation, verified present:** `services/aegis/aegisAssessmentService.ts`
+**Implementation, verified present:** `services/aegis/aegisAssessmentService.ts` — the operational "Factor Aegis" trust-assessment service, distinct from the doctrine-level "Aegis — Constitutional Admission and Calibration Doctrine 0.0" described in this section's prose.
 Permalink: https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/aegis/aegisAssessmentService.ts
 Status: **Implemented / operational** for the assessment surfaces this service backs (see also the MoneyPenny Aegis panel and API routes in the same repository).
 
-**Doctrine documents — unresolved, stated honestly:** *Aegis — Constitutional Admission and Calibration Doctrine 0.0* and *Aegis Crucible Submission 0.0* were searched for by exact title and by keyword across this repository and the Supabase content database and were **not found** in either. They may exist only in an external document store this session has no access to. This paper does not fabricate a citation for them; readers should treat the doctrine-level claims about Aegis in this section as attributable to that external doctrine where it exists, pending its resolution into a citable, inspectable artifact.
+This code is cited as **evidence that assessment-membrane machinery of this general kind exists and runs in production** — not as confirmation that Factor Aegis is the same artifact as the doctrine-level Aegis this section describes, and not as evidence for the doctrine's own claims. The two must never be silently conflated; per the ARR Gate naming-collision rule, neither may stand in as evidence for the other.
 
-**A naming caution, carried from the repository's own standing instructions:** this repository separately contains a *different*, unrelated system also called "Aegis" (`services/aegis/aegisAssessmentService.ts` and the "Factor Aegis" MoneyPenny/financial-services trust-assessment surfaces). Where the implementation anchor above is cited, it refers to that system's real, present code — it is cited as **evidence that assessment-membrane machinery of this general kind exists and runs in production**, not as confirmation that it is the same artifact as the doctrine-level "Aegis 0.0" this paper describes. The two should not be silently conflated.
+**Doctrine documents — unresolved, stated honestly:** *Aegis — Constitutional Admission and Calibration Doctrine 0.0* and *Aegis Crucible Submission 0.0* were searched for by exact title and by keyword across this repository and the Supabase content database and were **not found** in either (`UNRESOLVED`). They may exist only in an external document store this session has no access to. This paper does not fabricate a citation for them; the doctrine-level claims about Aegis (Constitutional Admission Doctrine) in this section are attributable to that external doctrine where it exists, pending its resolution into a citable, inspectable artifact, and inherit no authority from the Factor Aegis implementation cited above.
 
 ---
 
@@ -720,25 +734,29 @@ The broader research objective is:
 
 ---
 
-# 18. EXP-P2 and Consequential Verification
+# 18. EXP-P2 and Consequential Verification (primary description: the registered protocol's own scope)
 
-The current canonical description of **EXP-P2** examines **condition-directed gated verification and consequential correctness, effort and repair**.
+**Per ARR Gate frozen-protocol supremacy, the registered protocol's own primary scientific question is the primary description below.**
 
-This makes P2 relevant to the bridge between Structural and Constitutional Invariance.
+The authoritative EXP-P2 text (`02_protocol-v0.5.md §3`) states its primary scientific question verbatim:
+
+> "Does the Condition-Directed Gated Verification Workflow improve consequential correctness and/or reduce expert effort to acceptance compared with condition-directed prose review, without producing materially worse consequential failures?"
+
+Per the IRL's own series-ratification record (`codexes/packs/irl/foundation/experiments/SERIES-RATIFICATION_p1-p2-p3.md`), EXP-P2 is a **family of consequence experiments** — P2A (software consequences, `exp-p2a-software-consequences/`) and P2B (physical consequences, `exp-p2b-physical-consequences/`) — sharing one constitutional framework (`01_shared-constitutional-framework.md`, a pointer index only; `02_protocol-v0.5.md` is the single authoritative text) across both domains, with only the domain-specific material varying.
+
+**A naming caution, found by ARR review:** the "EXP-P2" ID was originally chartered elsewhere in this lineage (EXP-P1's own README §14) for a *different* question — IRL's Layer-1-vs-Layer-2 structural-substrate hypothesis, at a path (`exp-p2-structural-invariance/`) that was never instantiated. `02_protocol-v0.5.md` itself records that "a later redesign correctly recentered EXP-P2 on **process**, distinguishing it from EXP-P3, whose scientific object is **representation**" — i.e. this is a deliberate, disclosed re-chartering of the same ID onto a different research question, not the original structural-substrate design. §6 discloses the resulting gap (no registered protocol currently tests the original Layer-1-vs-Layer-2 question) rather than letting this section's citation appear to cover it.
 
 ### II007-EX02 — EXP-P2
 
-**Research relationship:** verification effort, consequential correctness and repair.
+**Research relationship:** verification effort, consequential correctness and repair, per the primary question above — this bridges Structural and Constitutional Invariance, but only through that specific comparison (gated workflow vs. condition-directed prose review), not as a general test of either.
 
 **Status:** **Research Evidence / IRL** according to registered protocol state.
 
-**Potential contribution:** tests whether condition-directed verification can allocate assurance more selectively while preserving consequential correctness.
+**Potential contribution:** tests whether condition-directed verification can allocate assurance more selectively while preserving consequential correctness, per §3 above.
 
 **Does not establish:** that constitutionality generally increases Effective Capability, that trust accelerates intelligence, or that H3 is validated.
 
-**Resolved citation:** https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/codexes/packs/irl/foundation/experiments/exp-p2-consequential-performance/01_shared-constitutional-framework.md — the shared constitutional framework document for the EXP-P2 family (companion documents in the same directory: `02_protocol-v0.5.md`, `03_operational-amendment-v0.5.md`, `04_statistical-analysis-plan-skeleton.md`).
-
-**Family structure, stated honestly:** per the IRL's own series-ratification record (`codexes/packs/irl/foundation/experiments/SERIES-RATIFICATION_p1-p2-p3.md`), EXP-P2 is not one monolithic protocol but a **family of consequence experiments sharing this constitutional framework** — P2A (software consequences, `exp-p2a-software-consequences/`) and P2B (physical consequences, `exp-p2b-physical-consequences/`). Neither this section's title ("Condition-Directed Gated Verification Workflow") nor its framing as "verification effort, consequential correctness and repair" is the registered protocol's own self-description; the family's own stated question is whether invariant-guided workflows improve consequential outcomes across software and physical design domains. This paper's framing is preserved as written by its author rather than silently rewritten to match the registered protocol's own title.
+**Resolved citation:** https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/codexes/packs/irl/foundation/experiments/exp-p2-consequential-performance/02_protocol-v0.5.md (authoritative protocol text, §3; the pointer index at `01_shared-constitutional-framework.md` maps shared concerns to their owning section; companion documents in the same directory: `03_operational-amendment-v0.5.md`, `04_statistical-analysis-plan-skeleton.md`).
 
 ---
 
@@ -1048,7 +1066,7 @@ Current relevant components include:
 
 **Crucible** — candidate invariant and research-proposition adjudication.
 
-**Aegis** — independent assessment/admission and trust-calibration research architecture.
+**Aegis (Constitutional Admission Doctrine)** — independent assessment/admission and trust-calibration research architecture (§16). Not to be conflated with `services/aegis/aegisAssessmentService.ts` ("Factor Aegis"), a different, operational artifact of the same name (see §16's naming-collision notice).
 
 **Consequence Engineering** — observation and treatment of realized consequence.
 
@@ -1076,7 +1094,12 @@ This is the appropriate status:
 
 **Implementation:** II007-IA01–IA04; IDE/Crystal anchors after repository verification.
 
-**Experiment:** EXP-P1.
+**Experiment:** EXP-P1 (arm-deltas only — see §6's frozen-protocol-supremacy discussion; EXP-P1 does not directly test H1's general form). The Layer-1-vs-Layer-2 sub-question is a separately disclosed gap — see §6's naming-collision discussion of the reused "EXP-P2" ID.
+
+```json
+{ "claimId": "II007-H1", "directExperiment": "EXP-P1", "directExperimentScope": "arm-deltas (D-A, C-D, B-C, sufficiency probe, mutation probe) per §6; not a direct test of H1's general form" }
+{ "claimId": "II007-H1-layer1-vs-layer2", "directExperiment": null, "note": "See §6 — the originally-chartered EXP-P2 (exp-p2-structural-invariance/) was never instantiated; disclosed gap, not inferred." }
+```
 
 **Current evidence status:** Experimental / protocol-bounded.
 
@@ -1098,6 +1121,10 @@ This is the appropriate status:
 
 **Experiment:** dedicated controlled protocol required.
 
+```json
+{ "claimId": "II007-H2", "directExperiment": null, "note": "No registered/frozen protocol directly tests H2. Machine-readable per ARR Gate's gap-disclosure rule — this is a disclosed gap, not an inferred one." }
+```
+
 **Current evidence status:** Research Candidate / Crucible.
 
 **Supports:** no general performance claim yet.
@@ -1114,9 +1141,13 @@ This is the appropriate status:
 
 **Doctrine:** Constitutional Computing; Trusted Intelligence; Raw versus Effective Capability.
 
-**Implementation:** personhood, identity/persona, constitutional ontology, runtime gates, Aegis, Standing/consequence machinery.
+**Implementation:** personhood, identity/persona, constitutional ontology, runtime gates, Aegis (Factor Aegis, `services/aegis/aegisAssessmentService.ts` — see §16's naming-collision notice), Standing/consequence machinery.
 
-**Experiment:** EXP-P2 contributes to verification/repair questions; Aegis Crucible programme supplies additional candidate experiment families. A dedicated H3 protocol remains required for the complete claim.
+**Experiment:** EXP-P2 contributes to verification/repair questions only (per §18's primary-question framing, not a direct test of H3a); the Aegis Crucible programme (doctrine-level, distinct from Factor Aegis above) supplies additional candidate experiment families. A dedicated H3 protocol remains required for the complete claim.
+
+```json
+{ "claimId": "II007-H3a", "directExperiment": null, "adjacentExperiments": ["EXP-P2"], "note": "EXP-P2 bears on verification/repair per its own §3 primary question; it does not directly test H3a's general claim. Disclosed gap, not inferred." }
+```
 
 **Current evidence status:** Implementation + Research Candidate + bounded adjacent Research Evidence.
 
@@ -1135,6 +1166,10 @@ This is the appropriate status:
 **Operational frontier:** Venture Lab deployments may produce candidate observations.
 
 **Experiment:** longitudinal registered protocol required.
+
+```json
+{ "claimId": "II007-H3b", "directExperiment": null, "note": "No registered/frozen protocol directly tests H3b. Machine-readable per ARR Gate's gap-disclosure rule — this is a disclosed gap, not an inferred one." }
+```
 
 **Current evidence status:** Hypothesized.
 
@@ -1160,7 +1195,7 @@ The following are **implementation citations**, not scientific citations. Every 
 | II007-IA08 | Standing evidence | [`services/journey/standingEvidenceProjection.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/journey/standingEvidenceProjection.ts) | Implementation |
 | II007-IA09 | Consequence projection | [`services/journey/consequenceForkProjection.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/journey/consequenceForkProjection.ts) | Implementation |
 | II007-IA10 | DCIR | [`codexes/packs/irl/foundation/CFS-020_dcir-charter.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/codexes/packs/irl/foundation/CFS-020_dcir-charter.md) | Doctrine/Charter (not a standalone code module) |
-| II007-IA11 | Aegis (implementation) | [`services/aegis/aegisAssessmentService.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/aegis/aegisAssessmentService.ts) | Implementation/Operational — a different artifact from the "Aegis 0.0" doctrine below |
+| II007-IA11 | Aegis — **Factor Aegis** (operational implementation, NOT the doctrine below) | [`services/aegis/aegisAssessmentService.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/aegis/aegisAssessmentService.ts) | Implementation/Operational — a different artifact from the "Aegis 0.0" (Constitutional Admission Doctrine) below; see §16's naming-collision notice |
 | II007-IA12 | IDE | [`services/invariants/discoveryEngine.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/invariants/discoveryEngine.ts) | Implementation |
 | II007-IA13 | Crystal | [`services/research/crystalDomains.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/research/crystalDomains.ts) (the Crystal admission evaluator; a large family of `services/research/crystal*.ts` modules implements the broader Crystal lifecycle) | Implementation |
 | II007-IA14 | DevOn | **Unresolved** — DevOn is referenced across numerous UI, test and process-orchestration surfaces in this repository, but no single canonical orchestration-implementation entry point could be identified without guessing among them | Unresolved |
@@ -1231,6 +1266,16 @@ Seventh, the Consequential Learning Surface may generate evidence without genera
 
 Finally, **Superintelligence is not an experimental endpoint currently demonstrated by the programme**. It is the motivating capability horizon against which the proposed mechanisms are being investigated.
 
+**Ninth — and added by the Adversarial Research Review Gate (`docs/research/adversarial-research-review-gate.md`) that this paper's own final hardening pass established:** two further limitations follow directly from that review, and are stated here as standing principles rather than as one-time corrections:
+
+> A trustworthy research system should not be optimized to remain internally consistent. It should be optimized to discover when its own consistency rests on an unchecked claim.
+
+A canon in which doctrine, implementation and prior essays all repeat the same unresolved reference can look coherent while resting on nothing — this paper's own pre-review draft did exactly that with seven internal citations before the ARR review surfaced it (see the References section). Internal agreement is cheap to produce and must never be mistaken for confirmation.
+
+> Convergence increases confidence only when the converging evidence has sufficiently independent provenance.
+
+Where this paper cites doctrine, a database record, and running code as jointly supporting the same mechanism (as in the Implementation-Evidence Register), that convergence is strong **internal implementation-consistency** evidence. It becomes stronger **scientific** evidence only if the converging artifacts could plausibly have failed independently — not when the database and code were both built to match the doctrine, in which case all three are one provenance chain wearing three hats. This paper does not currently claim otherwise, but future editions and reviewers should apply this check explicitly wherever multi-artifact convergence is offered as support for a claim, per the ARR Gate's provenance-independence check.
+
 ---
 
 # 32. Research Programme and Disconfirmation
@@ -1298,7 +1343,7 @@ They are not interchangeable.
 
 Each can fail independently.
 
-The experimental apparatus required to investigate them is nevertheless becoming concrete. The invariant substrate, Crystal, IDE, DevOn, DCIR, Crucible, Aegis, consequence machinery and EXP programme provide emerging instruments through which portions of the thesis can be exposed to falsification.
+The experimental apparatus required to investigate them is nevertheless becoming concrete. The invariant substrate, Crystal, IDE, DevOn, DCIR, Crucible, Aegis (both the Constitutional Admission Doctrine and, operationally, Factor Aegis — see §16), consequence machinery and EXP programme provide emerging instruments through which portions of the thesis can be exposed to falsification.
 
 That does not make the thesis true.
 
@@ -1414,6 +1459,22 @@ Searched and **not found** in this repository or the Supabase content database. 
 
 The internal references above that remain unresolved (CI, PE, IRL-010, IRL-010A, AEGIS-0.0, AEGIS-CRUCIBLE-0.0, GC-0.1) are unresolved for the same reason across all seven: they are described in prior Threshold research editions as residing in an external document store (a "File Library") outside this git repository and outside the Supabase content database this paper's publication process has access to. None was invented; all are named honestly as pending resolution.
 
+**Per the ARR Gate's unresolved-references rule: none of these seven inherits Ratified, Implemented, or Experimental status from any neighboring resolved citation merely by proximity in this reference list, and no claim in this paper depends load-bearingly on any of the seven** — each is cited only as prior-edition lineage context, never as the sole support for a claim made here. Machine-readable marker for the same seven entries:
+
+```json
+{
+  "unresolvedReferences": [
+    { "id": "CI", "status": "UNRESOLVED", "loadBearing": false },
+    { "id": "PE", "status": "UNRESOLVED", "loadBearing": false },
+    { "id": "IRL-010", "status": "UNRESOLVED", "loadBearing": false },
+    { "id": "IRL-010A", "status": "UNRESOLVED", "loadBearing": false },
+    { "id": "AEGIS-0.0", "status": "UNRESOLVED", "loadBearing": false },
+    { "id": "AEGIS-CRUCIBLE-0.0", "status": "UNRESOLVED", "loadBearing": false },
+    { "id": "GC-0.1", "status": "UNRESOLVED", "loadBearing": false }
+  ]
+}
+```
+
 ---
 
 ## External methodological lineage
@@ -1447,3 +1508,31 @@ Operational citations establish observed consequence.
 External sources establish their own findings and intellectual lineage.
 
 No one source class is asked to do work it cannot legitimately perform.
+
+**Schema-enforced separation (ARR Gate item 5):** the Implementation-Evidence Register (§29) and the Research-Evidence Register are two distinct machine-readable tables with distinct `evidenceClass` values — `implementation` and `scientific` respectively. No entry may carry both classes, and no orchestrating reader (human or agent) may promote an `implementation`-class entry into a `scientific`-class claim by prose association alone:
+
+```json
+{
+  "evidenceClasses": ["doctrine", "implementation", "researchCandidate", "irlEvidence", "operationalEvidence", "externalEvidence", "hypothesis"],
+  "rule": "An entry's evidenceClass is fixed at authoring time. Implementation convergence across doctrine, database and code (evidenceClass: implementation, possibly x3) is never, by aggregation, promotable to evidenceClass: irlEvidence or scientific. Promotion to a higher evidence class requires a new entry backed by its own registered protocol, not a reclassification of an existing implementation entry."
+}
+```
+
+---
+
+# ARR Receipt
+
+This Research Edition was reviewed under the Adversarial Research Review Gate
+(`docs/research/adversarial-research-review-gate.md`) before publication, by an independent Claude
+agent session with no authoring context for this paper. The review's first pass returned
+`REVISION_REQUIRED` on one material finding — a second naming collision (the ID "EXP-P2" reused
+across the P-series for two non-identical registered protocols; see §6 and §18) that had caused §6 to
+assert experimental coverage of the Layer-1-vs-Layer-2 question that does not actually exist. That
+finding was corrected (§6, §18, §28's H1 entry) rather than argued away. This manuscript's current
+disposition is **`PASS_WITH_DISCLOSED_GAPS`**. Full receipt fields (reviewer identity/class, review
+timestamp, claims/citations audited, the correction made, remaining disclosed limitations) are
+recorded in
+`codexes/packs/agentiq/updates/2026-09-12_threshold-007-arr-gate-and-final-hardening.md` and mirrored
+in this content's `ai_metadata.arrReceipt` field in the Supabase content record. The receipt is
+provenance that the review happened and what it found — it is not itself proof that every claim in
+this paper is correct.

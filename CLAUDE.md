@@ -2006,6 +2006,167 @@ Operator-delegated standing instruction (2026-07-18): the operator relies on age
 
 ---
 
+## Adversarial Research Review Gate — MANDATORY BEFORE RESEARCH PUBLICATION
+
+Any artifact represented as a **Research Edition**, scientific/research paper, experimental
+finding, invariant-research result, evidence-bearing policy paper, or publication making
+falsifiable capability claims MUST pass an independent Adversarial Research Review (ARR)
+before it is marked canonical/published.
+
+This rule exists because Threshold 007 demonstrated that adversarial inspection can uncover
+missing doctrine artifacts, citation drift, experiment-framing drift, namespace collisions and
+unsupported inference even when the underlying research programme is acting in good faith.
+
+**Full procedure, schema and worked precedent:** `docs/research/adversarial-research-review-gate.md`.
+The rules below are the mandatory summary; that document is canonical for the complete five-pass
+procedure, the ARR receipt schema, and the reasoning behind each rule — evolve the review protocol
+there, not by duplicating procedure text into this file.
+
+### Independence rule
+The ARR reviewer SHOULD NOT be the agent that authored the paper or implemented the cited
+code. Where practical, review through the same Codex/MCP/public research surfaces available
+to an external intelligent reader.
+
+The reviewer is not asked to improve or defend the paper. The reviewer is asked to BREAK it.
+
+### Evidence firewall
+Never collapse these categories:
+1. Doctrine / canonical constitutional proposition
+2. Implementation evidence
+3. Crucible / research candidate
+4. IRL controlled research evidence
+5. Venture Lab / operational evidence
+6. External evidence
+7. Hypothesis / projection
+
+Code proves that machinery exists. It does not prove the scientific effect attributed to that
+machinery.
+
+Operational success proves an observed consequence. It does not automatically prove the
+mechanism believed to have caused it.
+
+A controlled experiment proves only what its registered protocol and evidence support.
+
+### Mandatory ARR passes
+
+#### 1. Claim audit
+Extract every material claim and classify its evidence class and epistemic status.
+Flag wording whose certainty exceeds the underlying evidence.
+
+#### 2. Citation audit
+Follow every citation to the actual artifact.
+A citation passes only when:
+- the artifact resolves;
+- it is the artifact claimed;
+- it supports the proposition attributed to it;
+- publication-critical implementation citations are immutable/commit-pinned;
+- external citations are primary or appropriately authoritative where practical.
+
+NEVER invent a citation or silently substitute a similarly named artifact.
+A missing artifact is `UNRESOLVED`, not disproven.
+A read/search failure is `UNREADABLE`/`UNRESOLVED`, never an empty result.
+
+#### 3. Implementation audit
+For each implementation claim:
+- inspect the exact cited commit;
+- inspect the path/symbol/module;
+- verify that it implements the claimed mechanism;
+- distinguish Implemented, Operational, Demonstrated and Experimental status.
+
+Then state separately what scientific proposition, if any, that implementation evidence
+establishes. Usually implementation evidence establishes implementation only.
+
+#### 4. Experiment audit
+Resolve every experiment to its registered/frozen protocol and evidence package.
+The protocol's own:
+- research question;
+- hypothesis;
+- treatment;
+- control;
+- measures;
+- scope;
+- limitations;
+- falsification criteria
+
+OUTRANK any essay-level summary.
+
+Do not allow a result to support a broader claim than its protocol tested.
+Do not treat a planned/reserved experiment as evidence.
+Do not treat an experiment family as one experiment when its registered protocol separates it.
+
+#### 5. Falsification / alternative-explanation audit
+For every major hypothesis:
+- identify its explicit disconfirmation condition;
+- determine whether the protocol can actually observe that condition;
+- construct the strongest plausible competing explanation;
+- identify confounds;
+- check whether null/adverse findings remain publishable evidence.
+
+A theory that cannot lose under its own experimental design has not passed ARR.
+
+### Naming-collision rule
+If two artifacts/systems share a name, citations MUST disambiguate them explicitly.
+Never allow code for one artifact to stand in as evidence for a differently governed artifact
+with the same name.
+
+### Frozen protocol supremacy
+Once an experiment is registered/frozen, publication prose MUST conform to the protocol's
+canonical scope description. If prose and protocol differ, correct the prose or disclose the
+difference; never silently make the protocol appear to have tested the essay's broader claim.
+
+### Unresolved references
+Unresolved references are allowed when disclosed and non-load-bearing.
+They MUST:
+- be labeled `UNRESOLVED`;
+- state what was searched;
+- state what claim depends on them;
+- not inherit Ratified/Implemented/Experimental status from neighboring evidence.
+
+An unresolved load-bearing reference requires REVISION or BLOCK depending on materiality.
+
+### Research publication dispositions
+Every ARR ends with exactly one disposition:
+- `PASS`
+- `PASS_WITH_DISCLOSED_GAPS`
+- `REVISION_REQUIRED`
+- `BLOCK_PUBLICATION`
+
+Research content MUST NOT be marked published/canonical when disposition is
+`REVISION_REQUIRED` or `BLOCK_PUBLICATION`.
+
+### ARR receipt
+Every published Research Edition should preserve a machine-readable review receipt containing:
+- paper/content ID
+- version/content hash
+- reviewed commit SHA where applicable
+- reviewer identity/class
+- review timestamp
+- disposition
+- claims audited
+- citations checked
+- unresolved citations
+- experiment/protocol mismatches
+- corrections made
+- remaining disclosed limitations
+
+The receipt is provenance, not proof of truth.
+
+### Adversarial review principle
+The goal is not a paper with no gaps.
+
+The goal is a paper in which a competent adversarial reader can distinguish what is known,
+what is implemented, what has been experimentally observed, what remains unresolved, and what
+is still merely hypothesized.
+
+Finding and disclosing that the paper is wrong or unsupported in some respect is a SUCCESS of
+the review process, not a review failure.
+
+Canonical maxim:
+> The strongest evidence of epistemic discipline is not that the canon never gets something
+> wrong. It is that the canon is architected to discover, disclose and correct when it does.
+
+---
+
 ## Adding to This File
 
 When a new rule, pattern, or constraint is established during development, add it here immediately.
