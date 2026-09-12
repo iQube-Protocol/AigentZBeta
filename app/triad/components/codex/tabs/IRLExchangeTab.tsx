@@ -27,6 +27,8 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
+  ChevronDown,
+  ChevronRight,
   FileText,
   Loader2,
   Lock,
@@ -203,7 +205,99 @@ function Panel({
   );
 }
 
-function ArtifactCard({ label, artifact }: { label: string; artifact: ArtifactView | null }) {
+interface ArtifactContentPayload {
+  ok: boolean;
+  title?: string;
+  mimeType?: string | null;
+  format?: "markdown" | "text" | "unsupported";
+  content?: string;
+  note?: string;
+  error?: string;
+}
+
+/**
+ * The actual document, read inline — never a link out (CLAUDE.md's "render,
+ * don't redirect" rule; this is the exact gap the operator flagged 2026-09-12:
+ * "It's pointless having all of this wrapping if we can't actually see the
+ * content"). Fetches GET /api/research/exchanges/[exchangeId]/artifact-content
+ * only once, on first expand — the route re-enforces the SAME disclosure
+ * gate the metadata above already reflects, so a click here never surfaces
+ * anything the card wasn't already allowed to show as AVAILABLE.
+ */
+function ArtifactContentReader({ exchangeId, party }: { exchangeId: string; party: "A" | "B" }) {
+  const [open, setOpen] = useState(false);
+  const [state, setState] = useState<
+    | { kind: "idle" }
+    | { kind: "loading" }
+    | { kind: "ready"; payload: ArtifactContentPayload }
+    | { kind: "error"; message: string }
+  >({ kind: "idle" });
+
+  const toggle = useCallback(async () => {
+    setOpen((prev) => !prev);
+    if (state.kind !== "idle") return;
+    setState({ kind: "loading" });
+    try {
+      const res = await personaFetch(
+        `/api/research/exchanges/${exchangeId}/artifact-content?party=${party}`,
+        { cache: "no-store" },
+      );
+      const data = (await res.json()) as ArtifactContentPayload;
+      if (!res.ok || !data.ok) {
+        setState({ kind: "error", message: data.error || `Could not load this document (HTTP ${res.status}).` });
+        return;
+      }
+      setState({ kind: "ready", payload: data });
+    } catch (e) {
+      setState({ kind: "error", message: e instanceof Error ? e.message : "Could not load this document." });
+    }
+  }, [state.kind, exchangeId, party]);
+
+  return (
+    <div className="mt-2 rounded-lg border border-slate-800 bg-slate-900/40">
+      <button
+        type="button"
+        onClick={() => void toggle()}
+        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-[11px] font-medium text-violet-200 hover:bg-white/5"
+      >
+        {open ? <ChevronDown className="h-3.5 w-3.5 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
+        <FileText className="h-3.5 w-3.5 shrink-0" /> Read document
+      </button>
+      {open && (
+        <div className="max-h-[32rem] overflow-y-auto border-t border-slate-800 px-3 py-2.5">
+          {state.kind === "loading" && (
+            <span className="flex items-center gap-1.5 text-[11px] text-slate-500">
+              <Loader2 className="h-3 w-3 animate-spin" /> Loading…
+            </span>
+          )}
+          {state.kind === "error" && <p className="text-[11px] text-rose-300">{state.message}</p>}
+          {state.kind === "ready" && state.payload.format === "unsupported" && (
+            <p className="text-[11px] text-amber-300/90">
+              {state.payload.note || "This document's format has no reader yet."}
+            </p>
+          )}
+          {state.kind === "ready" && state.payload.format !== "unsupported" && (
+            <pre className="whitespace-pre-wrap break-words font-sans text-[12px] leading-relaxed text-slate-200">
+              {state.payload.content}
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ArtifactCard({
+  label,
+  artifact,
+  exchangeId,
+  party,
+}: {
+  label: string;
+  artifact: ArtifactView | null;
+  exchangeId: string;
+  party: "A" | "B";
+}) {
   if (!artifact) {
     return (
       <div className="rounded-xl border border-dashed border-slate-700 p-4 text-[13px] text-slate-500">
@@ -239,11 +333,14 @@ function ArtifactCard({ label, artifact }: { label: string; artifact: ArtifactVi
       {artifact.locked ? (
         <p className="mt-2 text-[11px] text-amber-300/90">{artifact.lockedReason}</p>
       ) : (
-        <div className="mt-2 space-y-1 text-[11px] text-slate-400">
-          {artifact.contentHash ? <p>fingerprint: {artifact.contentHash.slice(0, 24)}…</p> : null}
-          {artifact.sourceReference ? <p className="truncate">source: {artifact.sourceReference}</p> : null}
-          {artifact.repositoryCommit ? <p>commit: {artifact.repositoryCommit.slice(0, 12)}</p> : null}
-        </div>
+        <>
+          <div className="mt-2 space-y-1 text-[11px] text-slate-400">
+            {artifact.contentHash ? <p>fingerprint: {artifact.contentHash.slice(0, 24)}…</p> : null}
+            {artifact.sourceReference ? <p className="truncate">source: {artifact.sourceReference}</p> : null}
+            {artifact.repositoryCommit ? <p>commit: {artifact.repositoryCommit.slice(0, 12)}</p> : null}
+          </div>
+          <ArtifactContentReader exchangeId={exchangeId} party={party} />
+        </>
       )}
     </div>
   );
@@ -447,8 +544,13 @@ export function IRLExchangeTab({ workspaceScopeId }: IRLExchangeTabProps = {}) {
         </Panel>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <ArtifactCard label={yourLabel} artifact={yourArtifact} />
-          <ArtifactCard label={cpLabel} artifact={counterpartyArtifact} />
+          <ArtifactCard label={yourLabel} artifact={yourArtifact} exchangeId={exchange.id} party={viewerParty} />
+          <ArtifactCard
+            label={cpLabel}
+            artifact={counterpartyArtifact}
+            exchangeId={exchange.id}
+            party={viewerParty === "A" ? "B" : "A"}
+          />
         </div>
 
         {!yourArtifact ? (

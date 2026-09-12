@@ -53,6 +53,8 @@
 
 import { createHash, randomBytes } from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
 
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { personaPublicRef } from '@/services/identity/personaReferences';
@@ -1656,6 +1658,131 @@ export async function listExchangesByParentExperiment(
     .order('created_at', { ascending: true });
   if (error) return { ok: false, error: isMissingTable(error) ? MIGRATION_HINT : error.message };
   return { ok: true, exchanges: (data ?? []).map((r) => rowToExchange(r as Record<string, unknown>)) };
+}
+
+// ─── 11. Artifact content — the actual bytes, not just metadata ────────────
+//
+// The exchange model's whole point is disclosing a REVIEWABLE artifact, not
+// merely a hash/title/status card (operator instruction, 2026-09-12: "It's
+// pointless having all of this wrapping if we can't actually see the
+// content, the actual bytes"). Every field this depends on already existed
+// (sourceType/sourceReference/storageReference/repositoryCommit/mimeType,
+// deposited by declareArtifact/registerArtifactOperatorAssisted); this is
+// the FIRST function that ever dereferences them into actual readable
+// content.
+//
+// AUTHORIZATION: reuses getExchangeView's own gated projection — never a
+// second, independently-derived disclosure check. A caller only ever
+// reaches the extraction branches below for an artifact getExchangeView
+// already decided (fail-closed) is visible to them: their own artifact
+// always, the counterparty's only once genuinely disclosed.
+
+export type ExchangeArtifactContentResult =
+  | { ok: true; title: string; mimeType: string | null; format: 'markdown' | 'text'; content: string }
+  | { ok: true; title: string; mimeType: string | null; format: 'unsupported'; content: ''; note: string }
+  | { ok: false; error: string };
+
+const REPO_TEXT_ROOT = 'codexes/';
+/** Extraction is intentionally narrow — every branch is a REAL, verified
+ *  mechanism already used elsewhere in this codebase (the reviewer-kit
+ *  file-read pattern for repo docs, mammoth for DOCX, the PDF-stream
+ *  route's own Auto Drive download call) — never a fabricated "we support
+ *  this" for a format with no actual extractor. */
+async function extractArtifactText(
+  artifact: ExchangeArtifactRecord,
+): Promise<{ format: 'markdown' | 'text'; content: string } | { format: 'unsupported'; note: string }> {
+  if (artifact.sourceType === 'repository-commit') {
+    const rel = artifact.sourceReference.replace(/^\/+/, '');
+    if (!rel.startsWith(REPO_TEXT_ROOT) || rel.includes('..')) {
+      return { format: 'unsupported', note: `Repository reference '${rel}' is outside the readable document root.` };
+    }
+    const absolute = path.join(process.cwd(), rel);
+    if (!absolute.startsWith(path.join(process.cwd(), REPO_TEXT_ROOT))) {
+      return { format: 'unsupported', note: 'Repository reference resolved outside the readable document root.' };
+    }
+    try {
+      const text = await fs.readFile(absolute, 'utf-8');
+      const isMarkdown = /\.mdx?$/i.test(rel) || artifact.mimeType === 'text/markdown';
+      return { format: isMarkdown ? 'markdown' : 'text', content: text };
+    } catch (err) {
+      return {
+        format: 'unsupported',
+        note: `Could not read '${rel}' from the repository: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+  }
+
+  if (artifact.storageReference?.startsWith('autodrive:')) {
+    const cid = artifact.storageReference.split(':').pop()?.trim();
+    if (!cid) return { format: 'unsupported', note: 'storageReference names no CID after the autodrive: prefix.' };
+    const apiKey = process.env.AUTONOMYS_API_KEY;
+    if (!apiKey) return { format: 'unsupported', note: 'AUTONOMYS_API_KEY is not configured on this server.' };
+
+    let buffer: Buffer;
+    try {
+      const { createAutoDriveApi } = await import('@autonomys/auto-drive');
+      const { NetworkId } = await import('@autonomys/auto-utils');
+      const api = createAutoDriveApi({ apiKey, network: NetworkId.MAINNET });
+      const stream = await api.downloadFile(cid);
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of stream) chunks.push(chunk as Uint8Array);
+      buffer = Buffer.concat(chunks);
+    } catch (err) {
+      return {
+        format: 'unsupported',
+        note: `Could not download CID '${cid}' from Auto Drive: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+
+    const mime = (artifact.mimeType ?? '').toLowerCase();
+    if (mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || /\.docx$/i.test(artifact.sourceReference)) {
+      try {
+        const mammoth = (await import('mammoth')).default;
+        const { value } = await mammoth.extractRawText({ buffer });
+        return { format: 'text', content: value };
+      } catch (err) {
+        return {
+          format: 'unsupported',
+          note: `Downloaded the DOCX but could not extract text: ${err instanceof Error ? err.message : String(err)}`,
+        };
+      }
+    }
+    if (mime === 'text/markdown' || mime === 'text/plain' || mime === '') {
+      return { format: mime === 'text/markdown' ? 'markdown' : 'text', content: buffer.toString('utf-8') };
+    }
+    return { format: 'unsupported', note: `No text extractor exists yet for mime type '${artifact.mimeType}'.` };
+  }
+
+  return {
+    format: 'unsupported',
+    note: `Source type '${artifact.sourceType}' has no content-retrieval mechanism yet — only 'repository-commit' and an 'autodrive:'-prefixed storageReference are supported.`,
+  };
+}
+
+/**
+ * The actual readable content of one party's artifact — gated by the SAME
+ * disclosure decision getExchangeView already computes. Never a parallel
+ * authorization path.
+ */
+export async function resolveExchangeArtifactContent(
+  admin: SupabaseClient,
+  input: { exchangeId: string; personaId: string; party: PartySlot },
+): Promise<ExchangeArtifactContentResult> {
+  const viewed = await getExchangeView(admin, { exchangeId: input.exchangeId, personaId: input.personaId });
+  if (!viewed.ok) return { ok: false, error: viewed.error };
+
+  const targetView = input.party === viewed.view.viewerParty ? viewed.view.yourArtifact : viewed.view.counterpartyArtifact;
+  if (!targetView) return { ok: false, error: 'no-artifact' };
+  if (targetView.locked) return { ok: false, error: targetView.lockedReason ?? 'locked' };
+
+  const raw = await currentArtifact(admin, input.exchangeId, input.party);
+  if (!raw) return { ok: false, error: 'no-artifact' };
+
+  const extracted = await extractArtifactText(raw);
+  if (extracted.format === 'unsupported') {
+    return { ok: true, title: raw.title, mimeType: raw.mimeType, format: 'unsupported', content: '', note: extracted.note };
+  }
+  return { ok: true, title: raw.title, mimeType: raw.mimeType, format: extracted.format, content: extracted.content };
 }
 
 
