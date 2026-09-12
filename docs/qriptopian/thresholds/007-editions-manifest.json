@@ -8,15 +8,16 @@
   "defaultEdition": "reading",
   "research": {
     "label": "Research Edition",
-    "version": "Inspectable Academic Draft v0.1",
+    "version": "007.2",
     "textSource": "modalities.read.text",
     "manuscript": "docs/qriptopian/thresholds/007-research-edition.md",
-    "preservation": "New canonical research manuscript added 2026-09-12, following the Threshold 006 dual-edition pattern"
+    "preservation": "Superseded 2026-09-12 by the operator-supplied 007.2 draft (H1-H4, Experience Matrix, aigentMe, Standing, Constitutional Cybernetics) -- NOT yet citation-hardened or ARR-reviewed; see the file's own editorial-status note"
   },
   "reading": {
     "label": "Reading Edition",
-    "date": "2026-09-11",
-    "editorialMethod": "Original essay prose, unchanged by this revision; the Research Edition is the new citation/audit reference added alongside it, exactly as Threshold 006 adds a Research Edition alongside its own Reading Edition"
+    "version": "007.2",
+    "date": "2026-09-12",
+    "editorialMethod": "Superseded 2026-09-12 by the operator-supplied 007.2 essay prose (same H1-H4 thesis as the Research Edition)"
   },
   "constraints": {
     "onePublication": true,

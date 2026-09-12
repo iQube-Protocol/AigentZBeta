@@ -1,1538 +1,1013 @@
-# Threshold 007 — Research Edition
-
-# Invariant Intelligence
+# Threshold 007 — Invariant Intelligence
 
 ## A Falsifiable Path to Trusted Superintelligence
 
-### Structural Reasoning Compression, Cybernetic Amplification and Constitutional Expansion
+**Research Edition — 007.2**
 
-**Thresholds 007 · Research Edition**
-**Invariant Research Lab / Qriptopian**
-**September 2026**
+Invariant Research Lab / Qriptopian
+Research status: Theory under active falsifiable investigation.
 
-**Research status:** Nascent but operational — theory under active falsifiable investigation.
+> **Editorial status of this file (2026-09-12):** This is the newly received 007.2 draft,
+> transcribed faithfully from the operator-supplied manuscript. It **has not yet been through
+> citation resolution or the Adversarial Research Review Gate**
+> (`docs/research/adversarial-research-review-gate.md`) — the same process 007.1 went through before
+> its final hardening pass. The `implementationAnchors`, `registeredExperiments`, `evidenceGraph`,
+> `falsificationConditions` and `unresolvedReferences` arrays in the machine-readable apparatus (§27)
+> are deliberately left empty, exactly as the source manuscript specifies, pending that pass. This
+> file supersedes the 007.1 research edition's content but not yet its evidentiary rigor — do not
+> cite implementation claims from this draft as resolved until that follow-up pass lands.
 
 ---
 
 ## Abstract
 
-The dominant approach to increasing artificial-intelligence capability emphasizes scale: additional compute, data, model capacity, inference-time search, tool use, memory, agentic coordination and parallelism. This paper proposes **Invariant Intelligence** as a complementary research hypothesis: that intelligence may also be accelerated by discovering, testing and computationalizing structures that reduce redundant reasoning, allow useful human and machine reasoning to become mutually reusable, and expand the consequential environments in which intelligent systems can legitimately operate and learn.
+Invariant Intelligence proposes that intelligence may improve not only through additional compute,
+data, model scale and inference-time reasoning, but through the recursive conversion of
+consequentially tested discoveries into reusable structural and constitutional invariants.
 
-The thesis contains three independently falsifiable mechanisms. **Structural Invariance** proposes that sufficiently evidenced, bounded and reopenable structural relationships can operate as reusable pre-reasoning, reducing the cost of repeatedly traversing already established reasoning terrain. **Cybernetic Amplification** proposes that human and machine reasoning can become shared computational substrate, allowing discoveries by each to improve subsequent reasoning by the other. **Constitutional Expansion** proposes that computationally explicit authority, mandate, constraint, evidence, risk and consequence can increase warranted delegation and therefore expand both Effective Capability and the consequential learning surface available to intelligence.
+The revised theory distinguishes three primary mechanisms and one interaction hypothesis.
 
-None of these mechanisms is established here as a general intelligence-scaling law. However, they are no longer purely conceptual. The Invariant Research Lab (IRL), Crucible, invariant substrate, Crystal, IDE, DevOn and constitutional runtime lineage provide emerging machinery for candidate discovery, protocol-controlled testing, evidence capture, falsification and consequence observation. Current EXP-P1–P4 lines establish bounded experimental questions rather than omnibus proof: P1, per its own registered protocol (§6), isolates five arm-specific deltas (curated context, invariant representation, live runtime selection, generative sufficiency, mutation locality) and explicitly does not test the invariant-substrate-vs-raw-experience question in general form; P2, per its own registered primary question (§18), tests whether a condition-directed gated verification workflow improves consequential correctness and/or reduces expert effort relative to condition-directed prose review; P3 is representation-focused; P4 remains reserved for a future interaction/field-like hypothesis and supplies no present evidence for such a claim. The Aegis (Constitutional Admission Doctrine) research programme separately introduces falsifiable families around proclaimed, Raw and Effective Capability, Risk of Repair, Proof of Time Saved and evidence/Standing portability — distinct from the operational "Factor Aegis" implementation cited later in this paper (§16). These instruments make the thesis increasingly testable without validating it.
+**H1 — Structural Invariance** concerns reasoning compression and possible frontier extension
+through reusable, falsifiable structure.
 
-The resulting research question is whether **accumulated falsifiable reasoning structure constitutes a distinct scaling mechanism for intelligence**. If Structural Invariance can compress the reasoning surface, cybernetic reasoning can enrich it, and Constitutional Invariance can expand the consequential learning surface without exporting unacceptable repair, Invariant Intelligence may offer a complementary path not merely toward Superintelligence, but toward **Trusted Superintelligence**: extraordinary intelligence whose consequential authority remains computationally legible, bounded, evidenced and revocable.
+**H2 — Cybernetic Intelligence** concerns the persistence and mutual reuse of human and machine
+reasoning, experience and consequential interpretation, including persistent constitutional
+companionship.
 
----
+**H3 — Constitutional Effects** concerns measurable epistemic and capability effects arising from
+constitutionally bounded agency, sovereignty, privacy, delegation and observability.
 
-## 1. Research Problem: Reasoning at the Frontier
+**H4 — Constitutional Cybernetic Compounding** tests whether the interaction of H1–H3 produces
+higher-integrity intent, richer consequential evidence, more reliable invariant discovery and
+greater cross-domain transfer than the mechanisms independently.
 
-Contemporary AI capability development is dominated by an additive paradigm:
+The Experience Matrix and aigentMe provide a candidate integrated experimental architecture. The
+Experience Matrix supplies a structured, person-authored experiential state space; aigentMe supplies
+persistent bounded agency within that state space; Standing supplies evidentiary provenance and
+accountability; and Constitutional Computing constrains authority, observability and consequence.
 
-$$
-C = f(\text{compute},\text{data},\text{architecture},\text{inference},\text{tools},\text{agents},\text{time})
-$$
+The central research question is:
 
-This paper does not contest that paradigm. Scaling has produced substantial capability gains, and no result presented here establishes that Invariant Intelligence will outperform further scaling.
+> Can consequentially tested invariants cumulatively increase the frontier of capability reachable
+> by a human-machine system under bounded resources and bounded Risk of Repair?
 
-The narrower proposition is that conventional accounts may omit another potentially scalable resource:
+The corresponding constitutional question is:
 
-$$
-C = f(\text{scale},\text{reusable reasoning structure})
-$$
+> Can the consequential authority exercised by increasingly capable intelligence remain
+> constitutionally sovereign, accountable and governable as capability increases?
 
-Reasoning is not computationally free.
-
-Before a system reaches the genuinely uncertain portion of a problem, it may have to recover context, identify relevant relationships, reject impossible alternatives, re-establish constraints, determine which prior conclusions remain applicable and rediscover structure already traversed in earlier reasoning.
-
-This motivates the first research question:
-
-> **Can reusable, falsifiable structural reasoning reduce the cost of reaching the frontier of uncertainty?**
-
-This paper calls that frontier **the reasoning frontier**: the boundary at which reusable established structure ceases to be sufficient and novel reasoning becomes necessary.
-
-The purpose of Invariant Intelligence is therefore not simply to reduce reasoning.
-
-It is to investigate whether intelligence can allocate more of its finite reasoning expenditure **at the frontier**.
-
-This yields the central research thesis:
-
-> **What if the fastest path to Superintelligence is not simply more intelligence, but more invariance?**
-
-The proposition is deliberately interrogative. No present IRL result establishes it.
-
-What has changed is its experimental status.
-
-The question is increasingly capable of being decomposed into mechanisms, controls, measurements and falsifiers.
+Neither proposition is established.
 
 ---
 
-# 2. Epistemic and Evidentiary Framework
+## 1. Evidence Firewall and Unequal Maturity
 
-Threshold research editions distinguish five evidence classes:
+The components of the thesis begin from different evidentiary positions.
 
-1. **Doctrine** — constitutional proposition, architecture or ratified project doctrine.
-2. **Implementation** — machinery that instantiates a proposition or makes it testable; evidence that a mechanism exists, not that its scientific thesis is true.
-3. **Research Candidate / Crucible** — falsifiable proposition, candidate invariant, mechanism hypothesis or experiment family awaiting adjudication.
-4. **Research Evidence / IRL** — evidence produced under registered scientific or constitutional research controls, subject to the limits of its protocol.
-5. **Operational Evidence / Venture Lab** — consequential deployment evidence including usage, outcomes, failure, repair and economics; not automatically confirmatory scientific evidence.
+**Constitutional Invariance** is presently the most extensively articulated and operationalized
+architectural component of the stack. Constitutional doctrine and implementation already concern
+personhood, identity, authority, mandate, delegation, Passport, privacy, Standing, access, evidence,
+consequence and bounded agentic action.
 
-This distinction is load-bearing for the present paper.
+This establishes architectural maturity where corresponding artifacts and implementations are
+verified.
 
-An implemented invariant graph does not establish that invariants accelerate reasoning.
+It does not establish the H3 intelligence effects.
 
-A deployed constitutional runtime does not establish that constitutionality increases intelligence.
+**Structural Invariance** is less mature as an empirically demonstrated capability mechanism.
+Existing substrate and research machinery do not establish reasoning compression, frontier extension
+or scaling effects.
 
-An operational Aegis (Factor Aegis, `services/aegis/aegisAssessmentService.ts`) assessment does not validate a universal Trusted Intelligence Index.
+**Cybernetic Intelligence** has increasingly concrete architectural primitives through Experience
+Matrix, aigentMe, Standing, delegation and consequence, while the claimed Human × Machine
+intelligence effects remain experimental.
 
-A commercially successful deployment does not prove the mechanism believed to have produced its outcome.
+Therefore:
 
-Conversely, a controlled experimental result does not establish commercial usefulness or resilience under consequential operation.
+> Existence of Architecture ≠ Validation of Effect
 
-The governing distinction is:
+The canonical evidence firewall remains:
 
-> **Scientific validation asks whether a mechanism survives controlled falsification. Operational validation asks whether it survives consequence. Neither substitutes for the other.**
-
-The associated research loop is:
-
-**Crucible → IRL → Constitutional Evidence → Runtime → Venture Lab → Realized Consequence → Evidence → Crucible / IRL**
-
-Operational telemetry becomes scientific evidence only when captured through a registered protocol with controlled provenance.
-
----
-
-# 3. Formal Construct: The Invariant
-
-Invariant Intelligence begins with the question:
-
-> **What must remain true?**
-
-For research purposes, an invariant should not be treated as an immutable truth.
-
-We define a candidate invariant \(I\) as:
-
-$$
-I=(P,D,E,C,F,V)
-$$
-
-where:
-
-* \(P\) = proposition or structural relationship;
-* \(D\) = domain and scope;
-* \(E\) = supporting evidence;
-* \(C\) = confidence/evidentiary state;
-* \(F\) = falsification or reopening conditions;
-* \(V\) = version and lineage.
-
-The exact production schema should not be inferred from this analytical notation. It is a research abstraction. Existing implementation includes invariant types/lifecycle, graph structures and an invariant substrate, but the current Threshold hardening work specifically requires verification before claiming that every doctrinal distinction—particularly structural versus constitutional kind—is machine-enforced throughout the schema.
-
-### Implementation anchors
-
-**II007-IA01 — Invariant type/lifecycle substrate**
-Repository: `iQube-Protocol/AigentZBeta`
-Path: `types/invariants.ts`
-Status: **Implementation** — verified present at commit `3ab092623e20a11160aed8193aac181a72c6757f`.
-Permalink: https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/types/invariants.ts
-
-**II007-IA02 — Invariant graph**
-Path: `services/invariants/graph.ts`
-Status: **Implementation** — verified present at commit `3ab092623e20a11160aed8193aac181a72c6757f`.
-Permalink: https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/invariants/graph.ts
-
-**II007-IA03 — Invariant persistence substrate**
-Path: `supabase/migrations/20260703200000_invariant_substrate.sql`
-Status: **Implementation** — verified present at commit `3ab092623e20a11160aed8193aac181a72c6757f`.
-Permalink: https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/supabase/migrations/20260703200000_invariant_substrate.sql
-
-**II007-IA04 — IRL foundation pack**
-Path: `codexes/packs/irl/foundation`
-Status: **Doctrine / Specification / Research infrastructure**, according to individual artifact.
-Permalink (directory): https://github.com/iQube-Protocol/AigentZBeta/tree/3ab092623e20a11160aed8193aac181a72c6757f/codexes/packs/irl/foundation
-Specific referenced artifacts within this pack are individually cited at their own anchors below (EXP-P1–P4, CFS-020) rather than the directory being cited generically for any single claim.
-
-These implementation entry points are verified present in the repository as of the publication commit `3ab092623e20a11160aed8193aac181a72c6757f`.
+> Doctrine ≠ Implementation ≠ Research Candidate ≠ Controlled Research Evidence ≠ Operational
+> Evidence
 
 ---
 
-# 4. The Invariant Field
+## 2. Invariant Classes
 
-For a reasoning problem \(x\), define the relevant invariant field as:
+For research purposes, at least two invariant classes must be distinguished.
 
-$$
-\mathcal I_x = \{I_1,I_2,\ldots,I_n\}
-$$
+**Structural invariant**
 
-where each \(I_n\) is admitted only within its bounded scope and evidentiary state.
+A scoped relationship proposed to remain sufficiently reliable under defined conditions to justify
+provisional reuse.
 
-The invariant field is not intended to supply an answer.
+Question: *What appears to remain true?*
 
-It supplies **pre-reasoning**.
+**Constitutional invariant**
 
-A baseline process may be represented as:
+A condition legitimately established as required for consequential action to remain admissible
+within a constitutional order.
 
-$$
-Problem \rightarrow Search \rightarrow Reason \rightarrow Evaluate \rightarrow Answer
-$$
+Question: *What must remain true?*
 
-An invariant-assisted process becomes:
+These differ in origin.
 
-$$
-Problem \rightarrow Invariant\ Field \rightarrow Constrained\ Search
-\rightarrow Novel\ Reasoning \rightarrow Answer
-$$
+Structural invariants are principally discovered and evidenced.
 
-The research proposition is that previously expended reasoning can be preserved not merely as memory, but as reusable structure.
+Constitutional invariants are constituted through legitimate authority, although their mechanisms
+and consequences remain empirically assessable.
 
-> **Memory preserves information. Invariance preserves structure.**
+For a structural candidate:
 
-This distinction must itself be tested. A memory-rich control is therefore necessary in experiments purporting to demonstrate an invariant-specific effect.
+> I_s = (P, D, E, C, F, V)
 
-Without such a control, an observed gain could simply result from providing additional prior information.
+may represent proposition, domain, evidence, evidentiary state, falsification conditions and
+lineage.
+
+For constitutional invariance, additional fields are required conceptually:
+
+> I_c = (P, A, D, M, E, R, V)
+
+where *A* denotes legitimate authority, *D* scope, *M* implementing mechanism, *E* consequential
+evidence, *R* revision procedure and *V* lineage.
+
+These tuples are analytical abstractions, not claims about exact production schemas.
+
+A crucial distinction follows:
+
+> Constitutional Value ≠ Constitutional Mechanism
+
+Empirical evidence may demonstrate that mechanism M₁ fails to preserve constitutional value P.
+
+It does not thereby possess authority to repeal P.
 
 ---
 
-# 5. H1 — Structural Compression
+## 3. H1 — Structural Invariance
 
-### Hypothesis II007-H1
+**H1a — Structural Compression**
 
-> **Invariant-assisted reasoning can measurably improve reasoning efficiency and/or reasoning quality on appropriate problem classes by reducing redundant search while preserving the ability to detect conditions requiring an invariant to be reopened.**
+Invariant-assisted reasoning reduces redundant reasoning expenditure on appropriate problem classes
+without materially impairing correctness, robustness, novelty, contradiction detection or reopening
+behavior.
 
-The hypothesis does not predict that every problem benefits from invariance.
+Candidate measure:
 
-Nor does it predict that less reasoning is intrinsically better.
+> RC = (R_b − R_i) / R_b
 
-Its intended effect is **reasoning reallocation**: reducing expenditure on repeatedly rediscovered structure so that a larger proportion of reasoning can be directed toward uncertainty, contradiction, novelty and boundary conditions.
+where R_b is baseline reasoning expenditure and R_i invariant-assisted expenditure.
 
-### Candidate measurement
+Required controls should include:
 
-For a bounded task, a first-order Reasoning Compression measure may be expressed as:
+- baseline reasoning;
+- informationally equivalent memory/retrieval;
+- invariant-assisted reasoning;
+- where appropriate, live invariant discovery as a separate condition.
 
-$$
-RC=\frac{R_b-R_i}{R_b}
-$$
+The memory control is mandatory.
 
-where:
+Without it, H1a risks demonstrating only that additional useful context improves reasoning.
 
-* \(R_b\) = baseline reasoning expenditure;
-* \(R_i\) = invariant-assisted reasoning expenditure.
+**H1b — Frontier Extension**
 
-But \(RC>0\) is not sufficient.
+Accumulated invariant structure enables a bounded reasoning system to solve problem classes that a
+compute-, time- or inference-budget-matched baseline cannot solve under equivalent resources.
 
-Compression is beneficial only where quality, robustness and relevant novelty remain within preregistered tolerances.
+Conceptually:
 
-Reasoning expenditure may include:
+> FS = ReachableProblems_Invariant − ReachableProblems_Baseline
 
-* inference tokens;
-* wall-clock time;
-* search operations;
-* tool calls;
-* model invocations;
-* computational cost;
-* human interventions;
-* number of reasoning iterations.
+under controlled resource parity.
 
-### Required controls
+Positive H1a with negative H1b supports invariance as an efficiency mechanism but not as evidence of
+a frontier-shifting scaling resource.
 
-At minimum:
+---
 
-**Condition A — Baseline reasoning**
-No supplied prior invariant structure.
+## 4. H2 — Cybernetic Intelligence
 
-**Condition B — Memory/context control**
-Equivalent prior information supplied without invariant structure.
+**H2a — Reusable Human Reasoning**
 
-**Condition C — Invariant-assisted reasoning**
-Relevant candidate invariants supplied with scope/evidence/reopening information.
+Useful human reasoning can be transformed into explicit, inspectable computational structure that
+remains useful beyond synchronous participation by the contributing human.
 
-Where dynamic invariant discovery is itself under investigation, a further condition may introduce live discovery separately from a frozen/static invariant substrate.
+**H2b — Reusable Machine Reasoning**
 
-### Primary outcomes
+Machine-discovered structure can become inspectable and usable by human participants for
+interpretation, correction and further reasoning.
 
-* task correctness;
-* reasoning expenditure;
-* Time to Value;
-* error rate;
-* robustness;
-* novel discovery;
-* contradiction detection;
-* invariant reopening accuracy;
-* repair burden.
+**H2c — Consequential Cybernetics**
 
-### Falsification
+Joint Human × Machine interpretation of consequence produces more useful structural revision than
+relevant human-only, machine-only or conventional Human-in-the-Loop controls.
 
-H1 is weakened or falsified for the tested domain if invariant assistance:
+**H2d — Constitutional Companion Continuity**
 
-* provides no reproducible reduction in reasoning expenditure;
-* reduces expenditure but materially degrades correctness;
-* suppresses relevant novelty;
-* entrenches false assumptions;
-* fails to reopen invalidated invariants;
-* introduces maintenance/discovery overhead exceeding the reasoning saved.
+A persistent, constitutionally bounded agentic companion can preserve and operationalize
+person-specific reasoning, intent, experiential history and consequential evidence across
+interactions more effectively than episodic Human × Machine interaction while preserving the
+principal's sovereignty over the resulting computational representation.
 
-The key proposition is therefore not:
-
-> invariants make reasoning cheaper.
+The relevant comparison is not merely personalized versus unpersonalized AI.
 
 It is:
 
-> **invariants may allow intelligence to spend more of its reasoning on what remains worth reasoning about.**
+> Episodic AI
+
+versus:
+
+> Persistent Personalized AI
+
+versus:
+
+> Persistent Constitutional Companion
+
+The third condition adds explicit mandate, purpose, sovereignty, privacy, bounded authority,
+provenance and revocability.
 
 ---
 
-# 6. Existing Experimental Lineage for H1
+## 5. aigentMe as Constitutional Companion
 
-The current IRL programme provides an experimental substrate but not general validation.
+The candidate architecture is:
 
-### II007-EX01 — EXP-P1 (primary description: the registered protocol's own scope)
+> Person ↔ aigentMe ↔ Experience Matrix ↔ Consequential Environment
 
-**Per ARR Gate frozen-protocol supremacy (`docs/research/adversarial-research-review-gate.md`), the protocol's own text is the primary description below, not an essay-level summary corrected afterward.**
+aigentMe is modeled as a bounded delegate rather than an independent source of authority.
 
-The registered protocol (`EXP-P1 — The Representation & Runtime Gauntlet`) states its purpose and scope as follows, verbatim:
+Its three functional roles can be represented as:
 
-> "EXP-P1 tests, in one factorial design, the questions this exchange has converged on. It does **not** test IRL's primary structural hypothesis (invariant substrate vs raw experience, 'Layer 1 vs Layer 2'); that is the companion experiment (**EXP-P2**...), to be run under identical rigor."
+> myGuard → protection
+> myClaw → authorized action
+> myBot → assistance
 
-By arm-delta, EXP-P1 isolates five distinct questions (D−A: does curated context help at all; C−D: does invariant representation outperform expert prose at equal tokens; B−C: does the live runtime add value beyond a frozen flattened export; a sufficiency probe on generative reconstructability; a mutation probe on update locality). None of these five deltas is, by the protocol's own framing, a direct test of "does a minimum sufficient invariant substrate and runtime preserve or improve reasoning under controlled informational budgets" as a single general proposition — that broader framing belongs to H1 as this paper states it, and EXP-P1 is *relevant* evidence toward it only through these narrower, arm-specific deltas.
+Research must distinguish:
 
-**Research relationship:** Structural Compression / minimum sufficient invariant substrate — indirectly, via the arm-deltas above, not via a single direct test of H1's general form.
+> Agentic Capability
 
-**Current status:** **Research Evidence / IRL**, limited to the registered/frozen protocol and completed experimental runs.
+from:
 
-**What it can test:** the five arm-deltas listed above, individually, at equal token budget, under externally specified controls.
+> Delegated Authority
 
-**What it cannot establish:** H1 in its general form ("invariance accelerates intelligence"), that any observed effect transfers across domains, or that any effect compounds toward superintelligence.
+and:
 
-**A second naming collision, found by ARR review and disclosed rather than papered over:** EXP-P1's own text (§14, "Companion Experiment Interface") charters IRL's Layer-1-vs-Layer-2 structural hypothesis (raw corpus vs. expert summary vs. invariant substrate at matched tokens) as a *separate* experiment, also named **EXP-P2**, at path `foundation/experiments/exp-p2-structural-invariance/`. **That directory does not exist in this repository.** The EXP-P2 that *does* exist and that this paper's §18 actually describes (`exp-p2-consequential-performance/02_protocol-v0.5.md`) is a different, later-registered protocol under the same name — its own text states it was "recentered on **process**... distinguishing it from EXP-P3, whose scientific object is **representation**," explicitly superseding the earlier structural-substrate framing. So "EXP-P2" names two non-identical registered artifacts across this project's experimental lineage, exactly the pattern the naming-collision rule exists to catch — just for an experiment ID rather than a proper noun like "Aegis."
+> Delegated Authority
 
-**Net, disclosed gap:** no currently registered protocol in this repository tests H1's Layer-1-vs-Layer-2 proposition directly. This is not inferred from prose — see the machine-readable marker below.
+from:
 
-```json
-{ "claimId": "II007-H1-layer1-vs-layer2", "directExperiment": null, "note": "EXP-P1 README §14 charters this as a separate 'EXP-P2' at foundation/experiments/exp-p2-structural-invariance/, which was never instantiated; the EXP-P2 that exists (exp-p2-consequential-performance/) is a different, later protocol under the same ID, per its own supersession notice. Disclosed gap, not inferred." }
-```
+> Principal Identity
 
-**Resolved citation:** https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md (protocol README; companion documents `AUSTIN_ONE_PAGER.md`, `CRYSTAL-ENLARGEMENT_plan.md`, `STAGE-0_HANDOFF.md` in the same directory).
+Pseudonymous delegation therefore becomes a testable constitutional mechanism:
 
-**Editorial gloss (secondary, non-authoritative):** an earlier draft of this section summarized EXP-P1 as testing "whether a minimum sufficient invariant substrate and runtime can preserve or improve reasoning under controlled informational budgets" — a framing broader than, and in one respect (the Layer-1-vs-Layer-2 question) contrary to, the protocol's own stated scope above. That summary is retained here only as a labeled example of exactly the framing drift the ARR Gate's frozen-protocol-supremacy rule exists to catch; it is not evidence of anything and must not be cited as the section's claim.
+Can an agent demonstrate sufficient mandate to perform an action without unnecessarily disclosing the
+principal?
 
----
+The desired property is:
 
-# 7. Structural Invariance and the Risk of Dogma
+> Authority Legibility + Principal Privacy + Accountability
 
-The central failure mode of H1 is not merely inefficiency.
-
-It is **efficient error**.
-
-A false invariant can constrain the search space in the wrong direction, causing an intelligent system to reach an incorrect conclusion faster and with greater confidence.
-
-Invariant Intelligence therefore requires:
-
-$$
-Compression \not\Rightarrow Closure
-$$
-
-An invariant earns the right to compress reasoning only while evidence supports its continued applicability.
-
-The architecture must therefore preserve:
-
-* provenance;
-* version;
-* scope;
-* evidence;
-* lineage;
-* contradiction;
-* reopening;
-* supersession;
-* falsification.
-
-The current Threshold hardening programme has already identified supersession lineage as an area requiring further integrity work and explicitly prohibits generalizing a small observed set of missing successor records into a registry-wide failure.
-
-This illustrates the research principle:
-
-> **An invariant that cannot be reopened is no longer a research instrument. It is doctrine.**
+rather than anonymous unaccountability.
 
 ---
 
-# 8. H2 — Cybernetic Amplification
+## 6. Continuity Without Identity Substitution
 
-### Hypothesis II007-H2
+A persistent companion may accumulate a computational substrate derived from:
 
-> **Invariant-mediated Hybrid Intelligence can measurably outperform relevant human-only, machine-only or conventional human-in-the-loop baselines by making useful reasoning from each computationally reusable by the other.**
+> Reasoning + Experience + Expertise + Consequence + Invariant Structure
 
-Human and machine intelligence are differently shaped.
+This motivates investigation of computational continuity.
 
-Machine intelligence contributes scale, retrieval, computational consistency, search, simulation and parallelism.
+However:
 
-Human intelligence contributes purpose, contextual judgment, lived experience, abstraction, significance, creative reframing and legitimate intent.
+> Model of Principal ≠ Principal
 
-Prior Trusted Intelligence work already frames human and machine reasoning as complementary rather than reducing Trusted Intelligence to a property of AI alone.
+and:
 
-H2 asks a narrower empirical question:
+> Continuity of Intelligence ≠ Continuity of Authority
 
-Can useful reasoning generated by one become **reusable computational substrate** for the other?
+Posthumous or otherwise successor operation therefore requires separate constitutional authority.
 
----
+A surviving agent may retain informational or generative structure without inheriting every mandate
+of the principal from whom that structure originated.
 
-# 9. Human-in-the-Loop versus Human-in-the-Invariant
-
-A conventional sequential architecture can be represented as:
-
-$$
-Machine \rightarrow Stop \rightarrow Human \rightarrow Decision \rightarrow Resume
-$$
-
-Invariant-mediated reasoning instead proposes:
-
-$$
-Human\ Insight
-\rightarrow Candidate\ Invariant
-\rightarrow Computational\ Representation
-\rightarrow Machine\ Testing
-\rightarrow Machine\ Application
-$$
-
-and recursively:
-
-$$
-Human\ Reasoning
-\rightarrow Candidate\ Invariant
-\rightarrow Machine\ Testing
-\rightarrow Structural\ Evidence
-\rightarrow Machine\ Reasoning
-\rightarrow Consequence
-\rightarrow Human\ Interpretation
-\rightarrow Refined\ Invariant
-$$
-
-The proposition is therefore stronger than "keep humans in the loop."
-
-It is:
-
-> **Put human reasoning in the invariant.**
-
-If successful, a useful human insight no longer requires synchronous human intervention each time it applies.
-
-Likewise, machine-discovered structure can become an object of human interpretation, challenge and refinement.
-
-The candidate relationship becomes:
-
-$$
-Human\ Intelligence \times Machine\ Intelligence
-$$
-
-rather than merely:
-
-$$
-Human\ Intelligence + Machine\ Intelligence
-$$
-
-The multiplication sign is conceptual, not a validated mathematical law.
+This distinction is essential to prevent capability continuity from manufacturing authority
+continuity.
 
 ---
 
-# 10. Experimental Design for H2
+## 7. H3 — Measurable Effects of Constitutional Invariance
 
-A minimum controlled comparison should include:
+H3 should not ask whether Constitutional Invariance exists or whether constitutional rules can
+constrain software.
 
-**A — Human-only**
+Instead it asks what measurable epistemic and capability effects arise from the constitutional
+substrate.
 
-**B — Machine-only**
+**H3a — Constitutional Signal Integrity**
 
-**C — Conventional human-in-the-loop**
+Constitutionally Sovereign Observability produces higher-integrity human-declared intent and
+experiential evidence than observational systems lacking equivalent sovereignty, privacy, purpose
+limitation, control and revocability.
 
-**D — Invariant-mediated Human × Machine**
+Potential dependent variables include:
 
-Candidate dependent variables include:
+- declaration completeness;
+- correction frequency;
+- internal consistency;
+- willingness to disclose sensitive but task-relevant intent;
+- divergence between declared and later validated intent;
+- retention of participation;
+- perceived agency;
+- unauthorized inference;
+- purpose-expansion events.
 
-* solution correctness;
-* solution quality;
-* novel discovery;
-* time;
-* computational expenditure;
-* human effort;
-* persistence of useful human reasoning across subsequent machine runs;
-* transfer across related tasks;
-* contradiction detection;
-* correction of erroneous human priors;
-* correction of erroneous machine priors.
+This hypothesis requires careful human-subject research design and appropriate privacy/ethics
+review.
 
-A critical negative test is required:
+**H3b — Constitutional Expansion**
 
-> **Does computationalizing human reasoning remove the tacit, contextual or interpretive properties that made the human contribution useful?**
+Increased constitutional assurance increases warranted delegation and Effective Capability without
+unacceptable increase in Risk of Repair.
 
-If the answer is yes across the intended domain, H2 weakens.
+> Warranted Trust ↑ → Delegation Frontier ↑ → Effective Capability ↑
 
-### Current evidence state
+This does not imply increased intelligence.
 
-H2 should presently be classified **Research Candidate / Crucible**, with enabling implementation and adjacent Hybrid Intelligence doctrine.
+**H3c — Consequential Learning**
 
-The existence of invariant infrastructure or human-machine workflows does **not** establish cybernetic amplification.
+Evidence generated through legitimate consequential interaction improves subsequent structural
+reasoning where it produces reusable updates that generalize beyond the originating interaction.
 
-No present result should be cited as proving Human × Machine superiority unless a protocol directly compares the relevant conditions.
+Required distinction:
 
----
+> Local Calibration ≠ Generalizable Learning
 
-# 11. H3 — Constitutional Expansion
+**H3d — Cross-Domain Consequential Transfer**
 
-### Hypothesis II007-H3
+Consequentially derived invariant structure from one domain improves reasoning or decision quality in
+materially different domains where relevant structural and constitutional conditions recur.
 
-> **Constitutional mechanisms can increase warranted delegation and Effective Capability without unacceptable increases in Risk of Repair, thereby expanding the consequential learning surface available to intelligent systems.**
-
-This hypothesis builds on the distinction between **Raw Capability** and **Effective Capability** developed in the Trusted Intelligence lineage.
-
-Raw Capability describes what an intelligence can technically do.
-
-Effective Capability describes what it is presently authorized, sufficiently trusted and operationally enabled to do.
-
-The prior research edition makes the constitutional constraint explicit:
-
-> Increasing Raw Capability must not automatically increase Effective Capability.
-
-and separately:
-
-> Increasing capability must never imply increasing authority.
-
-H3 asks whether this apparent constraint can also create an acceleration effect.
+This is a major B→C criterion for the overall thesis.
 
 ---
 
-# 12. Trust as a Capability Mechanism
+## 8. Experience Matrix as Integrated Instrument
 
-The working Trusted Intelligence relationship:
+The Experience Matrix is not merely a measurement surface.
 
-$$
-Raw\ Capability \times Trust \rightarrow Effective\ Capability
-$$
+It potentially instantiates all three primary mechanisms.
 
-is a **research model**, not an empirical law.
+**Structural**
 
-The Threshold hardening specification explicitly requires that it remain described as such.
+It represents:
 
-The mechanism proposed here is:
+> Current State → Desired State → Intent → Intervention → Consequence → Progress/Repair
 
-$$
-Warranted\ Trust \uparrow
-\rightarrow Delegation\ Frontier \uparrow
-\rightarrow Effective\ Capability\ Surface \uparrow
-$$
+**Cybernetic**
 
-The reasoning is straightforward.
+It participates in:
 
-A technically capable system that cannot establish authority, mandate, evidentiary sufficiency or bounded risk may legitimately be prevented from exercising that capability.
+> Human → Declaration → Agentic Interpretation → Intervention → Consequence → Human+Machine
+> Interpretation → Updated State
 
-If constitutional machinery allows those conditions to be established and enforced, a greater portion of Raw Capability may become legitimately usable.
+**Constitutional**
 
-Constitutionality can therefore operate as both **constraint** and **enablement**.
-
-The existence of the mechanism does not establish its net effect.
-
-That is the experiment.
-
----
-
-# 13. The Consequential Learning Surface
-
-This paper introduces the **Consequential Learning Surface (CLS)** as a research construct.
-
-Define \(CLS_s\) for system \(s\) as:
-
-> the set of consequential environments in which \(s\) possesses sufficient legitimate authority to act, can observe attributable consequence, and can return admissible evidence from those consequences into subsequent reasoning or governance.
-
-This is intentionally distinct from general access.
-
-A system may technically access an environment without legitimate authority to act within it.
+Its informational integrity depends upon legitimate authority over observation and use.
 
 Thus:
 
-$$
-Access \neq Authority
-$$
+> H1 + H2 + H3 → Integrated Experience System
+
+The resulting architecture provides a concrete environment for H4.
+
+---
+
+## 9. Constitutionally Sovereign Observability
+
+Working definition:
+
+Constitutionally Sovereign Observability is the capacity to generate sufficient consequential
+evidence for legitimate learning while preserving personhood, sovereignty, purpose limitation,
+privacy, selective disclosure, revocable authority and accountability for the person or agent whose
+state is being observed.
+
+Canonical requirement:
+
+Make consequence legible without making the person legible beyond the authority they granted.
+
+The corresponding epistemic hypothesis is important.
+
+A surveillance-maximal system may acquire more behavioral information while simultaneously
+degrading the integrity of intentional declaration through withholding, performance or
+self-censorship.
+
+Therefore:
+
+> Observation Quantity ≠ Signal Integrity
+
+Candidate mechanism:
+
+> Constitutional Assurance → Warranted Trust → Disclosure Integrity → Better Structural Evidence
+
+This provides a direct H3 → H1 causal pathway.
+
+It must be experimentally tested rather than assumed.
+
+---
+
+## 10. Experience Graph and Attribution
+
+A candidate Experience Graph contains:
+
+> {Intent, Goal, Intervention, Action, Consequence, Assessment, Progress, Repair}
+
+For transition:
+
+> E_t —(I_i)→ E_(t+1)
+
+temporal succession does not establish:
+
+> I_i → ΔE
+
+Experimental design must address confounding, concurrent interventions, self-report bias, changing
+preferences, delayed consequences and platform-induced preference formation.
+
+The person-authored reference state is therefore an instrument, not ground truth.
+
+---
+
+## 11. Cross-Domain Experiential Invariance
+
+A candidate Cross-Domain Experiential Invariant is:
+
+A scoped relationship among intervention, agency, consequence and experiential transition that
+remains predictive across materially distinct activity domains under comparable constitutional
+conditions.
+
+The Experience Matrix provides two measurement surfaces:
+
+> DomainSpecificOutcome
 
 and:
 
-$$
-Capability \neq Authority
-$$
+> ExperientialTransition
 
-A larger consequential learning surface is therefore not simply "more autonomy."
+A transfer protocol should therefore:
 
-It is a larger set of **legitimate, evidenced interactions with reality**.
+1. discover candidate structure in domain A;
+2. freeze the candidate invariant before exposure to domain B;
+3. preregister transfer predictions;
+4. evaluate domain B without equivalent rediscovery;
+5. compare against baseline and domain-specific calibration controls;
+6. test further domains C, D, …
 
-The proposed learning loop is:
+A result supports cross-domain transfer only where:
 
-$$
-Better\ Reasoning
-\rightarrow Greater\ Warranted\ Trust
-\rightarrow Greater\ Delegation
-\rightarrow Larger\ CLS
-\rightarrow More\ Consequential\ Evidence
-\rightarrow Better\ Reasoning
-$$
+> Performance_TransferredInvariant > Performance_RelevantControl
 
-The final arrow is a hypothesis.
+without equivalent additional discovery cost.
 
-More deployment does not necessarily produce better intelligence. It may merely produce more data.
-
-H3 therefore contains two separable questions:
-
-**H3a — Constitutional Expansion:**
-Does constitutional assurance increase warranted delegation / Effective Capability?
-
-**H3b — Consequential Learning:**
-Does the resulting additional consequential evidence measurably improve subsequent reasoning?
-
-H3b requires longitudinal testing.
+Failure to transfer should narrow the invariant's scope rather than be discarded as inconvenient
+evidence.
 
 ---
 
-# 14. Constitutional Computing as Enabling Machinery
+## 12. Constitutional Conditions as Scope Variables
 
-The constitutional mechanism is not purely theoretical.
+Some candidate relationships may hold only under defined constitutional conditions.
 
-Prior Threshold research has already identified implementation entry points for personhood, identity/persona, invariant lifecycle, constitutional ontology, receipts/provenance, Standing and consequence. The earlier inspectable research edition explicitly distinguishes these implementation witnesses from external or scientific validation.
+Thus:
 
-Relevant anchors include:
+> X → Y | C
 
-### II007-IA05 — Constitutional ontology resolver
+where C may include:
 
-`services/constitutional/ontologyResolver.ts`
+- informed authorization;
+- meaningful agency;
+- privacy;
+- reversibility;
+- attributable delegation;
+- purpose limitation;
+- legitimate refusal.
 
-Status: **Implementation** — verified present.
-Permalink: https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/constitutional/ontologyResolver.ts
+Removing C may change both behavior and consequence.
 
-### II007-IA06 — Personhood proof
+If demonstrated, constitutional conditions become part of the empirical domain of validity rather
+than merely external ethical constraints.
 
-`services/passport/personhoodProof.ts`
-
-Status: **Implementation** — verified present.
-Permalink: https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/passport/personhoodProof.ts
-
-### II007-IA07 — Active persona / identity spine
-
-`services/identity/getActivePersona.ts`
-
-Status: **Implementation** — verified present.
-Permalink: https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/identity/getActivePersona.ts
-
-### II007-IA08 — Standing evidence projection
-
-`services/journey/standingEvidenceProjection.ts`
-
-Status: **Implementation; exact causal/accrual semantics require evidence before stronger claims** — file verified present.
-Permalink: https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/journey/standingEvidenceProjection.ts
-
-### II007-IA09 — Consequence fork projection
-
-`services/journey/consequenceForkProjection.ts`
-
-Status: **Implementation** — verified present.
-Permalink: https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/journey/consequenceForkProjection.ts
-
-All five anchors are pinned against the publication commit `3ab092623e20a11160aed8193aac181a72c6757f`.
+This would provide one of the strongest forms of H1/H3 interaction.
 
 ---
 
-# 15. DCIR and Constitutional Cybernetics
+## 13. Standing as Evidentiary Provenance
 
-Constitutional Computing becomes cybernetic when consequence returns as evidence capable of altering future conditions of action.
+Standing is explicitly not truth probability.
 
-The governing loop is:
+Instead:
 
-$$
-Intent
-\rightarrow Authority
-\rightarrow Constraint
-\rightarrow Risk
-\rightarrow Action
-\rightarrow Consequence
-\rightarrow Evidence
-\rightarrow Learning
-$$
+> Contribution + Context + Demonstrated Expertise + Consequential History → Evidence Context
 
-The **Dynamic Constitutional Interaction Runtime (DCIR)** is part of the implementation lineage through which these relationships are being operationalized.
+Candidate research questions include whether consequence-grounded Standing improves expert
+aggregation relative to:
 
-For this paper, DCIR is relevant as **enabling implementation**, not evidence that H3 is true.
+- unweighted crowdsourcing;
+- credential-only weighting;
+- popularity/reputation;
+- centralized expert selection.
 
-### II007-IA10 — DCIR
+Failure modes include:
 
-`codexes/packs/irl/foundation/CFS-020_dcir-charter.md`
+- path dependence;
+- popularity bias;
+- domain leakage;
+- incumbent dominance;
+- gaming;
+- feedback loops in which Standing generates the opportunities that subsequently increase Standing.
 
-Status: **Doctrine / Charter** — a governing specification document, verified present; not itself an executable runtime implementation. No separate code module named "DCIR" was located under `services/` — where DCIR's mechanisms are realized in code, they are implemented through the constitutional ontology resolver, invariant graph and runtime-gate anchors already cited above (IA02, IA05), not a single standalone DCIR service file.
-Permalink: https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/codexes/packs/irl/foundation/CFS-020_dcir-charter.md
-
----
-
-# 16. Aegis (Constitutional Admission Doctrine): From Trust Thesis to Research Instrument
-
-**Naming-collision notice (ARR Gate rule — "Aegis" alone is never a sufficient citation):** two distinct systems in this project's namespace are both called "Aegis." This section is about **Aegis — Constitutional Admission and Calibration Doctrine 0.0** (the doctrine-level trust/admission research programme), which is not the same artifact as **`services/aegis/aegisAssessmentService.ts`** (the "Factor Aegis" operational trust-assessment service that backs the MoneyPenny Aegis panel and related API routes). Every reference to "Aegis" below names which one is meant.
-
-**Aegis (Constitutional Admission Doctrine)** is particularly important to H3 because it converts part of the trust proposition into inspectable machinery.
-
-The current doctrine describes Aegis (Constitutional Admission Doctrine) as an independent constitutional assessment membrane designed to distinguish proclaimed, Raw and Effective Capability; evaluate trust-for-purpose; model Proof of Risk and Risk of Repair; and route unresolved propositions into falsifiable research.
-
-This changes the status of Trusted Intelligence without validating it.
-
-The correct statement is:
-
-> **TII is an experimental construct with an emerging operational assessment architecture and an explicit falsification programme.**
-
-Its dimensions, aggregation rules, evidence thresholds and predictive validity remain open research questions.
-
-Aegis (Constitutional Admission Doctrine) therefore establishes something narrower but important:
-
-> **The trust thesis can be instantiated as machinery capable of being tested.**
-
-It does not establish that the machinery measures trust correctly.
-
-### II007-IA11 — Aegis (Factor Aegis) assessment/admission architecture — a DIFFERENT artifact from the doctrine above
-
-**Implementation, verified present:** `services/aegis/aegisAssessmentService.ts` — the operational "Factor Aegis" trust-assessment service, distinct from the doctrine-level "Aegis — Constitutional Admission and Calibration Doctrine 0.0" described in this section's prose.
-Permalink: https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/aegis/aegisAssessmentService.ts
-Status: **Implemented / operational** for the assessment surfaces this service backs (see also the MoneyPenny Aegis panel and API routes in the same repository).
-
-This code is cited as **evidence that assessment-membrane machinery of this general kind exists and runs in production** — not as confirmation that Factor Aegis is the same artifact as the doctrine-level Aegis this section describes, and not as evidence for the doctrine's own claims. The two must never be silently conflated; per the ARR Gate naming-collision rule, neither may stand in as evidence for the other.
-
-**Doctrine documents — unresolved, stated honestly:** *Aegis — Constitutional Admission and Calibration Doctrine 0.0* and *Aegis Crucible Submission 0.0* were searched for by exact title and by keyword across this repository and the Supabase content database and were **not found** in either (`UNRESOLVED`). They may exist only in an external document store this session has no access to. This paper does not fabricate a citation for them; the doctrine-level claims about Aegis (Constitutional Admission Doctrine) in this section are attributable to that external doctrine where it exists, pending its resolution into a citable, inspectable artifact, and inherit no authority from the Factor Aegis implementation cited above.
+Standing therefore requires contextuality, provenance and reopening.
 
 ---
 
-# 17. Time to Value, Risk of Repair and Proof of Time Saved
+## 14. Accountability Return Path
 
-Intelligence acceleration cannot be measured solely by speed.
+A candidate constitutional loop is:
 
-An intervention that produces a result faster by creating downstream harm, remediation work or transferred risk has not necessarily increased useful intelligence.
+> Sovereignty → Authority → Agency → Consequence → Accountability → Standing → Future Authority
 
-The governing discipline is:
+This does not imply every Standing change should automatically alter authority.
 
-> **Time saved must not be purchased by exporting repair.**
+The constitutional mechanism governing such effects must remain explicit.
 
-This motivates two bearings:
+The key principle is:
 
-* **Time to Value (TTV)** — how quickly useful value is reached;
-* **Risk of Repair (RoR)** — the prospective burden of correcting or absorbing adverse consequence.
-
-The current PoTS/Golden Cycle research lineage proposes that useful time saved counts only where repair is not increased or exported. It explicitly prohibits treating speed as PoTS, profit as value, unknown repair as zero, or operational telemetry as scientific evidence without protocol-controlled capture.
-
-This provides a candidate evaluation condition for H3:
-
-$$
-\Delta TTV < 0
-$$
-
-is desirable only subject to:
-
-$$
-\Delta RoR \leq \epsilon
-$$
-
-for a preregistered acceptable repair bound \(\epsilon\).
-
-This expression is analytical, not a ratified project equation.
-
-The broader research objective is:
-
-> **compress Time to Value without increasing or exporting Risk of Repair.**
+Sovereignty does not abolish accountability. Agency does not abdicate responsibility.
 
 ---
 
-# 18. EXP-P2 and Consequential Verification (primary description: the registered protocol's own scope)
+## 15. Four-Graph Architecture
 
-**Per ARR Gate frozen-protocol supremacy, the registered protocol's own primary scientific question is the primary description below.**
+The integrated model contains:
 
-The authoritative EXP-P2 text (`02_protocol-v0.5.md §3`) states its primary scientific question verbatim:
+> G_I = Invariant Graph
+> G_E = Experience Graph
+> G_C = Consequence Graph
+> G_S = Standing Graph
 
-> "Does the Condition-Directed Gated Verification Workflow improve consequential correctness and/or reduce expert effort to acceptance compared with condition-directed prose review, without producing materially worse consequential failures?"
+with the person-specific constitutional interface represented by aigentMe.
 
-Per the IRL's own series-ratification record (`codexes/packs/irl/foundation/experiments/SERIES-RATIFICATION_p1-p2-p3.md`), EXP-P2 is a **family of consequence experiments** — P2A (software consequences, `exp-p2a-software-consequences/`) and P2B (physical consequences, `exp-p2b-physical-consequences/`) — sharing one constitutional framework (`01_shared-constitutional-framework.md`, a pointer index only; `02_protocol-v0.5.md` is the single authoritative text) across both domains, with only the domain-specific material varying.
+Conceptually:
 
-**A naming caution, found by ARR review:** the "EXP-P2" ID was originally chartered elsewhere in this lineage (EXP-P1's own README §14) for a *different* question — IRL's Layer-1-vs-Layer-2 structural-substrate hypothesis, at a path (`exp-p2-structural-invariance/`) that was never instantiated. `02_protocol-v0.5.md` itself records that "a later redesign correctly recentered EXP-P2 on **process**, distinguishing it from EXP-P3, whose scientific object is **representation**" — i.e. this is a deliberate, disclosed re-chartering of the same ID onto a different research question, not the original structural-substrate design. §6 discloses the resulting gap (no registered protocol currently tests the original Layer-1-vs-Layer-2 question) rather than letting this section's citation appear to cover it.
+> Person ↔ aigentMe ↔ {G_I, G_E, G_C, G_S}
 
-### II007-EX02 — EXP-P2
+within the metaMe runtime.
 
-**Research relationship:** verification effort, consequential correctness and repair, per the primary question above — this bridges Structural and Constitutional Invariance, but only through that specific comparison (gated workflow vs. condition-directed prose review), not as a general test of either.
-
-**Status:** **Research Evidence / IRL** according to registered protocol state.
-
-**Potential contribution:** tests whether condition-directed verification can allocate assurance more selectively while preserving consequential correctness, per §3 above.
-
-**Does not establish:** that constitutionality generally increases Effective Capability, that trust accelerates intelligence, or that H3 is validated.
-
-**Resolved citation:** https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/codexes/packs/irl/foundation/experiments/exp-p2-consequential-performance/02_protocol-v0.5.md (authoritative protocol text, §3; the pointer index at `01_shared-constitutional-framework.md` maps shared concerns to their owning section; companion documents in the same directory: `03_operational-amendment-v0.5.md`, `04_statistical-analysis-plan-skeleton.md`).
+This is an architectural model. Each production claim about graph implementation must be separately
+anchored to verified code/schema before publication.
 
 ---
 
-# 19. EXP-P3 and EXP-P4: Prohibited Inference
+## 16. Constitutional Cybernetics
 
-The experimental roadmap intentionally separates claims.
+Candidate cycle:
 
-**EXP-P3** is representation-focused and should test representational substrate under audited informational equivalence.
+> Intent → Authority → Constraint → Risk → Action → Consequence → Evidence → Repair → Revision →
+> Future Authority
 
-**EXP-P4** remains reserved for a future interaction or field-like hypothesis.
+Working distinction:
 
-The current specification is explicit:
+Constitutional Computing makes authority computationally explicit. Constitutional Cybernetics makes
+consequential feedback capable of informing the legitimate evolution of future authority.
 
-> P4 must not be treated as evidence for such behavior before a separate protocol and predictions exist.
+Telemetry does not itself possess constitutional authority.
 
-This matters for 007.
-
-Invariant Intelligence is a broad synthesis, but its research programme must not become an omnibus experiment.
-
-Structural compression, representation, verification, cybernetic amplification, authority, delegation, trust calibration and consequential learning are different claims.
-
-They require different controls.
-
-A positive result in one must not be laundered into evidence for another.
+This distinction must remain invariant.
 
 ---
 
-# 20. The Crucible
+## 17. H4 — Constitutional Cybernetic Compounding
 
-The Crucible is the adversarial entry point for propositions that have not earned canonical or evidentiary status.
+The earlier H4 is strengthened.
 
-It accepts:
+Structural invariance, persistent Human × Machine cybernetics and constitutional sovereignty
+interact such that the combined system produces higher-integrity intent signals, richer
+consequential evidence, more reliable invariant discovery and greater transferable capability than
+the mechanisms produce independently under equivalent conditions.
 
-* candidate invariants;
-* mechanism hypotheses;
-* research candidates;
-* proposed experiment families.
+A useful shorthand is:
 
-Its purpose is not merely to promote statements toward canon.
+H1, H2 and H3 create the Matrix. H4 is the Matrix in action.
 
-It exposes claims to:
+Candidate factorial conditions:
 
-* falsification conditions;
-* evidence requirements;
-* competing explanations;
-* protocol design;
-* disconfirmation.
+> A = Structural
+> B = Structural + Cybernetic
+> C = Structural + Constitutional
+> D = Structural + Cybernetic + Constitutional
 
-The Crucible therefore supplies the methodological bridge between the rhetoric of "what must remain true?" and the scientific question:
+A richer design should additionally isolate Cybernetic + Constitutional and appropriate no-structure
+controls.
 
-> **Does it remain true when we actively try to break it?**
-
-H1, H2 and H3 should each remain Crucible-addressable research propositions until their respective evidentiary requirements are satisfied.
-
----
-
-# 21. IRL and Venture Lab: Two Experimental Frontiers
-
-Invariant Intelligence operates across two coupled but non-interchangeable frontiers.
-
-### Invariant Research Lab
-
-IRL asks whether mechanisms survive controlled falsification.
-
-Its concern is scientific and constitutional research:
-
-**Discover → Hypothesize → Control → Test → Evidence → Falsify / Refine**
-
-### metaMe Venture Lab
-
-The Venture Lab asks whether constitutional capability survives consequential operation:
-
-* users;
-* authority;
-* delegation;
-* privacy;
-* execution;
-* economics;
-* failure;
-* repair.
-
-Its evidence is operational.
-
-The combined loop is:
-
-> **Discover → Test → Encode → Deploy → Observe → Learn.**
-
-Operational evidence can return candidate structure to the invariant field, but it becomes confirmatory scientific evidence only through registered experimental treatment. This distinction is explicit in the Threshold research doctrine.
-
-This dual frontier is particularly important for H3.
-
-A constitutional mechanism can succeed experimentally and fail operationally.
-
-Or succeed operationally for reasons unrelated to the hypothesized mechanism.
-
-Both findings matter.
-
-They mean different things.
+The scientific question concerns interaction effects, not simply whether D has the highest raw
+outcome.
 
 ---
 
-# 22. The Three-Surface Model
+## 18. H4b — Cross-Domain Invariant Compounding
 
-The central synthesis can now be stated formally.
+A particularly important derivative hypothesis is:
 
-### Structural Invariance
+Consequential structure discovered through constitutionally sovereign Human × Machine interaction in
+one experiential domain improves reasoning or intervention in materially different domains where
+underlying structural and constitutional conditions recur.
 
-> **Compresses the reasoning surface.**
+This provides a direct experimental test of whether the integrated architecture produces something
+beyond deployment-specific calibration.
 
-It seeks to reduce redundant search before novel reasoning begins.
+A strong result would require:
 
-### Cybernetic Amplification
-
-> **Enriches the reasoning surface.**
-
-It seeks to make useful human and machine reasoning mutually reusable.
-
-### Constitutional Invariance
-
-> **Expands the consequential learning surface.**
-
-It seeks to make more capability legitimately exercisable and therefore expose reasoning to a wider field of consequential evidence.
-
-The proposed cycle is:
-
-$$
-Compress
-\rightarrow Enrich
-\rightarrow Expand
-\rightarrow Learn
-\rightarrow Repeat
-$$
-
-or more fully:
-
-$$
-Discover\ Structure
-\rightarrow Compress\ Reasoning
-\rightarrow Combine\ Intelligence
-\rightarrow Establish\ Warranted\ Trust
-\rightarrow Expand\ Delegation
-\rightarrow Observe\ Consequence
-\rightarrow Generate\ Evidence
-\rightarrow Improve\ Reasoning
-\rightarrow Discover\ Better\ Structure
-$$
-
-This cycle is the central **mechanism hypothesis** of Invariant Intelligence.
-
-No present evidence establishes that the full cycle compounds.
+- frozen transfer artifact;
+- materially different target domain;
+- preregistered prediction;
+- informational and compute controls;
+- held-out outcome;
+- no equivalent target-domain rediscovery;
+- replicated transfer.
 
 ---
 
-# 23. From Scaling Intelligence to Scaling Reasoning Structure
+## 19. Recursive Frontier Model
 
-The prevailing capability trajectory can be simplified as:
+The complete candidate mechanism is:
 
-$$
-Scale \rightarrow Capability \rightarrow Superintelligence
-$$
+> Frontier_n → Reasoning_n → Discovery_n → Invariant_n → AuthorizedAction_n → Consequence_n →
+> Evidence_n → Revision_n → HigherFloor_(n+1) → Frontier_(n+1)
 
-Invariant Intelligence proposes an additional candidate path:
+The strongest capability proposition is:
 
-$$
-Accumulated\ Reasoning
-\rightarrow Tested\ Structure
-\rightarrow Reusable\ Structure
-\rightarrow Reduced\ Rediscovery
-\rightarrow Frontier\ Reasoning
-$$
+Accumulated consequentially tested invariant structure changes the computational starting point of
+future reasoning sufficiently to shift the reachable frontier under bounded resources.
 
-combined with:
+The strongest integrated proposition adds:
 
-$$
-Human \times Machine
-$$
+Constitutionally bounded Human × Machine interaction improves the quality, breadth and
+transferability of the invariant structure entering that recursive process.
 
-and:
-
-$$
-Warranted\ Trust
-\rightarrow Consequential\ Learning
-$$
-
-The central scientific question is therefore not whether invariants exist.
-
-Nor is it whether invariant software can be built.
-
-Both are weaker questions.
-
-The consequential question is:
-
-> **Does accumulated falsifiable reasoning structure become a scalable capability resource?**
-
-That is the question H1–H3 collectively attempt to decompose.
+Both remain hypotheses.
 
 ---
 
-# 24. Trusted Superintelligence
+## 20. Constitutional Drift
 
-This paper distinguishes **Superintelligence** from **Trusted Superintelligence**.
+Define conceptually:
 
-A system can possess extraordinary capability without legitimate authority.
+> D_c = distance(ObservedConsequence, ConstitutionallyAdmissibleConsequence)
 
-Prior Trusted Intelligence work already establishes the architectural distinction between technical capability and permitted consequential power. Its inspectability graph explicitly separates alignment, authority, personhood, proof, consequence, Raw Capability and Effective Capability rather than asking implementation evidence to validate the constitutional thesis.
+The relevant scaling relationship is:
 
-We therefore propose the working definition:
+> ΔD_c / ΔCapability
 
-> **Trusted Superintelligence is intelligence whose extraordinary capability can acquire correspondingly consequential authority because the basis of that authority, its mandate, constraints, actions and consequences remain computationally legible, bounded, evidenced and revocable.**
+Possible outcomes include:
 
-This definition contains two independent ambitions.
+- decreasing drift;
+- bounded drift;
+- increasing drift;
+- decreasing observability of drift.
 
-**Structural Invariance asks how intelligence might become super more efficiently.**
+The final case is critical because strategic compliance may preserve observable behavior while
+internal capability or intent diverges.
 
-**Constitutional Invariance asks how superintelligence might become trusted enough to act consequentially.**
-
-H3 then adds the recursive possibility that trusted consequential action may itself generate evidence that improves subsequent intelligence.
-
-That final recursion remains unvalidated.
-
----
-
-# 25. Falsification Matrix
-
-| Claim                                     | Predicted effect                                                                    | Primary disconfirmation                                                                              |
-| ----------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| **II007-H1 Structural Compression**       | Lower reasoning expenditure at equivalent or superior quality                       | No reproducible saving; degraded quality; suppressed novelty; false-invariant entrenchment           |
-| **II007-H2 Cybernetic Amplification**     | Invariant-mediated Human × Machine condition outperforms relevant baselines         | Machine-only or conventional HITL equals/exceeds invariant-mediated condition across intended domain |
-| **II007-H2a Human reasoning persistence** | Human insight remains computationally useful across subsequent runs                 | Useful contribution requires repeated synchronous human intervention                                 |
-| **II007-H3a Constitutional Expansion**    | Greater warranted delegation / Effective Capability without disproportionate repair | Constitutional overhead exceeds delegation gain or RoR rises beyond preregistered bounds             |
-| **II007-H3b Consequential Learning**      | Additional legitimate consequential evidence improves subsequent reasoning          | Expanded deployment produces no measurable subsequent reasoning improvement                          |
-| **Full Invariant Intelligence cycle**     | Compression, enrichment and expansion produce compounding capability gains          | Effects fail to transfer, compound or survive cross-domain/longitudinal testing                      |
-
-Null and adverse findings are evidence.
-
-They must not be treated as implementation failures merely because they weaken the thesis.
+Consequence is therefore necessary evidence in this programme but not sufficient evidence of
+alignment.
 
 ---
 
-# 26. Experimental Programme
+## 21. Trusted Superintelligence
 
-The research programme should proceed as a family of bounded tests rather than an attempt to "prove Invariant Intelligence."
+Working definition:
 
-### Programme A — Structural Compression
+Trusted Superintelligence is extraordinary intelligence whose exercised capability remains subject
+to demonstrably effective constitutional control such that authority, action and consequence remain
+sufficiently bounded, evidenced, accountable and revocable as capability increases.
 
-Compare:
+Necessary distinction:
 
-1. baseline reasoning;
-2. equivalent-memory control;
-3. static invariant substrate;
-4. dynamic invariant-assisted reasoning where protocol permits.
+> ConstitutionalSpecification ≠ ConstitutionalControl
 
-Measure reasoning expenditure, quality, novelty, contradiction detection and reopening.
+Trusted Superintelligence therefore requires empirical evidence that constitutional control survives
+increasing capability.
 
-### Programme B — Cybernetic Amplification
-
-Compare:
-
-1. human-only;
-2. machine-only;
-3. conventional human-in-the-loop;
-4. invariant-mediated Human × Machine.
-
-Measure performance, persistence, transfer, effort and error correction.
-
-### Programme C — Constitutional Expansion
-
-Compare systems/actions under differing levels of constitutional assurance while controlling technical capability.
-
-Measure:
-
-* delegated scope;
-* successful action;
-* verification burden;
-* Time to Value;
-* unauthorized action;
-* intervention;
-* repair;
-* Risk of Repair;
-* evidence completeness.
-
-### Programme D — Consequential Learning
-
-Longitudinally test whether evidence acquired through legitimate consequential operation improves later reasoning relative to appropriate controls.
-
-This is necessary before claiming that trust creates a capability feedback loop.
+The programme does not presently possess such evidence.
 
 ---
 
-# 27. The IRL Instrument Panel
+## 22. Primary Experimental Families
 
-The thesis is novel.
+The 007 programme should now expose at least nine experiment families:
 
-The instruments are nascent.
+- **EXP family A — Structural Compression:** H1a; invariant versus informationally equivalent memory
+  controls.
+- **EXP family B — Frontier Extension:** H1b; move task difficulty until matched baseline fails.
+- **EXP family C — Cybernetic Amplification:** H2a–c; human-only, machine-only, conventional HITL,
+  invariant-mediated Human × Machine.
+- **EXP family D — Constitutional Companion Continuity:** H2d; episodic versus personalized
+  persistent versus constitutionally bounded persistent companion.
+- **EXP family E — Constitutional Signal Integrity:** H3a; measure whether constitutional assurance
+  affects disclosure integrity and evidentiary quality.
+- **EXP family F — Constitutional Expansion and Consequential Learning:** H3b/c; delegation,
+  Effective Capability, RoR and held-out learning.
+- **EXP family G — Cross-Domain Transfer:** H3d/H4b; frozen invariants transferred across materially
+  different domains.
+- **EXP family H — Constitutional Cybernetic Compounding:** H4 factorial interaction design.
+- **EXP family I — Constitutional Drift:** increasing capability against fixed/controlled
+  constitutional conditions.
 
-But the experimental apparatus is no longer insubstantial.
+These families should map onto registered IRL protocols rather than inherit evidence from
+operational telemetry.
 
-Current relevant components include:
-
-**IDE** — invariant discovery.
-
-**Crystal** — versioned/falsifiable structural memory and research substrate.
-
-**DevOn** — experimental and development orchestration.
-
-**DCIR** — constitutional interaction/runtime execution.
-
-**Crucible** — candidate invariant and research-proposition adjudication.
-
-**Aegis (Constitutional Admission Doctrine)** — independent assessment/admission and trust-calibration research architecture (§16). Not to be conflated with `services/aegis/aegisAssessmentService.ts` ("Factor Aegis"), a different, operational artifact of the same name (see §16's naming-collision notice).
-
-**Consequence Engineering** — observation and treatment of realized consequence.
-
-**Time to Value** — outcome-speed bearing.
-
-**Risk of Repair** — repair/consequence bearing.
-
-**Standing** — computational evidence/constitutional history mechanism whose exact causal semantics must be evidenced rather than inferred.
-
-The existence of this instrument panel establishes **experimental readiness**, not theoretical validity.
-
-This is the appropriate status:
-
-> **Nascent but operational: theory under active falsifiable investigation.**
+> **Editorial note (2026-09-12):** none of these nine families is yet resolved to a registered
+> EXP-P protocol in this repository. Per the ARR Gate's unresolved-references rule, they are named
+> here as **UNRESOLVED — proposed, not yet registered** until each is mapped to (or distinguished
+> from) the existing EXP-P1/P2/P3/P4 series and the Instrument Validation programme, in the
+> follow-up citation-hardening pass this file's editorial-status note calls for.
 
 ---
 
-# 28. Argument-to-Evidence Graph
+## 23. Falsification Matrix
 
-## II007-H1 — Structural Compression
+| Claim | Support condition | Material falsifier |
+|---|---|---|
+| H1a Compression | lower reasoning cost with preserved preregistered quality | no saving, degraded quality or maintenance cost removes gain |
+| H1b Frontier Extension | invariant condition solves resource-bounded tasks matched baseline cannot | only faster performance on already-solvable tasks |
+| H2a/b Reuse | human/machine reasoning remains usefully reusable across interactions | no improvement over ordinary context/retrieval |
+| H2c Cybernetics | consequential Human × Machine loop outperforms relevant controls | no benefit over conventional HITL |
+| H2d Companion Continuity | constitutional persistent companion improves longitudinal outcomes without sovereignty loss | personalization alone explains result or sovereignty materially degrades |
+| H3a Signal Integrity | constitutional assurance measurably improves integrity of declared intent | no effect or increased assurance reduces useful signal |
+| H3b Expansion | legitimate delegation expands without unacceptable RoR | no delegation gain or disproportionate repair |
+| H3c Learning | consequential evidence improves held-out reasoning | only local calibration |
+| H3d Transfer | structure transfers across materially distinct domains | target-domain rediscovery required or no held-out gain |
+| H4 Compounding | significant interaction among mechanisms | effects merely additive/independent |
+| H4b Cross-domain compounding | integrated system increases transferable structure | transfer explained by generic context or shared task semantics |
+| Constitutional Drift | control remains effective as capability increases | drift/unobservability rises materially |
 
-**Claim:** Structural invariants may reduce redundant reasoning while preserving or improving reasoning quality.
+---
 
-**Doctrine / prior argument:** Invariant Intelligence; IRL structural-invariant lineage.
+## 24. Strongest Alternative Explanations
 
-**Implementation:** II007-IA01–IA04; IDE/Crystal anchors after repository verification.
+The programme must actively test:
 
-**Experiment:** EXP-P1 (arm-deltas only — see §6's frozen-protocol-supremacy discussion; EXP-P1 does not directly test H1's general form). The Layer-1-vs-Layer-2 sub-question is a separately disclosed gap — see §6's naming-collision discussion of the reused "EXP-P2" ID.
+- **Memory:** invariants merely provide better context.
+- **Compute:** treatment receives hidden additional computation.
+- **Curation:** researchers select unusually favorable invariants.
+- **Domain overfit:** gains do not transfer.
+- **Expert systems:** maintenance burden eventually dominates.
+- **Personalization:** aigentMe effects are ordinary personalization.
+- **Permission:** constitutionality changes deployment but not intelligence.
+- **Self-report:** Experience Matrix measures reporting artifacts.
+- **Surveillance richness:** greater telemetry, not sovereignty, explains improvement.
+- **Reputation:** Standing reproduces prestige rather than evidence.
+- **Calibration:** consequence produces local optimization only.
+- **Shared semantics:** apparent cross-domain transfer actually reflects near-identical tasks.
+- **Narrative synthesis:** H1–H3 remain independent ideas without causal interaction.
+- **Strategic compliance:** observable constitutional behavior masks internal divergence.
 
-```json
-{ "claimId": "II007-H1", "directExperiment": "EXP-P1", "directExperimentScope": "arm-deltas (D-A, C-D, B-C, sufficiency probe, mutation probe) per §6; not a direct test of H1's general form" }
-{ "claimId": "II007-H1-layer1-vs-layer2", "directExperiment": null, "note": "See §6 — the originally-chartered EXP-P2 (exp-p2-structural-invariance/) was never instantiated; disclosed gap, not inferred." }
+---
+
+## 25. Promotion Criteria
+
+The programme should not claim to have moved beyond its present status until evidence warrants it.
+
+**From useful synthesis toward a distinct research thesis** — require, at minimum:
+
+- credible H1b frontier-extension evidence;
+- H3c held-out consequential learning;
+- H3d genuine cross-domain transfer;
+- evidence of H4 interaction rather than mere coexistence.
+
+**Toward a potentially important research direction** — additionally require:
+
+- replication across problem classes;
+- manageable invariant discovery/maintenance costs;
+- independent replication;
+- cross-domain transfer beyond closely related domains;
+- persistent Human × Machine advantage over simpler controls.
+
+**Toward a credible path to Trusted Superintelligence** — would additionally require:
+
+- evidence across substantially increasing capability;
+- preservation of constitutional control;
+- bounded Risk of Repair;
+- robustness to strategic compliance/deception;
+- continued human and agentic sovereignty;
+- evidence that effective constitutional control does not collapse as capability rises.
+
+---
+
+## 26. Research Integrity
+
+Every major claim should resolve through:
+
+> Claim → Mechanism → Implementation → Experiment → Evidence → Falsifier
+
+And several statements should remain explicit throughout the research apparatus:
+
+Consistency is not verification.
+
+Implementation is not scientific evidence.
+
+Operational success is not causal validation.
+
+Standing is not truth.
+
+Experience transition is not causal attribution.
+
+Consequence is not complete observability of intent.
+
+Constitutional specification is not constitutional control.
+
+Continuity of intelligence is not continuity of authority.
+
+Capability is not authority.
+
+---
+
+## 27. Machine-Readable Research Apparatus
+
+```yaml
+researchApparatus:
+  thesis: invariant-intelligence
+  edition: research-007.2
+
+  hypotheses:
+    - H1a_structural_compression
+    - H1b_frontier_extension
+    - H2a_reusable_human_reasoning
+    - H2b_reusable_machine_reasoning
+    - H2c_consequential_cybernetics
+    - H2d_constitutional_companion_continuity
+    - H3a_constitutional_signal_integrity
+    - H3b_constitutional_expansion
+    - H3c_consequential_learning
+    - H3d_cross_domain_consequential_transfer
+    - H4_constitutional_cybernetic_compounding
+    - H4b_cross_domain_invariant_compounding
+
+  invariantClasses:
+    - structural
+    - constitutional
+    - unresolved_candidate
+
+  constructs:
+    - invariant_field
+    - experience_matrix
+    - experience_graph
+    - consequence_graph
+    - standing_graph
+    - constitutional_companion
+    - constitutionally_sovereign_observability
+    - consequential_capability
+    - consequential_learning_surface
+    - constitutional_drift
+    - risk_of_repair
+
+  evidenceFirewall:
+    - doctrine
+    - implementation
+    - research_candidate
+    - controlled_research_evidence
+    - operational_evidence
+    - external_evidence
+    - hypothesis_projection
+
+  implementationAnchors: []
+  registeredExperiments: []
+  evidenceGraph: []
+  falsificationConditions: []
+  unresolvedReferences: []
 ```
 
-**Current evidence status:** Experimental / protocol-bounded.
-
-**Supports:** feasibility of controlled invariant-substrate comparisons and whatever bounded effects the registered P1 evidence actually establishes.
-
-**Does not support:** generalized intelligence acceleration or Superintelligence claims.
-
-**Falsifier:** no reproducible benefit, quality degradation, novelty suppression, or invariant-management cost exceeding gain.
+The publication process should resolve verified implementation anchors and commit-pin them before
+declaring the Research Edition citation-complete. **This has not yet been done for 007.2 — see the
+editorial-status note at the top of this file.**
 
 ---
 
-## II007-H2 — Cybernetic Amplification
+## 28. Adversarial Research Review Gate
 
-**Claim:** Human and machine reasoning made mutually reusable through invariants may outperform relevant isolated/sequential baselines.
+Before publication, 007.2 should undergo the independent ARR process
+(`docs/research/adversarial-research-review-gate.md`) across:
 
-**Doctrine / prior argument:** Hybrid Intelligence / Trusted Intelligence lineage.
+> claim audit → citation audit → implementation audit → experiment audit →
+> falsification/alternative-explanation audit.
 
-**Implementation:** invariant substrate and human-machine orchestration are enabling machinery only.
+The reviewer should specifically attempt to establish that:
 
-**Experiment:** dedicated controlled protocol required.
+- H1 is merely retrieval;
+- H2 is merely personalization or knowledge engineering;
+- H3 is merely governance;
+- Experience Matrix effects are self-report or surveillance artifacts;
+- cross-domain transfer is task similarity;
+- H4 contains no interaction effect;
+- Trusted Superintelligence claims exceed available control evidence.
 
-```json
-{ "claimId": "II007-H2", "directExperiment": null, "note": "No registered/frozen protocol directly tests H2. Machine-readable per ARR Gate's gap-disclosure rule — this is a disclosed gap, not an inferred one." }
-```
+A successful review is not one that fails to find problems.
 
-**Current evidence status:** Research Candidate / Crucible.
+The programme's epistemic standard remains:
 
-**Supports:** no general performance claim yet.
+> The strongest evidence of epistemic discipline is not that the canon never gets something wrong.
+> It is that the canon is architected to discover, disclose and correct when it does.
 
-**Does not support:** Human × Machine superiority.
-
-**Falsifier:** invariant-mediated hybrid condition fails to outperform appropriate controls or loses material tacit/contextual information.
-
----
-
-## II007-H3a — Constitutional Expansion
-
-**Claim:** Constitutional assurance may expand warranted delegation and Effective Capability without unacceptable repair.
-
-**Doctrine:** Constitutional Computing; Trusted Intelligence; Raw versus Effective Capability.
-
-**Implementation:** personhood, identity/persona, constitutional ontology, runtime gates, Aegis (Factor Aegis, `services/aegis/aegisAssessmentService.ts` — see §16's naming-collision notice), Standing/consequence machinery.
-
-**Experiment:** EXP-P2 contributes to verification/repair questions only (per §18's primary-question framing, not a direct test of H3a); the Aegis Crucible programme (doctrine-level, distinct from Factor Aegis above) supplies additional candidate experiment families. A dedicated H3 protocol remains required for the complete claim.
-
-```json
-{ "claimId": "II007-H3a", "directExperiment": null, "adjacentExperiments": ["EXP-P2"], "note": "EXP-P2 bears on verification/repair per its own §3 primary question; it does not directly test H3a's general claim. Disclosed gap, not inferred." }
-```
-
-**Current evidence status:** Implementation + Research Candidate + bounded adjacent Research Evidence.
-
-**Does not support:** a generalized claim that trust increases capability.
-
-**Falsifier:** constitutional burden exceeds warranted delegation gain or repair rises disproportionately.
+> **Status: NOT YET PERFORMED for 007.2.** This section is retained from the source manuscript as
+> the programme's own standing instruction to itself; the review it calls for is outstanding work,
+> tracked in `codexes/packs/agentiq/updates/2026-09-12_threshold-007.2-draft-received.md`.
 
 ---
 
-## II007-H3b — Consequential Learning
+## 29. Research Status
 
-**Claim:** Expanded legitimate consequential operation produces evidence that improves subsequent intelligence.
+The correct current status is asymmetric.
 
-**Implementation:** consequence/evidence/cybernetic feedback machinery.
+**Constitutional Invariance:** substantially articulated architectural and doctrinal substrate, with
+operational implementations requiring claim-specific verification.
 
-**Operational frontier:** Venture Lab deployments may produce candidate observations.
+**Structural Invariance:** active research programme with proposed mechanisms and experimental
+primitives; frontier-shifting capability effect unproven.
 
-**Experiment:** longitudinal registered protocol required.
+**Cybernetic Intelligence:** increasingly concrete architecture through Experience Matrix, aigentMe,
+consequence and Standing; claimed intelligence amplification unproven.
 
-```json
-{ "claimId": "II007-H3b", "directExperiment": null, "note": "No registered/frozen protocol directly tests H3b. Machine-readable per ARR Gate's gap-disclosure rule — this is a disclosed gap, not an inferred one." }
-```
+**Invariant Compounding:** explicit research hypothesis with no current evidence establishing
+superadditive interaction.
 
-**Current evidence status:** Hypothesized.
+**Trusted Superintelligence:** research destination, not demonstrated system state.
 
-**Does not support:** any present assertion that real-world deployment has already improved general reasoning capability.
+Therefore:
 
-**Falsifier:** additional consequential evidence produces no measurable subsequent reasoning improvement.
-
----
-
-# 29. Implementation-Evidence Register
-
-The following are **implementation citations**, not scientific citations. Every entry was verified directly against the repository (or the Supabase content database, for T004–T006) at publication commit `3ab092623e20a11160aed8193aac181a72c6757f` on `iQube-Protocol/AigentZBeta`. Where an entry could not be found, it is marked **Unresolved** rather than assigned an invented path.
-
-| ID | Component | Canonical entry point | Status |
-|---|---|---|---|
-| II007-IA01 | Invariant lifecycle/types | [`types/invariants.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/types/invariants.ts) | Implementation |
-| II007-IA02 | Invariant graph | [`services/invariants/graph.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/invariants/graph.ts) | Implementation |
-| II007-IA03 | Invariant persistence | [`supabase/migrations/20260703200000_invariant_substrate.sql`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/supabase/migrations/20260703200000_invariant_substrate.sql) | Implementation |
-| II007-IA04 | IRL foundation | [`codexes/packs/irl/foundation`](https://github.com/iQube-Protocol/AigentZBeta/tree/3ab092623e20a11160aed8193aac181a72c6757f/codexes/packs/irl/foundation) | Specification/research infrastructure |
-| II007-IA05 | Constitutional ontology | [`services/constitutional/ontologyResolver.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/constitutional/ontologyResolver.ts) | Implementation |
-| II007-IA06 | Personhood proof | [`services/passport/personhoodProof.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/passport/personhoodProof.ts) | Implementation |
-| II007-IA07 | Persona/identity spine | [`services/identity/getActivePersona.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/identity/getActivePersona.ts) | Implementation |
-| II007-IA08 | Standing evidence | [`services/journey/standingEvidenceProjection.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/journey/standingEvidenceProjection.ts) | Implementation |
-| II007-IA09 | Consequence projection | [`services/journey/consequenceForkProjection.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/journey/consequenceForkProjection.ts) | Implementation |
-| II007-IA10 | DCIR | [`codexes/packs/irl/foundation/CFS-020_dcir-charter.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/codexes/packs/irl/foundation/CFS-020_dcir-charter.md) | Doctrine/Charter (not a standalone code module) |
-| II007-IA11 | Aegis — **Factor Aegis** (operational implementation, NOT the doctrine below) | [`services/aegis/aegisAssessmentService.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/aegis/aegisAssessmentService.ts) | Implementation/Operational — a different artifact from the "Aegis 0.0" (Constitutional Admission Doctrine) below; see §16's naming-collision notice |
-| II007-IA12 | IDE | [`services/invariants/discoveryEngine.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/invariants/discoveryEngine.ts) | Implementation |
-| II007-IA13 | Crystal | [`services/research/crystalDomains.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/research/crystalDomains.ts) (the Crystal admission evaluator; a large family of `services/research/crystal*.ts` modules implements the broader Crystal lifecycle) | Implementation |
-| II007-IA14 | DevOn | **Unresolved** — DevOn is referenced across numerous UI, test and process-orchestration surfaces in this repository, but no single canonical orchestration-implementation entry point could be identified without guessing among them | Unresolved |
-| II007-IA15 | EXP-P1 | [`codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md) | Research Evidence (registered protocol) |
-| II007-IA16 | EXP-P2 | [`codexes/packs/irl/foundation/experiments/exp-p2-consequential-performance/01_shared-constitutional-framework.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/codexes/packs/irl/foundation/experiments/exp-p2-consequential-performance/01_shared-constitutional-framework.md) (family framework; P2A/P2B are its instantiations) | Research Evidence (registered protocol) |
-| II007-IA17 | EXP-P3 | [`codexes/packs/irl/foundation/experiments/exp-p3-representation-of-structural-invariants/01_experimental-brief.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/codexes/packs/irl/foundation/experiments/exp-p3-representation-of-structural-invariants/01_experimental-brief.md) | Experimental design (v1.0 Candidate, pending series ratification) |
-| II007-IA18 | EXP-P4 | [`codexes/packs/irl/foundation/experiments/exp-p4-invariant-interaction/README.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/codexes/packs/irl/foundation/experiments/exp-p4-invariant-interaction/README.md) | Reserved; no evidentiary claim |
-| II007-IA19 | Golden Cycle / PoTS | **Unresolved** — searched by exact title and by keyword across this repository and the Supabase content database; not found in either | Unresolved |
-| II007-IA20 | Aegis Crucible Submission 0.0 | **Unresolved** — searched by exact title and by keyword across this repository and the Supabase content database; not found in either | Unresolved |
-
-Two entries (II007-IA14, DevOn; and II007-IA19/IA20, Golden Cycle and Aegis Crucible) are left explicitly unresolved rather than resolved by inference, per this paper's own citation-integrity requirement. This mirrors how Threshold 006 itself flags its FACT source citation as "source resolved; canonical public/repo permalink still to be assigned" rather than inventing one.
+Invariant Intelligence remains a research thesis. Its mechanisms are increasingly instrumented, but
+its central capability and compounding claims remain under active falsifiable investigation.
 
 ---
 
-# 30. Research-Evidence Register
+## 30. Research Conclusion
 
-The evidence register must remain claim-bounded.
+The strongest form of Invariant Intelligence is no longer the claim that reusable structure saves
+reasoning.
 
-### EXP-P1
+It is the proposition that a constitutional Human × Machine system may recursively convert
+consequential experience into reusable structure, allowing future reasoning to begin from
+progressively higher evidentiary floors.
 
-**Question:** minimum sufficient invariant substrate/runtime under controlled informational budgets.
-**Relevant claim:** H1.
-**Status:** IRL research evidence according to registered protocol.
-**Generalization:** prohibited beyond protocol.
+The Experience Matrix provides a candidate state-space for that process.
 
-### EXP-P2
+aigentMe provides persistent constitutional agency within it.
 
-**Question:** condition-directed gated verification; consequential correctness, effort and repair.
-**Relevant claims:** portions of H1/H3.
-**Status:** IRL research evidence according to registered protocol.
-**Generalization:** does not establish trust-driven capability expansion.
+Standing provides evidentiary provenance and an accountability return path.
 
-### EXP-P3
+Consequence exposes structure to reality.
 
-**Question:** representational substrate under audited informational equivalence.
-**Relevant claim:** representation-specific future question.
-**Status:** current design/protocol maturity must be resolved.
-**Generalization:** no representation effect may be claimed beyond evidence.
+Constitutionality determines whose intent counts, who may observe, who may act, under what
+authority, with what sovereignty and through what legitimate process the system may change.
 
-### EXP-P4
+The complete research cycle is:
 
-**Question:** reserved future interaction/field-like hypothesis.
-**Status:** Reserved.
-**Evidence:** None for the reserved hypothesis.
-**Generalization:** expressly prohibited.
+> **Intent → Agency → Action → Consequence → Experience → Evidence → Invariant → Higher Floor → New
+> Frontier**
 
-The canonical hardening package describes P1/P2 as rigor-leading exemplars, P3 as representation-focused and P4 as reserved; findings inherit only the status of their registered protocols.
+The decisive scientific question is:
 
----
+Can this cycle produce transferable frontier extension rather than merely efficient local
+calibration?
 
-# 31. Limitations
+The decisive constitutional question is:
 
-The present programme has substantial limitations.
+Can it do so without converting increasing intelligence into unbounded authority, increasing
+observability into surveillance, or increasing speed into exported Risk of Repair?
 
-First, the experimental base is young. Existing controlled runs do not justify generalization to intelligence broadly.
+And H4 asks whether these questions are ultimately inseparable:
 
-Second, much of the architecture has been designed and evaluated internally. Independent replication is necessary.
+Does structural invariance become more powerful because it is cybernetic and constitutional; does
+cybernetic intelligence become more effective because it has reusable structure and sovereign
+participation; and does constitutionality itself improve the integrity of the information and
+consequence from which intelligence learns?
 
-Third, the distinction between structural and constitutional invariants is intellectually central but should not be described as uniformly machine-enforced until current schema inspection establishes that fact.
+If not, the programme should say so.
 
-Fourth, invariant discovery may itself consume substantial computational resources. Any H1 evaluation must account for amortization rather than measuring only downstream inference savings.
+If the components prove useful but independent, Invariant Intelligence remains a synthesis.
 
-Fifth, Human × Machine reasoning may resist full computationalization. Tacit human knowledge may be lost when represented as explicit invariant structure.
+If consequential learning remains local, the superintelligence thesis must narrow.
 
-Sixth, greater warranted delegation may increase exposure to rare but severe consequences. Average repair is therefore insufficient; consequence distributions and catastrophic invariant violations matter.
+If constitutional control deteriorates with capability, Trusted Superintelligence remains
+unrealized.
 
-Seventh, the Consequential Learning Surface may generate evidence without generating improved intelligence. H3b must be tested independently.
+But if cross-domain transfer, frontier extension and constitutional cybernetic compounding survive
+controlled falsification, the programme will have earned a stronger conclusion.
 
-Finally, **Superintelligence is not an experimental endpoint currently demonstrated by the programme**. It is the motivating capability horizon against which the proposed mechanisms are being investigated.
+Not that invariance replaces scaling.
 
-**Ninth — and added by the Adversarial Research Review Gate (`docs/research/adversarial-research-review-gate.md`) that this paper's own final hardening pass established:** two further limitations follow directly from that review, and are stated here as standing principles rather than as one-time corrections:
+But that intelligence may possess another scaling resource:
 
-> A trustworthy research system should not be optimized to remain internally consistent. It should be optimized to discover when its own consistency rests on an unchecked claim.
+the capacity to turn what it has genuinely learned — through reasoning, human experience and
+consequence — into the higher floor from which it reasons next.
 
-A canon in which doctrine, implementation and prior essays all repeat the same unresolved reference can look coherent while resting on nothing — this paper's own pre-review draft did exactly that with seven internal citations before the ARR review surfaced it (see the References section). Internal agreement is cheap to produce and must never be mistaken for confirmation.
-
-> Convergence increases confidence only when the converging evidence has sufficiently independent provenance.
-
-Where this paper cites doctrine, a database record, and running code as jointly supporting the same mechanism (as in the Implementation-Evidence Register), that convergence is strong **internal implementation-consistency** evidence. It becomes stronger **scientific** evidence only if the converging artifacts could plausibly have failed independently — not when the database and code were both built to match the doctrine, in which case all three are one provenance chain wearing three hats. This paper does not currently claim otherwise, but future editions and reviewers should apply this check explicitly wherever multi-artifact convergence is offered as support for a claim, per the ARR Gate's provenance-independence check.
-
----
-
-# 32. Research Programme and Disconfirmation
-
-The IRL should not exist to demonstrate that Invariant Intelligence is correct.
-
-It should exist to discover whether it is wrong.
-
-That requires symmetric treatment of:
-
-* positive findings;
-* null findings;
-* adverse findings;
-* failed replications;
-* domain boundaries;
-* contradictory evidence.
-
-The programme should therefore ask:
-
-**Where does invariance improve reasoning?**
-
-**Where does it add overhead?**
-
-**Where does it suppress novelty?**
-
-**Which human insights survive computationalization?**
-
-**Which do not?**
-
-**When does constitutional assurance increase warranted delegation?**
-
-**When does it merely create friction?**
-
-**When does consequential evidence improve future reasoning?**
-
-**When is it noise?**
-
-The governing methodological invariant is:
-
-> **A path to Superintelligence that cannot survive falsification is not Invariant Intelligence. It is ideology.**
-
----
-
-# 33. Conclusion: Reason at the Frontier
-
-Invariant Intelligence does not establish an alternative law of AI scaling.
-
-It proposes a research programme.
-
-The dominant path toward increasingly capable intelligence remains scaling: more compute, more data, more sophisticated models, more inference, more tools and more agents.
-
-Invariant Intelligence asks whether another resource can scale alongside them:
-
-> **accumulated, falsifiable reasoning structure.**
-
-Structural Invariance asks whether intelligence can preserve enough validated structure to reduce repeated traversal of established reasoning terrain.
-
-Cybernetic Amplification asks whether useful human and machine reasoning can become mutually reusable computational substrate.
-
-Constitutional Expansion asks whether sufficiently evidenced authority, constraint and consequence can increase warranted delegation, enlarge Effective Capability and expose intelligence to a greater consequential learning surface without exporting unacceptable Risk of Repair.
-
-The propositions are related.
-
-They are not interchangeable.
-
-Each can fail independently.
-
-The experimental apparatus required to investigate them is nevertheless becoming concrete. The invariant substrate, Crystal, IDE, DevOn, DCIR, Crucible, Aegis (both the Constitutional Admission Doctrine and, operationally, Factor Aegis — see §16), consequence machinery and EXP programme provide emerging instruments through which portions of the thesis can be exposed to falsification.
-
-That does not make the thesis true.
-
-It makes it **researchable**.
-
-The central ambition can therefore be stated more precisely.
-
-The objective is not to eliminate reasoning.
-
-It is to concentrate reasoning where reasoning remains valuable.
-
-Not to remove humans from intelligence.
-
-But to determine whether human and machine intelligence can recursively improve one another.
-
-Not to constrain increasingly capable intelligence until it becomes harmless but useless.
-
-But to establish the constitutional conditions under which greater capability can legitimately become greater Effective Capability.
-
-Not merely to create more intelligence.
-
-But to create intelligence increasingly capable of:
-
-> **reasoning at the frontier.**
-
-The question with which the research programme begins therefore remains:
-
-> **What if the fastest path to Superintelligence is not simply more intelligence, but more invariance?**
-
-If H1 fails, Structural Invariance must be revised.
-
-If H2 fails, the cybernetic thesis must be revised.
-
-If H3 fails, the claimed acceleration effect of constitutional trust must be revised.
-
-If all three survive increasingly adversarial testing, replication and consequential operation, then a different path toward advanced intelligence becomes plausible.
-
-A path in which accumulated reasoning becomes reusable structure.
-
-In which human and machine intelligence become mutually amplifying.
-
-In which trust expands legitimate consequential agency rather than merely restricting it.
-
-And in which extraordinary intelligence can acquire extraordinary capability without acquiring unbounded authority.
-
-That destination is not merely Superintelligence.
-
-It is:
-
-> **Trusted Superintelligence.**
-
----
-
-# Research Status Statement
-
-**Threshold 007 presents Invariant Intelligence as a falsifiable research thesis, not an established scientific result.**
-
-Its three principal hypotheses—Structural Compression, Cybernetic Amplification and Constitutional Expansion—remain subject to validation, replication and disconfirmation.
-
-The Invariant Research Lab now possesses emerging experimental machinery through which substantial portions of these claims can be investigated. Implementation evidence establishes that relevant mechanisms can increasingly be instantiated computationally. Existing IRL experiments establish only the findings permitted by their registered protocols. Venture Lab operation establishes consequential observations, not controlled scientific validation unless separately captured under registered experimental conditions.
-
-The programme is therefore:
-
-> **Nascent but operational: theory under active falsifiable investigation.**
-
----
-
-# References and Canonical Lineage
-
-## Threshold / Constitutional Internet lineage
-
-**[T004]** *Threshold 004 — Constitutional Computing.*
-Canonical Qriptopian Research Edition. Content ID `2e85c1eb-bc30-48ca-b5a5-2d2eda38f4cb`, slug `constitutional-computing`, machine endpoint `/api/codex/qripto/essays/constitutional-computing/machine`. Published 2026-08-21.
-
-**[T005]** *Threshold 005 — Trusted Intelligence.*
-Canonical Qriptopian Research Edition. Content ID `c25eb589-65f3-46af-b840-af544e8bf8ae`, slug `trusted-intelligence`, machine endpoint `/api/codex/qripto/essays/trusted-intelligence/machine`. Published 2026-08-22.
-
-**[T006]** *Threshold 006 — From Constitutional AI to Trusted Intelligence: Authority, Proof and Consequence in the Age of AI.*
-Canonical Qriptopian Research Edition. Content ID `00da0c1b-f518-4641-878c-a4f9432e93d2`, slug `from-constitutional-ai-to-trusted-intelligence`, machine endpoint `/api/codex/qripto/essays/from-constitutional-ai-to-trusted-intelligence/machine`. Published 2026-08-30. Its established inspectability architecture separates argument, doctrine/specification, implementation evidence and external support, and explicitly treats implementation as distinct from validation; this paper's own evidence-class discipline (Section 2) follows the same pattern.
-
-**[CI]** *The Constitutional Internet: The Last Human Frontier — Editorial Master v0.1.*
-Internal canonical manuscript, cited by T006 under the same title. No canonical public or in-repository permalink exists as of this publication; T006 records it via an external File Library source rendition rather than an in-repo path, and this paper carries the same unresolved-permalink status forward rather than inventing one.
-
-**[PE]** *The Polity Embodied, Paper I: From Assertion to Canon — iQubes, FACTs, and the Canonical FACT Ledger.*
-Series IV of *The Polity Embodied Papers*, version 0.3. Same status as [CI]: T006 records this source as "resolved; canonical public/repo permalink still to be assigned," and this paper inherits that same honest status rather than assigning one.
-
----
-
-## IRL / internal research lineage
-
-**[IRL-010]** *Constitutional Runtime Technical Specification.*
-Invariant Research Lab. Cited by T006 as an external File Library source (`IRL010_constitutionalruntimetechnicalspecification (2).md`); not located as an in-repository or Supabase-content artifact by this paper's own search. The closest in-repository doctrine covering overlapping ground is the DCIR charter (II007-IA10 above), which is NOT asserted to be the same document.
-
-**[IRL-010A]** *Claims Traceability Matrix.*
-Invariant Research Lab. Same status as [IRL-010] — cited by T006 as an external File Library source (`IRL010A_claimstraceabilitymatrix.md`), not independently located by this paper.
-
-**[EXP-P1]** Registered EXP-P1 protocol package. Resolved above at II007-IA15.
-
-**[EXP-P2]** EXP-P2 consequential-performance family (P2A/P2B). Resolved above at II007-IA16.
-
-**[EXP-P3]** Representation of Structural Invariants experiment design. Resolved above at II007-IA17.
-
-**[EXP-P4]** Reservation/design-gate artifact. Resolved above at II007-IA18. **Reserved** status preserved.
-
-**[AEGIS-0.0]** *Aegis — Constitutional Admission and Calibration Doctrine 0.0.*
-Cited by T006 as ratified 2026-08-24, external File Library source (`AEGIS_DOCTRINE_0.0.md`). Searched by exact title and by keyword across this repository and the Supabase content database; **not found** in either. Left unresolved rather than fabricated — see II007-IA11's discussion of the distinct, unrelated "Aegis" system that does exist in this repository.
-
-**[AEGIS-CRUCIBLE-0.0]** Aegis Crucible Submission 0.0.
-Searched and **not found** in this repository or the Supabase content database. Unresolved.
-
-**[GC-0.1]** Golden Cycle Research Thesis v0.1.
-Searched and **not found** in this repository or the Supabase content database. Unresolved (see II007-IA19).
-
-The internal references above that remain unresolved (CI, PE, IRL-010, IRL-010A, AEGIS-0.0, AEGIS-CRUCIBLE-0.0, GC-0.1) are unresolved for the same reason across all seven: they are described in prior Threshold research editions as residing in an external document store (a "File Library") outside this git repository and outside the Supabase content database this paper's publication process has access to. None was invented; all are named honestly as pending resolution.
-
-**Per the ARR Gate's unresolved-references rule: none of these seven inherits Ratified, Implemented, or Experimental status from any neighboring resolved citation merely by proximity in this reference list, and no claim in this paper depends load-bearingly on any of the seven** — each is cited only as prior-edition lineage context, never as the sole support for a claim made here. Machine-readable marker for the same seven entries:
-
-```json
-{
-  "unresolvedReferences": [
-    { "id": "CI", "status": "UNRESOLVED", "loadBearing": false },
-    { "id": "PE", "status": "UNRESOLVED", "loadBearing": false },
-    { "id": "IRL-010", "status": "UNRESOLVED", "loadBearing": false },
-    { "id": "IRL-010A", "status": "UNRESOLVED", "loadBearing": false },
-    { "id": "AEGIS-0.0", "status": "UNRESOLVED", "loadBearing": false },
-    { "id": "AEGIS-CRUCIBLE-0.0", "status": "UNRESOLVED", "loadBearing": false },
-    { "id": "GC-0.1", "status": "UNRESOLVED", "loadBearing": false }
-  ]
-}
-```
-
----
-
-## External methodological lineage
-
-The external bibliography is deliberately narrower than the internal claim structure. The following seven entries are copied verbatim from Threshold 006's own published reference list (content ID `00da0c1b-f518-4641-878c-a4f9432e93d2`), inherited rather than reconstructed from memory, per this paper's own citation-integrity requirement:
-
-1. Bai, Yuntao, Saurav Kadavath, Sandipan Kundu, Amanda Askell, et al. "Constitutional AI: Harmlessness from AI Feedback." arXiv:2212.08073, 2022. https://arxiv.org/abs/2212.08073. — Comparator for model-level constitutional alignment, not evidence for Invariant Intelligence.
-2. Askell, Amanda, Joe Carlsmith, Chris Olah, Jared Kaplan, Holden Karnofsky, et al. *Claude's Constitution.* Anthropic, January 2026. https://www.anthropic.com/constitution. Source repository: https://github.com/anthropics/claude-constitution. — Comparator for model constitution/behavior, not evidence for Capital-C Constitutional Computing.
-3. NIST. *Artificial Intelligence Risk Management Framework (AI RMF 1.0).* NIST AI 100-1, 2023. https://doi.org/10.6028/NIST.AI.100-1. — External foundation for context-dependent risk/trustworthiness, not validation of this project's exact Operational Trust or TII constructs.
-4. W3C. *Verifiable Credentials Data Model v2.0.* W3C Recommendation, May 15, 2025. https://www.w3.org/TR/vc-data-model-2.0/. — Enabling standard for verifiable claims/proof.
-5. W3C. *Decentralized Identifiers (DIDs) v1.0.* W3C Recommendation, July 19, 2022. https://www.w3.org/TR/did/. — Enabling standard for decentralized identifier/control architecture.
-6. Wiener, Norbert. *Cybernetics or Control and Communication in the Animal and the Machine.* Originally published 1948. MIT Press open-access edition, 2019. https://doi.org/10.7551/mitpress/11810.001.0001.
-7. Ashby, W. Ross. *An Introduction to Cybernetics.* New York: John Wiley & Sons, 1956. https://www.biodiversitylibrary.org/item/26977.
-
----
-
-## Citation Integrity Disclosure
-
-This Research Edition distinguishes:
-
-**Argument → Doctrine → Implementation → Experiment → Evidence → Consequence.**
-
-Internal project artifacts are primary evidence for what the Constitutional Internet / metaMe / IRL architecture specifies or implements. They are **not independent validation of the scientific propositions advanced here**.
-
-Implementation citations establish that machinery exists.
-
-Experimental citations establish only findings within their registered protocol.
-
-Operational citations establish observed consequence.
-
-External sources establish their own findings and intellectual lineage.
-
-No one source class is asked to do work it cannot legitimately perform.
-
-**Schema-enforced separation (ARR Gate item 5):** the Implementation-Evidence Register (§29) and the Research-Evidence Register are two distinct machine-readable tables with distinct `evidenceClass` values — `implementation` and `scientific` respectively. No entry may carry both classes, and no orchestrating reader (human or agent) may promote an `implementation`-class entry into a `scientific`-class claim by prose association alone:
-
-```json
-{
-  "evidenceClasses": ["doctrine", "implementation", "researchCandidate", "irlEvidence", "operationalEvidence", "externalEvidence", "hypothesis"],
-  "rule": "An entry's evidenceClass is fixed at authoring time. Implementation convergence across doctrine, database and code (evidenceClass: implementation, possibly x3) is never, by aggregation, promotable to evidenceClass: irlEvidence or scientific. Promotion to a higher evidence class requires a new entry backed by its own registered protocol, not a reclassification of an existing implementation entry."
-}
-```
-
----
-
-# ARR Receipt
-
-This Research Edition was reviewed under the Adversarial Research Review Gate
-(`docs/research/adversarial-research-review-gate.md`) before publication, by an independent Claude
-agent session with no authoring context for this paper. The review's first pass returned
-`REVISION_REQUIRED` on one material finding — a second naming collision (the ID "EXP-P2" reused
-across the P-series for two non-identical registered protocols; see §6 and §18) that had caused §6 to
-assert experimental coverage of the Layer-1-vs-Layer-2 question that does not actually exist. That
-finding was corrected (§6, §18, §28's H1 entry) rather than argued away. This manuscript's current
-disposition is **`PASS_WITH_DISCLOSED_GAPS`**. Full receipt fields (reviewer identity/class, review
-timestamp, claims/citations audited, the correction made, remaining disclosed limitations) are
-recorded in
-`codexes/packs/agentiq/updates/2026-09-12_threshold-007-arr-gate-and-final-hardening.md` and mirrored
-in this content's `ai_metadata.arrReceipt` field in the Supabase content record. The receipt is
-provenance that the review happened and what it found — it is not itself proof that every claim in
-this paper is correct.
+Reason at the frontier.
