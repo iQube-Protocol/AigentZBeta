@@ -146,6 +146,12 @@ interface ExchangeViewPayload {
     createdAt: string;
   };
   viewerParty: "A" | "B";
+  /** True when the caller is not a direct party but was admitted via
+   *  workspace access (2026-09-12) — action affordances (invite/freeze/
+   *  sign/withdraw/revoke/acknowledge/open-comparison) are hidden for an
+   *  observer; the server refuses them regardless, this just avoids
+   *  showing a control that would silently no-op. */
+  isObserver: boolean;
   yourArtifact: ArtifactView | null;
   counterpartyArtifact: ArtifactView | null;
   receipt: ExchangeReceiptView | null;
@@ -479,9 +485,17 @@ export function IRLExchangeTab({ workspaceScopeId }: IRLExchangeTabProps = {}) {
   }
 
   if (selectedId && view) {
-    const { exchange, viewerParty, yourArtifact, counterpartyArtifact, receipt, comparison, derivatives } = view;
-    const yourLabel = viewerParty === "A" ? "Your artifact (Party A)" : "Your artifact (Party B)";
-    const cpLabel = viewerParty === "A" ? "Counterparty artifact (Party B)" : "Counterparty artifact (Party A)";
+    const { exchange, viewerParty, isObserver, yourArtifact, counterpartyArtifact, receipt, comparison, derivatives } = view;
+    const yourLabel = isObserver
+      ? "Party A artifact"
+      : viewerParty === "A"
+        ? "Your artifact (Party A)"
+        : "Your artifact (Party B)";
+    const cpLabel = isObserver
+      ? "Party B artifact"
+      : viewerParty === "A"
+        ? "Counterparty artifact (Party B)"
+        : "Counterparty artifact (Party A)";
     const crossed = ["EXCHANGED", "RECEIPT_ACKNOWLEDGED", "COMPARISON_OPEN", "COMPLETED", "REVOKED_ACCESS_POST_EXCHANGE"].includes(
       exchange.status,
     );
@@ -505,6 +519,11 @@ export function IRLExchangeTab({ workspaceScopeId }: IRLExchangeTabProps = {}) {
           <span className="mt-2 inline-block rounded-full border border-violet-500/40 bg-violet-500/10 px-2.5 py-0.5 text-[11px] text-violet-200">
             {STATUS_LABEL[exchange.status] ?? exchange.status}
           </span>
+          {isObserver && (
+            <span className="mt-2 ml-2 inline-block rounded-full border border-slate-600 bg-slate-800/60 px-2.5 py-0.5 text-[11px] text-slate-300">
+              Viewing via workspace access — read-only
+            </span>
+          )}
         </div>
 
         {error ? <p className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-[12px] text-rose-300">{error}</p> : null}
@@ -524,7 +543,7 @@ export function IRLExchangeTab({ workspaceScopeId }: IRLExchangeTabProps = {}) {
             <span className="text-slate-100">{exchange.counterpartyRef ?? "not yet joined"}</span>
             {viewerParty === "B" ? " (you)" : ""}
           </p>
-          {!exchange.counterpartyRef && viewerParty === "A" ? (
+          {!isObserver && !exchange.counterpartyRef && viewerParty === "A" ? (
             <div className="mt-3 space-y-2">
               <button
                 disabled={busy}
@@ -553,59 +572,63 @@ export function IRLExchangeTab({ workspaceScopeId }: IRLExchangeTabProps = {}) {
           />
         </div>
 
-        {!yourArtifact ? (
+        {!isObserver && !yourArtifact ? (
           <Panel title="Deposit your artifact" icon={FileText} {...panelFocusProps("Deposit your artifact")}>
             <DepositForm onSubmit={(fields) => act("deposit", fields)} busy={busy} />
           </Panel>
         ) : null}
 
-        <Panel title="Freeze Declaration" icon={ShieldCheck} {...panelFocusProps("Freeze Declaration")}>
-          {yourArtifact?.pendingPrincipalAttestation ? (
-            <>
-              <p className="text-[12px] text-slate-300">
-                This artifact was registered on your behalf by an operator, on your authorization. Confirm it is the
-                artifact you intended before it can be frozen or signed — this does not change its content or
-                fingerprint, only your own acknowledgment of it.
-              </p>
-              <button
-                disabled={busy}
-                onClick={() => act("confirm")}
-                className="mt-3 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 py-1.5 text-[12px] font-medium text-emerald-100 hover:bg-emerald-500/25 disabled:opacity-40"
-              >
-                Confirm this artifact
-              </button>
-            </>
-          ) : (
-            <>
-              <p className="text-[12px] text-slate-400">
-                &ldquo;I declare that this artifact represents the version independently frozen by my party for this
-                exchange…&rdquo;
-              </p>
-              <button
-                disabled={busy || !yourArtifact || yourArtifact.frozen}
-                onClick={() => act("freeze")}
-                className="mt-3 rounded-lg border border-violet-500/40 bg-violet-500/15 px-3 py-1.5 text-[12px] font-medium text-violet-100 hover:bg-violet-500/25 disabled:opacity-40"
-              >
-                {yourArtifact?.frozen ? "Freeze declared" : "Declare freeze"}
-              </button>
-            </>
-          )}
-        </Panel>
+        {!isObserver && (
+          <Panel title="Freeze Declaration" icon={ShieldCheck} {...panelFocusProps("Freeze Declaration")}>
+            {yourArtifact?.pendingPrincipalAttestation ? (
+              <>
+                <p className="text-[12px] text-slate-300">
+                  This artifact was registered on your behalf by an operator, on your authorization. Confirm it is the
+                  artifact you intended before it can be frozen or signed — this does not change its content or
+                  fingerprint, only your own acknowledgment of it.
+                </p>
+                <button
+                  disabled={busy}
+                  onClick={() => act("confirm")}
+                  className="mt-3 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 py-1.5 text-[12px] font-medium text-emerald-100 hover:bg-emerald-500/25 disabled:opacity-40"
+                >
+                  Confirm this artifact
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-[12px] text-slate-400">
+                  &ldquo;I declare that this artifact represents the version independently frozen by my party for this
+                  exchange…&rdquo;
+                </p>
+                <button
+                  disabled={busy || !yourArtifact || yourArtifact.frozen}
+                  onClick={() => act("freeze")}
+                  className="mt-3 rounded-lg border border-violet-500/40 bg-violet-500/15 px-3 py-1.5 text-[12px] font-medium text-violet-100 hover:bg-violet-500/25 disabled:opacity-40"
+                >
+                  {yourArtifact?.frozen ? "Freeze declared" : "Declare freeze"}
+                </button>
+              </>
+            )}
+          </Panel>
+        )}
 
-        <Panel title="Exchange Instrument" icon={ClipboardCheck} {...panelFocusProps("Exchange Instrument")}>
-          <p className="text-[12px] text-slate-400">
-            Signing acknowledges your identity, your deposited artifact and its frozen version, the agreed purpose,
-            confidentiality terms, that receipt does not transfer ownership, and that later normalization is
-            derivative work — never evidence of native compatibility.
-          </p>
-          <button
-            disabled={busy || !yourArtifact?.frozen || yourArtifact?.signed || crossed}
-            onClick={() => act("sign")}
-            className="mt-3 rounded-lg border border-violet-500/40 bg-violet-500/15 px-3 py-1.5 text-[12px] font-medium text-violet-100 hover:bg-violet-500/25 disabled:opacity-40"
-          >
-            {yourArtifact?.signed ? "Instrument signed" : "Sign Exchange Instrument"}
-          </button>
-        </Panel>
+        {!isObserver && (
+          <Panel title="Exchange Instrument" icon={ClipboardCheck} {...panelFocusProps("Exchange Instrument")}>
+            <p className="text-[12px] text-slate-400">
+              Signing acknowledges your identity, your deposited artifact and its frozen version, the agreed purpose,
+              confidentiality terms, that receipt does not transfer ownership, and that later normalization is
+              derivative work — never evidence of native compatibility.
+            </p>
+            <button
+              disabled={busy || !yourArtifact?.frozen || yourArtifact?.signed || crossed}
+              onClick={() => act("sign")}
+              className="mt-3 rounded-lg border border-violet-500/40 bg-violet-500/15 px-3 py-1.5 text-[12px] font-medium text-violet-100 hover:bg-violet-500/25 disabled:opacity-40"
+            >
+              {yourArtifact?.signed ? "Instrument signed" : "Sign Exchange Instrument"}
+            </button>
+          </Panel>
+        )}
 
         <Panel title="Crossing" icon={Unlock} {...panelFocusProps("Crossing")}>
           <p className="text-[12px] text-slate-400">
@@ -619,13 +642,15 @@ export function IRLExchangeTab({ workspaceScopeId }: IRLExchangeTabProps = {}) {
           <Panel title="Exchange Receipt" icon={ShieldCheck} {...panelFocusProps("Exchange Receipt")}>
             <p className="text-[13px] leading-relaxed text-slate-200">{receipt.humanReadableSummary}</p>
             <p className="mt-2 text-[11px] text-slate-500">Crossed at {new Date(receipt.crossedAt).toLocaleString()}</p>
-            <button
-              disabled={busy}
-              onClick={() => act("acknowledge")}
-              className="mt-3 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-[12px] font-medium text-slate-200 hover:bg-slate-800"
-            >
-              Acknowledge receipt
-            </button>
+            {!isObserver && (
+              <button
+                disabled={busy}
+                onClick={() => act("acknowledge")}
+                className="mt-3 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-[12px] font-medium text-slate-200 hover:bg-slate-800"
+              >
+                Acknowledge receipt
+              </button>
+            )}
           </Panel>
         ) : null}
 
@@ -640,6 +665,8 @@ export function IRLExchangeTab({ workspaceScopeId }: IRLExchangeTabProps = {}) {
           <Panel title="Comparison" icon={GitBranch} {...panelFocusProps("Comparison")}>
             {comparison ? (
               <p className="text-[12px] text-slate-400">Comparison workspace open — read-only against both frozen artifacts.</p>
+            ) : isObserver ? (
+              <p className="text-[12px] text-slate-500">No comparison workspace has been opened yet.</p>
             ) : (
               <button
                 disabled={busy}
@@ -674,7 +701,7 @@ export function IRLExchangeTab({ workspaceScopeId }: IRLExchangeTabProps = {}) {
           </Panel>
         ) : null}
 
-        {exchange.status !== "WITHDRAWN_PRE_EXCHANGE" && exchange.status !== "DECLINED" ? (
+        {!isObserver && exchange.status !== "WITHDRAWN_PRE_EXCHANGE" && exchange.status !== "DECLINED" ? (
           <div className="pt-2 text-right">
             {!crossed ? (
               <button

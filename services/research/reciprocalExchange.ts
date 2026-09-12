@@ -58,6 +58,7 @@ import path from 'node:path';
 
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { personaPublicRef } from '@/services/identity/personaReferences';
+import { resolveWorkspaceRole } from '@/services/passport/participationAccess';
 import { createOrGetChannel } from '@/services/qubetalk/peerChannel';
 import { listOwnedPersonaIds } from '@/services/identity/passportPrincipal';
 import {
@@ -1456,6 +1457,17 @@ export interface ExchangeView {
     counterpartyRef: string | null;
   };
   viewerParty: PartySlot;
+  /** True when the caller is NOT a direct party (initiator/counterparty) but
+   *  was admitted via workspace access to the exchange's own
+   *  parentExperimentId (2026-09-12). `viewerParty` is still set (to 'A')
+   *  for internal framing, but callers MUST check this flag before treating
+   *  `viewerParty`/`yourArtifact` as "this caller's own side" — an observer
+   *  has no side, and every governed act (freeze/sign/invite/withdraw/
+   *  revoke/acknowledge) must stay refused for them (resolveMembership
+   *  already refuses these server-side regardless of this flag; UI surfaces
+   *  should also hide the affordances rather than show a control that will
+   *  silently no-op). */
+  isObserver: boolean;
   yourArtifact: ExchangeArtifactView | null;
   counterpartyArtifact: ExchangeArtifactView | null;
   receipt: ExchangeReceiptRecord | null;
@@ -1522,8 +1534,25 @@ export async function getExchangeView(
   const loaded = await loadExchange(admin, input.exchangeId);
   if (!loaded.ok) return { ok: false, error: loaded.error };
   const { exchange } = loaded;
-  const viewerParty = resolveMembership(exchange, input.personaId);
-  if (!viewerParty) return { ok: false, error: 'not-a-party' };
+  let viewerParty = resolveMembership(exchange, input.personaId);
+  let isObserver = false;
+  if (!viewerParty) {
+    // NOT a direct party — admit a workspace-scoped observer (operator
+    // instruction, 2026-09-12: "should not be restricted just to the
+    // parties who exchanged them but should be visible to anyone who has
+    // access rights to the experiment"). Same canonical workspace resolver
+    // every other Workspace surface uses, never a second membership check.
+    // `viewerParty` is set to 'A' purely as an internal framing convenience
+    // (which raw artifact each Promise.all slot below fetches) — `isObserver`
+    // is what callers must actually branch on; an observer's OWN "party A"
+    // slot is NOT unconditionally disclosed the way a real party's own
+    // artifact is (see the disclosure computation below).
+    if (!exchange.parentExperimentId) return { ok: false, error: 'not-a-party' };
+    const role = await resolveWorkspaceRole(admin, input.personaId, exchange.parentExperimentId, null);
+    if (!role) return { ok: false, error: 'not-a-party' };
+    viewerParty = 'A';
+    isObserver = true;
+  }
   const counterpartyParty: PartySlot = viewerParty === 'A' ? 'B' : 'A';
 
   const [yourArtifactRaw, counterpartyArtifactRaw] = await Promise.all([
@@ -1588,7 +1617,18 @@ export async function getExchangeView(
       counterpartyRef: exchange.counterpartyPersonaId ? personaPublicRef(exchange.counterpartyPersonaId) : null,
     } as ExchangeView['exchange'],
     viewerParty,
-    yourArtifact: toArtifactView(yourArtifactRaw, Boolean(yourFreeze), Boolean(yourSign), true, null),
+    isObserver,
+    // A real party's OWN artifact is always disclosed to them (true). An
+    // observer has no "own" artifact — BOTH slots follow the identical
+    // counterpartyDisclosed/lockedReason gate, so an observer never sees
+    // anything before crossing that a real party wouldn't also already see.
+    yourArtifact: toArtifactView(
+      yourArtifactRaw,
+      Boolean(yourFreeze),
+      Boolean(yourSign),
+      isObserver ? counterpartyDisclosed : true,
+      isObserver ? lockedReason : null,
+    ),
     counterpartyArtifact: toArtifactView(
       counterpartyArtifactRaw,
       Boolean(cpFreeze),
@@ -1760,17 +1800,38 @@ async function extractArtifactText(
 }
 
 /**
- * The actual readable content of one party's artifact — gated by the SAME
- * disclosure decision getExchangeView already computes. Never a parallel
- * authorization path.
+ * The actual readable content of one party's artifact.
+ *
+ * TWO admission paths (operator instruction, 2026-09-12: "should not be
+ * restricted just to the parties who exchanged them but should be visible
+ * to anyone who has access rights to the experiment... Party A or Party B
+ * may want to invite others to the experiment to view materials"):
+ *
+ *   1. A direct party (initiator/counterparty) — gated by the SAME
+ *      disclosure decision getExchangeView already computes for them.
+ *   2. A NON-party who holds an active research-lab access grant scoped to
+ *      this exchange's OWN parentExperimentId (the same canonical workspace
+ *      resolver `resolveWorkspaceRole` every other Workspace surface uses —
+ *      never a second, parallel membership check). An admitted observer's
+ *      visibility mirrors EXACTLY what the counterparty itself would see:
+ *      never before the exchange has crossed (both signed), never after
+ *      post-exchange revocation. An observer must never see MORE than a
+ *      party would — this is READ access to already-mutually-disclosed
+ *      content, not a third party to the exchange ritual itself (freeze/
+ *      sign/withdraw/revoke stay principal-only, unaffected by this path).
  */
 export async function resolveExchangeArtifactContent(
   admin: SupabaseClient,
   input: { exchangeId: string; personaId: string; party: PartySlot },
 ): Promise<ExchangeArtifactContentResult> {
+  // getExchangeView is the ONE place that decides admission (direct party OR
+  // workspace-scoped observer, see its own doc comment) and disclosure
+  // timing — never re-derived here. For an observer it always frames
+  // viewerParty as 'A', so `input.party === viewerParty` still correctly
+  // selects yourArtifact (=party A's raw view) vs counterpartyArtifact
+  // (=party B's raw view) in both the real-party and observer cases.
   const viewed = await getExchangeView(admin, { exchangeId: input.exchangeId, personaId: input.personaId });
   if (!viewed.ok) return { ok: false, error: viewed.error };
-
   const targetView = input.party === viewed.view.viewerParty ? viewed.view.yourArtifact : viewed.view.counterpartyArtifact;
   if (!targetView) return { ok: false, error: 'no-artifact' };
   if (targetView.locked) return { ok: false, error: targetView.lockedReason ?? 'locked' };
