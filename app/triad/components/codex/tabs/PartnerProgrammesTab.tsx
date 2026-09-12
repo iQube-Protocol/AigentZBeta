@@ -56,6 +56,7 @@ import {
   type PartnerWorkspace,
   type PartnerWorkspaceLink,
 } from "@/services/venture/partnerWorkspace";
+import { EXPERIMENT_REGISTRY } from "@/types/research";
 import {
   listResearchWorkspaces,
   researchWorkspaceExperiments,
@@ -108,13 +109,30 @@ const QubeTalkInboxTab = dynamic(() => import("@/components/composer/QubeTalkInb
   loading: () => <span className="text-[10px] text-slate-400">Loading…</span>,
 });
 
-// The Review surface's LEADING projection of Readiness (message 3 item 4:
-// "Review reordered — Readiness leads, then projected Working Materials").
-// The SAME component the Laboratory's admin-gated dashboard mounts — locked
-// to this workspace's experimentId via `fixedExperimentId`, never forked.
-const ExpP1ReadinessTab = dynamic(() => import("@/components/composer/ExpP1ReadinessTab"), {
+// Review's Crystal + Independent Review section (2026-09-12, information-
+// architecture correction — REPLACES the prior full ExpP1ReadinessTab mount
+// here, which duplicated Experiments' own ExperimentDossierPanel "readiness"
+// section). CrystalObserverReviewPanel is the canonical reviewer-facing
+// projection already built for the Validation Programme journey's
+// `crystal-review` stage: it composes IndependentReviewPanel's `reviewerMode`
+// (Crystal readiness/statistics/freeze-recommendation, read-only) with the
+// self-service Observer Review decision submission — Austin's actual review
+// action, not a second readiness dump.
+const CrystalObserverReviewPanel = dynamic(() => import("@/components/composer/CrystalObserverReviewPanel"), {
   ssr: false,
-  loading: () => <span className="text-[10px] text-slate-400">Loading readiness…</span>,
+  loading: () => <span className="text-[10px] text-slate-400">Loading Crystal &amp; Independent Review…</span>,
+});
+
+// Instrument Validation (IRV-001 / IPV-001) — mounted ONLY under the
+// Validation Programme v1 workspace's Experiments tab (2026-09-12), never
+// nested under EXP-P1: IRV-001/IPV-001 are prerequisite validation programme
+// evidence, not children of EXP-P1. The SAME component the Laboratory
+// mounts — inherently review-safe (it only reads the published, spine-gated
+// `/api/experiments/results` record; reruns happen via the CLI harness only,
+// by design — see the component's own header).
+const InstrumentValidationPanel = dynamic(() => import("@/components/composer/InstrumentValidationPanel"), {
+  ssr: false,
+  loading: () => <span className="text-[10px] text-slate-400">Loading instrument validation…</span>,
 });
 
 const PANEL = "rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm";
@@ -2422,6 +2440,41 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
               );
             })
           )}
+          {/* Instrument Validation (IRV-001/IPV-001) — 2026-09-12,
+              information-architecture correction. Rendered ONLY for the
+              Validation Programme v1 workspace itself, never nested under
+              EXP-P1: IRV-001/IPV-001 are prerequisite validation-programme
+              evidence, siblings of EXP-P1 within VP1 (types/research.ts's
+              VP1 series), not its children. This is the one narrow,
+              named exception to "no experiment-specific branching in this
+              component" — justified the same way ExperimentDossierPanel's
+              own header justifies its "Exchange (OCSGA workspaces only)"
+              section: a genuine structural fact about what this specific
+              workspace is, not a special case invented for Austin. */}
+          {ws.id === "irl-validation-programme-vp1" && (
+            <div className={`${PANEL} p-4`}>
+              <h3 className="text-sm font-semibold text-slate-100">Instrument Validation</h3>
+              <p className="mt-1 text-[11px] text-slate-500">
+                IRV-001 Resolution Validation and IPV-001 Projection Validation — Stage-0 prerequisite evidence
+                for the Validation Programme v1 series, read from the canonical published results. EXP-P1
+                depends on this evidence but does not own it.
+              </p>
+              <div className="mt-3 space-y-4">
+                {(["IRV-001", "IPV-001"] as const).map((expId) => {
+                  const reg = EXPERIMENT_REGISTRY.find((e) => e.id === expId);
+                  return (
+                    <InstrumentValidationPanel
+                      key={expId}
+                      experimentId={expId}
+                      family={reg?.family ?? expId}
+                      hypothesis={reg?.hypothesis ?? ""}
+                      protocolRef={reg?.protocolRef}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
           {/* Full experiment/programme dossier (message 5/6, IRL Workspace
               Experiment Dossier Completion Pass) — a projection over the
               SAME `resolveExperimentDossier` a machine consumer reads as
@@ -2656,9 +2709,17 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
               {liveState.kind === "loading" && (
                 <div className={`${PANEL} p-4 text-xs text-slate-500`}>Loading reviewer materials…</div>
               )}
+              {/* Crystal + Independent Review (2026-09-12 — replaces the
+                  prior full ExpP1ReadinessTab mount, which duplicated
+                  Experiments' own ExperimentDossierPanel "readiness"
+                  section). This is Austin's actual review action: inspect
+                  the frozen Crystal's readiness/statistics/freeze
+                  recommendation (read-only here — reviewerMode) and submit
+                  an Observer Review decision. */}
               {liveState.kind === "ready" && liveState.state.capabilities.readinessAvailable && (
                 <div className={`${PANEL} p-4`}>
-                  <ExpP1ReadinessTab personaId={personaId} fixedExperimentId={ws.experimentId as "EXP-P1" | "EXP-P2" | "EXP-P3"} />
+                  <h3 className="mb-3 text-sm font-semibold text-slate-100">Crystal &amp; Independent Review</h3>
+                  <CrystalObserverReviewPanel experimentId={ws.experimentId} />
                 </div>
               )}
               {liveState.kind === "ready" && liveState.state.documents.length > 0 && (

@@ -215,11 +215,47 @@ export async function resolveExperimentLifecycleState(
  * label is complete only once the LAST of the three's own condition holds
  * (observer acceptance), never merely because the crystal froze.
  */
+/** The full `research-experiment` template's ordering of `floorLifecycle`
+ *  (types/research.ts's `EXPERIMENT_LIFECYCLE`) — used only to compare "has
+ *  this floor state reached at least X" without a second copy of the list. */
+const FLOOR_LIFECYCLE_ORDER: FloorLifecycle[] = ['designed', 'protocol-ratified', 'running', 'evaluated', 'published', 'replicated'];
+
+function floorLifecycleAtLeast(floor: FloorLifecycle, threshold: FloorLifecycle): boolean {
+  return FLOOR_LIFECYCLE_ORDER.indexOf(floor) >= FLOOR_LIFECYCLE_ORDER.indexOf(threshold);
+}
+
 export function deriveCompletedTemplateStages(state: ExperimentLifecycleState): string[] {
   const completed: string[] = [];
+  // Concept and Protocol precede every DB-tracked signal this module derives
+  // from (2026-09-12 fix — these two stages were never derivable at all
+  // before this, so an experiment past its earliest phase still showed both
+  // as merely "not evidence-backed"). A frozen crystal, or any persisted
+  // protocol-freeze-artifact evidence, is real proof both already happened:
+  // freezing requires a stated rationale over an already-conceived, already-
+  // protocolled substrate (see the freeze route's own required fields), and
+  // partial protocol-freeze-artifact presence is direct evidence protocol
+  // authoring is under way. This is honest evidence, not an ordinal-position
+  // stand-in — SPEC-IRL-WORKSPACE-001 §7 does not define a separate
+  // DB-tracked "concept ratified" / "protocol registered" signal, so these
+  // are the real, available proxies for the two stages it does not track.
+  if (state.isFrozen || state.protocolPresent.length > 0) {
+    completed.push('Concept', 'Protocol');
+  }
   if (state.observerAcceptance === 'accepted') completed.push('Review');
   if (state.protocolReady) completed.push('Preregistration');
+  // Freeze itself was never derived either — 'isFrozen' is exactly this
+  // stage's own persisted signal (2026-09-12 fix).
+  if (state.isFrozen) completed.push('Freeze');
   if (state.floorLifecycle !== 'designed') completed.push('Task Construction');
+  // Run/Adjudication/Interpretation/Publication/Replication (2026-09-12 fix)
+  // — the published-run floor lifecycle already carries exactly this
+  // ordering (types/research.ts's EXPERIMENT_LIFECYCLE); it was read only up
+  // to 'Task Construction' before, silently dropping every later stage's own
+  // evidence once an experiment actually started running.
+  if (floorLifecycleAtLeast(state.floorLifecycle, 'running')) completed.push('Run');
+  if (floorLifecycleAtLeast(state.floorLifecycle, 'evaluated')) completed.push('Adjudication');
+  if (floorLifecycleAtLeast(state.floorLifecycle, 'published')) completed.push('Interpretation', 'Publication');
+  if (floorLifecycleAtLeast(state.floorLifecycle, 'replicated')) completed.push('Replication');
   return completed;
 }
 

@@ -43,6 +43,7 @@ import { currentReviewerAgreement } from '@/services/research/reviewerAgreement'
 import { listMyExchanges, listExchangesByParentExperiment } from '@/services/research/reciprocalExchange';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 import { resolveEffectiveExperimentCapability } from '@/services/research/accessCapabilities';
+import { getArtifact, nextGovernedActionForFrozenCrystal } from '@/services/research/artifacts';
 
 export const dynamic = 'force-dynamic';
 
@@ -110,6 +111,16 @@ export async function GET(req: NextRequest) {
   let crystalAvailable = false;
   let independentReviewAvailable = false;
   let effectiveCapability: 'read' | 'review' | 'write' | 'run' | 'admin' = 'read';
+  // Compact Overview dependency status (2026-09-12, information-architecture
+  // correction) — a ONE-LINE reference to the frozen substrate's real
+  // generation and next governed action, never the full Crystal UI (that
+  // stays under Track 2 / the Crystal + Independent Review section). Reused
+  // fields, not a second derivation: the same `getArtifact`/
+  // `nextGovernedActionForFrozenCrystal` the Crystal freeze route itself
+  // calls.
+  let crystalGeneration: string | null = null;
+  let crystalFrozen = false;
+  let nextGovernedAction: string | null = null;
   if (experimentId) {
     const experimentGrant = isAdmin || (await resolveExperimentReviewGrant(admin, persona.personaId, experimentId)) !== null;
     if (experimentGrant) {
@@ -127,6 +138,14 @@ export async function GET(req: NextRequest) {
       effectiveCapability = isAdmin
         ? 'admin'
         : await resolveEffectiveExperimentCapability(admin, { personaId: persona.personaId, experimentId });
+
+      const crystalArtifact = await getArtifact(experimentId, 'crystal-version').catch(() => null);
+      crystalFrozen = crystalArtifact?.lifecycle === 'frozen';
+      const generationMatch = crystalArtifact?.id.match(/\/crystal-vP(\d+)$/);
+      crystalGeneration = generationMatch ? `vP${generationMatch[1]}` : null;
+      if (crystalFrozen && crystalArtifact) {
+        nextGovernedAction = nextGovernedActionForFrozenCrystal(crystalArtifact)?.label ?? null;
+      }
     }
   }
 
@@ -179,6 +198,9 @@ export async function GET(req: NextRequest) {
     crystalAvailable,
     independentReviewAvailable,
     effectiveCapability,
+    crystalGeneration,
+    crystalFrozen,
+    nextGovernedAction,
     exchangeAvailable: exchangeIds.length > 0,
     exchangeIds,
   });

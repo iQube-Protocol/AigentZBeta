@@ -48,6 +48,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-09-12_irl-os-workspace-information-architecture-correction.md",
         "updates/2026-09-12_irl-os-workspace-austin-exp-p1-reviewer-dossier.md",
         "updates/2026-09-12_threshold-007-arr-gate-and-final-hardening.md",
         "updates/2026-09-12_ocsga-exchange-mistaken-revoke-restore-and-guard.md",
