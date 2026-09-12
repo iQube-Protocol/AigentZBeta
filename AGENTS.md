@@ -267,6 +267,14 @@ The rules below are the mandatory summary; that document is canonical for the co
 procedure, the ARR receipt schema, and the reasoning behind each rule — evolve the review protocol
 there, not by duplicating procedure text into this file.
 
+**Publication roles (added 2026-09-12):** publication runs
+`Operator ↔ Aletheon → Evidence Agent → The Adversary → Publication Gate → Canon`. **No agent may
+both author a material claim and independently certify that claim for canonical publication** — an
+Evidence Agent's citation-resolution pass, however thorough, never substitutes for an independent
+Adversary review, and an agent working in the same authoring context as the paper must never set
+`arr_disposition` or advance a `content_publication_gates` row to `approved`. Full role definitions
+and the deterministic DB gate mechanism: see the canonical doc above.
+
 ### Independence rule
 The ARR reviewer SHOULD NOT be the agent that authored the paper or implemented the cited
 code. Where practical, review through the same Codex/MCP/public research surfaces available

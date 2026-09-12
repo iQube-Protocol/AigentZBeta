@@ -256,3 +256,74 @@ found — it does not itself certify the paper's claims are correct.
    defect.
 7. Only on `PASS` or `PASS_WITH_DISCLOSED_GAPS`: mark the manuscript published/canonical, with the
    ARR receipt attached.
+
+---
+
+## Publication roles and separation of powers (added 2026-09-12, Threshold 007.2/007.3 pass)
+
+Threshold research publication operates constitutionally through four distinct, model-agnostic
+roles:
+
+**Aletheon** — canonical author and thesis steward. Owns substantive prose, hypotheses, argument
+structure, epistemic framing and falsification logic.
+
+**Evidence Agent** — resolves implementation anchors, repository paths, commit-pinned citations,
+experiment artifacts and evidence states into the manuscript's machine-readable apparatus. Evidence
+resolution does not confer authority to rewrite the thesis; where implementation reality conflicts
+with the draft, the Evidence Agent flags the conflict for Aletheon rather than silently correcting
+prose.
+
+**The Adversary** — independent adversarial reviewer (the ARR role described throughout this
+document). Its mandate is to attempt to defeat, not co-author, the thesis. It returns objections to
+Aletheon (`Adversary → Objection → Aletheon → Revision/Defense/Concession`), never rewrites canon
+directly.
+
+**Publication Gate** — the deterministic authority (see below) that decides whether an artifact may
+become canonical.
+
+The workflow is:
+
+```
+Operator ↔ Aletheon → Evidence Agent → The Adversary → Publication Gate → Canon
+```
+
+**Governing invariant:** no agent may both author a material claim and independently certify that
+claim for canonical publication. An Evidence Agent pass — however thorough — never substitutes for
+the Adversary's independent review, and an agent operating in the same authoring context as
+Aletheon must never set `arr_disposition` or otherwise self-certify a PASS.
+
+## The research process as a candidate object of study
+
+The Operator–Aletheon dyad that produces a Threshold research paper is itself worth naming
+explicitly in the paper it produces, because it is a live instance of the Cybernetic Intelligence
+mechanism such papers frequently propose (e.g. Threshold 007's H2). The correct framing is:
+
+> The Operator–Aletheon research process is an operational embodiment of the cybernetic
+> architecture proposed by such a paper, and is therefore a **candidate object of study** — not
+> evidence of the thesis merely by virtue of having produced the thesis.
+
+Do not let the existence of the dyad become circular proof of a hybrid-intelligence hypothesis. It
+may motivate the hypothesis; it cannot validate it.
+
+## Deterministic Publication Gate (`content_publication_gates`)
+
+Where a Research Edition's publishability needs to be enforced mechanically rather than only by
+convention, the `public.content_publication_gates` table (see
+`supabase/migrations/20260912195252_threshold_research_publication_gate.sql`) and its
+`threshold_research_gate_is_publishable(content_id, candidate_version)` function encode this gate's
+own PASS/PASS_WITH_DISCLOSED_GAPS/REVISION_REQUIRED/BLOCK_PUBLICATION and evidence-resolution/
+no-regression requirements as a boolean the publishing pipeline can check directly:
+
+```
+Publishable =
+  EvidenceResolved
+  AND NoEvidenceRegression
+  AND ARR ∈ {PASS, PASS_WITH_DISCLOSED_GAPS}
+  AND GateStatus = approved
+```
+
+A candidate row moves `candidate → evidence_resolution_required → arr_pending → approved` (or
+`blocked`/`superseded`). No agent should advance a row's `gate_status` to `approved` or set its
+`arr_disposition` except as the direct, disclosed output of an actually-performed independent ARR
+pass by the Adversary role — never as a side effect of an evidence-resolution or citation-hardening
+pass, however complete.

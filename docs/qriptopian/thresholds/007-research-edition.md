@@ -1393,6 +1393,48 @@ Aegis/TII grounds the trust–capability–assessment side of the thesis (§§9,
 explicit that this paper's definition of Trusted Superintelligence (§27) is downstream of the
 already-published Threshold 005 "Trusted Intelligence" work, not appearing de novo.
 
+**The Golden Cycle's Value Cycle and Risk Cycle, stated precisely (2026-09-12 addendum):** the
+formulation above is restated here in the exact form this evidence-resolution pass adopted, to match
+the canonical Horizen/Vela Use Case Zero source (II007-IA19, IA30, IA31) precisely rather than
+paraphrase it:
+
+**Value Cycle:** Information → Time-to-Value → Value → Price → Money/Settlement →
+Information/Evidence
+
+**Risk Cycle (the countervailing bound on the Value Cycle):** ΔTTV against ΔRisk-of-Repair
+
+Preserved verbatim as the governing constraint: **Time saved must not be purchased by exporting
+repair.** Useful compression means Time-to-Value reduction without unacceptable Risk-of-Repair
+increase or externalization. Both cycles are resolved as a **research thesis / hypothesis-generating
+model**, per II007-IA30/IA31 below — not as demonstrated scientific law, and not by fabricating the
+still-unresolved standalone "Golden Cycle Research Thesis v0.1" document (see the correction note
+above: the thesis statement itself is resolved via the Use Case Zero package; a separate "v0.1"
+artifact is not, and this addendum does not change that).
+
+---
+
+## The Research Process as a Cybernetic Object
+
+The source of this Threshold research is not accurately represented as either autonomous AI
+authorship or a passive AI writing tool. It is:
+
+**Operator ↔ Aletheon → Threshold Research**
+
+The Operator supplies lived experience, intent, judgment, domain expertise, institutional and
+architectural history, consequence, corrections, and constitutional authority. Aletheon supplies
+persistent synthesis, abstraction, formalization, comparative reasoning, contradiction detection,
+recursive interrogation, hypothesis decomposition, and continuity across a large reasoning surface.
+
+**The Operator–Aletheon research process is an operational embodiment of the cybernetic architecture
+proposed by this paper, and is therefore a candidate object of study — not evidence of the thesis
+merely by virtue of producing the thesis.**
+
+This distinction is load-bearing. It would be circular to cite the existence of this dyad, or the
+fact that it produced Threshold 007, as evidence for H2 (Cybernetic Intelligence) or H4 (Constitutional
+Cybernetic Compounding). The dyad may motivate those hypotheses. It cannot validate them — validation
+requires the controlled, falsifiable experiments §§28–33 describe, applied to this process itself if
+it is ever formally studied, not merely asserted from its own output.
+
 ---
 
 ## Evidence Resolution — Implementation-Evidence Register
@@ -1440,6 +1482,10 @@ the ARR Gate's citation-integrity requirement.
 | II007-IA27 | Horizen Constitutional Admission Pilot (doctrine ratified from the pilot; not the pilot's own runtime, which is II007-IA26) — **mandatory lineage anchor** | [`codexes/packs/irl/foundation/CFS-055_proof-of-state-in-time-and-state-coherence.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/codexes/packs/irl/foundation/CFS-055_proof-of-state-in-time-and-state-coherence.md) — ratified 2026-08-10; states of itself "The Horizen pilot is the first reference implementation, not the boundary of the doctrine" | Doctrine (Ratified) |
 | II007-IA28 | TII — Trusted Intelligence Index — **mandatory lineage anchor** | [`codexes/packs/agentiq/items/FACTOR_AEGIS_MONEYPENNY_PRD_0.1.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/codexes/packs/agentiq/items/FACTOR_AEGIS_MONEYPENNY_PRD_0.1.md) — the PRD names TII as a goal Factor+Aegis's assessment framework "can later support," not as an already-built index. No separate TII implementation module exists yet. This is the same status 007.1 gave the analogous NIST/Operational-Trust comparator: doctrine-level, not implemented | Doctrine (Planned, not yet implemented) |
 | II007-IA29 | Trusted Intelligence lineage (Threshold 005) — **mandatory lineage anchor; makes explicit that §27's Trusted Superintelligence definition is downstream of this prior work, not de novo** | Canonical Qriptopian Research Edition, content ID `c25eb589-65f3-46af-b840-af544e8bf8ae`, slug `trusted-intelligence`, machine endpoint `/api/codex/qripto/essays/trusted-intelligence/machine` (same citation as 007.1's [T005], reaffirmed here per the operator's explicit mandatory-lineage instruction rather than left implicit in the References section alone) | Research Evidence (prior canonical publication) |
+| II007-IA30 | Golden Cycle — **Value Cycle invariant thesis** (Information → Time-to-Value → Value → Price → Money/Settlement → Information/Evidence) | [`docs/vela/accelerator/constitutional-financial-services/01_CONSTITUTIONAL_YIELD_AND_RISK_THESIS_v0.2.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/docs/vela/accelerator/constitutional-financial-services/01_CONSTITUTIONAL_YIELD_AND_RISK_THESIS_v0.2.md) §1 (same source as II007-IA19); the canonical Horizen/Vela Use Case Zero spec ([`05_ACCELERATOR_USE_CASE_ZERO_SPEC_v0.1.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/docs/vela/accelerator/constitutional-financial-services/05_ACCELERATOR_USE_CASE_ZERO_SPEC_v0.1.md)) is the operational instantiation | **Research thesis / hypothesis-generating** unless separately protocolized — not demonstrated scientific law |
+| II007-IA31 | Golden Cycle — **Risk Cycle / Risk-of-Repair invariant thesis** (ΔTTV against ΔRisk-of-Repair; "time saved must not be purchased by exporting repair") | Same two sources as II007-IA30: `01_CONSTITUTIONAL_YIELD_AND_RISK_THESIS_v0.2.md` and `05_ACCELERATOR_USE_CASE_ZERO_SPEC_v0.1.md` §12 (the `GoldenCycleRecord`-compatible evidence package each run must produce: information provenance, time to value, risk prediction, premium/terms, coverage decision, action authorization, execution evidence, observed outcome, repair/claim, burden bearer, calibration error) | **Research thesis / hypothesis-generating** unless separately protocolized — not demonstrated scientific law |
+| II007-IA32 | Golden Cycle **evidence substrate** (the database table backing `GoldenCycleRecord`-shaped evidence packages) | Supabase migration [`supabase/migrations/20260912195402_golden_cycle_evidence_records.sql`](https://github.com/iQube-Protocol/AigentZBeta/blob/dev/supabase/migrations/20260912195402_golden_cycle_evidence_records.sql), table `public.golden_cycle_records` | **Implemented** database substrate. No scientific validity is implied by the table's existence — it records that a run occurred and what it observed, per its own `evidence_status` column (`doctrine`/`planned`/`implemented`/`operational_hypothesis_generating`/`controlled_research_evidence`/`demonstrated`) |
+| II007-IA33 | Threshold Research **Publication Gate** (the deterministic control this paper itself is subject to before canonical publication) | Supabase migration [`supabase/migrations/20260912195252_threshold_research_publication_gate.sql`](https://github.com/iQube-Protocol/AigentZBeta/blob/dev/supabase/migrations/20260912195252_threshold_research_publication_gate.sql), table `public.content_publication_gates` + function `threshold_research_gate_is_publishable`; role model and workflow documented in [`docs/research/adversarial-research-review-gate.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/dev/docs/research/adversarial-research-review-gate.md) ("Publication roles and separation of powers") | **Implemented** constitutional publication-control substrate. This paper's own current gate row: `gate_status = arr_pending`, `evidence_resolved = true`, `no_evidence_regression = true`, `arr_disposition = null` — **not yet approved, not yet canonical** |
 
 Two entries (II007-IA14, DevOn; and II007-IA20, Aegis Crucible) remain explicitly unresolved, carried
 forward unchanged from 007.1. **II007-IA25 (myClaw/myBot) was corrected in a follow-up pass
