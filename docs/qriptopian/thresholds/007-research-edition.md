@@ -1429,7 +1429,7 @@ the ARR Gate's citation-integrity requirement.
 | II007-IA16 | EXP-P2 | [`codexes/packs/irl/foundation/experiments/exp-p2-consequential-performance/01_shared-constitutional-framework.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/codexes/packs/irl/foundation/experiments/exp-p2-consequential-performance/01_shared-constitutional-framework.md) (family framework; P2A/P2B are its instantiations) | Research Evidence (registered protocol) |
 | II007-IA17 | EXP-P3 | [`codexes/packs/irl/foundation/experiments/exp-p3-representation-of-structural-invariants/01_experimental-brief.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/codexes/packs/irl/foundation/experiments/exp-p3-representation-of-structural-invariants/01_experimental-brief.md) | Experimental design (v1.0 Candidate, pending series ratification) |
 | II007-IA18 | EXP-P4 | [`codexes/packs/irl/foundation/experiments/exp-p4-invariant-interaction/README.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/codexes/packs/irl/foundation/experiments/exp-p4-invariant-interaction/README.md) | Reserved; no evidentiary claim |
-| II007-IA19 | Golden Cycle / PoTS ("Net Value Acceleration") — **newly resolved in this pass**; unresolved in 007.1 | [`services/venture/ventureOutcomeAccrual.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/services/venture/ventureOutcomeAccrual.ts) (PoTS/Net Value Acceleration accrual logic); the "Golden Cycle" label itself is this repository's name for the P1→P2→P3→P4 programme, per [`docs/vela/accelerator/constitutional-financial-services/README.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/docs/vela/accelerator/constitutional-financial-services/README.md) — not a separate standalone "Golden Cycle Research Thesis v0.1" document, which remains unfound | Implementation (PoTS) / Doctrine (Golden Cycle label) |
+| II007-IA19 | Golden Cycle thesis + PoTS ("Net Value Acceleration") — **fully resolved in this pass; GC-0.1 corrected, not merely re-marked unresolved** | Thesis statement ("Information → Time to Value → Value → Price → Money → Information"; time returned only without exported repair): [`docs/vela/accelerator/constitutional-financial-services/01_CONSTITUTIONAL_YIELD_AND_RISK_THESIS_v0.2.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/docs/vela/accelerator/constitutional-financial-services/01_CONSTITUTIONAL_YIELD_AND_RISK_THESIS_v0.2.md) §1. PoTS/Net Value Acceleration accrual: [`services/venture/ventureOutcomeAccrual.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/services/venture/ventureOutcomeAccrual.ts). Operational programme label (P1→P2→P3→P4): [`docs/vela/accelerator/constitutional-financial-services/README.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/docs/vela/accelerator/constitutional-financial-services/README.md) | Doctrine (thesis) / Implementation (PoTS) |
 | II007-IA20 | Aegis Crucible Submission 0.0 | **Unresolved** — searched by exact title and by keyword across this repository; not found (unchanged from 007.1) | Unresolved |
 | II007-IA21 | Experience Matrix — **new in this draft** | [`services/strategy/experienceMatrixDeriver.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/services/strategy/experienceMatrixDeriver.ts) and [`services/adaptive/experiencePrescriptionAssembly.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/services/adaptive/experiencePrescriptionAssembly.ts); tested by [`tests/experience-matrix-uncertainty.test.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/tests/experience-matrix-uncertainty.test.ts) | Implementation |
 | II007-IA22 | aigentMe provisioning — **new in this draft** | [`services/agents/provisionAigentMePersona.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/services/agents/provisionAigentMePersona.ts) | Implementation |
@@ -1463,25 +1463,31 @@ only as architectural vocabulary, never as the sole support for a hypothesis.
 ```
 
 The Research-Evidence Register (EXP-P1–P4 question/claim/status/generalization mapping), the
-Limitations section, the References and Canonical Lineage (including the seven internal citations
-this repository's own 007.1 pass left unresolved — CI, PE, IRL-010, IRL-010A, AEGIS-0.0,
-AEGIS-CRUCIBLE-0.0, GC-0.1 — none load-bearing, all carried forward unchanged), and the external
-methodological bibliography are unchanged from the 007.1 Research Edition and are carried forward by
-reference rather than being retyped here, per this draft's own §36 instruction not to reconstruct the
-apparatus from zero.
+Limitations section, the References and Canonical Lineage, and the external methodological
+bibliography are unchanged from the 007.1 Research Edition and are carried forward by reference rather
+than being retyped here, per this draft's own §36 instruction not to reconstruct the apparatus from
+zero. Six of the seven internal citations 007.1 left unresolved — CI, PE, IRL-010, IRL-010A,
+AEGIS-0.0, AEGIS-CRUCIBLE-0.0 — remain unresolved and are carried forward unchanged (none
+load-bearing). **The seventh, GC-0.1 ("Golden Cycle Research Thesis v0.1"), is corrected in this pass
+— see the note below and II007-IA19: it is resolved, not unresolved**, once the search was directed at
+the Vela Use Case Zero package rather than the general repository.
 
-**Note on Golden Cycle, distinguishing the label from the standalone thesis document (per the
-operator's mandatory-lineage instruction above):** two different things share the name "Golden
-Cycle" in this repository's own materials. (1) **The operational programme label** — "Golden Cycle"
-is this repo's own name for the P1 Compression → P2 Consequential Performance → P3 Representation →
-P4 Interaction research spine, stated explicitly in
-[`docs/vela/accelerator/constitutional-financial-services/README.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/docs/vela/accelerator/constitutional-financial-services/README.md) — this is resolved (II007-IA19, and the EXP-P1–P4 anchors II007-IA15–18). (2) **A standalone "Golden Cycle Research
-Thesis v0.1"** document — searched again in this pass across the full repository (including
-`docs/vela/accelerator/constitutional-financial-services/`, which extends it as "a v0.3 extension to
-the Golden Cycle research thesis" without including the v0.1/v0.2 original) — **remains unresolved**,
-unchanged from 007.1's GC-0.1 finding. AEGIS-0.0 (the standalone "Constitutional Admission and
-Calibration Doctrine 0.0" document, as distinct from the real, resolved Factor Aegis implementation at
-II007-IA11) was likewise searched again in this pass and remains unresolved, unchanged from 007.1. The full text of that carried-forward material is preserved in git history at
+**Correction to the Golden Cycle finding (2026-09-12, operator-directed re-check):** 007.1 marked
+"Golden Cycle Research Thesis v0.1" unresolved (GC-0.1), and the initial version of this pass repeated
+that finding. Re-searching specifically inside the Vela Use Case Zero package the operator pointed to
+(`docs/vela/accelerator/constitutional-financial-services/`) locates the actual thesis statement: **it
+is not a separate standalone document, but the founding transformation restated inline** in
+[`01_CONSTITUTIONAL_YIELD_AND_RISK_THESIS_v0.2.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/docs/vela/accelerator/constitutional-financial-services/01_CONSTITUTIONAL_YIELD_AND_RISK_THESIS_v0.2.md), §1: *"The Golden Cycle established the constitutional-economic
+transformation: **Information → Time to Value → Value → Price → Money → Information**. Its central
+discipline is that useful time may be returned to a principal only without exporting risk of repair."*
+A repository-wide grep for that exact transformation string returns only this one file — there is no
+separate "v0.1" original elsewhere in this repository; this document (itself framed as "a v0.3
+extension to the Golden Cycle research thesis") is where the founding statement actually lives. **This
+resolves GC-0.1 / II007-IA19's outstanding gap** — corrected below, not left as unresolved.
+
+**Note on Aegis 0.0:** the standalone "Constitutional Admission and Calibration Doctrine 0.0" document
+(as distinct from the real, resolved Factor Aegis implementation at II007-IA11) was searched again in
+this pass and remains genuinely unresolved, unchanged from 007.1. The full text of that carried-forward material is preserved in git history at
 commit `a3c77375` (`docs/qriptopian/thresholds/007-research-edition.md`) and in
 `codexes/packs/agentiq/updates/2026-09-12_threshold-007-arr-gate-and-final-hardening.md`.
 
