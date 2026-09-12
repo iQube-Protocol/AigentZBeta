@@ -36,11 +36,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
-import { getParticipantResearchWorkspaceAccess, resolveExperimentReviewGrant } from '@/services/passport/participationAccess';
+import { getParticipantResearchWorkspaceAccess, resolveExperimentReviewGrant, resolveWorkspaceRole } from '@/services/passport/participationAccess';
 import { getResearchWorkspace } from '@/services/research/researchWorkspace';
 import { listIrlPackDocumentsForExperiment } from '@/services/research/irlExperimentPathScope';
 import { currentReviewerAgreement } from '@/services/research/reviewerAgreement';
-import { listMyExchanges } from '@/services/research/reciprocalExchange';
+import { listMyExchanges, listExchangesByParentExperiment } from '@/services/research/reciprocalExchange';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 
 export const dynamic = 'force-dynamic';
@@ -110,14 +110,38 @@ export async function GET(req: NextRequest) {
   // WORKSPACE-BOUND capability — Reciprocal Artifact Exchange materials,
   // keyed DIRECTLY off the canonical workspaceId via `parentExperimentId`
   // (services/research/reciprocalExchange.ts), no experimentId required at
-  // all. Scoped to the CALLER'S OWN exchanges (`listMyExchanges` is already
-  // persona-scoped) — an admin previewing this workspace sees none unless
-  // they are themselves a party, which is correct: exchange materials are
-  // personal/party-scoped, not workspace-broadcast.
+  // all. Starts from the CALLER'S OWN exchanges (`listMyExchanges` is
+  // already persona-scoped).
+  //
+  // Workspace-scoped observer inclusion (2026-09-12, operator instruction:
+  // "should not be restricted just to the parties who exchanged them but
+  // should be visible to anyone who has access rights to the experiment") —
+  // a caller who is not a direct party to any exchange here but DOES hold a
+  // research-lab grant reaching this workspace (the SAME `resolveWorkspaceRole`
+  // predicate `getExchangeView`/`GET /api/research/exchanges` already use to
+  // admit observers) still gets the section: never advertise a capability
+  // this same persona's exchange routes would then refuse to open, and never
+  // silently hide it either — one authoritative admission check, applied
+  // here and at the exchange routes alike.
   let exchangeIds: string[] = [];
   const myExchanges = await listMyExchanges(admin, persona.personaId);
   if (myExchanges.ok) {
     exchangeIds = myExchanges.exchanges.filter((e) => e.parentExperimentId === workspaceId).map((e) => e.id);
+  }
+  if (!isAdmin) {
+    const role = await resolveWorkspaceRole(admin, persona.personaId, workspaceId, experimentId);
+    if (role) {
+      const all = await listExchangesByParentExperiment(admin, workspaceId);
+      if (all.ok) {
+        const seen = new Set(exchangeIds);
+        for (const e of all.exchanges) {
+          if (!seen.has(e.id)) {
+            exchangeIds.push(e.id);
+            seen.add(e.id);
+          }
+        }
+      }
+    }
   }
 
   return NextResponse.json({

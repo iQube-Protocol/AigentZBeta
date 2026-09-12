@@ -216,8 +216,8 @@ export function WorkspaceCapabilitiesPanel({ workspaceId, personaId }: Workspace
             <ArrowLeftRight className="h-4 w-4 text-violet-300" /> Reciprocal Artifact Exchange
           </h3>
           <p className="mt-1 text-[11px] text-slate-500">
-            Your own frozen/exchanged architecture artifacts for this workspace — the same canonical exchange
-            surface, scoped to what you are already a party to here.
+            Frozen/exchanged architecture artifacts for this workspace — the same canonical exchange surface,
+            scoped to exchanges you are a party to or that anyone with access to this workspace may view.
           </p>
           <div className="mt-3 overflow-hidden rounded-xl border border-slate-800">
             <IRLExchangeTab workspaceScopeId={workspaceId} />
