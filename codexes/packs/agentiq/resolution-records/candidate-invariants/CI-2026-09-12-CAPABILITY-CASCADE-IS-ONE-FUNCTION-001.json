@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "This governs the ORDINARY ladder only ('read' < 'review' < 'write' < 'run'). High-risk capabilities (crystal_groom, freeze_unfreeze, ide_ingest, canonize, invariant_registry_mutate, protocol_ratify, standing_admin, access_admin) remain explicitly OUTSIDE this cascade -- resolveCapability's own module header already states 'HIGH-RISK CAPABILITIES ARE NEVER IMPLIED BY write/run', and this invariant does not weaken or reinterpret that.",
+    "'admin' is resolved via persona.cartridgeFlags.isAdmin upstream of this cascade, never via an access_grant_capabilities row -- the cascade is for the ordinary participation ladder available to non-admin grants only.",
+    "The Resource x Principal/Delegate x Capability -> Allowed Actions primitive (operator framing, 2026-09-12) is this cascade's governing shape: a single server-side function must be the one place 'what is the highest ordinary rung this principal holds at this resource' is computed, for human UI, MCP tools, and delegated agents alike."
+  ],
+  "canaries": [
+    {
+      "path": "tests/irl-os-workspace-capability-projection.test.ts",
+      "assertion": "resolveEffectiveExperimentCapability returns the highest of run/write/review with an active, unexpired, correctly-scoped capability row, falls back to 'read' with none, is resource-scoped (never leaks across experimentId), and never elevates on an expired row.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "candidateId": "CI-2026-09-12-CAPABILITY-CASCADE-IS-ONE-FUNCTION-001",
+  "statement": "Any surface (human UI, MCP tool, or delegated-agent resolver) that needs to know 'the highest ordinary capability rung a principal holds at one resource' must call one shared resolver (resolveEffectiveExperimentCapability, or its successor if the scope model generalizes beyond experiments) rather than re-deriving the read/review/write/run cascade inline at each call site -- exactly as resolveCapability itself is already the one function every human UI and MCP/agent surface must call for a single literal capability check.",
+  "scope": "local",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-09-12-IRL-OS-WORKSPACE-CAPABILITY-PROJECTION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/accessCapabilities.ts (resolveEffectiveExperimentCapability), app/api/participation/workspace-capabilities/route.ts, components/research/WorkspaceCapabilitiesPanel.tsx",
+      "defect": "No prior caller computed a cumulative ladder position -- every existing resolveCapability call site checked exactly one literal capability value, which is correct for a single mutation gate but left the Workspace projection (and any future UI/MCP parity) with no shared source of truth for which ordinary rung to render or report.",
+      "resolutionId": "RES-2026-09-12-IRL-OS-WORKSPACE-CAPABILITY-PROJECTION-001",
+      "evidence": [
+        "tests/irl-os-workspace-capability-projection.test.ts"
+      ]
+    }
+  ],
+  "family": "constitutional",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "constitutional-computing",
+      "irl-os"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
+}

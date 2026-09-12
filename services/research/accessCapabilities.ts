@@ -180,6 +180,43 @@ export async function resolveCapability(
   return { allowed: false, reason: ceilingField ? 'refused-by-role-ceiling-or-expired' : 'expired' };
 }
 
+/**
+ * The ORDINARY ladder (`read < review < write < run`) is a documented
+ * hierarchy, not a stored one — `resolveCapability` itself checks one
+ * literal capability value at a time, by design (a `run` row never implies
+ * `crystal_groom`; see the module header). Callers that need "the highest
+ * ordinary rung this persona holds at this resource" (the IRL OS Workspace
+ * projection, MCP parity, and any future UI that renders per-tier — never a
+ * per-button admin/non-admin check) use THIS helper rather than re-deriving
+ * the cascade inline. It checks 'run' → 'write' → 'review' in that order and
+ * returns the first that resolves true; a bare active `access_grants` row
+ * with no matching capability row at all still resolves 'read' (entry
+ * without an elevated capability is exactly what plain workspace/experiment
+ * membership already means — see participationAccess.ts). 'admin' is never
+ * returned here: it is resolved via `persona.cartridgeFlags.isAdmin`
+ * upstream of this module, never via a capability row (this cascade is for
+ * the ordinary participation ladder available to non-admin grants).
+ *
+ * High-risk capabilities are NEVER folded into this cascade — they stay
+ * orthogonal, explicit, and separately checked (`resolveCapability` with the
+ * specific high-risk value), exactly as the module header requires.
+ */
+export async function resolveEffectiveExperimentCapability(
+  admin: SupabaseClient,
+  input: { personaId: string; experimentId: string },
+): Promise<'read' | 'review' | 'write' | 'run'> {
+  for (const capability of ['run', 'write', 'review'] as const) {
+    const { allowed } = await resolveCapability(admin, {
+      personaId: input.personaId,
+      scopeType: 'experiment',
+      scopeRef: input.experimentId,
+      capability,
+    });
+    if (allowed) return capability;
+  }
+  return 'read';
+}
+
 export type GrantCapabilityResult = { ok: true; capability: AccessGrantCapabilityRow } | { ok: false; error: string };
 
 /** Grant (or renew — expiry/reason only, never widen scope silently) a

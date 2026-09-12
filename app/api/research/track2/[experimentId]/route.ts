@@ -30,6 +30,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { callerMayReadExperimentReview } from '@/services/passport/participationAccess';
 import { loadTrack2ProgrammeState } from '@/services/research/researchProgrammeOrchestrator';
 
 export const dynamic = 'force-dynamic';
@@ -43,11 +45,25 @@ export async function GET(
   if (!persona?.personaId) {
     return NextResponse.json({ requestSucceeded: false, error: 'Not authenticated' }, { status: 401 });
   }
-  if (!persona.cartridgeFlags?.isAdmin) {
-    return NextResponse.json({ requestSucceeded: false, error: 'Steward access required' }, { status: 403 });
-  }
 
   const { experimentId } = await params;
+
+  // Admits a platform admin (unchanged), OR a persona holding an active,
+  // scoped review grant for this experimentId — same reviewer-read admission
+  // check as the Crystal readiness/freeze/rehearsal routes (IRL OS Workspace
+  // capability-aware projection, 2026-09-12). Track 2 state is part of the
+  // EXP-P1 review dossier; every mutating Track 2 route (merge, promote,
+  // reconcile, accept-bridges, relationship/provenance-cohort, validate-all,
+  // suggest-relationships, diversity-candidates, relationship-adjudication)
+  // remains admin-only, unchanged by this pass — a reviewer inspects Track 2,
+  // never grooms it.
+  if (!persona.cartridgeFlags?.isAdmin) {
+    const admin = getSupabaseServer();
+    const scoped = admin ? await callerMayReadExperimentReview(admin, persona.personaId, experimentId) : false;
+    if (!scoped) {
+      return NextResponse.json({ requestSucceeded: false, error: 'Steward or assigned-reviewer access required' }, { status: 403 });
+    }
+  }
   const state = await loadTrack2ProgrammeState({
     experimentId,
     acquisitionDomain: req.nextUrl.searchParams.get('acquisitionDomain') ?? undefined,

@@ -75,6 +75,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { callerMayReadExperimentReview } from '@/services/passport/participationAccess';
 import {
   currentCrystalArtifactId,
   freezeArtifact,
@@ -145,6 +147,14 @@ function asString(v: unknown): string {
  * is a narrow `{id, lifecycle}` projection — this is the first place that
  * reads the artifact's full frozen fields (contentHash, signedBy, frozenAt,
  * receiptId) back out.
+ *
+ * Admits a platform admin (unchanged), OR (IRL OS Workspace capability-aware
+ * projection, 2026-09-12) a persona holding an active, scoped review grant
+ * for this experimentId (`callerMayReadExperimentReview` — the SAME check
+ * `GET /api/research/crystal/[experimentId]` already uses for readiness).
+ * Frozen artifact hashes/receipts and the next governed action are part of
+ * the dossier a scoped reviewer must be able to inspect; nothing here can
+ * mutate anything — see POST below for the freeze act itself, unchanged.
  */
 export async function GET(
   req: NextRequest,
@@ -154,10 +164,14 @@ export async function GET(
   if (!persona?.personaId) {
     return NextResponse.json({ requestSucceeded: false, error: 'Not authenticated' }, { status: 401 });
   }
-  if (!persona.cartridgeFlags?.isAdmin) {
-    return NextResponse.json({ requestSucceeded: false, error: 'Steward access required' }, { status: 403 });
-  }
   const { experimentId } = await params;
+  if (!persona.cartridgeFlags?.isAdmin) {
+    const admin = getSupabaseServer();
+    const scoped = admin ? await callerMayReadExperimentReview(admin, persona.personaId, experimentId) : false;
+    if (!scoped) {
+      return NextResponse.json({ requestSucceeded: false, error: 'Steward or assigned-reviewer access required' }, { status: 403 });
+    }
+  }
   const crystalId = req.nextUrl.searchParams.get('crystalId') || (await currentCrystalArtifactId(experimentId));
   const artifact = await getArtifactById(crystalId).catch(() => null);
   // Reachable from the frozen generation itself, never a separate governance

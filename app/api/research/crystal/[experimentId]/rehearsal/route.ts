@@ -41,6 +41,7 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { deriveProtocolRatified, getExecutionRun } from '@/services/research/artifacts';
 import { listExecutionRuns } from '@/services/research/artifacts';
 import { resolveCapability } from '@/services/research/accessCapabilities';
+import { callerMayReadExperimentReview } from '@/services/passport/participationAccess';
 import {
   LARGER_REHEARSAL_TASK_SET,
   PROVISIONAL_REHEARSAL_TASK_SET,
@@ -93,10 +94,22 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ expe
   if (!persona?.personaId) {
     return NextResponse.json({ requestSucceeded: false, error: 'Not authenticated' }, { status: 401 });
   }
-  if (!persona.cartridgeFlags?.isAdmin) {
-    return NextResponse.json({ requestSucceeded: false, error: 'Steward access required' }, { status: 403 });
-  }
   const { experimentId } = await params;
+  // Admits a platform admin (unchanged), OR a persona holding an active,
+  // scoped review grant for this experimentId — same reviewer-read admission
+  // check as the sibling Crystal readiness/freeze routes (IRL OS Workspace
+  // capability-aware projection, 2026-09-12). Internal rehearsal lineage and
+  // results are part of the dossier a scoped reviewer must be able to
+  // inspect (they remain unmistakably internal/non-confirmatory — see this
+  // route's own module header); nothing in this GET can launch a run — see
+  // POST below, still gated on the 'run' capability.
+  if (!persona.cartridgeFlags?.isAdmin) {
+    const admin = getSupabaseServer();
+    const scoped = admin ? await callerMayReadExperimentReview(admin, persona.personaId, experimentId) : false;
+    if (!scoped) {
+      return NextResponse.json({ requestSucceeded: false, error: 'Steward or assigned-reviewer access required' }, { status: 403 });
+    }
+  }
 
   const runId = req.nextUrl.searchParams.get('runId');
   if (runId) {

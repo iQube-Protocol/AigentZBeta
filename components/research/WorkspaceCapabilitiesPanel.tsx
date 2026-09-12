@@ -38,14 +38,36 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeftRight, ChevronDown, ChevronRight, FileText, Gauge, Loader2, ShieldCheck } from "lucide-react";
+import { ArrowLeftRight, ChevronDown, ChevronRight, FileText, FlaskConical, Gauge, Loader2, Microscope, ShieldCheck } from "lucide-react";
 import dynamic from "next/dynamic";
 import { personaFetch } from "@/utils/personaSpine";
 import { ReviewerAgreementPanel } from "@/components/research/ReviewerAgreementPanel";
+import { Track2StateSummary } from "@/components/research/Track2StateSummary";
+import { EXPERIMENT_REGISTRY } from "@/types/research";
 
 const ExpP1ReadinessTab = dynamic(() => import("@/components/composer/ExpP1ReadinessTab"), {
   ssr: false,
   loading: () => <span className="text-[10px] text-slate-400">Loading readiness…</span>,
+});
+
+// Instrument Validation (IRV-001 / IPV-001) — the SAME component the
+// Laboratory mounts (InvariantExperimentLab.tsx), which is already inherently
+// review-safe: it only ever reads the published, spine-gated
+// `/api/experiments/results` record — it has no run/rerun control at all
+// (reruns happen via the CLI harness, by design; see the component's own
+// header). No reviewerMode/capability prop is needed here for that reason.
+const InstrumentValidationPanel = dynamic(() => import("@/components/composer/InstrumentValidationPanel"), {
+  ssr: false,
+  loading: () => <span className="text-[10px] text-slate-400">Loading instrument validation…</span>,
+});
+
+// Crystal + Independent Review — the canonical reviewer-facing projection
+// already built for the Validation Programme journey's `crystal-review`
+// stage (composes `IndependentReviewPanel reviewerMode` + the self-service
+// Observer Review decision submission). Reused as-is, never forked.
+const CrystalObserverReviewPanel = dynamic(() => import("@/components/composer/CrystalObserverReviewPanel"), {
+  ssr: false,
+  loading: () => <span className="text-[10px] text-slate-400">Loading Crystal &amp; Independent Review…</span>,
 });
 
 // Reciprocal Artifact Exchange (PRD-IRL-AX-001) — the WORKSPACE-BOUND
@@ -69,8 +91,27 @@ interface CapabilitiesPayload {
   documents: WorkspaceDocument[];
   readinessAvailable: boolean;
   reviewAgreementAvailable: boolean;
+  instrumentValidationAvailable: boolean;
+  track2Available: boolean;
+  crystalAvailable: boolean;
+  independentReviewAvailable: boolean;
+  /** The ordinary-ladder rung this caller holds at this experiment
+   *  (`resolveEffectiveExperimentCapability`) — 'admin' for a platform
+   *  admin, otherwise the highest of run/write/review this persona's
+   *  capability rows grant, or 'read' with none. Never inferred from which
+   *  sections happen to be visible — it is returned by the server so the
+   *  badge below can never say something the gate itself would refuse. */
+  effectiveCapability: "read" | "review" | "write" | "run" | "admin";
   exchangeAvailable: boolean;
 }
+
+const CAPABILITY_BADGE: Record<CapabilitiesPayload["effectiveCapability"], { label: string; className: string }> = {
+  read: { label: "Read access", className: "border-slate-700 bg-slate-800/60 text-slate-300" },
+  review: { label: "Review access", className: "border-violet-500/40 bg-violet-500/10 text-violet-200" },
+  write: { label: "Write access", className: "border-amber-500/40 bg-amber-500/10 text-amber-200" },
+  run: { label: "Run access", className: "border-blue-500/40 bg-blue-500/10 text-blue-200" },
+  admin: { label: "Administrator", className: "border-emerald-500/40 bg-emerald-500/10 text-emerald-200" },
+};
 
 type CapabilitiesState =
   | { kind: "loading" }
@@ -203,13 +244,25 @@ export function WorkspaceCapabilitiesPanel({ workspaceId, personaId }: Workspace
     !data.exchangeAvailable &&
     data.documents.length === 0 &&
     !data.readinessAvailable &&
-    !data.reviewAgreementAvailable
+    !data.reviewAgreementAvailable &&
+    !data.instrumentValidationAvailable &&
+    !data.track2Available &&
+    !data.crystalAvailable &&
+    !data.independentReviewAvailable
   ) {
     return null;
   }
+  const badge = CAPABILITY_BADGE[data.effectiveCapability];
 
   return (
     <div className="space-y-3">
+      {data.experimentId && (
+        <div className="flex items-center justify-end">
+          <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>
+            {badge.label}
+          </span>
+        </div>
+      )}
       {data.exchangeAvailable && (
         <div className={`${PANEL} p-4`}>
           <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-100">
@@ -261,6 +314,61 @@ export function WorkspaceCapabilitiesPanel({ workspaceId, personaId }: Workspace
           </h3>
           <div className="mt-3">
             <ReviewerAgreementPanel experimentId={data.experimentId} />
+          </div>
+        </div>
+      )}
+      {data.instrumentValidationAvailable && data.experimentId && (
+        <div className={`${PANEL} p-4`}>
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+            <FlaskConical className="h-4 w-4 text-emerald-300" /> Instrument Validation
+          </h3>
+          <p className="mt-1 text-[11px] text-slate-500">
+            IRV-001 Resolution Validation and IPV-001 Projection Validation — the same completed, published
+            record-run evidence the Laboratory shows, read from the canonical published results.
+          </p>
+          <div className="mt-3 space-y-4">
+            {(["IRV-001", "IPV-001"] as const).map((expId) => {
+              const reg = EXPERIMENT_REGISTRY.find((e) => e.id === expId);
+              return (
+                <InstrumentValidationPanel
+                  key={expId}
+                  experimentId={expId}
+                  family={reg?.family ?? expId}
+                  hypothesis={reg?.hypothesis ?? ""}
+                  protocolRef={reg?.protocolRef}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {data.track2Available && data.experimentId && (
+        <div className={`${PANEL} p-4`}>
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+            <Gauge className="h-4 w-4 text-violet-300" /> Track 2 Programme
+          </h3>
+          <p className="mt-1 text-[11px] text-slate-500">
+            Read-only projection of the same Track 2 state the Laboratory tracks. Grooming, promotion and
+            reconciliation remain Laboratory/steward operations.
+          </p>
+          <div className="mt-3">
+            <Track2StateSummary experimentId={data.experimentId} />
+          </div>
+        </div>
+      )}
+      {data.crystalAvailable && data.independentReviewAvailable && data.experimentId && (
+        <div className={`${PANEL} p-4`}>
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+            <Microscope className="h-4 w-4 text-violet-300" /> Crystal &amp; Independent Review
+          </h3>
+          <p className="mt-1 text-[11px] text-slate-500">
+            The frozen Crystal — readiness, statistics, freeze recommendation, provenance and receipts — plus
+            the Autonomi Independent Review Programme's Observer Review round for {data.experimentId}. You may
+            inspect the frozen substrate and submit your own review decision; the Crystal itself is immutable
+            here, as everywhere.
+          </p>
+          <div className="mt-3">
+            <CrystalObserverReviewPanel experimentId={data.experimentId} />
           </div>
         </div>
       )}

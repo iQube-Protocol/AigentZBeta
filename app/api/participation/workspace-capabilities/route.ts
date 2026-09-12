@@ -42,6 +42,7 @@ import { listIrlPackDocumentsForExperiment } from '@/services/research/irlExperi
 import { currentReviewerAgreement } from '@/services/research/reviewerAgreement';
 import { listMyExchanges, listExchangesByParentExperiment } from '@/services/research/reciprocalExchange';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
+import { resolveEffectiveExperimentCapability } from '@/services/research/accessCapabilities';
 
 export const dynamic = 'force-dynamic';
 
@@ -94,6 +95,21 @@ export async function GET(req: NextRequest) {
   let documents: Array<{ path: string; url: string }> = [];
   let readinessAvailable = false;
   let reviewAgreementAvailable = false;
+  // The rest of the reusable Laboratory dossier (2026-09-12, Austin/EXP-P1
+  // acceptance case — never hardcoded to it): Instrument Validation
+  // (IRV-001/IPV-001), Track 2 programme state, Crystal inspection, and the
+  // Independent Review/Observer Review machinery. All four are PROJECTIONS
+  // of the same canonical Laboratory routes, gated by the SAME
+  // experiment-scoped grant every other section above already requires —
+  // never a parallel resolver, never a hardcoded experimentId. A caller with
+  // no capability rows beyond bare workspace/experiment membership still
+  // gets 'read' (see resolveEffectiveExperimentCapability); explicit
+  // capability rows elevate to 'review'/'write'/'run'.
+  let instrumentValidationAvailable = false;
+  let track2Available = false;
+  let crystalAvailable = false;
+  let independentReviewAvailable = false;
+  let effectiveCapability: 'read' | 'review' | 'write' | 'run' | 'admin' = 'read';
   if (experimentId) {
     const experimentGrant = isAdmin || (await resolveExperimentReviewGrant(admin, persona.personaId, experimentId)) !== null;
     if (experimentGrant) {
@@ -104,6 +120,13 @@ export async function GET(req: NextRequest) {
       }));
       readinessAvailable = READINESS_AVAILABLE_EXPERIMENTS.has(experimentId);
       reviewAgreementAvailable = currentReviewerAgreement(experimentId) !== null;
+      instrumentValidationAvailable = true;
+      track2Available = true;
+      crystalAvailable = true;
+      independentReviewAvailable = true;
+      effectiveCapability = isAdmin
+        ? 'admin'
+        : await resolveEffectiveExperimentCapability(admin, { personaId: persona.personaId, experimentId });
     }
   }
 
@@ -151,6 +174,11 @@ export async function GET(req: NextRequest) {
     documents,
     readinessAvailable,
     reviewAgreementAvailable,
+    instrumentValidationAvailable,
+    track2Available,
+    crystalAvailable,
+    independentReviewAvailable,
+    effectiveCapability,
     exchangeAvailable: exchangeIds.length > 0,
     exchangeIds,
   });
