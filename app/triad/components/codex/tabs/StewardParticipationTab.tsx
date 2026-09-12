@@ -404,8 +404,20 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
     setEditClearExpiry(false);
     setEditReason('');
     const rp = researchPersonas[g.id];
-    setPersonaDisplayName(rp && !rp.isPlaceholder ? rp.displayName : '');
-    setPersonaHandle(rp && !rp.isPlaceholder ? rp.handle : '');
+    // Prefill from whatever the server already has — including a
+    // placeholder row (isPlaceholder: true still carries a real, sensible
+    // auto-generated displayName/handle from placeholderResearchPersona,
+    // e.g. "Researcher 601ec26e" / "researcher-601ec26e"). Blanking these
+    // out just because the row hadn't been confirmed yet left the "handle"
+    // input empty; since Save is disabled without a non-empty handle
+    // (line ~1122), a steward who edited only the name/privacy dropdown and
+    // never noticed the blank handle field got a silently inert Save button
+    // — the edit never reached the server at all (bug report 2026-09-11:
+    // "changed the name... changed their state to identified... not
+    // reflecting after saved" — confirmed via research_personas.updated_at
+    // still equal to created_at for the affected row).
+    setPersonaDisplayName(rp ? rp.displayName : '');
+    setPersonaHandle(rp ? rp.handle : '');
     setPersonaPrivacyMode((rp?.privacyMode as 'identified' | 'pseudonymous' | 'anonymous') ?? 'pseudonymous');
     setCapScopeType('');
     setCapScopeRef('');
