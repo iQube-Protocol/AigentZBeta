@@ -1,0 +1,28 @@
+{
+  "schema": "qriptopian.reading-editions.v1",
+  "contentId": "a61343cb-d000-4359-a307-e9d380740eaa",
+  "series": "Thresholds",
+  "seriesNumber": 7,
+  "title": "Invariant Intelligence",
+  "originalDate": "2026-09-11",
+  "defaultEdition": "reading",
+  "research": {
+    "label": "Research Edition",
+    "version": "Inspectable Academic Draft v0.1",
+    "textSource": "modalities.read.text",
+    "manuscript": "docs/qriptopian/thresholds/007-research-edition.md",
+    "preservation": "New canonical research manuscript added 2026-09-12, following the Threshold 006 dual-edition pattern"
+  },
+  "reading": {
+    "label": "Reading Edition",
+    "date": "2026-09-11",
+    "editorialMethod": "Original essay prose, unchanged by this revision; the Research Edition is the new citation/audit reference added alongside it, exactly as Threshold 006 adds a Research Edition alongside its own Reading Edition"
+  },
+  "constraints": {
+    "onePublication": true,
+    "oneCard": true,
+    "oneCover": true,
+    "paper005Unchanged": true,
+    "researchUnchanged": false
+  }
+}

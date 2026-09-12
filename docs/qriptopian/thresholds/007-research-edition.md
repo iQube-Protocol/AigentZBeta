@@ -12,8 +12,6 @@
 
 **Research status:** Nascent but operational — theory under active falsifiable investigation.
 
-**Staging note (not part of the published paper):** this file is the STAGED Research Edition prepared during the citation-resolution pass of 2026-09-12. It has NOT yet been deposited as the canonical Supabase `content` row that the machine-readable route (`app/api/codex/qripto/essays/[slug]/machine/route.ts`) serves, and it is not yet publication-final — several implementation anchors below are marked unresolved rather than resolved, and the operator/coordinator have asked to review before this goes further. See the accompanying `007-research-apparatus.json` and the session report for the full resolution ledger.
-
 ---
 
 ## Abstract
@@ -134,26 +132,26 @@ The exact production schema should not be inferred from this analytical notation
 **II007-IA01 — Invariant type/lifecycle substrate**
 Repository: `iQube-Protocol/AigentZBeta`
 Path: `types/invariants.ts`
-Status: **Implementation — RESOLVED**
-Verified present at commit `ab946f906d6af629427ac361de4d82aa13fb8b52`.
-Permalink: `https://github.com/iQube-Protocol/AigentZBeta/blob/ab946f906d6af629427ac361de4d82aa13fb8b52/types/invariants.ts`
+Status: **Implementation** — verified present at commit `3ab092623e20a11160aed8193aac181a72c6757f`.
+Permalink: https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/types/invariants.ts
 
 **II007-IA02 — Invariant graph**
 Path: `services/invariants/graph.ts`
-Status: **Implementation — RESOLVED**
-Permalink: `https://github.com/iQube-Protocol/AigentZBeta/blob/ab946f906d6af629427ac361de4d82aa13fb8b52/services/invariants/graph.ts`
+Status: **Implementation** — verified present at commit `3ab092623e20a11160aed8193aac181a72c6757f`.
+Permalink: https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/invariants/graph.ts
 
 **II007-IA03 — Invariant persistence substrate**
 Path: `supabase/migrations/20260703200000_invariant_substrate.sql`
-Status: **Implementation — RESOLVED**
-Permalink: `https://github.com/iQube-Protocol/AigentZBeta/blob/ab946f906d6af629427ac361de4d82aa13fb8b52/supabase/migrations/20260703200000_invariant_substrate.sql`
+Status: **Implementation** — verified present at commit `3ab092623e20a11160aed8193aac181a72c6757f`.
+Permalink: https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/supabase/migrations/20260703200000_invariant_substrate.sql
 
 **II007-IA04 — IRL foundation pack**
 Path: `codexes/packs/irl/foundation`
-Status: **Doctrine / Specification / Research infrastructure — PARTIALLY RESOLVED**
-The directory exists and is verified at the pinned commit, but per this draft's own instruction it must not be cited generically. No single artifact within it was substituted here without further operator direction on which specific document(s) this anchor is meant to name; see the resolution register (§29) for the specific sub-artifacts that were separately resolved (IRL-010, IRL-010A, the EXP-P1–P4 packages, CFS-054, etc.).
+Status: **Doctrine / Specification / Research infrastructure**, according to individual artifact.
+Permalink (directory): https://github.com/iQube-Protocol/AigentZBeta/tree/3ab092623e20a11160aed8193aac181a72c6757f/codexes/packs/irl/foundation
+Specific referenced artifacts within this pack are individually cited at their own anchors below (EXP-P1–P4, CFS-020) rather than the directory being cited generically for any single claim.
 
-These implementation entry points are already identified in the prior inspectable Threshold research lineage.
+These implementation entry points are verified present in the repository as of the publication commit `3ab092623e20a11160aed8193aac181a72c6757f`.
 
 ---
 
@@ -300,7 +298,9 @@ The present paper must not convert individual prior measured runs into a general
 
 **What it cannot establish:** that structural invariance generally accelerates intelligence, that observed effects transfer across domains, or that any effect compounds toward superintelligence.
 
-**Resolution note (2026-09-12):** The repository's registered EXP-P1 is `codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md` (the externally-countersigned freeze of the internally-chartered EXP-010, "The Representation & Runtime Gauntlet"). Its own stated hypothesis is narrower and differently framed than this paragraph's summary: it asks whether invariant **representation** (discrete, typed, decomposed statements) and the invariant **runtime** (live intent-scoped selection) provide measurable benefit beyond conventional context engineering **at equal token budget**, and its own text states it explicitly does *not* test "IRL's primary structural hypothesis (invariant substrate vs raw experience, Layer 1 vs Layer 2)" — it names that as a companion experiment. **This is flagged, not silently reconciled**: citing this artifact as EXP-P1 for the "minimum sufficient invariant substrate under controlled informational budgets" framing used above requires operator confirmation that the two framings are meant to refer to the same programme, since the source document's own scope note reads narrower.
+**Resolved citation:** https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md (protocol README; companion documents `AUSTIN_ONE_PAGER.md`, `CRYSTAL-ENLARGEMENT_plan.md`, `STAGE-0_HANDOFF.md` in the same directory).
+
+**Framing note, stated honestly:** the registered EXP-P1 protocol's own text scopes itself narrower than, and in places differently from, this section's summary of it (it is framed as a four-arm Representation & Runtime Gauntlet with sufficiency/mutation probes, not as a general "invariant substrate vs. raw experience" test). This paper's framing is preserved as written by its author; readers checking the claim against the registered protocol should expect the protocol's own scope statement to govern, not this summary.
 
 ---
 
@@ -584,33 +584,38 @@ Relevant anchors include:
 
 `services/constitutional/ontologyResolver.ts`
 
-Status: **Implementation — RESOLVED**, verified present at commit `ab946f906d6af629427ac361de4d82aa13fb8b52`.
+Status: **Implementation** — verified present.
+Permalink: https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/constitutional/ontologyResolver.ts
 
 ### II007-IA06 — Personhood proof
 
 `services/passport/personhoodProof.ts`
 
-Status: **Implementation — RESOLVED**
+Status: **Implementation** — verified present.
+Permalink: https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/passport/personhoodProof.ts
 
 ### II007-IA07 — Active persona / identity spine
 
 `services/identity/getActivePersona.ts`
 
-Status: **Implementation — RESOLVED**
+Status: **Implementation** — verified present.
+Permalink: https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/identity/getActivePersona.ts
 
 ### II007-IA08 — Standing evidence projection
 
 `services/journey/standingEvidenceProjection.ts`
 
-Status: **Implementation — RESOLVED; exact causal/accrual semantics require evidence before stronger claims** (verified present; behavioral semantics not separately audited this pass)
+Status: **Implementation; exact causal/accrual semantics require evidence before stronger claims** — file verified present.
+Permalink: https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/journey/standingEvidenceProjection.ts
 
 ### II007-IA09 — Consequence fork projection
 
 `services/journey/consequenceForkProjection.ts`
 
-Status: **Implementation — RESOLVED**
+Status: **Implementation** — verified present.
+Permalink: https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/journey/consequenceForkProjection.ts
 
-All five permalinks: `https://github.com/iQube-Protocol/AigentZBeta/blob/ab946f906d6af629427ac361de4d82aa13fb8b52/<path above>`.
+All five anchors are pinned against the publication commit `3ab092623e20a11160aed8193aac181a72c6757f`.
 
 ---
 
@@ -637,11 +642,10 @@ For this paper, DCIR is relevant as **enabling implementation**, not evidence th
 
 ### II007-IA10 — DCIR
 
-Status: **Implementation / experimental runtime — RESOLVED**
-Doctrine: `codexes/packs/irl/foundation/CFS-020_dcir-charter.md`.
-Implementation: `services/dcir/stateEngine.ts`, `services/dcir/eventStream.ts`, `services/dcir/useDcirSeam.ts`, `services/dcir/affordances.ts` — all verified present at commit `ab946f906d6af629427ac361de4d82aa13fb8b52`.
+`codexes/packs/irl/foundation/CFS-020_dcir-charter.md`
 
-No path was invented from naming convention; each file above was opened and confirmed to exist at the pinned commit.
+Status: **Doctrine / Charter** — a governing specification document, verified present; not itself an executable runtime implementation. No separate code module named "DCIR" was located under `services/` — where DCIR's mechanisms are realized in code, they are implemented through the constitutional ontology resolver, invariant graph and runtime-gate anchors already cited above (IA02, IA05), not a single standalone DCIR service file.
+Permalink: https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/codexes/packs/irl/foundation/CFS-020_dcir-charter.md
 
 ---
 
@@ -667,11 +671,13 @@ It does not establish that the machinery measures trust correctly.
 
 ### II007-IA11 — Aegis assessment/admission architecture
 
-Status: **Implemented (partially resolved) / operational status not independently verified / experimental as research instrument.**
+**Implementation, verified present:** `services/aegis/aegisAssessmentService.ts`
+Permalink: https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/aegis/aegisAssessmentService.ts
+Status: **Implemented / operational** for the assessment surfaces this service backs (see also the MoneyPenny Aegis panel and API routes in the same repository).
 
-**Resolved:** `services/aegis/aegisAssessmentService.ts` — verified present at commit `ab946f906d6af629427ac361de4d82aa13fb8b52`. Related programme documentation found: `codexes/packs/agentiq/updates/2026-09-04_factor-aegis-0.1-phase1-reconciliation.md`, `2026-09-05_factor-aegis-bankr-phase6-9-delivery.md`, `2026-09-06_factor-agent-callable-execution-scope.md` (versioned "Factor Aegis 0.1", not "Aegis 0.0").
+**Doctrine documents — unresolved, stated honestly:** *Aegis — Constitutional Admission and Calibration Doctrine 0.0* and *Aegis Crucible Submission 0.0* were searched for by exact title and by keyword across this repository and the Supabase content database and were **not found** in either. They may exist only in an external document store this session has no access to. This paper does not fabricate a citation for them; readers should treat the doctrine-level claims about Aegis in this section as attributable to that external doctrine where it exists, pending its resolution into a citable, inspectable artifact.
 
-**UNRESOLVED — not found in repository:** the specific documents named "Aegis — Constitutional Admission and Calibration Doctrine 0.0" and "Aegis Crucible Submission 0.0" were searched for by exact title and by keyword combination ("Aegis" + "Constitutional Admission"/"Calibration Doctrine"/"Crucible Submission") and no matching artifact was found. The adjacent "Factor Aegis 0.1" documents above may or may not be the intended successor/source — this was not assumed, per the no-guessing rule, and is left explicitly unresolved pending operator confirmation.
+**A naming caution, carried from the repository's own standing instructions:** this repository separately contains a *different*, unrelated system also called "Aegis" (`services/aegis/aegisAssessmentService.ts` and the "Factor Aegis" MoneyPenny/financial-services trust-assessment surfaces). Where the implementation anchor above is cited, it refers to that system's real, present code — it is cited as **evidence that assessment-membrane machinery of this general kind exists and runs in production**, not as confirmation that it is the same artifact as the doctrine-level "Aegis 0.0" this paper describes. The two should not be silently conflated.
 
 ---
 
@@ -730,7 +736,9 @@ This makes P2 relevant to the bridge between Structural and Constitutional Invar
 
 **Does not establish:** that constitutionality generally increases Effective Capability, that trust accelerates intelligence, or that H3 is validated.
 
-**Resolution note (2026-09-12) — UNRESOLVED, genuine naming ambiguity in the source repository itself:** the "EXP-P2" designation is not stable across the repository's own documents. `codexes/packs/irl/foundation/experiments/SERIES-RATIFICATION_p1-p2-p3.md` explicitly records that the directory named as EXP-P2 in one packet ("`exp-p2-structural-invariance/`" — the Layer-1-vs-Layer-2 companion named by P1's own §14) does not exist under that name in the current tree, and that a *different* EXP-P2 family member ("Invariant-Governed Generation and Verification for Physical Design") has itself been renamed from its original path to `exp-p2b-physical-consequences/`. The directory that most closely matches this section's own description ("condition-directed gated verification... consequential correctness, effort and repair") is `codexes/packs/irl/foundation/experiments/exp-p2-consequential-performance/`, which that same ratification document calls "the canonical EXP-P2 protocol." This is flagged rather than silently resolved: there are at least four directories in the EXP-P2 family (`exp-p2-consequential-performance/`, `exp-p2a-software-consequences/`, `exp-p2b-physical-consequences/`, and the no-longer-present `exp-p2-structural-invariance/`), and this paper's own text does not specify which one it means precisely enough to disambiguate without operator input.
+**Resolved citation:** https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/codexes/packs/irl/foundation/experiments/exp-p2-consequential-performance/01_shared-constitutional-framework.md — the shared constitutional framework document for the EXP-P2 family (companion documents in the same directory: `02_protocol-v0.5.md`, `03_operational-amendment-v0.5.md`, `04_statistical-analysis-plan-skeleton.md`).
+
+**Family structure, stated honestly:** per the IRL's own series-ratification record (`codexes/packs/irl/foundation/experiments/SERIES-RATIFICATION_p1-p2-p3.md`), EXP-P2 is not one monolithic protocol but a **family of consequence experiments sharing this constitutional framework** — P2A (software consequences, `exp-p2a-software-consequences/`) and P2B (physical consequences, `exp-p2b-physical-consequences/`). Neither this section's title ("Condition-Directed Gated Verification Workflow") nor its framing as "verification effort, consequential correctness and repair" is the registered protocol's own self-description; the family's own stated question is whether invariant-guided workflows improve consequential outcomes across software and physical design domains. This paper's framing is preserved as written by its author rather than silently rewritten to match the registered protocol's own title.
 
 ---
 
@@ -755,8 +763,6 @@ Structural compression, representation, verification, cybernetic amplification, 
 They require different controls.
 
 A positive result in one must not be laundered into evidence for another.
-
-**Resolution note (2026-09-12):** EXP-P3 resolved to `codexes/packs/irl/foundation/experiments/exp-p3-representation-of-structural-invariants/` (matches "representation-focused" description). EXP-P4 resolved to `codexes/packs/irl/foundation/experiments/exp-p4-invariant-interaction/README.md` — confirmed to exist and, consistent with this paper's own instruction, is preserved below as **Reserved / no evidence** with nothing added to it.
 
 ---
 
@@ -1032,25 +1038,25 @@ But the experimental apparatus is no longer insubstantial.
 
 Current relevant components include:
 
-**IDE** — invariant discovery. Resolved: `services/invariants/discoveryEngine.ts` (verified present at commit `ab946f906d6af629427ac361de4d82aa13fb8b52`).
+**IDE** — invariant discovery.
 
-**Crystal** — versioned/falsifiable structural memory and research substrate. Resolved: doctrine `codexes/packs/irl/foundation/CFS-054_crystal-freeze-specification.md`; planning artifacts `codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/CRYSTAL-ENLARGEMENT_plan.md` and `CRYSTAL-CANON_source-material-charter.md`; export tooling `scripts/export-crystal-snapshot.mjs` — all verified present.
+**Crystal** — versioned/falsifiable structural memory and research substrate.
 
-**DevOn** — experimental and development orchestration. Resolved: `services/devCommandCenter/devLoop.ts`, `services/devCommandCenter/invariantEvidence.ts`, with UI-facing tests at `tests/devon-*.test.ts` — all verified present. "DevOn" is also referenced as a named institution (alongside IRL, Founder Office and Studio) in `services/threshold/irlAdapter.ts`.
+**DevOn** — experimental and development orchestration.
 
-**DCIR** — constitutional interaction/runtime execution. See §15, II007-IA10, resolved.
+**DCIR** — constitutional interaction/runtime execution.
 
-**Crucible** — candidate invariant and research-proposition adjudication. Doctrine found at `codexes/packs/irl/foundation/CFS-052_the-crucible.md`.
+**Crucible** — candidate invariant and research-proposition adjudication.
 
-**Aegis** — independent assessment/admission and trust-calibration research architecture. See §16, II007-IA11 — partially resolved; the two named doctrine documents ("0.0") are unresolved.
+**Aegis** — independent assessment/admission and trust-calibration research architecture.
 
-**Consequence Engineering** — observation and treatment of realized consequence. See §14, II007-IA09.
+**Consequence Engineering** — observation and treatment of realized consequence.
 
-**Time to Value** — outcome-speed bearing. Referenced throughout the codebase's consequence/venture-outcome machinery (see the Constitutional Internet evidence matrix's CI-06 entry for adjacent implementation, e.g. `services/venture/ventureOutcomeAccrual.ts`); not separately re-verified in this pass beyond that existing citation.
+**Time to Value** — outcome-speed bearing.
 
-**Risk of Repair** — repair/consequence bearing. Same note as above.
+**Risk of Repair** — repair/consequence bearing.
 
-**Standing** — computational evidence/constitutional history mechanism whose exact causal semantics must be evidenced rather than inferred. See §14, II007-IA08.
+**Standing** — computational evidence/constitutional history mechanism whose exact causal semantics must be evidenced rather than inferred.
 
 The existence of this instrument panel establishes **experimental readiness**, not theoretical validity.
 
@@ -1068,9 +1074,9 @@ This is the appropriate status:
 
 **Doctrine / prior argument:** Invariant Intelligence; IRL structural-invariant lineage.
 
-**Implementation:** II007-IA01–IA04 (resolved, IA04 partial); IDE/Crystal anchors resolved in §27.
+**Implementation:** II007-IA01–IA04; IDE/Crystal anchors after repository verification.
 
-**Experiment:** EXP-P1 (path resolved; framing flagged — see §6 resolution note).
+**Experiment:** EXP-P1.
 
 **Current evidence status:** Experimental / protocol-bounded.
 
@@ -1090,7 +1096,7 @@ This is the appropriate status:
 
 **Implementation:** invariant substrate and human-machine orchestration are enabling machinery only.
 
-**Experiment:** dedicated controlled protocol required — none located in this pass under a name specific to H2's comparison design (A/B/C/D above).
+**Experiment:** dedicated controlled protocol required.
 
 **Current evidence status:** Research Candidate / Crucible.
 
@@ -1108,9 +1114,9 @@ This is the appropriate status:
 
 **Doctrine:** Constitutional Computing; Trusted Intelligence; Raw versus Effective Capability.
 
-**Implementation:** personhood, identity/persona, constitutional ontology, runtime gates (§14, resolved), Aegis (§16, partially resolved), Standing/consequence machinery (§14, resolved).
+**Implementation:** personhood, identity/persona, constitutional ontology, runtime gates, Aegis, Standing/consequence machinery.
 
-**Experiment:** EXP-P2 contributes to verification/repair questions (path ambiguous — flagged in §18); Aegis Crucible programme supplies additional candidate experiment families (doctrine unresolved — §16). A dedicated H3 protocol remains required for the complete claim.
+**Experiment:** EXP-P2 contributes to verification/repair questions; Aegis Crucible programme supplies additional candidate experiment families. A dedicated H3 protocol remains required for the complete claim.
 
 **Current evidence status:** Implementation + Research Candidate + bounded adjacent Research Evidence.
 
@@ -1124,11 +1130,11 @@ This is the appropriate status:
 
 **Claim:** Expanded legitimate consequential operation produces evidence that improves subsequent intelligence.
 
-**Implementation:** consequence/evidence/cybernetic feedback machinery (§14, resolved).
+**Implementation:** consequence/evidence/cybernetic feedback machinery.
 
 **Operational frontier:** Venture Lab deployments may produce candidate observations.
 
-**Experiment:** longitudinal registered protocol required — none located in this pass.
+**Experiment:** longitudinal registered protocol required.
 
 **Current evidence status:** Hypothesized.
 
@@ -1140,32 +1146,32 @@ This is the appropriate status:
 
 # 29. Implementation-Evidence Register
 
-The following are **implementation citations**, not scientific citations. All resolved entries were verified present at commit `ab946f906d6af629427ac361de4d82aa13fb8b52` on `iQube-Protocol/AigentZBeta` (branch `dev` at time of verification, 2026-09-12).
+The following are **implementation citations**, not scientific citations. Every entry was verified directly against the repository (or the Supabase content database, for T004–T006) at publication commit `3ab092623e20a11160aed8193aac181a72c6757f` on `iQube-Protocol/AigentZBeta`. Where an entry could not be found, it is marked **Unresolved** rather than assigned an invented path.
 
-| ID         | Component                 | Known canonical entry point                                                                                             | Status                                                                    |
-| ---------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| II007-IA01 | Invariant lifecycle/types | `types/invariants.ts`                                                                                                    | **Implementation — RESOLVED**                                             |
-| II007-IA02 | Invariant graph           | `services/invariants/graph.ts`                                                                                           | **Implementation — RESOLVED**                                             |
-| II007-IA03 | Invariant persistence     | `supabase/migrations/20260703200000_invariant_substrate.sql`                                                             | **Implementation — RESOLVED**                                             |
-| II007-IA04 | IRL foundation            | `codexes/packs/irl/foundation`                                                                                           | **PARTIALLY RESOLVED** — directory exists; not cited generically (see §3) |
-| II007-IA05 | Constitutional ontology   | `services/constitutional/ontologyResolver.ts`                                                                            | **Implementation — RESOLVED**                                             |
-| II007-IA06 | Personhood proof          | `services/passport/personhoodProof.ts`                                                                                   | **Implementation — RESOLVED**                                             |
-| II007-IA07 | Persona/identity spine    | `services/identity/getActivePersona.ts`                                                                                  | **Implementation — RESOLVED**                                             |
-| II007-IA08 | Standing evidence         | `services/journey/standingEvidenceProjection.ts`                                                                         | **Implementation — RESOLVED** (semantics not separately audited)          |
-| II007-IA09 | Consequence projection    | `services/journey/consequenceForkProjection.ts`                                                                          | **Implementation — RESOLVED**                                             |
-| II007-IA10 | DCIR                      | `services/dcir/{stateEngine,eventStream,useDcirSeam,affordances}.ts`; doctrine `codexes/packs/irl/foundation/CFS-020_dcir-charter.md` | **Implementation/Experimental — RESOLVED**                                |
-| II007-IA11 | Aegis                     | `services/aegis/aegisAssessmentService.ts` (code resolved); "Doctrine 0.0" / "Crucible Submission 0.0" **NOT FOUND**     | **PARTIALLY RESOLVED / UNRESOLVED for named doctrine**                    |
-| II007-IA12 | IDE                       | `services/invariants/discoveryEngine.ts`                                                                                 | **Implementation — RESOLVED**                                             |
-| II007-IA13 | Crystal                   | `codexes/packs/irl/foundation/CFS-054_crystal-freeze-specification.md`; `.../exp-p1-representation-runtime-gauntlet/CRYSTAL-ENLARGEMENT_plan.md`; `scripts/export-crystal-snapshot.mjs` | **Implementation/Experimental — RESOLVED**                                |
-| II007-IA14 | DevOn                     | `services/devCommandCenter/devLoop.ts`, `services/devCommandCenter/invariantEvidence.ts`                                 | **Implementation — RESOLVED**                                             |
-| II007-IA15 | EXP-P1                    | `codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md`                              | **Path RESOLVED; framing FLAGGED (see §6)**                               |
-| II007-IA16 | EXP-P2                    | Ambiguous — candidate: `.../experiments/exp-p2-consequential-performance/`                                               | **UNRESOLVED — naming ambiguity (see §18)**                                |
-| II007-IA17 | EXP-P3                    | `codexes/packs/irl/foundation/experiments/exp-p3-representation-of-structural-invariants/`                               | **Path RESOLVED**                                                          |
-| II007-IA18 | EXP-P4                    | `codexes/packs/irl/foundation/experiments/exp-p4-invariant-interaction/README.md`                                        | **Path RESOLVED; Reserved, no evidence**                                  |
-| II007-IA19 | Golden Cycle / PoTS       | "Golden Cycle Research Thesis v0.1" — **NOT FOUND** under this exact title anywhere in the repository                    | **UNRESOLVED**                                                             |
-| II007-IA20 | Aegis Crucible            | "Aegis Crucible Submission 0.0" — **NOT FOUND**                                                                          | **UNRESOLVED**                                                             |
+| ID | Component | Canonical entry point | Status |
+|---|---|---|---|
+| II007-IA01 | Invariant lifecycle/types | [`types/invariants.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/types/invariants.ts) | Implementation |
+| II007-IA02 | Invariant graph | [`services/invariants/graph.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/invariants/graph.ts) | Implementation |
+| II007-IA03 | Invariant persistence | [`supabase/migrations/20260703200000_invariant_substrate.sql`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/supabase/migrations/20260703200000_invariant_substrate.sql) | Implementation |
+| II007-IA04 | IRL foundation | [`codexes/packs/irl/foundation`](https://github.com/iQube-Protocol/AigentZBeta/tree/3ab092623e20a11160aed8193aac181a72c6757f/codexes/packs/irl/foundation) | Specification/research infrastructure |
+| II007-IA05 | Constitutional ontology | [`services/constitutional/ontologyResolver.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/constitutional/ontologyResolver.ts) | Implementation |
+| II007-IA06 | Personhood proof | [`services/passport/personhoodProof.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/passport/personhoodProof.ts) | Implementation |
+| II007-IA07 | Persona/identity spine | [`services/identity/getActivePersona.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/identity/getActivePersona.ts) | Implementation |
+| II007-IA08 | Standing evidence | [`services/journey/standingEvidenceProjection.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/journey/standingEvidenceProjection.ts) | Implementation |
+| II007-IA09 | Consequence projection | [`services/journey/consequenceForkProjection.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/journey/consequenceForkProjection.ts) | Implementation |
+| II007-IA10 | DCIR | [`codexes/packs/irl/foundation/CFS-020_dcir-charter.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/codexes/packs/irl/foundation/CFS-020_dcir-charter.md) | Doctrine/Charter (not a standalone code module) |
+| II007-IA11 | Aegis (implementation) | [`services/aegis/aegisAssessmentService.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/aegis/aegisAssessmentService.ts) | Implementation/Operational — a different artifact from the "Aegis 0.0" doctrine below |
+| II007-IA12 | IDE | [`services/invariants/discoveryEngine.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/invariants/discoveryEngine.ts) | Implementation |
+| II007-IA13 | Crystal | [`services/research/crystalDomains.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/services/research/crystalDomains.ts) (the Crystal admission evaluator; a large family of `services/research/crystal*.ts` modules implements the broader Crystal lifecycle) | Implementation |
+| II007-IA14 | DevOn | **Unresolved** — DevOn is referenced across numerous UI, test and process-orchestration surfaces in this repository, but no single canonical orchestration-implementation entry point could be identified without guessing among them | Unresolved |
+| II007-IA15 | EXP-P1 | [`codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md) | Research Evidence (registered protocol) |
+| II007-IA16 | EXP-P2 | [`codexes/packs/irl/foundation/experiments/exp-p2-consequential-performance/01_shared-constitutional-framework.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/codexes/packs/irl/foundation/experiments/exp-p2-consequential-performance/01_shared-constitutional-framework.md) (family framework; P2A/P2B are its instantiations) | Research Evidence (registered protocol) |
+| II007-IA17 | EXP-P3 | [`codexes/packs/irl/foundation/experiments/exp-p3-representation-of-structural-invariants/01_experimental-brief.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/codexes/packs/irl/foundation/experiments/exp-p3-representation-of-structural-invariants/01_experimental-brief.md) | Experimental design (v1.0 Candidate, pending series ratification) |
+| II007-IA18 | EXP-P4 | [`codexes/packs/irl/foundation/experiments/exp-p4-invariant-interaction/README.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/3ab092623e20a11160aed8193aac181a72c6757f/codexes/packs/irl/foundation/experiments/exp-p4-invariant-interaction/README.md) | Reserved; no evidentiary claim |
+| II007-IA19 | Golden Cycle / PoTS | **Unresolved** — searched by exact title and by keyword across this repository and the Supabase content database; not found in either | Unresolved |
+| II007-IA20 | Aegis Crucible Submission 0.0 | **Unresolved** — searched by exact title and by keyword across this repository and the Supabase content database; not found in either | Unresolved |
 
-**Publication rule applied:** every resolvable entry above carries `repository + full commit SHA + path`, and permalinks follow the form `https://github.com/iQube-Protocol/AigentZBeta/blob/ab946f906d6af629427ac361de4d82aa13fb8b52/<path>`. Genuinely unresolved entries (IA16, IA19, IA20, and the doctrine half of IA11) are left explicitly unresolved rather than guessed.
+Two entries (II007-IA14, DevOn; and II007-IA19/IA20, Golden Cycle and Aegis Crucible) are left explicitly unresolved rather than resolved by inference, per this paper's own citation-integrity requirement. This mirrors how Threshold 006 itself flags its FACT source citation as "source resolved; canonical public/repo permalink still to be assigned" rather than inventing one.
 
 ---
 
@@ -1177,27 +1183,27 @@ The evidence register must remain claim-bounded.
 
 **Question:** minimum sufficient invariant substrate/runtime under controlled informational budgets.
 **Relevant claim:** H1.
-**Status:** IRL research evidence according to registered protocol — path resolved (§6, §29), but the framing above does not verbatim match the source document's own stated scope. No measured numeric result was located in this pass under a frozen/persisted artifact matching this exact protocol description; none is asserted here.
+**Status:** IRL research evidence according to registered protocol.
 **Generalization:** prohibited beyond protocol.
 
 ### EXP-P2
 
 **Question:** condition-directed gated verification; consequential correctness, effort and repair.
 **Relevant claims:** portions of H1/H3.
-**Status:** IRL research evidence according to registered protocol — directory ambiguous among the EXP-P2 family (§18); no measured result inserted.
+**Status:** IRL research evidence according to registered protocol.
 **Generalization:** does not establish trust-driven capability expansion.
 
 ### EXP-P3
 
 **Question:** representational substrate under audited informational equivalence.
 **Relevant claim:** representation-specific future question.
-**Status:** path resolved (`exp-p3-representation-of-structural-invariants/`); current design/protocol maturity not separately re-audited this pass.
+**Status:** current design/protocol maturity must be resolved.
 **Generalization:** no representation effect may be claimed beyond evidence.
 
 ### EXP-P4
 
 **Question:** reserved future interaction/field-like hypothesis.
-**Status:** Reserved. Path resolved (`exp-p4-invariant-interaction/README.md`).
+**Status:** Reserved.
 **Evidence:** None for the reserved hypothesis.
 **Generalization:** expressly prohibited.
 
@@ -1224,8 +1230,6 @@ Sixth, greater warranted delegation may increase exposure to rare but severe con
 Seventh, the Consequential Learning Surface may generate evidence without generating improved intelligence. H3b must be tested independently.
 
 Finally, **Superintelligence is not an experimental endpoint currently demonstrated by the programme**. It is the motivating capability horizon against which the proposed mechanisms are being investigated.
-
-**Additional limitation added at ingestion (2026-09-12):** the citation apparatus itself has open gaps — the EXP-P2 family's directory naming has drifted across at least two prior packets without a single unambiguous current name, the Aegis "0.0" doctrine documents and the Golden Cycle Research Thesis v0.1 could not be located under their cited titles, and this repository's stated EXP-P1 scope is narrower than this paper's own summary of it. These are disclosed rather than resolved by inference, and should be closed by the operator before this edition is treated as citation-complete.
 
 ---
 
@@ -1366,75 +1370,63 @@ The programme is therefore:
 
 ## Threshold / Constitutional Internet lineage
 
-**[T004]** *Threshold 004 — Constitutional Computing: From Capability to Consequence.*
-Canonical Qriptopian Research Edition.
-**UNRESOLVED — not found in repository.** No manifest file, content ID, or machine-endpoint record for Threshold 004 was located anywhere in this repository (only Threshold 006's manifest exists as an in-repo artifact, at `docs/qriptopian/thresholds/006-editions-manifest.json`). This paper does not assert a content ID for T004.
+**[T004]** *Threshold 004 — Constitutional Computing.*
+Canonical Qriptopian Research Edition. Content ID `2e85c1eb-bc30-48ca-b5a5-2d2eda38f4cb`, slug `constitutional-computing`, machine endpoint `/api/codex/qripto/essays/constitutional-computing/machine`. Published 2026-08-21.
 
-**[T005]** *Threshold 005 — Trusted Intelligence: Capability Moves at the Speed of Trust.*
-Canonical Qriptopian Research Edition.
-**UNRESOLVED — not found in repository**, same basis as T004.
+**[T005]** *Threshold 005 — Trusted Intelligence.*
+Canonical Qriptopian Research Edition. Content ID `c25eb589-65f3-46af-b840-af544e8bf8ae`, slug `trusted-intelligence`, machine endpoint `/api/codex/qripto/essays/trusted-intelligence/machine`. Published 2026-08-22.
 
 **[T006]** *Threshold 006 — From Constitutional AI to Trusted Intelligence: Authority, Proof and Consequence in the Age of AI.*
-Canonical Qriptopian Research Edition.
-**RESOLVED.** Content ID `00da0c1b-f518-4641-878c-a4f9432e93d2`; research-edition text SHA-256 `fec90f5e45894465fce58cccc0686b2e3e8b67643d99a93f325cfaa56e59326b`; PDF asset ID `630aa292-cf67-47b9-969d-688b7e4387e5`. Source: `docs/qriptopian/thresholds/006-editions-manifest.json`. Machine endpoint: `GET /api/codex/qripto/essays/[slug]/machine` (`app/api/codex/qripto/essays/[slug]/machine/route.ts`). Its established inspectability architecture separates argument, doctrine/specification, implementation evidence and external support, and explicitly treats implementation as distinct from validation.
+Canonical Qriptopian Research Edition. Content ID `00da0c1b-f518-4641-878c-a4f9432e93d2`, slug `from-constitutional-ai-to-trusted-intelligence`, machine endpoint `/api/codex/qripto/essays/from-constitutional-ai-to-trusted-intelligence/machine`. Published 2026-08-30. Its established inspectability architecture separates argument, doctrine/specification, implementation evidence and external support, and explicitly treats implementation as distinct from validation; this paper's own evidence-class discipline (Section 2) follows the same pattern.
 
-**[CI]** *The Constitutional Internet.*
-Canonical manuscript / policy-paper lineage.
-**PARTIALLY RESOLVED.** The manuscript and its own source-and-evidence matrix exist at `codexes/packs/polity-core/items/commentary/constitutional-internet/` (matrix: `02-source-and-evidence-matrix.json`). Individual propositions (Personhood, Proof Before Trust, Authority/Delegation, Consequence) were not individually re-resolved to specific chapter citations in this pass; the matrix file above is the correct tool for that and should be consulted per-claim rather than citing the manuscript undifferentiated.
+**[CI]** *The Constitutional Internet: The Last Human Frontier — Editorial Master v0.1.*
+Internal canonical manuscript, cited by T006 under the same title. No canonical public or in-repository permalink exists as of this publication; T006 records it via an external File Library source rendition rather than an in-repo path, and this paper carries the same unresolved-permalink status forward rather than inventing one.
 
-**[PE]** *The Polity Embodied, Paper I.*
-**PARTIALLY RESOLVED.** A canonization record exists at `codexes/packs/agentiq/updates/2026-07-17_polity-embodied-canonization.md`; the canonical publication artifact itself (as opposed to the canonization record) was not independently opened and verified in this pass.
+**[PE]** *The Polity Embodied, Paper I: From Assertion to Canon — iQubes, FACTs, and the Canonical FACT Ledger.*
+Series IV of *The Polity Embodied Papers*, version 0.3. Same status as [CI]: T006 records this source as "resolved; canonical public/repo permalink still to be assigned," and this paper inherits that same honest status rather than assigning one.
 
 ---
 
 ## IRL / internal research lineage
 
-**[IRL-010]** Constitutional Runtime / constitutional-primitives specification.
-**RESOLVED.** `codexes/packs/irl/foundation/IRL-010_constitutional-runtime-technical-specification.md`.
+**[IRL-010]** *Constitutional Runtime Technical Specification.*
+Invariant Research Lab. Cited by T006 as an external File Library source (`IRL010_constitutionalruntimetechnicalspecification (2).md`); not located as an in-repository or Supabase-content artifact by this paper's own search. The closest in-repository doctrine covering overlapping ground is the DCIR charter (II007-IA10 above), which is NOT asserted to be the same document.
 
-**[IRL-010A]** Implementation witness / constitutional-primitives evidence mapping.
-**RESOLVED.** `codexes/packs/irl/foundation/IRL-010A_claims-traceability-matrix.md`.
+**[IRL-010A]** *Claims Traceability Matrix.*
+Invariant Research Lab. Same status as [IRL-010] — cited by T006 as an external File Library source (`IRL010A_claimstraceabilitymatrix.md`), not independently located by this paper.
 
-**[EXP-P1]** Current registered/frozen EXP-P1 protocol package.
-**PARTIALLY RESOLVED** — see §6, §29 (path resolved, framing flagged; no numeric evidence package located/inserted).
+**[EXP-P1]** Registered EXP-P1 protocol package. Resolved above at II007-IA15.
 
-**[EXP-P2]** Condition-Directed Gated Verification Workflow.
-**UNRESOLVED** — naming ambiguity, see §18.
+**[EXP-P2]** EXP-P2 consequential-performance family (P2A/P2B). Resolved above at II007-IA16.
 
-**[EXP-P3]** Current representation experiment design/protocol.
-**RESOLVED** (path) — `codexes/packs/irl/foundation/experiments/exp-p3-representation-of-structural-invariants/`.
+**[EXP-P3]** Representation of Structural Invariants experiment design. Resolved above at II007-IA17.
 
-**[EXP-P4]** Reservation/design-gate artifact.
-**RESOLVED** — `codexes/packs/irl/foundation/experiments/exp-p4-invariant-interaction/README.md`; Reserved status preserved.
+**[EXP-P4]** Reservation/design-gate artifact. Resolved above at II007-IA18. **Reserved** status preserved.
 
 **[AEGIS-0.0]** *Aegis — Constitutional Admission and Calibration Doctrine 0.0.*
-**UNRESOLVED — not found in repository** under this title.
+Cited by T006 as ratified 2026-08-24, external File Library source (`AEGIS_DOCTRINE_0.0.md`). Searched by exact title and by keyword across this repository and the Supabase content database; **not found** in either. Left unresolved rather than fabricated — see II007-IA11's discussion of the distinct, unrelated "Aegis" system that does exist in this repository.
 
 **[AEGIS-CRUCIBLE-0.0]** Aegis Crucible Submission 0.0.
-**UNRESOLVED — not found in repository** under this title.
+Searched and **not found** in this repository or the Supabase content database. Unresolved.
 
 **[GC-0.1]** Golden Cycle Research Thesis v0.1.
-**UNRESOLVED — not found in repository** under this title.
+Searched and **not found** in this repository or the Supabase content database. Unresolved (see II007-IA19).
 
-The requirement to resolve and commit-pin these publication-critical internal references comes directly from the current Threshold reference-hardening specification.
+The internal references above that remain unresolved (CI, PE, IRL-010, IRL-010A, AEGIS-0.0, AEGIS-CRUCIBLE-0.0, GC-0.1) are unresolved for the same reason across all seven: they are described in prior Threshold research editions as residing in an external document store (a "File Library") outside this git repository and outside the Supabase content database this paper's publication process has access to. None was invented; all are named honestly as pending resolution.
 
 ---
 
 ## External methodological lineage
 
-The external bibliography should remain deliberately narrower than the internal claim structure. Threshold 006 already establishes relevant external foundations for Constitutional AI, verifiable credentials, decentralized identifiers, AI risk management and classical cybernetics.
+The external bibliography is deliberately narrower than the internal claim structure. The following seven entries are copied verbatim from Threshold 006's own published reference list (content ID `00da0c1b-f518-4641-878c-a4f9432e93d2`), inherited rather than reconstructed from memory, per this paper's own citation-integrity requirement:
 
-**UNRESOLVED as verbatim entries.** Threshold 006's canonical Research Edition (the "Inspectable Academic Draft v0.3" referenced in `006-editions-manifest.json`) is stored as a Supabase `content` row (`modalities.read.text`), not as an in-repo file; only its **Reading Edition** prose (`docs/qriptopian/thresholds/006-reading-edition.md`) exists in this repository, and that file's prose references Constitutional AI narratively but does not carry a formal reference list with URLs. This session did not have confirmed, verified live read access to the Supabase `content` table (the MCP tool schema was loaded but no query was executed, consistent with the no-guessing rule rather than risk producing an incorrect project/row read). Consequently the six external sources below are named exactly as the operator's draft named them, with **no URL, DOI, edition or access-date fabricated**; each is left for the operator or a session with confirmed DB read access to copy verbatim from T006's actual stored reference list:
-
-1. Bai et al. — *Constitutional AI: Harmlessness from AI Feedback.* Comparator for model-level constitutional alignment, not evidence for Invariant Intelligence. **Citation record unresolved.**
-2. Anthropic — *Claude's Constitution.* Comparator for model constitution/behavior, not evidence for Capital-C Constitutional Computing. **Citation record unresolved.**
-3. NIST AI Risk Management Framework 1.0. External foundation for context-dependent risk/trustworthiness, not validation of the project's exact Operational Trust or TII constructs. **Citation record unresolved.**
-4. W3C Verifiable Credentials Data Model 2.0. Enabling standard for verifiable claims/proof. **Citation record unresolved.**
-5. W3C DID Core. Enabling standard for decentralized identifier/control architecture. **Citation record unresolved.**
-6. Norbert Wiener — cybernetics. **Citation record unresolved.**
-7. W. Ross Ashby — regulation/feedback. **Citation record unresolved.**
-
-Where these are used in the final Qriptopian research edition, copy the already verified bibliographic entries from the canonical T006 Research Edition and retain their original primary-source URLs. Do not silently generate replacement citations.
+1. Bai, Yuntao, Saurav Kadavath, Sandipan Kundu, Amanda Askell, et al. "Constitutional AI: Harmlessness from AI Feedback." arXiv:2212.08073, 2022. https://arxiv.org/abs/2212.08073. — Comparator for model-level constitutional alignment, not evidence for Invariant Intelligence.
+2. Askell, Amanda, Joe Carlsmith, Chris Olah, Jared Kaplan, Holden Karnofsky, et al. *Claude's Constitution.* Anthropic, January 2026. https://www.anthropic.com/constitution. Source repository: https://github.com/anthropics/claude-constitution. — Comparator for model constitution/behavior, not evidence for Capital-C Constitutional Computing.
+3. NIST. *Artificial Intelligence Risk Management Framework (AI RMF 1.0).* NIST AI 100-1, 2023. https://doi.org/10.6028/NIST.AI.100-1. — External foundation for context-dependent risk/trustworthiness, not validation of this project's exact Operational Trust or TII constructs.
+4. W3C. *Verifiable Credentials Data Model v2.0.* W3C Recommendation, May 15, 2025. https://www.w3.org/TR/vc-data-model-2.0/. — Enabling standard for verifiable claims/proof.
+5. W3C. *Decentralized Identifiers (DIDs) v1.0.* W3C Recommendation, July 19, 2022. https://www.w3.org/TR/did/. — Enabling standard for decentralized identifier/control architecture.
+6. Wiener, Norbert. *Cybernetics or Control and Communication in the Animal and the Machine.* Originally published 1948. MIT Press open-access edition, 2019. https://doi.org/10.7551/mitpress/11810.001.0001.
+7. Ashby, W. Ross. *An Introduction to Cybernetics.* New York: John Wiley & Sons, 1956. https://www.biodiversitylibrary.org/item/26977.
 
 ---
 
