@@ -497,6 +497,11 @@ export type ActivityActionType =
   // other exchange_* entries above.
   | 'exchange_artifact_registered_operator_assisted'
   | 'exchange_operator_assisted_artifact_confirmed'
+  // Operator-provided plaintext fallback (2026-09-12) — attached to an
+  // already-deposited artifact when automated content extraction cannot
+  // reach the underlying bytes; never touches the artifact's fingerprint
+  // fields (see setArtifactOperatorProvidedText).
+  | 'exchange_artifact_operator_text_attached'
   // QubeTalk Communications Membrane (2026-08-25) — the consequential acts
   // named in domain spec §17's candidate list beyond what Phase 1's three
   // qubetalk_artifact_* types already cover, using the spec's own literal

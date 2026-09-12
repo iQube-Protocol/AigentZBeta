@@ -37,3 +37,19 @@ Both references were always genuine and correctly deposited — this was a missi
 ## Known limitation, stated honestly
 
 Only `repository-commit` and an `autodrive:`-prefixed `storageReference` have a working extractor. `upload` (a bare, non-autodrive storage path) and `manifest` source types still return an honest "no extractor exists yet" note rather than fabricated content — extend `extractArtifactText` in `services/research/reciprocalExchange.ts` if/when those need support.
+
+## Follow-up (2026-09-12, same day) — operator-provided plaintext fallback for Party B
+
+Live click-through confirmed the concern: Party B's DOCX (`autodrive:860e6ac7-...:bafkr6i...`) does **not** extract in the deployed environment — the Auto Drive download or the mammoth pass fails there even though the artifact's own deposit/freeze/fingerprint (`9f33939112351d811337475c3ed4ebcb78bb993d066232ab06d187098f7c1331`) is completely valid. Root cause not yet isolated (network egress from the deployment to Auto Drive, vs. an `AUTONOMYS_API_KEY` gap in that environment, vs. a mammoth parsing edge case on this specific file) — flagged for separate investigation, not blocking this fix.
+
+The operator supplied the document's own plaintext directly. Rather than paste it into the UI as a one-off, this shipped as a reusable mechanism:
+
+- **New column** `exchange_artifacts.operator_provided_text` (`supabase/migrations/20261001000400_exchange_artifact_operator_provided_text.sql`) — deliberately separate from every fingerprint/identity field (`content_hash`, `source_reference`, `storage_reference` untouched). This is a read-convenience annotation, never a re-deposit and never a fingerprint override.
+- **`setArtifactOperatorProvidedText`** (`services/research/reciprocalExchange.ts`) — the only writer; touches nothing else, records an `exchange_artifact_operator_text_attached` receipt (new `ActivityActionType`, `supabase/migrations/20261001000500_exchange_artifact_operator_text_receipt_type.sql`).
+- **`extractArtifactText`** now checks `operatorProvidedText` FIRST, before attempting automated extraction — a verified-accurate fallback beats a flaky network call, and the result carries `origin: 'operator-provided'` so callers never confuse it with a genuine automated extraction.
+- **`POST /api/admin/exchanges/[exchangeId]/set-artifact-text`** — new admin-gated route (mirrors `register-counterparty-artifact`'s auth pattern) so a future case doesn't need direct SQL.
+- **UI** (`IRLExchangeTab.tsx`) — the reader now shows "Operator-provided text — automated extraction was unavailable for this artifact; this is the document's own text, verified by the operator" above the content when `origin === 'operator-provided'`, so a viewer always knows which path produced what they're reading.
+
+Party B's row was populated directly (this sandbox cannot drive an authenticated HTTP round-trip against its own dev server — see the parent session's diagnosis of a missing `SUPABASE_SERVICE_ROLE_KEY` in this sandbox's `.env.local` cascading into every authenticated route). The stored text (15,181 characters) is the OCSGA Constitutional Master Authoring Template v1.3 the operator supplied, verbatim.
+
+**Still open:** why the Auto Drive/mammoth path fails in the actual deployment. This fallback unblocks reading the document now; it does not replace fixing the underlying extractor.

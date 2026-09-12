@@ -219,6 +219,7 @@ interface ArtifactContentPayload {
   content?: string;
   note?: string;
   error?: string;
+  origin?: "operator-provided";
 }
 
 /**
@@ -283,9 +284,16 @@ function ArtifactContentReader({ exchangeId, party }: { exchangeId: string; part
             </p>
           )}
           {state.kind === "ready" && state.payload.format !== "unsupported" && (
-            <pre className="whitespace-pre-wrap break-words font-sans text-[12px] leading-relaxed text-slate-200">
-              {state.payload.content}
-            </pre>
+            <>
+              {state.payload.origin === "operator-provided" && (
+                <p className="mb-2 text-[10px] font-medium text-amber-300/80">
+                  Operator-provided text — automated extraction was unavailable for this artifact; this is the document's own text, verified by the operator.
+                </p>
+              )}
+              <pre className="whitespace-pre-wrap break-words font-sans text-[12px] leading-relaxed text-slate-200">
+                {state.payload.content}
+              </pre>
+            </>
           )}
         </div>
       )}

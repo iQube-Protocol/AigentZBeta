@@ -152,6 +152,7 @@ function rowToArtifact(r: Record<string, unknown>): ExchangeArtifactRecord {
     registeringOperatorPersonaId: (r.registering_operator_persona_id as string | null) ?? null,
     authorityBasis: (r.authority_basis as string | null) ?? null,
     pendingPrincipalAttestation: Boolean(r.pending_principal_attestation),
+    operatorProvidedText: (r.operator_provided_text as string | null) ?? null,
   };
 }
 
@@ -808,6 +809,54 @@ export async function registerArtifactOperatorAssisted(
   }
 
   await recomputeExchangeState(admin, input.exchangeId);
+  return { ok: true, artifact };
+}
+
+/**
+ * Attach (or replace) an operator-supplied plaintext fallback for an
+ * ALREADY-DEPOSITED artifact — for when automated extraction
+ * (`extractArtifactText`) cannot reach the underlying bytes in a given
+ * deployment even though the artifact's own deposit/freeze/fingerprint is
+ * completely valid (operator instruction, 2026-09-12: the OCSGA DOCX's Auto
+ * Drive download works from some networks but not others).
+ *
+ * Deliberately narrow: this ONLY writes `operator_provided_text`. It never
+ * touches `content_hash`, `source_reference`, or `storage_reference` — the
+ * artifact's evidentiary identity is untouched, so this can never be used to
+ * substitute different content for what was actually frozen/signed. Callable
+ * for an artifact in any exchange state (unlike first-deposit registration,
+ * this is a read-convenience annotation, not a new deposit) — gated at the
+ * ROUTE layer to admin/steward callers, since an ordinary party has no
+ * legitimate reason to need it (their own artifact's extractor either works
+ * or the operator fixes the underlying reference).
+ */
+export async function setArtifactOperatorProvidedText(
+  admin: SupabaseClient,
+  input: { exchangeId: string; party: PartySlot; text: string; settingPersonaId: string },
+): Promise<{ ok: true; artifact: ExchangeArtifactRecord } | { ok: false; error: string }> {
+  if (!input.text.trim()) return { ok: false, error: 'text required' };
+  const existing = await currentArtifact(admin, input.exchangeId, input.party);
+  if (!existing) return { ok: false, error: 'no-artifact' };
+
+  const { data, error } = await admin
+    .from(T_ARTIFACTS)
+    .update({ operator_provided_text: input.text })
+    .eq('id', existing.id)
+    .select('*')
+    .maybeSingle();
+  if (error || !data) return { ok: false, error: error?.message ?? 'update failed' };
+  const artifact = rowToArtifact(data as Record<string, unknown>);
+
+  await createActivityReceipt({
+    personaId: input.settingPersonaId,
+    activeCartridge: 'irl',
+    actionType: 'exchange_artifact_operator_text_attached',
+    summary:
+      `Operator-provided plaintext fallback attached [exchange=${input.exchangeId}] party=${input.party} ` +
+      `artifact="${artifact.title}" fingerprint=${artifact.contentHash?.slice(0, 16)} — extraction unavailable, content verified by operator`,
+    contextShared: ['exchange_id', 'artifact_class', 'content_hash'],
+  }).catch(() => null);
+
   return { ok: true, artifact };
 }
 
@@ -1718,7 +1767,7 @@ export async function listExchangesByParentExperiment(
 // always, the counterparty's only once genuinely disclosed.
 
 export type ExchangeArtifactContentResult =
-  | { ok: true; title: string; mimeType: string | null; format: 'markdown' | 'text'; content: string }
+  | { ok: true; title: string; mimeType: string | null; format: 'markdown' | 'text'; content: string; origin?: 'operator-provided' }
   | { ok: true; title: string; mimeType: string | null; format: 'unsupported'; content: ''; note: string }
   | { ok: false; error: string };
 
@@ -1730,7 +1779,20 @@ const REPO_TEXT_ROOT = 'codexes/';
  *  this" for a format with no actual extractor. */
 async function extractArtifactText(
   artifact: ExchangeArtifactRecord,
-): Promise<{ format: 'markdown' | 'text'; content: string } | { format: 'unsupported'; note: string }> {
+): Promise<
+  | { format: 'markdown' | 'text'; content: string; origin?: 'operator-provided' }
+  | { format: 'unsupported'; note: string }
+> {
+  // Operator-supplied fallback (2026-09-12) takes priority over automated
+  // extraction. It exists precisely BECAUSE automated extraction can fail
+  // in a given deployment (e.g. an Auto Drive download that succeeds from
+  // one network but not another) — a verified-accurate fallback the
+  // operator has confirmed IS the artifact's own text beats a flaky network
+  // call, and we never silently prefer a live re-fetch over it once set.
+  if (artifact.operatorProvidedText?.trim()) {
+    return { format: 'text', content: artifact.operatorProvidedText, origin: 'operator-provided' };
+  }
+
   if (artifact.sourceType === 'repository-commit') {
     const rel = artifact.sourceReference.replace(/^\/+/, '');
     if (!rel.startsWith(REPO_TEXT_ROOT) || rel.includes('..')) {
@@ -1843,7 +1905,14 @@ export async function resolveExchangeArtifactContent(
   if (extracted.format === 'unsupported') {
     return { ok: true, title: raw.title, mimeType: raw.mimeType, format: 'unsupported', content: '', note: extracted.note };
   }
-  return { ok: true, title: raw.title, mimeType: raw.mimeType, format: extracted.format, content: extracted.content };
+  return {
+    ok: true,
+    title: raw.title,
+    mimeType: raw.mimeType,
+    format: extracted.format,
+    content: extracted.content,
+    ...(extracted.origin ? { origin: extracted.origin } : {}),
+  };
 }
 
 
