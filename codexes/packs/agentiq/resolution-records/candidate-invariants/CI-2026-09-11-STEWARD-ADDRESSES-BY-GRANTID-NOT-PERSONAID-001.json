@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "This is the T0->T2 boundary pattern applied to a STEWARD administering a DIFFERENT principal's resource -- distinct from the already-established 'owner self-view' exception (a caller reading their OWN persona UUIDs), which this does not weaken or extend.",
+    "getGrantPersonaIds (services/passport/participationAccess.ts) is the single resolver this pattern requires -- a future steward route must reuse it, never re-derive grantId->personaId mapping locally.",
+    "Distinct from the three-level persona reference model (Private UUID / Polity Public Reference / Pairwise External Service Reference), which solves cross-SERVICE correlation, not steward-to-participant addressing within this platform."
+  ],
+  "canaries": [
+    {
+      "path": "tests/irl-stewardship-access-capability.test.ts",
+      "assertion": "Steward routes accept grantId (or capabilityId) as the client-visible key for a target participant's resource; getGrantPersonaIds resolves personaId server-side only and it is never echoed back in a response.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "candidateId": "CI-2026-09-11-STEWARD-ADDRESSES-BY-GRANTID-NOT-PERSONAID-001",
+  "statement": "A steward-facing route that must act on or read a DIFFERENT principal's resource (their research persona, their access grant, their capability grant) must address that resource by grantId (or another already-client-visible, non-identifying key), resolving personaId server-side only via getGrantPersonaIds -- never accepting or echoing the target's raw personaId to or from the client.",
+  "scope": "local",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-09-11-STEWARD-GRANTID-ADDRESSING-PATTERN-001"
+  ],
+  "occurrences": [
+    {
+      "site": "app/api/steward/participation/research-persona/route.ts, app/api/steward/participation/grants/[grantId]/route.ts, app/api/steward/participation/capabilities/route.ts",
+      "defect": "No prior pattern existed for a steward addressing another principal's resource without exposing their T0 personaId; established here as getGrantPersonaIds plus grantId-keyed routes rather than accepting a personaId parameter directly.",
+      "resolutionId": "RES-2026-09-11-STEWARD-GRANTID-ADDRESSING-PATTERN-001",
+      "evidence": [
+        "505097826",
+        "3884d2976",
+        "tests/irl-stewardship-access-capability.test.ts"
+      ]
+    }
+  ],
+  "family": "constitutional",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "constitutional-computing",
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
+}

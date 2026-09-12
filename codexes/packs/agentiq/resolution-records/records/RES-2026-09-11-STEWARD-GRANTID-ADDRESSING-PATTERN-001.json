@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-11",
+  "resolutionId": "RES-2026-09-11-STEWARD-GRANTID-ADDRESSING-PATTERN-001",
+  "capability": "irl-stewardship-access-capability",
+  "milestone": "IRL Stewardship — Access Maintenance + Research Persona Legibility + Capability-Scoped Participation shipped and merged to dev (branch claude/irl-stewardship-access-capability, commits 505097826..c9abcc9a7). Filed at close-out per CLAUDE.md's Resolution -> Invariant Loop, triggers #7 (a successful implementation established a reusable pattern) and #8 (a milestone became demonstrably complete).",
+  "problem": "A steward-facing route needs to act on or read data belonging to a PARTICIPANT the steward is administering (their research persona, their access grant), not the steward's own record -- but the target's raw personaId (a T0 identifier per CLAUDE.md's Identity & Access Spine) must never be serialised to the client, including inside a URL path or query string a steward's own browser would hold.",
+  "observedFailure": [
+    "No prior steward-facing route in this codebase needed to address 'someone else's' resource by a non-identifying key before this work; the closest existing precedents (e.g. the wallet self-view routes) only ever resolve the CALLER's own personaId, which is a materially easier problem.",
+    "Without a deliberate pattern, the natural-seeming implementation would accept a personaId query/body parameter directly on a steward route (e.g. GET /research-persona?personaId=<target>), which would put a T0 identifier into browser-visible request state for every administered participant, not just the caller."
+  ],
+  "rootCauses": [
+    "T0 identifiers (personaId, authProfileId, rootDid) are correctly forbidden from ever appearing in browser-bound JSON or chain-bound receipts (CLAUDE.md's Identity & Access Spine), but no existing helper addressed the specific case of a STEWARD needing to reference a DIFFERENT principal's resource without ever learning or transmitting that principal's raw personaId."
+  ],
+  "resolution": [
+    "getGrantPersonaIds (services/passport/participationAccess.ts) is the one T0->T2 boundary helper for this pattern: server-internal only, it maps grantId -> personaId and is never itself serialised to a client -- every steward-facing lookup of 'which persona does this grant belong to' goes through this single function.",
+    "GET/PATCH /api/steward/participation/research-persona/route.ts's resolveTarget helper accepts EITHER 'grantId' (the steward path -- resolves the grant, calls getGrantPersonaIds server-side, never echoes the resulting personaId back to the client) OR 'personaId' (the self path -- a caller acting on their OWN record, which is the already-established, lower-risk case).",
+    "PATCH /api/steward/participation/grants/[grantId]/route.ts and the capability-grant routes follow the same addressing convention: the client-visible key is always grantId (or capabilityId), never the target participant's personaId -- the server resolves personaId internally via getGrantPersonaIds exactly once per request, uses it to perform the action, and drops it before constructing the response."
+  ],
+  "rejectedApproaches": [
+    "Accepting a personaId parameter directly on steward routes for the target participant -- rejected outright as a direct violation of the T0 no-client-serialisation rule; grantId (already client-visible everywhere a steward views a participant list) is the correct non-identifying key.",
+    "Minting a separate opaque 'participant reference' token distinct from grantId -- rejected as an unnecessary parallel identifier; grantId already uniquely and stably names the administered relationship, and the three-level persona reference model (Private UUID / Polity Public Reference / Pairwise External Service Reference) already exists for the DIFFERENT problem of cross-service correlation, which this is not."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-11-STEWARD-ADDRESSES-BY-GRANTID-NOT-PERSONAID-001"
+  ],
+  "canaries": [
+    "tests/irl-stewardship-access-capability.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [
+      "505097826",
+      "3884d2976"
+    ],
+    "tests": [
+      "tests/irl-stewardship-access-capability.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-09-11_irl-stewardship-access-capability-handoff.md, Outstanding Work item 7: \"a reusable T0->T2 boundary pattern worth canonizing for the next steward-facing route that needs to address someone else's resource by a non-identifying key.\""
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-11_irl-stewardship-access-capability-handoff.md",
+    "services/passport/participationAccess.ts",
+    "app/api/steward/participation/research-persona/route.ts"
+  ],
+  "projections": {
+    "targets": [
+      "constitutional-computing",
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  }
+}
