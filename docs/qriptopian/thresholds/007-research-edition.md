@@ -1435,29 +1435,38 @@ the ARR Gate's citation-integrity requirement.
 | II007-IA22 | aigentMe provisioning — **new in this draft** | [`services/agents/provisionAigentMePersona.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/services/agents/provisionAigentMePersona.ts) | Implementation |
 | II007-IA23 | Standing Graph — **new in this draft** | [`services/standing/buildStandingGraph.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/services/standing/buildStandingGraph.ts) | Implementation |
 | II007-IA24 | myGuard (one of the three §17 companion functions) | [`services/governance/sovereignAgentRoles.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/services/governance/sovereignAgentRoles.ts) (role `brand: 'myGuard'`, handle `@myguard.aigent`) | Implementation |
-| II007-IA25 | myClaw, myBot (the other two §17 companion functions) | **Unresolved** — searched by exact and case-insensitive match across this repository; found only inside the two Threshold 007 essay files themselves. No corresponding `myClaw`/`myBot` role, service or type exists alongside `myGuard` in `sovereignAgentRoles.ts` or elsewhere | Unresolved |
+| II007-IA25 | myClaw, myBot (the other two §17 companion functions) — **corrected in a follow-up pass (2026-09-12): resolved, not unresolved** | **Threshold 001 — "myGuard, myClaw, myBot: Why Every Representative Needs a Passport"**, the canonical origin essay for this exact three-function anatomy (content id `06ce7a35-a158-4bae-bb9c-73704241612b`, `ai_metadata.seriesNumber: 1`, series `Thresholds`, published 2026-08-17, slug `myguard-myclaw-mybot`, machine endpoint `/api/codex/qripto/essays/myguard-myclaw-mybot/machine`): *"myGuard protects... myClaw acts. It reaches into systems and services to execute authorised actions... myBot helps. It researches, creates, organises and assists."* Also doctrinally elaborated (with a fourth helper, myAnima, not part of this paper's three-function architecture) in [`codexes/packs/polity-core/items/experience-sovereignty/Experience Sovereignty.txt`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/codexes/packs/polity-core/items/experience-sovereignty/Experience%20Sovereignty.txt) (myBot described there as "a roadmap feature for advanced Runtime users: a configurable, cloneable, consumer-grade helper... the bridge between consuming sovereign experiences and composing them"). My original search only checked application code (`services/`, `governance/`) and missed the doctrine layer where these constructs actually live; no dedicated code module implements `myClaw`/`myBot` as of this pass — status reflects doctrine, not shipped software | Doctrine (Ratified essay + elaborated specification) |
 | II007-IA26 | Horizen/MoneyPenny journey — **mandatory lineage anchor, operator-directed** | [`services/journey/horizenMoneyPennyJourney.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/services/journey/horizenMoneyPennyJourney.ts) and [`services/journey/horizenMoneyPennyJourneyAdapted.ts`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/services/journey/horizenMoneyPennyJourneyAdapted.ts) | Implementation |
 | II007-IA27 | Horizen Constitutional Admission Pilot (doctrine ratified from the pilot; not the pilot's own runtime, which is II007-IA26) — **mandatory lineage anchor** | [`codexes/packs/irl/foundation/CFS-055_proof-of-state-in-time-and-state-coherence.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/codexes/packs/irl/foundation/CFS-055_proof-of-state-in-time-and-state-coherence.md) — ratified 2026-08-10; states of itself "The Horizen pilot is the first reference implementation, not the boundary of the doctrine" | Doctrine (Ratified) |
 | II007-IA28 | TII — Trusted Intelligence Index — **mandatory lineage anchor** | [`codexes/packs/agentiq/items/FACTOR_AEGIS_MONEYPENNY_PRD_0.1.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/1cd5a395a90e9560949b4e279a6c08a7dfdd7e26/codexes/packs/agentiq/items/FACTOR_AEGIS_MONEYPENNY_PRD_0.1.md) — the PRD names TII as a goal Factor+Aegis's assessment framework "can later support," not as an already-built index. No separate TII implementation module exists yet. This is the same status 007.1 gave the analogous NIST/Operational-Trust comparator: doctrine-level, not implemented | Doctrine (Planned, not yet implemented) |
 | II007-IA29 | Trusted Intelligence lineage (Threshold 005) — **mandatory lineage anchor; makes explicit that §27's Trusted Superintelligence definition is downstream of this prior work, not de novo** | Canonical Qriptopian Research Edition, content ID `c25eb589-65f3-46af-b840-af544e8bf8ae`, slug `trusted-intelligence`, machine endpoint `/api/codex/qripto/essays/trusted-intelligence/machine` (same citation as 007.1's [T005], reaffirmed here per the operator's explicit mandatory-lineage instruction rather than left implicit in the References section alone) | Research Evidence (prior canonical publication) |
 
 Two entries (II007-IA14, DevOn; and II007-IA20, Aegis Crucible) remain explicitly unresolved, carried
-forward unchanged from 007.1. One new entry (II007-IA25, myClaw/myBot) is unresolved in this pass:
-§17's three-function companion architecture (myGuard/myClaw/myBot) is only one-third implemented as a
-named construct in this codebase today. This does not mean the *capabilities* myClaw and myBot
-describe (bounded agentic action, assistance) are absent from the platform — aigentMe's provisioning
-and the broader agent orchestration surface implement adjacent capability — only that no code or
-doctrine artifact uses those two names.
+forward unchanged from 007.1. **II007-IA25 (myClaw/myBot) was corrected in a follow-up pass
+(2026-09-12):** the operator identified that this exact three-function anatomy is the subject of
+Threshold 001 itself, which the original search missed by checking only application code
+(`services/`, `governance/`) rather than the published essay corpus and the polity-core doctrine
+layer. It is now resolved at the doctrine level (see the register row above). No dedicated code
+module implements `myClaw`/`myBot` as named constructs as of this pass — that is an
+implementation-maturity note, not an unresolved-citation one.
 
-None of these three unresolved entries is load-bearing for any claim in this paper: each is cited
-only as architectural vocabulary, never as the sole support for a hypothesis.
+Neither of the two remaining unresolved entries is load-bearing for any claim in this paper: each is
+cited only as architectural vocabulary, never as the sole support for a hypothesis.
+
+**Operator-supplied provenance note on myBot (2026-09-12, not independently verified against this
+repository):** the operator states that myBot originates from a legacy personal data-ownership
+application dating to approximately 2013, predating this repository and the Constitutional Internet
+architecture generally. An accompanying scope document (`AB___myBot_Scope.docx`) was supplied but
+arrived as a zero-byte/corrupted file and could not be read; this provenance claim is recorded here as
+operator-stated history, not as an independently verified citation, per this repository's No-Guessing
+rule. If the scope document is re-supplied successfully, it should be added as a further resolved
+anchor for myBot's pre-2026 lineage.
 
 ```json
 {
   "unresolvedReferences": [
     { "id": "II007-IA14", "label": "DevOn", "status": "UNRESOLVED", "loadBearing": false },
-    { "id": "II007-IA20", "label": "Aegis Crucible Submission 0.0", "status": "UNRESOLVED", "loadBearing": false },
-    { "id": "II007-IA25", "label": "myClaw / myBot", "status": "UNRESOLVED", "loadBearing": false }
+    { "id": "II007-IA20", "label": "Aegis Crucible Submission 0.0", "status": "UNRESOLVED", "loadBearing": false }
   ]
 }
 ```
