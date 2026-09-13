@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-11-EXISTING-CUSTODY-DERIVES-PROTOCOL-KEYS-NO-NEW-STORE-001",
+  "statement": "When a protocol requires an agent to hold key material in a curve/format the agent's existing custody does not natively produce, the correct construction is a pure, on-demand, deterministic derivation from the agent's EXISTING signing custody — never a second, independently-generated or independently-persisted secret store for the new curve/format. The derivation MUST be re-computable on demand (no requirement to persist its output), and its EXISTENCE must never be conflated with, or substituted for, a constitutional authority/mandate check: proving communication capability (possessing or deriving a valid key) and proving authorization to act are separate planes, and code that derives or accepts the former must never shortcut the latter.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": null,
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/vela-agent-p521-derivation.test.ts",
+      "assertion": "Determinism (same agent Ethereum key -> same derived P-521 keypair across independent calls), cross-agent isolation (two different keys -> two unrelated keypairs, no shared module-level state), rejection-sampling correctness (masking rule + retry-loop-advances-on-rejection both exercised directly, not just the end-to-end happy path), key-possession-is-not-authority (a validly derived key composed with `deriveActionAuthorisation()` under no authority still REFUSES; the identical possession under ACTIVE authority authorises — proving the derived key was never itself the gate), and no-new-persistent-store (grep-provable: no database write, no `process.env` read in the derivation module).",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "vela-001-confidential-constitutional-execution / agent P-521 derivation",
+      "defect": "`VelaClientAdapterOptions.requesterP521PrivateKeyHex` had no in-repo derivation from the agent's existing Ethereum custody; every caller either generated a fresh random P-521 key or hardcoded one, creating a second key-provisioning path outside AgentKeyService's custody chain.",
+      "resolutionId": "RES-2026-09-11-VELA-AGENT-P521-CUSTODY-DERIVATION-001",
+      "evidence": [
+        "services/vela/agentP521Derivation.ts",
+        "services/vela/velaClientAdapter.ts",
+        "tests/vela-agent-p521-derivation.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-09-11-VELA-AGENT-P521-CUSTODY-DERIVATION-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This is the FIRST recorded occurrence — status stays `candidate` per this loop's own discipline ('a lesson does not become doctrine because a fix worked once'); `validated` requires a second recorded occurrence or demonstrated regression prevention, and only an operator act may raise this to `ratified`/`canonical`.",
+    "The prior sibling pattern in this same subsystem — `CI-2026-08-22-VELA-APPLICATION-ID-DEPLOYMENT-RECORD-001` ('a Vela applicationId is a deployment record, never a durable identity') — is a different rule about identifier durability, not about custody/derivation; the two are complementary but distinct and this candidate does not supersede or restate it.",
+    "Analogous existing precedent this candidate generalises FROM (not derived from, since it predates this loop's own record-keeping): `services/wallet/agentPurposeWalletService.ts` already extends `AgentKeyService`'s AES-256-CBC custody path for purpose-bound wallets rather than inventing a parallel store — the same 'existing custody, not a new secret surface' discipline, applied there to a same-curve purpose-bound key rather than a cross-curve derived one.",
+    "Flags, but does not resolve, a separate open question surfaced while implementing this candidate: `services/identity/agentKeyService.ts` (V1, 16 production importers) and `services/identity/agentKeyService.v2.ts` (V2, 1 importer, a debug/test route) coexist with no resolution record explaining the divergence — this candidate's derivation module was built against V1's shape (a raw `evmPrivateKey` hex string) since that is the actively-used surface, but the V1/V2 coexistence itself should get its own resolution record if/when it is addressed, not be silently collapsed as a side effect of unrelated work."
+  ]
+}

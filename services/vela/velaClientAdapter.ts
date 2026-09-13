@@ -23,6 +23,7 @@
 
 import { createCipheriv, createDecipheriv, createECDH, hkdfSync, randomBytes } from 'crypto';
 import { Contract, JsonRpcProvider, Wallet, type Log } from 'ethers';
+import { deriveAgentP521KeyPair } from './agentP521Derivation';
 import {
   VELA_REQUEST_TYPE,
   type VelaDeploymentDescriptor,
@@ -330,4 +331,41 @@ export class VelaClientAdapter implements VelaTransport {
   async readRegisteredTeeSigner(): Promise<string> {
     return await this.teeAuthenticator.getTeeSigner();
   }
+}
+
+// ── Construction from existing agent custody (Vela accelerator Phase 4) ───
+
+/**
+ * `VelaClientAdapterOptions` minus the field this factory derives itself.
+ * Additive alongside the existing options shape — `requesterP521PrivateKeyHex`
+ * is still a normal, directly-settable field on `VelaClientAdapterOptions`
+ * for any caller that already supplies one (e.g. `scripts/vela-slice2b-live-
+ * projection.ts`, `scripts/vela-slice2e-live-composition.ts`,
+ * `scripts/vela-slice2g-live-proof.ts`, and the Slice 2F/2G test suites) —
+ * nothing about those call sites changes.
+ */
+export type VelaClientAdapterFromAgentCustodyOptions = Omit<
+  VelaClientAdapterOptions,
+  'requesterP521PrivateKeyHex'
+>;
+
+/**
+ * Constructs a `VelaClientAdapter` whose P-521 communication key is DERIVED
+ * on demand from the SAME Ethereum signing key already supplied as
+ * `requesterPrivateKeyHex` — never a second, separately-supplied or
+ * separately-persisted P-521 secret. See `services/vela/agentP521Derivation.ts`
+ * for the derivation scheme and its constitutional boundary (key possession
+ * proves communication capability only, never authority).
+ *
+ * This is a second, optional construction path alongside `new
+ * VelaClientAdapter(...)` — it does not replace or modify the existing
+ * caller-supplied-P-521-key option (Vela accelerator Phase 4:
+ * docs/vela/accelerator/constitutional-financial-services/09_CLAUDE_IMPLEMENTATION_HANDOFF_v0.2.md).
+ */
+export async function createVelaClientAdapterFromAgentCustody(
+  opts: VelaClientAdapterFromAgentCustodyOptions,
+): Promise<VelaClientAdapter> {
+  const signer = new Wallet(opts.requesterPrivateKeyHex);
+  const { privateKeyHex } = await deriveAgentP521KeyPair(signer);
+  return new VelaClientAdapter({ ...opts, requesterP521PrivateKeyHex: privateKeyHex });
 }
