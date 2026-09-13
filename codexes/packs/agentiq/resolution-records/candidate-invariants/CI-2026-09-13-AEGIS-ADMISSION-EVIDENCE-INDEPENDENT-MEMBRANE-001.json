@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-13-AEGIS-ADMISSION-EVIDENCE-INDEPENDENT-MEMBRANE-001",
+  "statement": "An admission-evidence layer that translates an independent assessor's own existing verdict (Aegis's assessment state machine, or any structurally analogous independent-assessment membrane) into a request-scoped artifact for a downstream authorization decision (MoneyPenny, or any structurally analogous consequential-execution gate) MUST: (1) accept the upstream proposal (a Factor selection artifact, or any structurally analogous candidate-selection artifact) as its ONLY source of the candidate's identity — no second, independently-suppliable field may name a different candidate than the one actually proposed, a structural guarantee, not a convention; (2) resolve the candidate's admissibility ONLY against the assessor's EXISTING assessment surface (read-only — `getCurrentAssessment`/`listFindings`-shaped calls only) — never create, drive, or ratify a new assessment itself, and never widen the assessor's own subject-type/schema when an existing subject type already fits; (3) fail closed to an explicit UNRESOLVED status — never a fabricated ADMITTED or REFUSED — on a missing assessment, an in-progress assessment, a process failure (state='failed', distinguished from a substantive not-admissible verdict), a stale assessment (older than a named, caller-overridable freshness bound), or a contradictory assessment (a ratified admissible decision alongside a critical failed finding — re-verified independently as defense-in-depth even though the assessor's own ratification path already guards it); (4) hold NO import-level authority over the consequential execution path it is producing evidence FOR, or over the transport/settlement/provider layer beneath that path (proven structurally, via the module's own import graph, not merely documented) — the evidence layer may resolve and report, but never itself execute, settle, or call the underwriting/multi-party transport directly; (5) carry no field shape capable of receiving the confidential operands of the transaction the evidence is about; (6) bind the assessor's own version/freshness metadata (policy version, effective timestamp, assessment age) into the artifact so a downstream consumer can independently judge currency, rather than trusting an unqualified verdict; (7) defer the actual binding of an ADMITTED artifact into a frozen consequence envelope to a LATER, explicitly separate step — this layer's own job ends at reporting admissibility evidence, never at authorizing or executing anything.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": "CI-2026-09-13-FACTOR-SELECTION-NEVER-CONSEQUENTIAL-001",
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "The independent-assessment-membrane counterpart of CI-2026-09-13-FACTOR-SELECTION-NEVER-CONSEQUENTIAL-001 (which proved a candidate-selection/proposal layer could safely discover and recommend a candidate without gaining authority, admission power, or confidential access): this candidate is the SECOND occurrence of the analogous discipline one layer further down the Factor -> Aegis -> MoneyPenny -> Vela chain — a read-only evidence-translation layer that consumes an upstream proposal and an independent assessor's existing verdict, resolves them into a deterministic fail-closed artifact, and stops there, leaving the actual authorization/execution decision to the next layer down.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/vela-underwriting-admission-evidence.test.ts",
+      "assertion": "A @ts-expect-error gate proving UnderwritingAdmissionEvidenceInput cannot accept an object shaped like raw party financial inputs; a behavioural test proving the composed evidence's candidateAgentId always equals factorSelection.candidateAgentId verbatim, plus a @ts-expect-error gate proving the input type has no second candidateAgentId-shaped field; a missing-assessment case resolving UNRESOLVED with every assessment-derived field honestly null/empty; a parameterised not-yet-ratified case (draft/evidence_locked/running/review_required) resolving UNRESOLVED with assessmentRef/assessmentVersion populated but freshnessMs null; a state='failed' case resolving UNRESOLVED (never REFUSED); ratified admissible/admissible_with_conditions resolving ADMITTED; ratified not_admissible resolving REFUSED; ratified insufficient_evidence resolving UNRESOLVED; a ratified-but-contradictory case (critical failed finding alongside an admissible decision) resolving UNRESOLVED and naming the contradiction; a freshness-discipline block covering stale, exactly-at-boundary, just-under-boundary, and caller-overridden maxAssessmentAgeMs cases via a Date.now spy; admissionRef determinism (same (selectionRef, requestRef, candidateAgentId, assessmentRef, assessmentVersion) tuple -> same ref; a different assessment_id -> a different ref); a receipt-write correctness + leak-check pair confirming no rawQuotedTerms/T0 identifier/raw financial figure reaches the receipt; and two import-boundary tests (a stripped-source grep and an AST-based importAuthority/forbiddenImportFindings check) proving the module's source contains no import from services/vela/velaMultiPartyProjection.ts, services/vela/velaUnderwritingProjection.ts, services/financialServices/providers/underwriting/*, or services/moneypenny/admissionAuthority.ts.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "vela-001-confidential-constitutional-execution / Use Case Zero Aegis admission-evidence integration",
+      "defect": "No module existed that could safely translate Aegis's own existing, generic assessment verdict for a candidate into a deterministic, request-scoped, fail-closed admission-evidence artifact bound to a specific Factor selection proposal, without either (a) letting a caller substitute a different candidate than the one actually proposed, (b) creating or driving a new Aegis assessment itself, (c) fabricating a verdict on missing/stale/contradictory/in-progress evidence, (d) gaining import-level reach into the Vela multi-party/underwriting transport or MoneyPenny's own authorization function it has no business calling directly, or (e) requiring access to a party's raw confidential financial inputs merely because it is reporting on the transaction's admissibility.",
+      "resolutionId": "RES-2026-09-13-VELA-UNDERWRITING-ADMISSION-EVIDENCE-001",
+      "evidence": [
+        "services/vela/velaUnderwritingAdmissionEvidence.ts",
+        "services/aegis/aegisAssessmentService.ts",
+        "tests/vela-underwriting-admission-evidence.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-09-13-VELA-UNDERWRITING-ADMISSION-EVIDENCE-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This is the FIRST recorded occurrence of THIS candidate — status stays `candidate`; only an operator act may raise this to `ratified`/`canonical`.",
+    "Parented to CI-2026-09-13-FACTOR-SELECTION-NEVER-CONSEQUENTIAL-001 (item 7's own candidate) rather than treated as a wholly separate family — both describe the same discover-then-admit-then-act discipline at adjacent layers of one chain, and a future ratification pass should consider them together.",
+    "Not yet applied to a second implementation — occurrence count is 1. The natural second occurrence to watch for is a LATER item's own binding of this artifact's admissionRef/selectionRef/requestRef into buildVelaMultiPartyProjectionRequest or MoneyPenny's decideAdmission, which must itself respect invariant 7 (only an ADMITTED artifact may be bound into the frozen envelope) without this evidence layer's own code ever performing that binding."
+  ]
+}

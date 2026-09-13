@@ -1,0 +1,94 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-09-13-VELA-UNDERWRITING-ADMISSION-EVIDENCE-001",
+  "capability": "vela-001-confidential-constitutional-execution",
+  "milestone": "Use Case Zero build-order item 8 — Aegis admission-evidence integration: reading Factor's selection artifact (item 7, RES-2026-09-13-FACTOR-SELECTION-ARTIFACT-001) against Aegis's EXISTING ('agent'-subject-type) assessment/admission machinery to produce a deterministic, fail-closed admission-evidence artifact bound to selectionRef + requestRef + candidate + assessment version, for MoneyPenny to consider later.",
+  "problem": "Item 7 produced a deterministic Factor candidate-selection artifact but deliberately deferred all Aegis integration to this item (operator: 'Once Factor is in, Aegis should be the next and last backend layer before UI'). The operator's own ruling: Factor proposes participation; Aegis determines admissibility; MoneyPenny decides whether the workflow may proceed. This item had to (1) consume the Factor selection artifact as an input without letting a caller substitute a different candidate than the one Factor actually proposed, (2) resolve the selected candidate against Aegis's EXISTING assessment machinery ('agent' subject type already exists — no schema widening needed), (3) produce a deterministic Aegis Admission Evidence artifact, (4) fail closed (UNRESOLVED, never a fabricated verdict) on missing/stale/contradictory/unresolved assessment evidence, (5) never expose confidential underwriting inputs to Aegis, and (6) never let Aegis call Vela/settlement/the underwriting provider directly, or let 'ADMITTED' imply human authority or permission to transact.",
+  "observedFailure": [
+    "Not an observed runtime defect — a milestone-scoped additive item, like its predecessors. The gap was the ABSENCE of any module that could safely translate Aegis's own existing, generic assessment verdict (draft/evidence_locked/running/review_required/ratified/failed state machine, admissible/admissible_with_conditions/insufficient_evidence/not_admissible decision vocabulary) into a deterministic, receiptable, request-scoped admission-evidence artifact bound to a specific Factor selection proposal — without itself becoming a second assessment engine, a second admission-authority engine, or a path for Factor to bypass Aegis."
+  ],
+  "rootCauses": [
+    "`services/factor/useCaseZeroOrchestrator.ts`'s own `stepAegisAssessment` function creates Aegis assessments for `subjectType: 'factor_case'` — a DIFFERENT, case-scoped assessment lineage than the one this item reads (`subjectType: 'agent'`, keyed on the candidate's own runtime agent id). No existing code path in this repo creates an `'agent'`-subject-type assessment, so `getCurrentAssessment(admin, 'agent', candidateAgentId)` returns `null` in the common case today — expected and correct, not a defect to work around by fabricating a fallback.",
+    "`services/marketa/admissionAssessmentEngine.ts`/`admissionAssessmentRunner.ts`/`admissionAssessmentStore.ts` are a third, unrelated admission-assessment system (Marketa eligibility) sharing vocabulary with this item's domain — `services/aegis/aegisAssessmentService.ts`'s own header already documents this distinction, but a careless implementation could still have reused or touched those Marketa files by name-similarity alone.",
+    "No existing module in this codebase resolved a Factor selection artifact against Aegis's read-only surface (`getCurrentAssessment`/`listFindings`) into a single, deterministic, fail-closed evidence object a downstream MoneyPenny binding step could consume — this is a genuinely new, narrow seam, exactly one layer below where item 7 stopped."
+  ],
+  "resolution": [
+    "Added `services/vela/velaUnderwritingAdmissionEvidence.ts` (named under the `velaUnderwriting*` family alongside its two siblings, per the operator's own explicit naming instruction — NOT under `services/aegis/` and NOT a `UseCaseZero*` symbol): `composeUnderwritingAdmissionEvidence(admin, input: UnderwritingAdmissionEvidenceInput): Promise<AegisAdmissionEvidence>` (READ-ONLY — calls only `getCurrentAssessment`/`listFindings`, never `createAssessment`/`addFinding`/`ratifyAssessment`/anything that WRITES to `aegis_assessments`/`aegis_findings`) and `recordUnderwritingAdmissionEvidence(evidence, params)` (writes the ONE causal receipt via `createActivityReceipt` directly, mirroring every prior item in this chain's own choice never to route through the `constitutionalCommerce` apparatus).",
+    "`UnderwritingAdmissionEvidenceInput` has exactly ONE field naming the candidate — `factorSelection: FactorSelectionArtifact` (the whole, real item-7 artifact object) — and no second `candidateAgentId`-shaped input field exists anywhere on the type; `candidateAgentId` is read from `factorSelection.candidateAgentId` verbatim inside the compose function, never re-derived, never accepted as a second, independently-suppliable argument. Proven by a `@ts-expect-error` gate test (excess-property checking on an object literal) plus a behavioural test asserting the composed evidence's `candidateAgentId` always equals `factorSelection.candidateAgentId`.",
+    "`composeUnderwritingAdmissionEvidence` calls `getCurrentAssessment(admin, 'agent', candidateAgentId)` — the already-existing, already-widened `AegisSubjectType` value, requiring NO schema/enum change. Missing assessment, in-progress assessment (draft/evidence_locked/running/review_required), and a `state === 'failed'` assessment ALL resolve `admissionStatus: 'UNRESOLVED'` (the last case explicitly distinguished from `REFUSED` — a process failure is not a substantive admissibility judgment) rather than fabricating a fallback verdict.",
+    "A ratified assessment older than `DEFAULT_MAX_ASSESSMENT_AGE_MS` (24 hours, a deliberately conservative bound for a constitutional admission gate, caller-overridable via `maxAssessmentAgeMs`) resolves `UNRESOLVED` ('stale'), computed BEFORE reading findings — so a stale-but-nominally-admissible assessment never proceeds to the critical-finding check at all.",
+    "For a fresh, ratified assessment, `listFindings` is read and `criticalFailedFindingCount` computed. If the decision is `admissible`/`admissible_with_conditions` AND a critical failed finding exists, the artifact resolves `UNRESOLVED` ('contradictory') as a defense-in-depth re-check — `ratifyAssessment` itself already refuses this combination at write time, but this module independently re-verifies rather than trusting that upstream guard was never bypassed or changed. Otherwise, `assessment.decision` maps directly: `admissible`/`admissible_with_conditions` -> `ADMITTED`; `not_admissible` -> `REFUSED`; `insufficient_evidence` -> `UNRESOLVED`; an unexpected `null` decision on a ratified row -> `UNRESOLVED`, handled honestly rather than guessed.",
+    "`admissionRef` is a deterministic 16-char sha256 commitment over `(selectionRef, requestRef, candidateAgentId, assessmentRef, assessmentVersion)` — the same HMS-locker-ref/`selectionRef` commitment recipe shape reused verbatim rather than reinvented. `assessmentVersion` (Aegis's own `policy_version`), `effectiveAt` (the assessment's `ratified_at`, or the composition timestamp when no ratified assessment exists — explicitly documented as 'as of composition time', never implying a real assessment event when none exists), and `freshnessMs` (honestly `null` when no ratified assessment exists) are always bound into the artifact.",
+    "This module imports NOTHING from `services/vela/velaMultiPartyProjection.ts`, `services/vela/velaUnderwritingProjection.ts`, `services/financialServices/providers/underwriting/*`, or `services/moneypenny/admissionAuthority.ts` — proven structurally by two import-boundary tests in `tests/vela-underwriting-admission-evidence.test.ts` (the same `tests/_lib/sourceAuthority.ts` AST-based `importAuthority`/`forbiddenImportFindings` technique item 7's own test uses), confirming no forbidden BINDING (`submitVelaMultiPartyProjection`, `submitAssetBearingProcessRequest`, `runVelaUnderwritingProjection`, `decideAdmission`) is reachable via named, namespace, or dynamic import.",
+    "`UnderwritingAdmissionEvidenceInput`'s field set has structurally no place for a party's raw financial inputs (`currentExposure`/`proposedSpend`/`privateSpendLimit`/`privateRiskLimit`, or any generic map of those) — mirroring every prior item's own structural-privacy discipline. Proven by a `@ts-expect-error` gate test.",
+    "Added `'vela_underwriting_admission_evidence_composed'` to `ActivityActionType` (`services/receipts/activityReceiptService.ts`) and to `ANCHORABLE_ACTION_TYPES` (`services/dvn/activityReceiptDvnPipeline.ts`, the ONE permitted unilateral change to that file). Added `supabase/migrations/20261001000900_vela_underwriting_admission_evidence_receipt_type.sql`, rebuilding `activity_receipts_action_type_check` wholesale (carried forward verbatim from `20261001000800` plus this one new entry), per `tests/activity-receipts-action-type-parity.test.ts`'s governing rule.",
+    "Added `tests/vela-underwriting-admission-evidence.test.ts` (26 tests): a structural privacy gate; candidate-substitution gates (behavioural + type-level); missing-assessment; not-yet-ratified (parameterised over draft/evidence_locked/running/review_required); `state === 'failed'` (never REFUSED); ratified admissible/admissible_with_conditions -> ADMITTED; ratified not_admissible -> REFUSED; ratified insufficient_evidence -> UNRESOLVED; ratified-but-contradictory (critical fail + admissible) -> UNRESOLVED; a freshness-discipline block (stale, exactly-at-boundary, just-under-boundary, and two custom-`maxAssessmentAgeMs`-override cases, all using a `Date.now` spy for a fixed 'now' rather than relying on real wall-clock timing); `admissionRef` determinism (same tuple -> same ref; a different mocked `assessment_id` -> a different ref); a receipt-write correctness + activeCartridge-default + leak-check triple; and the two import-boundary tests above.",
+    "Targeted run: `tests/vela-underwriting-admission-evidence.test.ts` — 26/26 passed. Full run of `tests/vela-*.test.ts` + `tests/underwriting-provider-simulated.test.ts` + `tests/factor-vela-confidential-workload.test.ts` + `tests/activity-receipts-action-type-parity.test.ts` + `tests/factor-selection-artifact.test.ts` + `tests/use-case-zero-orchestrator.test.ts` + `tests/use-case-zero-readiness-corrections.test.ts` (17 files): 318 passed + 2 skipped (320 total) — exactly the prior item's own recorded baseline (292 passed + 2 skipped, 16 files) plus this item's +26 additive tests in one new file, with every pre-existing file's own pass/skip count unchanged. Separately confirmed `tests/aegis-assessment-service.test.ts` (12/12), `tests/bankr-governance-invariants.test.ts` (5/5), `tests/token-launch-service.test.ts` (18/18), `tests/bankr-capability-handlers.test.ts` (26/26), `tests/factor-authority-and-admission.test.ts` (19/19), and `tests/bankr-api-routes.test.ts` (13/13) — every test file covering `aegisAssessmentService.ts` — all unchanged, proving that module was never touched by this item."
+  ],
+  "rejectedApproaches": [
+    "Widening `AegisSubjectType` to add a new subject type for this item — rejected because `'agent'` already fits perfectly (Aegis's own assessment mechanics are already subject-generic, per its own header comment) and no schema/enum change is needed.",
+    "Having this module itself create/drive an Aegis assessment when none exists (e.g. calling `createAssessment` inline to bootstrap a first-ever `'agent'`-subject assessment) — rejected per the operator's own explicit 'resolve against the EXISTING machinery' framing, and because fabricating a fallback assessment would defeat the honest `UNRESOLVED`-on-missing-evidence gate that is this item's entire point.",
+    "Mapping assessment `state === 'failed'` to `REFUSED` — rejected as conflating a broken assessment PROCESS with a substantive admissibility verdict; a process failure carries no evidence about the candidate's actual trustworthiness and must never be represented as if it does.",
+    "Reusing/touching `services/marketa/admissionAssessmentEngine.ts`/`admissionAssessmentRunner.ts`/`admissionAssessmentStore.ts` — rejected as a different, unrelated admission-assessment system (Marketa eligibility), already explicitly disambiguated in `aegisAssessmentService.ts`'s own header comment.",
+    "Building the actual binding of an ADMITTED artifact into the frozen multi-party envelope in this pass (wiring this module's output into `buildVelaMultiPartyProjectionRequest` or MoneyPenny's `decideAdmission`) — rejected per the operator's own explicit sequencing: this item produces the evidence artifact + its receipt only, structurally isolated, deferred to a later item exactly as item 7 deferred its own invariant 4."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-13-AEGIS-ADMISSION-EVIDENCE-INDEPENDENT-MEMBRANE-001"
+  ],
+  "canaries": [
+    "tests/vela-underwriting-admission-evidence.test.ts",
+    "tests/activity-receipts-action-type-parity.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "milestone-complete",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/vela-underwriting-admission-evidence.test.ts",
+      "tests/factor-selection-artifact.test.ts",
+      "tests/vela-underwriting-projection.test.ts",
+      "tests/vela-underwriting-risk-telemetry.test.ts",
+      "tests/underwriting-provider-simulated.test.ts",
+      "tests/vela-multi-party-projection.test.ts",
+      "tests/vela-party-namespace.test.ts",
+      "tests/vela-asset-bearing-request.test.ts",
+      "tests/vela-confidential-projection-provider.test.ts",
+      "tests/vela-agent-p521-derivation.test.ts",
+      "tests/vela-config-early-access.test.ts",
+      "tests/vela-slice2f-capability-invocation.test.ts",
+      "tests/vela-slice2g-execution-observation-validation.test.ts",
+      "tests/factor-vela-confidential-workload.test.ts",
+      "tests/activity-receipts-action-type-parity.test.ts",
+      "tests/use-case-zero-orchestrator.test.ts",
+      "tests/use-case-zero-readiness-corrections.test.ts",
+      "tests/aegis-assessment-service.test.ts",
+      "tests/bankr-governance-invariants.test.ts",
+      "tests/token-launch-service.test.ts",
+      "tests/bankr-capability-handlers.test.ts",
+      "tests/factor-authority-and-admission.test.ts",
+      "tests/bankr-api-routes.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-09-13_factor-selection-artifact.md",
+      "codexes/packs/agentiq/updates/2026-09-13_vela-underwriting-admission-evidence.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-13_vela-underwriting-admission-evidence.md",
+    "services/vela/velaUnderwritingAdmissionEvidence.ts",
+    "services/aegis/aegisAssessmentService.ts",
+    "services/factor/factorSelectionArtifact.ts",
+    "services/factor/useCaseZeroOrchestrator.ts"
+  ],
+  "date": "2026-09-13",
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}
