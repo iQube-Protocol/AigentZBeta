@@ -1,0 +1,70 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-09-13-VELA-MULTI-PARTY-GUEST-DISCLOSURE-ENFORCEMENT-001",
+  "capability": "vela-001-confidential-constitutional-execution",
+  "milestone": "Vela accelerator build-order prerequisite — guest-side disclosure-scope and namespace enforcement, closing the hard blocker raised by RES-2026-09-13-VELA-MULTI-AGENT-NAMESPACE-INVESTIGATION-001 before the Use Case Zero vertical slice",
+  "problem": "The prior investigation (RES-2026-09-13-VELA-MULTI-AGENT-NAMESPACE-INVESTIGATION-001) proved a TS-side disclosure-scope gate (services/vela/velaPartyNamespace.ts) can enforce the operator's mandated property ('Party A must be unable to cause Party B's confidential state to be read, combined, disclosed, or emitted unless the exact transaction/disclosure scope authorizes it') ONLY for evidence handled AFTER it leaves the Vela WASM guest. The guest itself (services/vela/wasm/projector/app/app.go) was, and remains for the single-party path, a stateless, single-participant projector with no concept of a second party's data entering the same call. The operator ruled: proceed with guest-side enforcement as the next prerequisite, and — mid-task — added five further mandatory acceptance criteria (no pre-authorization coalescing; use != reveal, i.e. joint-computation consent is not disclosure consent; scope binding to the exact request context; exhaustive failure semantics across five distinct failure modes; non-transitivity across parties and across requests), all of which had to be satisfied, not merely the original three prohibitions.",
+  "observedFailure": [
+    "Not an observed runtime defect — this is a prerequisite-closure item. The gap itself (no in-enclave authorization mechanism) was already correctly identified and documented as a HARD BLOCKER by the prior investigation; this record closes that gap rather than discovering a new one.",
+    "Confirmed by direct inspection of app.go and app_test.go (both read in full before writing any code) that the single-party projector's three constitutional rules (PlainEvent never AppEvent; unacceptable projection is success not error; the verdict carries no operands) had no multi-party analogue at all, and that ProcessRequest's signature/state shape (ApplicationInternalState{AppID, ProjectionsHandled}) had no per-contributor subdivision."
+  ],
+  "rootCauses": [
+    "The existing projector was built correctly, for its own single-participant scope, as a pure stateless comparison — it never needed in-enclave authorization because no second party's data ever entered the same call.",
+    "A TS-side gate operating on decrypted evidence outside the TEE is structurally unable to retroactively undo an unauthorized combination that already happened inside the enclave — the two enforcement layers protect genuinely different moments (before submission / after evidence leaves the guest vs. the instant of in-enclave computation), and only the guest itself can protect the second."
+  ],
+  "resolution": [
+    "Added an ADDITIVE multi-party request/response path inside app.go, dispatched on the decrypted payload's own \"type\" field (a new constant, confidential_multi_party_consequence_projection, sibling to the existing confidential_consequence_projection) — every payload of any other type, including malformed JSON, takes exactly the single-party path it always has (app_test.go carries zero diff, confirmed via git diff --stat).",
+      "MultiPartyProjectionInputs (map[string]MultiPartyContribution) keeps every party's ProjectionInputs (reused verbatim, not reinvented) separately keyed by an opaque namespace ref for the entire lifetime of a request — never merged into an undifferentiated struct before authorization.",
+    "MultiPartyDisclosureScope{Binding, Grants}: ScopeBinding{ApplicationID, RequestRef, OperationType, OutputClass} commits a scope to the exact request context it was issued for (property 5, scope binding + non-transitivity); ScopeGrant{Action, Party, To} uses two independent enum values (ScopeActionComputeWith vs ScopeActionDiscloseTo, property 4, use != reveal) so joint-computation consent is never treated as disclosure consent in code.",
+    "resolveAuthorizedCombination is the authorization gate: its signature takes ONLY namespace refs, binding strings, and a presence set — never a ProjectionInputs value — making it structurally incapable of reading private data (not merely disciplined not to). It runs strictly before evaluateMultiParty ever builds the combined group.",
+    "combineInputsFn is a package-level indirection (the ONLY point in the file that ever reads more than one party's ProjectionInputs together) installed specifically so a test can directly PROVE zero invocations on denial and exactly one invocation with exactly the authorized group on approval — a stronger proof than inferring correctness from the final verdict alone.",
+    "sender (the technical submitter's on-chain address) is not even a parameter to resolveAuthorizedCombination or evaluateMultiParty — used only as the fallback delivery target for an unidentifiable malformed request, exactly as it always was in the single-party path — so it is structurally incapable of granting namespace authority regardless of whether it happens to equal a party's own address.",
+    "Every ambiguous, malformed, stale, mismatched, or unrecognized-operation/output-class scope resolves the WHOLE request to VerdictUnresolved for EVERY party, checked before any cross-party state access — never a partial decision and never a silent single-party fallback that would quietly drop a second party's inputs.",
+    "project()'s own tail was extracted, behavior-unchanged, into evaluateSingleParty so the new joint-projection formula (evaluateCombinedInputs) reuses the SAME fail-closed numeric discipline per contributor instead of duplicating it (inv.engineering.036/037) — verified behavior-identical by running the full pre-existing suite before and after, all green both times."
+  ],
+  "rejectedApproaches": [
+    "A single boolean 'authorized' flag on the scope instead of two independent ScopeAction enum values — rejected per the operator's explicit 'use != reveal' requirement: a boolean cannot represent 'may combine but may not see the result' without one value being derived from the other in code, which is exactly what property 4 forbids.",
+    "Inferring authorization-order correctness from the final verdict alone (i.e., only testing that unauthorized combination produces the same result as no combination) — rejected as insufficient per the operator's explicit instruction that a test must show the actual memory/variable shape, not merely a correct final answer; replaced with the combineInputsFn invocation-counting proof.",
+    "Binding a scope only to the two contributing parties, without an applicationId/requestRef/operationType/outputClass commitment — rejected: this would satisfy the original three prohibitions but not the added non-transitivity/scope-binding criteria, which explicitly require rejecting reuse across different requests and different operation/output classes even with identical parties.",
+    "Extending ApplicationInternalState with a per-party map to hold combined state across calls — rejected as unnecessary and out of scope: every projection this guest performs (single- or multi-party) is a pure, stateless-per-call computation; no persisted per-contributor state is needed to satisfy the mandated property, and adding one would be speculative complexity beyond what 'minimal and deterministic' calls for.",
+    "Compiling the WASM binary or wiring a TS-side caller to actually construct/submit a MultiPartyProjectionRequest — explicitly out of scope per the task's own instructions; this record closes the GUEST-SIDE enforcement gap only, not the vertical slice's TS wiring or deployment."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-13-VELA-GUEST-ENFORCES-DISCLOSURE-SCOPE-BEFORE-COMBINING-001"
+  ],
+  "canaries": [
+    "services/vela/wasm/projector/app/app_multiparty_test.go"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "workaround-replaced",
+  "evidence": {
+    "commits": [
+      "de4222fe7"
+    ],
+    "tests": [
+      "services/vela/wasm/projector/app/app_multiparty_test.go",
+      "services/vela/wasm/projector/app/app_test.go"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-09-13_vela-accelerator-multi-agent-namespace-investigation.md",
+      "codexes/packs/agentiq/updates/2026-09-13_vela-accelerator-multi-party-guest-enforcement.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-13_vela-accelerator-multi-agent-namespace-investigation.md",
+    "codexes/packs/agentiq/updates/2026-09-13_vela-accelerator-multi-party-guest-enforcement.md",
+    "services/vela/wasm/projector/app/app.go",
+    "services/vela/velaPartyNamespace.ts"
+  ],
+  "date": "2026-09-13",
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

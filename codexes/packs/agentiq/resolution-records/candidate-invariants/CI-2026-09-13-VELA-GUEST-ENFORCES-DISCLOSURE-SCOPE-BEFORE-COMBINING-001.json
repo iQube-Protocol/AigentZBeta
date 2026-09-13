@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-13-VELA-GUEST-ENFORCES-DISCLOSURE-SCOPE-BEFORE-COMBINING-001",
+  "statement": "A confidential-execution guest that holds more than one contributor's private state within one shared execution context MUST enforce cross-party authorization INSIDE the enclave, before any two contributors' private inputs are read into a shared computation — an out-of-enclave (e.g. TS-side) gate operating on evidence AFTER it leaves the enclave is necessary but not sufficient, because it cannot retroactively undo an unauthorized combination that already happened inside it. The in-enclave authorization mechanism MUST: (1) be structurally incapable of reading private contributor data in its own decision function (its signature should take only namespace refs and context strings, never a private-input value), provably never invoked pre-authorization rather than merely producing a correct final answer; (2) never treat the technical submitter/sender address as namespace authority — authorization must come only from an explicit, request-carried scope, never inferred from who technically submitted the call; (3) keep every contributor's private state separately keyed (never merged into one undifferentiated struct) until authorization for that specific combination succeeds; (4) treat 'may these parties' inputs be combined into a joint computation' (use) and 'may this recipient see the resulting evidence' (reveal) as two independent authorization questions, never deriving one from the other; (5) bind the authorization scope to the exact execution context it was issued for (at minimum: the application/kernel identity, the specific request/transaction, the operation type, and the intended output class) so it can never be replayed into a different calculation, and must not be transitive across different party pairs or across a later request even with identical parties; (6) resolve every malformed, missing, stale, mismatched, or ambiguous scope to the guest's existing 'cannot safely decide' outcome for every contributor, checked before any cross-party state access, never a silent fallback to single-contributor semantics and never a partial/best-effort decision.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": "CI-2026-09-13-VELA-PARTY-NAMESPACE-KEY-BEFORE-STATEFUL-GUEST-001",
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "The in-enclave closure of the gap CI-2026-09-13-VELA-PARTY-NAMESPACE-KEY-BEFORE-STATEFUL-GUEST-001 explicitly named as a still-open, blocking half of its own statement ('a TS-side gate ... CANNOT retroactively enforce the property for computation that happens INSIDE the enclave'). Also a further specialization of the general composite-keying/authorization discipline in CI-2026-08-23-PER-AGENT-AUTHORITY-KEY-001, extended with an explicit in-enclave enforcement-ordering requirement (never merely a correctly-keyed store, but a store whose authorization check is PROVABLY reached before any cross-party read) because the substrate here is a TEE, where an unauthorized combination cannot be undone once it has happened.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "services/vela/wasm/projector/app/app_multiparty_test.go",
+      "assertion": "Authorization-gate structural proof (the gate's signature never receives private data); a direct invocation-counting proof that the cross-party combining function is never called pre-authorization and is called exactly once with exactly the authorized group when legitimately authorized; a dedicated sender-address-is-not-authority regression test; use-vs-reveal separation (three sub-cases: full disclosure, one-directional disclosure, no disclosure at all); scope-binding rejection across all four binding dimensions independently; non-transitivity across (A,C), (B,C), and a later (A,B) request with a different RequestRef, plus confirmation the original context still authorizes (not a blanket lockout); five individually named failure-mode tests (malformed scope JSON, missing scope, stale binding mismatch, unrecognized operation type, unrecognized output class) plus a separate ambiguous-scope suite (omitted grants, absent-party reference, duplicate entry); and confirmation the entire pre-existing single-party suite (app_test.go) is unmodified and still green.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "vela-001-confidential-constitutional-execution / guest-side multi-party disclosure-scope enforcement (accelerator build-order prerequisite, closing item 3's hard blocker)",
+      "defect": "The Vela WASM guest (app.go) had no in-enclave authorization mechanism at all for a future stateful multi-party guest — the TS-side gate built by the prior investigation could only protect evidence after it left the enclave, leaving the moment of in-enclave computation itself unprotected against an unauthorized cross-party combination.",
+      "resolutionId": "RES-2026-09-13-VELA-MULTI-PARTY-GUEST-DISCLOSURE-ENFORCEMENT-001",
+      "evidence": [
+        "services/vela/wasm/projector/app/app.go",
+        "services/vela/wasm/projector/app/app_multiparty_test.go"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-09-13-VELA-MULTI-PARTY-GUEST-DISCLOSURE-ENFORCEMENT-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This is the FIRST recorded occurrence — status stays `candidate` per this loop's own discipline; only an operator act may raise this to `ratified`/`canonical`.",
+    "This candidate's parent, CI-2026-09-13-VELA-PARTY-NAMESPACE-KEY-BEFORE-STATEFUL-GUEST-001, explicitly named the in-enclave gap as unresolved by its own TS-side gate; this candidate is that gap's closure, not a duplicate of the parent's statement — the parent covers the KEY-DERIVATION and OUT-OF-ENCLAVE disclosure half, this one covers the IN-ENCLAVE enforcement-ordering half.",
+    "The six numbered requirements in this statement map 1:1 onto the six mandatory properties the operator specified across two rulings (2026-09-13): the original three prohibitions from the first ruling (properties 1-3 as restated here) plus the five additional acceptance criteria from the follow-up ruling, condensed into six non-overlapping requirements (use-vs-reveal and scope-binding/non-transitivity were each stated as multiple sub-points by the operator but are single coherent requirements here).",
+    "Not yet applied to a second implementation — occurrence count is 1. A future stateful multi-party guest on a DIFFERENT applicationId, or any other confidential-execution substrate (not necessarily Vela) that ever needs to combine more than one contributor's private state in one execution, is the natural second occurrence to watch for before this is promoted toward `validated`."
+  ]
+}
