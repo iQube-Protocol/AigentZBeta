@@ -657,7 +657,28 @@ export type ActivityActionType =
   // downstream consumption of that verdict, never the assessment itself.
   // DVN-anchorable (activityReceiptDvnPipeline.ts). Contains no raw party
   // financial data.
-  | 'vela_underwriting_admission_evidence_composed';
+  | 'vela_underwriting_admission_evidence_composed'
+  // Use Case Zero build-order item 9 (2026-09-13) —
+  // services/vela/velaUnderwritingDisclosureAuthorization.ts's Tier-1
+  // QubeTalk/iQube act: a receiptable authorization of an EXACT
+  // VelaMultiPartyDisclosureScope (reused verbatim from
+  // velaMultiPartyProjection.ts, never a second wire shape), bound to a
+  // selectionRef/requestRef/applicationId. Carries only opaque refs and the
+  // public wire-level scope — never a party's raw financial inputs.
+  // DVN-anchorable (activityReceiptDvnPipeline.ts).
+  | 'vela_underwriting_disclosure_authorized'
+  // Use Case Zero build-order item 9 (2026-09-13) —
+  // services/vela/velaUnderwritingCompositionGate.ts's MoneyPenny
+  // composition-gate submission: the Factor selection, Aegis admission, and
+  // disclosure authorization evidence refs frozen into one envelope, then
+  // submitted through the EXISTING, unmodified
+  // runVelaUnderwritingProjection. The final causal receipt this chain's own
+  // operator ruling required, binding all four evidence classes (Factor
+  // selection, Aegis admission, disclosure authorization, Vela execution).
+  // Carries only opaque refs, the coarse verdict, and the SIMULATED quote's
+  // own providerMode — never a party's raw financial inputs.
+  // DVN-anchorable (activityReceiptDvnPipeline.ts).
+  | 'vela_underwriting_envelope_frozen';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

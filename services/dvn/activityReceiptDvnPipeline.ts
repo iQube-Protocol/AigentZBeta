@@ -454,6 +454,20 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // decision/conditions/rationale — never a party's raw financial inputs.
   // Same anchorability class as 'factor_selection_proposed' above.
   'vela_underwriting_admission_evidence_composed',
+  // Use Case Zero build-order item 9 (2026-09-13) — a Tier-1 QubeTalk/iQube
+  // disclosure-scope authorization (services/vela/
+  // velaUnderwritingDisclosureAuthorization.ts). Carries only opaque refs
+  // and the public wire-level scope, never a party's raw financial inputs.
+  // Same anchorability class as 'vela_underwriting_admission_evidence_composed'
+  // above.
+  'vela_underwriting_disclosure_authorized',
+  // Use Case Zero build-order item 9 (2026-09-13) — the MoneyPenny
+  // composition-gate's frozen-envelope Vela submission (services/vela/
+  // velaUnderwritingCompositionGate.ts). Carries only opaque refs, the
+  // coarse verdict, and the SIMULATED quote's own providerMode — never a
+  // party's raw financial inputs. Same anchorability class as
+  // 'vela_underwriting_disclosure_authorized' above.
+  'vela_underwriting_envelope_frozen',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {
