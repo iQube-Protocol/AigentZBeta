@@ -636,7 +636,16 @@ export type ActivityActionType =
   // provider. Carries ONLY the coarse Vela verdict, namespace refs, scope
   // binding, and the SIMULATED quote's own fields — never a party's raw
   // financial inputs. DVN-anchorable (activityReceiptDvnPipeline.ts).
-  | 'vela_underwriting_projection_completed';
+  | 'vela_underwriting_projection_completed'
+  // Use Case Zero build-order item 7 (2026-09-13) —
+  // services/factor/factorSelectionArtifact.ts's candidate-selection
+  // proposal: Factor discovers a candidate agent/service/counterparty
+  // against the REGISTRABLE_AGENTS registry and proposes it, carrying only
+  // opaque namespace/commitment refs and the resolved runtime agent id —
+  // never a party's raw financial inputs, and never itself a MoneyPenny
+  // admission decision or an Aegis assessment (those remain separate,
+  // future receipt types). DVN-anchorable (activityReceiptDvnPipeline.ts).
+  | 'factor_selection_proposed';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

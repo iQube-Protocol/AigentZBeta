@@ -442,6 +442,12 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // party's raw financial inputs). Same anchorability class as
   // 'confidential_projection_evaluated' above.
   'vela_underwriting_projection_completed',
+  // Use Case Zero build-order item 7 (2026-09-13) — Factor's candidate-
+  // selection proposal (services/factor/factorSelectionArtifact.ts). Carries
+  // only opaque namespace/commitment refs and the resolved runtime agent id,
+  // never a party's raw financial inputs. Same anchorability class as
+  // 'vela_underwriting_projection_completed' above.
+  'factor_selection_proposed',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {
