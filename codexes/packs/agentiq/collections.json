@@ -48,6 +48,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-09-13_vela-pilot-milestone-guest-side-namespace-isolation.md",
         "updates/2026-09-13_vela-accelerator-multi-party-guest-enforcement.md",
         "updates/2026-09-13_vela-accelerator-multi-agent-namespace-investigation.md",
         "updates/2026-09-13_vela-accelerator-asset-neutrality-transport.md",
