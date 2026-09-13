@@ -408,7 +408,13 @@ export type ChipTargetId =
   // SAME suggested-layout mechanism every other MoneyPenny panel already
   // uses. Replaces the retired combined 'candidate-intake' layout id.
   | 'factor'
-  | 'aegis';
+  | 'aegis'
+  // Use Case Zero build-order item 10a (2026-09-13) — the Constitutional
+  // Risk Flow causal-chain viewer (Factor selection -> Aegis admission ->
+  // disclosure authorization -> frozen envelope -> Vela execution -> quote
+  // -> settlement -> receipt -> telemetry). Same MoneyPennyPanelKey value
+  // the capability rail already navigates to (moneypennyCapabilities.ts).
+  | 'constitutional-risk-flow';
 
 export interface SuggestedLayoutHint {
   layoutId: ChipTargetId;
@@ -431,7 +437,7 @@ const LAYOUT_TAG_IDS: ReadonlyArray<ChipTargetId> = [
   'intent', 'context', 'gap-analysis', 'consequence-canvas', 'validation', 'project-overview',
   'financial-profile', 'risk-envelope', 'hft-console', 'strategies',
   'architect', 'runtime', 'smarttriad', 'service-orchestration', 'portfolio',
-  'factor', 'aegis',
+  'factor', 'aegis', 'constitutional-risk-flow',
 ];
 
 const LAYOUT_KEYWORDS: Array<{ id: ChipTargetId; pattern: RegExp; reason: string }> = [
@@ -467,6 +473,7 @@ const LAYOUT_KEYWORDS: Array<{ id: ChipTargetId; pattern: RegExp; reason: string
   { id: 'smarttriad',        pattern: /(automation|automated trading|trading operations hub|smarttriad)/i, reason: 'Operator wants the trading-automation hub' },
   { id: 'service-orchestration', pattern: /(service orchestration|oversight console|admitted agents|who('| i)s using moneypenny)/i, reason: 'Operator wants the service-orchestration oversight console' },
   { id: 'portfolio',         pattern: /(portfolio|my (balances|holdings)|how (am i|are we) doing|performance (review|summary))/i, reason: 'Operator wants portfolio / performance analytics' },
+  { id: 'constitutional-risk-flow', pattern: /(constitutional risk flow|underwriting chain|risk flow|causal chain|(factor|aegis).{0,20}(admission|disclosure).{0,20}(vela|underwriting))/i, reason: 'Operator wants the constitutional risk flow for an underwriting request' },
 ];
 
 /** Detect a structured email draft in an assistant message. Returns subject + body or null. */
@@ -2776,7 +2783,7 @@ After your response, add:
     : surfaceId === 'aigent-z'
       ? `\n\n## Right-pane chip-strip control — append a layout tag when you suggest a dev action\n\nYou are aigentZ in the Development Command Center. The operator's left pane (your copilot) has capability quick-prompt chips, and the right pane has the Dev Command Center with capability capsules + an explore strip. When YOU propose a concrete next step, append a control tag:\n\n[layout:<id>|<substance>]\n\nThe tag is stripped from the chat bubble. Its role is to pulse the matching chip/button so the operator can one-click into the right surface.\n\nValid <id> values for dev surfaces:\n- intent, context, gap-analysis, consequence-canvas, validation, project-overview  (Capability capsules)\n- terminal, github, devtools, linear  (Explore strip tools)\n- upload, download  (Explore strip drawers)\n\n<substance> rules: same as aigent-me — ≤180 chars, describe WHAT to do, never placeholders, never meta-instructions.\n\nExamples:\n- [layout:intent|Distill the Executive Mobility Travel booking service into structured intent with users, constraints, and success criteria]\n- [layout:gap-analysis|Analyze which existing services (Passport Bureau, CRM, Marketa) can be reused for the travel workflow]\n- [layout:consequence-canvas|Model what should happen when a booking completes and what must never happen with travel data sovereignty]\n- [layout:terminal|Open a terminal to run the spine verification script against the dev environment]\n\nMaximum 2 tags per reply. Tag goes at the END of your reply.`
     : surfaceId === 'aigent-moneypenny'
-      ? `\n\n## Right-pane capsule control — append a layout tag when you propose a concrete financial action\n\nYou are MoneyPenny. The operator's left pane (where you live) is a persistent copilot; the right pane hosts the MoneyPenny capsules (Financial Profile, Risk & Limits, Market Console, Strategy Lab, Trading Intents, Runtime, Automation, Service Orchestration, Portfolio). When YOU propose a concrete next step that has a matching capsule, append a control tag at the end of your reply:\n\n[layout:<id>|<substance>]\n\nThe tag is stripped from the chat bubble — the operator never sees it. It only surfaces a one-click suggestion to open the matching capsule; it never opens it automatically and never authorizes any action by itself.\n\nValid <id> values:\n- financial-profile     (statements, income/spending, profile readiness)\n- risk-envelope         (position/notional caps, drawdown, concentration limits)\n- hft-console           (quotes, spread, liquidity, venue comparison)\n- strategies            (structuring/comparing a candidate strategy)\n- architect             (composing a trading intent/proposal)\n- runtime               (authorized execution / the constitutional service pipeline)\n- smarttriad            (sustained/automated trading operations)\n- service-orchestration (oversight of agents consuming MoneyPenny services)\n- portfolio             (balances, holdings, performance)\n\n<substance> rules: same as aigent-me — ≤180 chars, describe WHAT to do, never placeholders, never meta-instructions, never a figure you cannot verify from the operator's actual reviewed profile.\n\nExample: [layout:financial-profile|Review last month's statement upload and confirm the recognized income/spending totals]\n\nMaximum 2 tags per reply. Tag goes at the END of your reply. Never emit a tag for a capability outside this list.`
+      ? `\n\n## Right-pane capsule control — append a layout tag when you propose a concrete financial action\n\nYou are MoneyPenny. The operator's left pane (where you live) is a persistent copilot; the right pane hosts the MoneyPenny capsules (Financial Profile, Risk & Limits, Market Console, Strategy Lab, Trading Intents, Runtime, Automation, Service Orchestration, Portfolio). When YOU propose a concrete next step that has a matching capsule, append a control tag at the end of your reply:\n\n[layout:<id>|<substance>]\n\nThe tag is stripped from the chat bubble — the operator never sees it. It only surfaces a one-click suggestion to open the matching capsule; it never opens it automatically and never authorizes any action by itself.\n\nValid <id> values:\n- financial-profile     (statements, income/spending, profile readiness)\n- risk-envelope         (position/notional caps, drawdown, concentration limits)\n- hft-console           (quotes, spread, liquidity, venue comparison)\n- strategies            (structuring/comparing a candidate strategy)\n- architect             (composing a trading intent/proposal)\n- runtime               (authorized execution / the constitutional service pipeline)\n- smarttriad            (sustained/automated trading operations)\n- service-orchestration (oversight of agents consuming MoneyPenny services)\n- portfolio             (balances, holdings, performance)\n- constitutional-risk-flow (the causal chain for a private multi-party underwriting request — Factor selection, Aegis admission, disclosure authorization, frozen envelope, Vela execution, quote, settlement, receipt, telemetry)\n\n<substance> rules: same as aigent-me — ≤180 chars, describe WHAT to do, never placeholders, never meta-instructions, never a figure you cannot verify from the operator's actual reviewed profile.\n\nExample: [layout:financial-profile|Review last month's statement upload and confirm the recognized income/spending totals]\n\nMaximum 2 tags per reply. Tag goes at the END of your reply. Never emit a tag for a capability outside this list.`
       : '';
 
   // Platform knowledge (repo map + pack excerpts + registry/network

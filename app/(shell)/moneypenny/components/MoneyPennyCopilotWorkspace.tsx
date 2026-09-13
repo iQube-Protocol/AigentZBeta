@@ -102,6 +102,8 @@ import { buildCodexUrl } from '@/utils/codex-nav';
 import { MONEYPENNY_CAPABILITY_GROUPS, type MoneyPennyAreaId } from './moneypennyCapabilities';
 import { MoneyPennyFullScreenProvider, type MoneyPennyFullScreenValue } from './MoneyPennyFullScreenContext';
 import { fetchFinancialProfileSummary, type FinancialProfileSummary } from '@/services/moneypenny/financialProfileSummary';
+import { personaFetch } from '@/utils/personaSpine';
+import type { ConstitutionalRiskFlowState, ConstitutionalRiskFlowStepId, ConstitutionalRiskFlowStepState } from '@/services/vela/velaUnderwritingChainProjection';
 import { MONEYPENNY_LEARN_VIDEO_PROMPT } from '@/services/journey/moneyPennyEducationalMedia';
 import { ASK_FACTOR_ABOUT_CASE_PROMPT, ASK_AEGIS_ABOUT_CASE_PROMPT } from '@/services/smarttriad/specialistDelegation';
 import {
@@ -161,6 +163,66 @@ const MONEYPENNY_QUICK_PROMPTS = [
   { id: 'mpy-learn-explain', label: 'Learn / Explain', prompt: 'Can you explain volatility, spread, slippage, liquidity, and position sizing to me?' },
 ];
 
+/**
+ * Bounded T1-safe reduction of `ConstitutionalRiskFlowState` for the
+ * copilot's groundContext — one state word per step (never the full nested
+ * scope/quote/receipt objects the panel itself renders) plus the handful of
+ * one-line facts a copilot reply plausibly needs (admission status,
+ * disposition, provider mode, coverage/risk band). All of these are already
+ * T1-safe evidence fields the API route itself returns to this same
+ * persona — no new exposure, only a smaller shape.
+ */
+interface ConstitutionalRiskFlowGroundSummary {
+  requestRef: string;
+  steps: Record<ConstitutionalRiskFlowStepId, ConstitutionalRiskFlowStepState>;
+  admissionStatus: string | null;
+  disposition: string | null;
+  providerMode: string | null;
+  coverageEligible: boolean | null;
+  riskBand: string | null;
+}
+
+function summarizeRiskFlowState(state: ConstitutionalRiskFlowState): ConstitutionalRiskFlowGroundSummary {
+  return {
+    requestRef: state.requestRef,
+    steps: {
+      select: state.select.state,
+      admit: state.admit.state,
+      authorize: state.authorize.state,
+      freeze: state.freeze.state,
+      execute: state.execute.state,
+      quote: state.quote.state,
+      settle: state.settle.state,
+      receipt: state.receipt.state,
+      telemetry: state.telemetry.state,
+    },
+    admissionStatus: state.admit.admissionStatus,
+    disposition: state.execute.disposition,
+    providerMode: state.quote.quote?.providerMode ?? null,
+    coverageEligible: state.quote.quote?.coverageEligible ?? null,
+    riskBand: state.quote.quote?.riskBand ?? null,
+  };
+}
+
+/** Same "returns null on any failure, never fabricates" contract as
+ *  `fetchFinancialProfileSummary` — inlined here (rather than a second
+ *  shared-summary service file) since this ground-context read has exactly
+ *  ONE caller today (this component), unlike financial-profile's two
+ *  (this component + the Prepare-stage review surface). */
+async function fetchConstitutionalRiskFlowSummary(requestRef: string): Promise<ConstitutionalRiskFlowGroundSummary | null> {
+  try {
+    const res = await personaFetch(
+      `/api/moneypenny/constitutional-risk-flow?requestRef=${encodeURIComponent(requestRef)}`,
+      { cache: 'no-store' },
+    );
+    const json = (await res.json().catch(() => null)) as { ok?: boolean; state?: ConstitutionalRiskFlowState } | null;
+    if (!res.ok || !json?.ok || !json.state) return null;
+    return summarizeRiskFlowState(json.state);
+  } catch {
+    return null;
+  }
+}
+
 function readStoredPersonaId(): string | undefined {
   if (typeof window === 'undefined') return undefined;
   try {
@@ -187,6 +249,14 @@ export function MoneyPennyCopilotWorkspace({ activePanel, area, children }: Mone
   const fromSlug = searchParams.get('from');
   const fromTab = searchParams.get('fromTab');
   const [financialProfileGround, setFinancialProfileGround] = useState<FinancialProfileSummary | null>(null);
+  // Constitutional Risk Flow ground context (Use Case Zero build-order item
+  // 10a) — a small, bounded T1-safe summary of the CURRENTLY LOADED chain
+  // state, mirroring the financial-profile ground snapshot's exact shape/
+  // refetch triggers (mount + visibility/focus). Read-only reduction of the
+  // full ConstitutionalRiskFlowState the panel itself already fetched and
+  // wrote into MoneyPennyNavigationContext's activeRiskFlowRequestRef — this
+  // component never independently decides which requestRef to look at.
+  const [riskFlowGround, setRiskFlowGround] = useState<ConstitutionalRiskFlowGroundSummary | null>(null);
   const groundContextRef = useRef<Record<string, unknown> | null>(null);
   // C-02 copilot-to-capsule loop: a suggested panel from the copilot's
   // [layout:<id>|<substance>] tag or keyword sweep. Deliberately NOT
@@ -198,7 +268,7 @@ export function MoneyPennyCopilotWorkspace({ activePanel, area, children }: Mone
   // MoneyPennyPanelTab's own internal state stays the single owner of
   // "which panel is active" (MS-2 — no second, parallel state authority).
   const [suggestedPanel, setSuggestedPanel] = useState<MoneyPennyPanelKey | null>(null);
-  const { navigate: navigateToPanel, activeCase, navigationError, clearNavigationError } = useMoneyPennyNavigation();
+  const { navigate: navigateToPanel, activeCase, activeRiskFlowRequestRef, navigationError, clearNavigationError } = useMoneyPennyNavigation();
   // C-01 narrow-width Conversation/Workspace toggle. Both panes stay
   // mounted at every width — this only controls which is VISIBLE below
   // the `lg` breakpoint (see the render below) — so switching views never
@@ -264,6 +334,10 @@ export function MoneyPennyCopilotWorkspace({ activePanel, area, children }: Mone
   // one. Keyed on the two fields that actually change meaning, not the
   // whole object reference (which would bump on every unrelated re-render).
   useEffect(() => { generationRef.current += 1; }, [activeCase?.caseId, activeCase?.state]);
+  // A different loaded requestRef is context-relevant too — a reply
+  // captured against the PRIOR request must never be shown as though it
+  // answered the newly-loaded one.
+  useEffect(() => { generationRef.current += 1; }, [activeRiskFlowRequestRef]);
 
   // The operator already navigated (via the rail, a deep link, or this
   // suggestion itself) — clear any stale suggestion for the panel just left.
@@ -411,6 +485,31 @@ export function MoneyPennyCopilotWorkspace({ activePanel, area, children }: Mone
     };
   }, [activePanel, refetchFinancialProfileGround]);
 
+  const refetchRiskFlowGround = useCallback(async () => {
+    if (!activeRiskFlowRequestRef) {
+      setRiskFlowGround(null);
+      return;
+    }
+    const summary = await fetchConstitutionalRiskFlowSummary(activeRiskFlowRequestRef);
+    if (!summary) return;
+    generationRef.current += 1;
+    setRiskFlowGround(summary);
+  }, [activeRiskFlowRequestRef]);
+
+  useEffect(() => {
+    if (activePanel !== 'constitutional-risk-flow') return;
+    void refetchRiskFlowGround();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void refetchRiskFlowGround();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [activePanel, refetchRiskFlowGround]);
+
   const groundContext: Record<string, unknown> = {
     cartridge: 'moneypenny',
     activePanel,
@@ -430,6 +529,7 @@ export function MoneyPennyCopilotWorkspace({ activePanel, area, children }: Mone
     // fresh on every render including the one following this bump.
     contextVersion: computeCurrentVersionKey(),
     ...(activePanel === 'financial-profile' && financialProfileGround ? { financialProfile: financialProfileGround } : {}),
+    ...(activePanel === 'constitutional-risk-flow' && riskFlowGround ? { constitutionalRiskFlow: riskFlowGround } : {}),
     // Candidate Intake workspace upgrade (2026-09-05, requirement 3) — the
     // bounded, T1-safe active-case snapshot CandidateIntakePanel wrote into
     // the shared MoneyPennyNavigationContext (see moneyPennyNavigation.tsx).
