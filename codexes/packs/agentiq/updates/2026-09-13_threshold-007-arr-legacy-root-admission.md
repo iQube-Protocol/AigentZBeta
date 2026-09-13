@@ -50,6 +50,16 @@ gate rows fabricated for 007.1 or the intermediate addendum SHA.
 | `no_evidence_regression` | `true` (unchanged, already true) |
 | `threshold_research_gate_is_publishable('a61343cb-…','007.2')` | **`false`** |
 
+## Correction to the operator attestation (2026-09-13, same day)
+
+The operator's original attestation named the reviewing agent as "Adversary CLAW" — a transcription
+error. A correction was appended (never overwritten — the prior text remains visible and dated) to
+the same `research_reviewer_authorities` row (`id=1857664b-661b-4449-aa71-6cb6602a8b51`), timestamped
+`2026-09-13 13:56:58.217262+00`, naming the reviewing agent correctly as "Adversary Claude." The
+correction changes only that naming detail; it does not alter the attestation's scope (provenance and
+independence of process only), does not alter the already-admitted `arr_disposition`, `gate_status`,
+or the infrastructure-limitation disclosure, and required no new call to `admit_research_review()`.
+
 ## Why publishable is still false, and what's left
 
 `admit_research_review()` never writes `gate_status`. The deterministic predicate requires
