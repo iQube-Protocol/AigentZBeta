@@ -42,6 +42,16 @@ Research status: Nascent but operational — theory under active falsifiable inv
 > use of that term). Status remains **EVIDENCE_RESOLUTION_COMPLETE / ARR_REVIEW_REQUIRED /
 > NOT_FOR_PUBLICATION** — this addendum is evidence resolution, not the independent ARR itself.
 
+> **Genealogy closure (2026-09-13):** a follow-on historical-provenance audit (requiring an unshallow
+> of this checkout's git history, 227 → 9,441 commits) resolved the media/coherence experiments'
+> true origin (EXP-001/002/003, authored 2026-07-03, predating and narrower than the P1-P4 series)
+> and confirmed finance was present but deprioritized in the P1-P4 charter's own domain slate from
+> day one (2026-07-18), not proposed later. OpenClaw's historical consequence-assessment rationale
+> was searched and closed as unresolved/non-load-bearing. See the **Genealogy Reconciliation
+> Addendum** near the end of this file for the six distinctions this closure preserves. Status
+> remains **EVIDENCE_RESOLUTION_COMPLETE / ARR_REVIEW_REQUIRED / NOT_FOR_PUBLICATION** — this
+> closure is Evidence Agent work prepared for an independent reviewer, not a self-certified ARR pass.
+
 ---
 
 ## Abstract
@@ -1702,10 +1712,55 @@ elements), or `Newly proposed in 007` (no ancestor states it in any form).
 | EXP-P3 (representation of structural invariants) | IRL experiment corpus | `codexes/packs/irl/foundation/experiments/exp-p3-representation-of-structural-invariants/` | Research infrastructure | Candidate design, pending series ratification; no execution, no result | Protocol inspection | No result exists | Representation-focused, not a frontier-extension or consequence-calibration test | N/A |
 | EXP-P4 (interaction/field-behavior) | IRL experiment corpus | `codexes/packs/irl/foundation/experiments/exp-p4-invariant-interaction/README.md` | Research infrastructure | **Reserved** — "not a design," must not be sent to reviewers as a brief | None | None — explicitly no evidentiary claim permitted | Not consumed for the Consequence Horizon test; that role goes to the proposed EXP-P2-CH below instead | N/A |
 | `EXP-P2-CH` — proposed Consequence Horizon Calibration Arm | Proposed by this pass, not yet authored | No path — see II007-IA35 | Research infrastructure (proposed) | **Proposed / Not Registered** | None yet — proposal only | Not load-bearing until registered and executed | Given its own child identifier rather than edited into EXP-P2 (mid-freeze) or folded into reserved EXP-P4 (a different hypothesis class) | N/A |
+| EXP-001/EXP-002/EXP-003 (Living KnowledgeQube, invariant video, rediscovery savings) — **foundational media/coherence experiments, resolved 2026-09-13** | IRL foundation experiment corpus, authored 2026-07-03 (before Consequence Engineering's 2026-07-04 doctrinal grounding and the 2026-07-18 EXP-P1–P4 charter) | `codexes/packs/irl/foundation/experiments/exp-001-living-knowledgeqube/`, `exp-002-invariant-video/`, `exp-003-rediscovery-savings/` (results dated 2026-07-04 through 2026-07-06) | Research evidence (preliminary, pre-P1–P4) | **Executed and published** — these are not protocol-only; results exist | Direct commit/artifact inspection | **Preliminary experimental evidence only — not validation of H1b, H3d, or H4.** They predate and are narrower in scope than the P1–P4 series that superseded them | Inherited (predates this paper; foundational to the later P1–P4 formalization, not evidence for 007's own compounding claims) |
+| OpenClaw's historical rationale for pre-execution consequence/risk assessment | Searched: filenames, all PRD-* content in `codexes/packs/irl/foundation/` and `codexes/packs/agentiq/items/`, and the three real ClawHack docs (`README.md`, `IMPLEMENTATION_SUMMARY.md`, `STUDIO_ACCESS.md`) | No PRD or design doc found; the actual Feb 2026 implementation (`clawhack-group-agents/openclaw-wrapper/`) is a generic MCP tool-invocation wrapper with no risk/consequence-assessment code | — | **Unresolved** | Absence confirmed by search, not assumed | **No — explicitly non-load-bearing.** Not cited as support for any claim in this paper | N/A |
 
 **None of EXP-P1–P4 can currently measure `CH_Invariant > CH_Baseline`.** This is stated plainly rather
 than implied: no registered protocol tests calibrated consequence projection over temporal/causal
 distance today.
+
+---
+
+## Genealogy Reconciliation Addendum (2026-09-13 — prepared for independent ARR, not self-certified)
+
+A separate, targeted historical-provenance audit (git archaeology against the full, unshallowed
+9,441-commit history) resolved the chronological relationship between this paper's research programme
+and the financial-services work it now also draws on. The audit's full working notes are preserved in
+`codexes/packs/agentiq/updates/2026-09-13_threshold-007-genealogy-chronology-audit.md`. The following
+six distinctions are the ones load-bearing for this paper and are stated here explicitly so an
+independent reviewer does not have to reconstruct them:
+
+1. **Foundational EXP-001/002/003 results** (media/coherence experiments, 2026-07-03 to 2026-07-06)
+   are executed and published, but constitute **preliminary experimental evidence only — not
+   validation of H1b, H3d, or H4.** They predate and are narrower in scope than the P1–P4 series.
+2. **EXP-P1 preliminary executions, where they exist or are later verified, constitute
+   instrument/protocol validation — not scientific confirmation** of any of this paper's hypotheses.
+   As registered in this document's own Implementation-Evidence Register, EXP-P1's own checklist
+   currently shows execution unconfirmed.
+3. **P1–P3 were cross-domain at charter** (2026-07-18): the charter commit itself lists Consequence
+   Engineering, Software Engineering, Finance (D4) and Legal/Scientific reasoning as candidate demo
+   domains, with Consequence Engineering prioritized as the strongest first demonstration. Finance was
+   present from the outset, not absent-then-added, but was explicitly **deprioritized**, not
+   organizing.
+4. **The September Vela/MoneyPenny/Golden Cycle work is a later financial-services
+   consolidation/metrology environment — not the origin of the programme.** It appears roughly two
+   months after the P1–P4 charter and provides unusually precise instrumentation, which is why it was
+   adopted as a convergence domain, not because the theory was derived from finance.
+5. **OpenClaw's historical rationale for pre-execution consequence/risk assessment remains unresolved
+   and is explicitly non-load-bearing** — see the register entry above. No claim in this paper depends
+   on OpenClaw having performed consequence assessment at any particular date.
+6. **This paper's core H1b (frontier extension), H3d (cross-domain consequential transfer) and H4
+   (constitutional cybernetic compounding) claims remain unvalidated.** Nothing in this reconciliation,
+   the heritage-search pass, or the genealogy audit constitutes evidence for any of the three; all
+   remain Hypothesized, exactly as stated throughout this document's own falsification and
+   evidence-state sections.
+
+**This addendum is Evidence Agent work, not an Adversarial Research Review.** It was prepared by the
+same authoring context that has drafted and evidence-resolved this manuscript throughout, and per this
+document's own "Publication roles and separation of powers" section, that context may not also
+self-certify the paper for canonical publication. `arr_disposition` remains `null`. An independent
+reviewer with no authoring context on this paper is required before `gate_status` may advance beyond
+`arr_pending`.
 
 ---
 
