@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-09-13-VELA-RISK-INVARIANT-TELEMETRY-HOOK-001",
+  "capability": "vela-001-confidential-constitutional-execution",
+  "milestone": "Use Case Zero build-order item 6 — a small, purely additive telemetry hook onto the completed underwriting projection (RES-2026-09-13-VELA-UNDERWRITING-VERTICAL-SLICE-001, item 5's own direct sequel), emitting one normalized golden_cycle_records evidence row per run using ONLY already-authorized outputs.",
+  "problem": "Item 5 proved the full constitutional loop (Party A private state + Party B private state -> explicit joint-compute scope -> confidential risk calculation -> minimum-disclosure verdict -> optional simulated premium/coverage instruction -> causal receipt) and bound it into ONE causal DVN-anchorable receipt. The operator ruled that a small additive step should follow: take the completed underwriting activity and emit a normalized telemetry record containing the constitutional and actuarial observables of interest, using ONLY already-authorized outputs/receipt evidence — explicitly NOT reopening confidential raw party data, and explicitly NOT becoming a side channel around the privacy boundary the prior two items established.",
+  "observedFailure": [
+    "Not an observed runtime defect — a milestone-scoped additive item, like its predecessors. The gap was the ABSENCE of any evidence-substrate write from the underwriting vertical slice: `services/vela/velaUnderwritingProjection.ts` (item 5) wrote exactly one causal receipt and nothing else; no code anywhere in this repo wrote to `golden_cycle_records` before this item (confirmed by grep across `services/` for the table name — zero matches)."
+  ],
+  "rootCauses": [
+    "Item 5 was deliberately scoped to the causal receipt only — its own header and resolution record describe a business-logic layer producing ONE receipt, not an evidence-substrate projection; emitting a second, normalized evidence artifact was explicitly out of that item's own scope.",
+    "Three differently-shaped, unrelated systems in this codebase share vocabulary with this item's own name/domain and were each confirmed, by direct reading, NOT to be the right destination: `types/invariantIntelligence.ts` (CRP-002 IRL research programme — an intent/knowledge-compression contract), `services/consequence/operatingModel.ts` (CFS-006a — an intentRef-keyed invariant-grounding/knowledge-evolution loop this item has no intentRef or grounding set to feed), and `services/venture/ventureOutcomeAccrual.ts` (venture outcome verification -> Standing accrual, a different accrual concern entirely). Reaching for any of these without reading them first would have produced a parallel, wrongly-shaped implementation (CLAUDE.md inv.engineering.036/037).",
+    "`supabase/migrations/20260912195402_golden_cycle_evidence_records.sql` already exists (added during Threshold 007.2, 2026-09-12) as the correctly-shaped evidence substrate for exactly this Use Case Zero Sec.12 requirement, but had zero writers before this item — the migration and the writer were built in separate sessions and had not yet been connected."
+  ],
+  "resolution": [
+    "Added `readonly policyVersion: string` to `UnderwritingProvider` (`underwritingProviderTypes.ts`) — a property of the PROVIDER (which pricing/policy formula generation is running), not of each individual `UnderwritingQuote`, which already carries exactly the operator-specified nine fields and was left untouched. `SimulatedUnderwritingProvider` sets it to the named constant `'vela-use-case-zero-underwriting-simulated-v1'`; `createUnderwritingProvider()` needed no change.",
+    "Added `services/vela/velaUnderwritingRiskTelemetry.ts`: `VelaUnderwritingRiskTelemetryInput`, an explicit named interface (never `Record<string, unknown>`, never a passthrough) whose field set has structurally no place for a party's raw financial inputs, `recipientAddress`, or any T0 identifier — mirroring `underwritingProviderTypes.ts`'s own gate-1 structural proof exactly. `recordVelaUnderwritingRiskTelemetry` upserts ONE `golden_cycle_records` row keyed on a deterministic `record_key` (`vela-underwriting:${onChainRequestId}`), so a retried emission for the same on-chain request is idempotent by construction rather than by a second check. Every JSONB column this item has no honest evidence for (`risk_cycle`, `information_provenance`, `observed_outcome`, `repair_or_claim`, `burden_bearer`, `calibration_error`, `constitutional_conditions`) is set to a literal empty object `{}` — never fabricated (CLAUDE.md No-Guessing rule). `evidence_status` is stamped EXPLICITLY `'operational_hypothesis_generating'` on every row (never relying on the column's own default), per CLAUDE.md's Hypothesis vs Canon discipline and the governing spec's own Sec.12 sentence: 'Operational telemetry remains hypothesis-generating until registered scientifically.' Fails closed on both a missing Supabase client and a write error/exception — never throws (mirrors `ventureOutcomeAccrual.ts`'s `getSupabaseServer()`-unavailable-returns-null discipline and `services/consequence/operatingModel.ts`'s fire-and-forget `.catch(...)` discipline).",
+    "Composed into `services/vela/velaUnderwritingProjection.ts`: `runVelaUnderwritingProjection` captures `startedAtMs` at entry, calls `recordVelaUnderwritingRiskTelemetry` immediately AFTER the existing `createActivityReceipt` call (that call's own position/behaviour unchanged), reusing the SAME local variables already computed for the causal receipt's `actionInput` (never recomputed) plus `receiptId`, `provider.policyVersion`, `settlementOccurred: params.asset != null`, and `timeToCompletionMs`. `VelaUnderwritingProjectionResult` gained one new field, `telemetryRecordId: string | null`. Because `recordVelaUnderwritingRiskTelemetry` itself never throws, no additional try/catch was needed at the call site — proven directly by a test that forces the mocked telemetry call to resolve `null` and asserts the run's own `disposition`/`quote`/`receiptId` are unchanged.",
+    "No new `ActivityActionType` or DVN-anchorable receipt type was added — the existing `vela_underwriting_projection_completed` receipt (item 5) remains the ONE causal receipt; the new `golden_cycle_records` row is additional evidence that references that receipt's id via `provenance.receiptId`, never a peer or replacement. `tests/activity-receipts-action-type-parity.test.ts` (3/3) confirmed unchanged, proving no new migration was required.",
+    "Extended `tests/vela-underwriting-projection.test.ts` (item 5's own file) additively: the gate-1 spy provider literal gained `policyVersion: 'test-provider-v1'` (the one change to any pre-existing test in that file), a mock for the new telemetry module was added alongside the pre-existing `createActivityReceipt` mock, and a new describe block ('risk telemetry hook (item 6)') proves `telemetryRecordId` propagation, call-argument fidelity against the run's OWN resolved result (not hand-typed duplicate literals), `settlementOccurred` true/false, a non-negative `timeToCompletionMs`, and the no-regression-on-telemetry-failure property. All 13 pre-existing tests in that file pass unchanged; the file now carries 19 tests total.",
+    "Added `tests/vela-underwriting-risk-telemetry.test.ts` (new file, 9 tests): a `@ts-expect-error` gate proving the input type cannot accept an object shaped like raw `VelaProjectionInputs`; an exact field-mapping test spot-checking every JSONB column (including that the never-fabricated columns are literal `{}`); an idempotency pair proving a retried emission for the same `onChainRequestId` reuses the same `record_key`/row id while a different id produces a second row; and three fail-closed tests (DB unavailable, upsert error, upsert exception) all resolving `null` rather than throwing. Reuses the existing `tests/_lib/fakeSupabase.ts` multi-table Postgrest fake (Extend, Don't Duplicate) rather than hand-rolling a second in-memory fake — that helper already models `.upsert(payload, { onConflict }).select().single()` exactly as this module calls it.",
+    "Targeted run (`tests/vela-underwriting-risk-telemetry.test.ts` + `tests/vela-underwriting-projection.test.ts`): 28/28 passed. Full Vela + underwriting suite (`tests/vela-*.test.ts` + `tests/underwriting-provider-simulated.test.ts` + `tests/vela-underwriting-risk-telemetry.test.ts`, 11 files): 184 passed + 2 skipped (186 total) — exactly the prior item's own recorded baseline (169 passed + 2 skipped, 10 files) plus this item's +6 additive tests in the pre-existing file and +9 in the new file (15 new, byte-for-byte), with the 10 pre-existing files' own pass/skip counts otherwise unchanged. `tests/factor-vela-confidential-workload.test.ts` (8/8) and `tests/activity-receipts-action-type-parity.test.ts` (3/3) both confirmed unchanged."
+  ],
+  "rejectedApproaches": [
+    "Writing this telemetry into `types/invariantIntelligence.ts` (CRP-002)'s own contracts — rejected: that is a different, unrelated intent/knowledge-compression research programme with no shape for a settled business receipt's evidence; conflating the two would misuse a research-programme contract as a generic evidence sink.",
+    "Feeding this evidence through `services/consequence/operatingModel.ts` (CFS-006a) — rejected: that pipeline is intentRef-keyed and grounds itself in an invariant substrate set this item has neither of; forcing an underwriting run through it would require fabricating an intentRef and a grounding set that do not exist for this workload.",
+    "Crediting this as a venture outcome via `services/venture/ventureOutcomeAccrual.ts` — rejected: that module accrues Standing from a VERIFIED `ProofOfOutcomeClaim` on a `VentureQube`; an underwriting projection is neither a venture nor a verified outcome claim, and no Standing-accrual instruction was given for this item.",
+    "Creating a brand-new table for this evidence — rejected: `supabase/migrations/20260912195402_golden_cycle_evidence_records.sql` already defines the exact evidence-package shape the governing Use Case Zero spec (Sec.12) requires, with zero writers before this item; adding a second, parallel table would duplicate an existing, already-ratified schema (CLAUDE.md inv.engineering.036/037 and the Dense Materials/schema-drift discipline generally).",
+    "Adding a second `ActivityActionType`/DVN-anchorable receipt for this telemetry — rejected per the task's own explicit instruction: the existing `vela_underwriting_projection_completed` receipt remains the ONE causal receipt; a `golden_cycle_records` row is additional evidence referencing it, never a peer receipt, and adding one would have required an unnecessary CHECK-constraint migration for evidence that is not itself a new causal action.",
+    "Putting `policyVersion` on `UnderwritingQuote` instead of `UnderwritingProvider` — rejected: a pricing/policy formula version is a property of which PROVIDER/model generation is running, not of an individual quote instance; the operator's own nine-field `UnderwritingQuote` shape was already exactly right and is not extended by this item.",
+    "Wrapping `recordVelaUnderwritingRiskTelemetry`'s call site in `velaUnderwritingProjection.ts` with an additional try/catch — rejected as redundant: the telemetry function's own contract (proven by a dedicated test) is to never throw, so a second catch at the call site would duplicate enforcement that already exists one layer down (CLAUDE.md inv.engineering.036/037)."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-13-VELA-TELEMETRY-AUTHORIZED-SURFACE-ONLY-001"
+  ],
+  "canaries": [
+    "tests/vela-underwriting-risk-telemetry.test.ts",
+    "tests/vela-underwriting-projection.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "milestone-complete",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/vela-underwriting-risk-telemetry.test.ts",
+      "tests/vela-underwriting-projection.test.ts",
+      "tests/underwriting-provider-simulated.test.ts",
+      "tests/vela-multi-party-projection.test.ts",
+      "tests/vela-party-namespace.test.ts",
+      "tests/vela-asset-bearing-request.test.ts",
+      "tests/vela-confidential-projection-provider.test.ts",
+      "tests/vela-agent-p521-derivation.test.ts",
+      "tests/vela-config-early-access.test.ts",
+      "tests/vela-slice2f-capability-invocation.test.ts",
+      "tests/vela-slice2g-execution-observation-validation.test.ts",
+      "tests/factor-vela-confidential-workload.test.ts",
+      "tests/activity-receipts-action-type-parity.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-09-13_vela-underwriting-vertical-slice.md",
+      "codexes/packs/agentiq/updates/2026-09-13_vela-risk-invariant-telemetry-hook.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-13_vela-underwriting-vertical-slice.md",
+    "services/vela/velaUnderwritingProjection.ts",
+    "supabase/migrations/20260912195402_golden_cycle_evidence_records.sql",
+    "services/venture/ventureOutcomeAccrual.ts",
+    "services/consequence/operatingModel.ts"
+  ],
+  "date": "2026-09-13",
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

@@ -48,6 +48,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-09-13_vela-risk-invariant-telemetry-hook.md",
         "updates/2026-09-13_vela-underwriting-vertical-slice.md",
         "updates/2026-09-13_vela-accelerator-multi-party-ts-wiring.md",
         "updates/2026-09-13_vela-pilot-milestone-guest-side-namespace-isolation.md",

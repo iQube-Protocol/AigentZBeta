@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-13-VELA-TELEMETRY-AUTHORIZED-SURFACE-ONLY-001",
+  "statement": "A telemetry/evidence hook layered onto a completed confidential-execution business action MUST: (1) accept ONLY fields already resolved and bound onto that action's own causal receipt (or values structurally equivalent to them — e.g. a per-provider version constant) as input to its own recording seam — a structural, type-level property (the function's own named input interface has no field shape that could carry a party's raw private inputs, a delivery-routing address, or any T0 identifier), never merely a documented convention, mirroring the same structural-input discipline the business-logic layer beneath it already established; (2) write into an EXISTING, correctly-shaped evidence substrate when one already exists for the governing spec that requires it, rather than inventing a parallel table or repurposing an unrelated research/accrual/consequence system that merely shares vocabulary with the telemetry's own domain name; (3) be idempotent by construction against a deterministic key derived from the underlying action's own unique identifier, so a retried emission updates the same evidence row rather than creating a duplicate; (4) mark every field it has no honest evidence for yet as an explicit, empty/null value (never a fabricated placeholder), and mark the whole record's own epistemic status explicitly (never relying on a column/field default) when the governing spec itself distinguishes operational telemetry from validated/canonical evidence; (5) NEVER throw, and NEVER let its own failure (write error, missing backing store) change or regress the causal action's own already-resolved result — a telemetry write is strictly additive, proven by a dedicated test that forces the telemetry call to fail and asserts the business result is unchanged; (6) add NO new causal receipt type for evidence that is not itself a new causal action — an evidence row about an already-receipted action references that receipt's id, and is never a peer or replacement of it.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": "CI-2026-09-13-VELA-UNDERWRITING-VERDICT-ONLY-QUOTE-PROVIDER-001",
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "The evidence-recording counterpart of CI-2026-09-13-VELA-UNDERWRITING-VERDICT-ONLY-QUOTE-PROVIDER-001: that candidate proved a business-logic layer could safely BUILD a priced decision on top of a disclosed verdict without smuggling private inputs back in; this one is the FIRST occurrence of what a caller must do to safely RECORD that decision as normalized evidence for a downstream learning/invariant-intelligence surface without reopening the same privacy boundary, without duplicating an existing evidence substrate, and without letting a best-effort telemetry write become load-bearing for the causal result it describes.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/vela-underwriting-risk-telemetry.test.ts",
+      "assertion": "A @ts-expect-error gate proving VelaUnderwritingRiskTelemetryInput cannot accept an object shaped like raw party financial inputs; an exact field-mapping test spot-checking every golden_cycle_records JSONB column, including that every column this item has no honest data for is a literal empty object and evidence_status is explicitly 'operational_hypothesis_generating'; an idempotency pair proving a retried emission for the same onChainRequestId reuses the same record_key/row id while a different id produces a second row; three fail-closed tests (DB unavailable, upsert error, upsert exception) all resolving null rather than throwing.",
+      "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/vela-underwriting-projection.test.ts",
+      "assertion": "The 'risk telemetry hook (item 6)' describe block proves: the run's own result carries telemetryRecordId from the mock's resolved id (or null when the mock resolves null); the telemetry call receives the SAME disposition/quote/applicationId/partyNamespaceRefs/onChainRequestId the run itself actually produced (asserted against the run's own result, not hand-typed duplicate literals); settlementOccurred is false/true correctly for no-asset/asset runs; timeToCompletionMs is a non-negative number; and — most centrally — forcing the telemetry mock to resolve null never changes the run's own disposition/quote/receiptId.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "vela-001-confidential-constitutional-execution / Use Case Zero risk-invariant telemetry hook",
+      "defect": "No evidence-recording seam existed that could safely turn a completed, already-receipted underwriting decision into normalized golden_cycle_records evidence without either (a) requiring access to a party's raw financial inputs, (b) duplicating or misusing an unrelated existing system (CRP-002 Invariant Intelligence, the CFS-006a consequence operating model, or venture outcome accrual) that merely shares vocabulary with this domain, or (c) letting a telemetry write failure regress the underlying business result.",
+      "resolutionId": "RES-2026-09-13-VELA-RISK-INVARIANT-TELEMETRY-HOOK-001",
+      "evidence": [
+        "services/vela/velaUnderwritingRiskTelemetry.ts",
+        "services/vela/velaUnderwritingProjection.ts",
+        "services/financialServices/providers/underwriting/underwritingProviderTypes.ts",
+        "tests/vela-underwriting-risk-telemetry.test.ts",
+        "tests/vela-underwriting-projection.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-09-13-VELA-RISK-INVARIANT-TELEMETRY-HOOK-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This is the FIRST recorded occurrence — status stays `candidate`; only an operator act may raise this to `ratified`/`canonical`.",
+    "Not yet applied to a second implementation — occurrence count is 1. The natural second occurrence to watch for is any future confidential-execution business-logic layer that also needs to emit normalized evidence for Invariant Intelligence's own future READ/aggregation side (explicitly out of scope for this item, which is producer-only) — that future reader consuming this same table would be a confirming, not a new, occurrence of THIS candidate; a genuinely different domain emitting its own evidence hook onto a different Vela guest's disposition (or a non-Vela confidential-execution surface) would be the second real occurrence."
+  ]
+}
