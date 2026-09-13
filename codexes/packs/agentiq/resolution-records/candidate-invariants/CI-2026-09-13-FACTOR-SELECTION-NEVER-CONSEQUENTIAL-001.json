@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-13-FACTOR-SELECTION-NEVER-CONSEQUENTIAL-001",
+  "statement": "An economic-coordination/candidate-selection layer sitting upstream of an independent-admission decision and a consequential execution path (the Factor -> Aegis -> MoneyPenny -> Vela chain, or any structurally analogous discover-then-admit-then-act pipeline) MUST: (1) resolve any candidate identifier ONLY against an existing, real, non-speculative registry — never invent an identifier for an unrecognised candidate, and never build a second, parallel candidate registry or scoring/ranking mechanism where none is yet warranted; (2) treat any caller-supplied economic terms as unverified evidence, never trusted truth — a raw terms object is committed (a one-way hash), never stored or forwarded verbatim, so a later, independently-verifying layer can still challenge it; (3) hold NO import-level authority over constitutional authorization, delegation, or independent-admission systems downstream of it (proven structurally, via the module's own import graph, not merely documented) — the selection layer may recommend but confers no authority, and may select but may not itself call the independent-admission/assessment layer or the consequential-execution layer it is proposing a candidate INTO; (4) carry no field shape capable of receiving the confidential operands of the transaction it is merely assembling — a structural, type-level guarantee, not a convention; (5) be receiptable and traceable into the causal chain via the SAME receipt substrate every other constitutional act in the chain uses, never a parallel ledger; (6) produce a deterministic, artifact-only output at this layer, deferring the actual binding of that artifact into a frozen request/consequence envelope to a LATER, explicitly separate step or item — the selection layer's own job ends at proposing, not at executing.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": "CI-2026-09-13-VELA-TELEMETRY-AUTHORIZED-SURFACE-ONLY-001",
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "The candidate-selection counterpart of CI-2026-09-13-VELA-TELEMETRY-AUTHORIZED-SURFACE-ONLY-001 (which proved a telemetry/evidence-recording layer could safely observe and record a completed constitutional decision without reopening its privacy boundary or duplicating an existing evidence substrate): this candidate is the FIRST occurrence of the analogous discipline one layer EARLIER in the chain — a proposal/coordination layer that discovers and recommends a candidate for a consequential transaction without itself gaining authority, admission power, or confidential access, and without pre-empting the downstream layers (Aegis, MoneyPenny) whose job those decisions actually are.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/factor-selection-artifact.test.ts",
+      "assertion": "A @ts-expect-error gate proving FactorSelectionInput cannot accept an object shaped like raw party financial inputs; providerMode is always 'SIMULATED' and is not a settable input field (a second @ts-expect-error gate); selectionRef is deterministic per (requestRef, resolved candidateAgentId) and changes when either changes; quotedTermsRef is null when no terms are supplied, a 64-char hex digest when they are, differs across different terms, and never appears as a field on the returned artifact; an unrecognised candidateAgentSlug throws rather than inventing a candidateAgentId; evidenceRefs defaults to []; recordFactorSelection writes exactly one receipt of actionType 'factor_selection_proposed' binding the artifact verbatim with no rawQuotedTerms/T0 identifier/raw financial figure leaking into actionInput; two import-boundary tests (a stripped-source grep and an AST-based importAuthority/forbiddenImportFindings check) prove the module's source contains no import from services/factor/authorityChain.ts, services/delegation/*, services/access/evaluateAccess.ts, services/identity/getActivePersona.ts, services/aegis/*, services/vela/velaMultiPartyProjection.ts, services/vela/velaUnderwritingProjection.ts, or services/financialServices/providers/underwriting/*.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "vela-001-confidential-constitutional-execution / Use Case Zero Factor selection artifact",
+      "defect": "No module existed that could safely propose a candidate agent/service/counterparty for a consequential multi-party transaction without either (a) inventing an identifier for an unrecognised candidate, (b) storing a caller's raw quoted economic terms as if they were verified truth, (c) gaining import-level reach into constitutional authorization/delegation/independent-admission/Vela-underwriting code it has no business calling directly, or (d) requiring access to a party's raw confidential financial inputs merely because it assembled the proposal.",
+      "resolutionId": "RES-2026-09-13-FACTOR-SELECTION-ARTIFACT-001",
+      "evidence": [
+        "services/factor/factorSelectionArtifact.ts",
+        "services/horizen/registrableAgents.ts",
+        "tests/factor-selection-artifact.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-09-13-FACTOR-SELECTION-ARTIFACT-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This is the FIRST recorded occurrence — status stays `candidate`; only an operator act may raise this to `ratified`/`canonical`.",
+    "Not yet applied to a second implementation — occurrence count is 1. The natural second occurrence to watch for is the NEXT item in this chain (Aegis admission-evidence integration) reusing the same discover-propose-without-authority discipline for its own independent-assessment seam, or MoneyPenny's later binding of this artifact's selectionRef/requestRef into velaUnderwritingProjection.ts's request construction without itself reopening the confidential-inputs boundary this candidate protects."
+  ]
+}

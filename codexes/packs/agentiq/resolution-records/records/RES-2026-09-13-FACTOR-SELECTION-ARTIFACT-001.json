@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-09-13-FACTOR-SELECTION-ARTIFACT-001",
+  "capability": "vela-001-confidential-constitutional-execution",
+  "milestone": "Use Case Zero build-order item 7 — Factor added narrowly as the economic coordination / selection layer (candidate discovery, service/counterparty selection, and construction of a deterministic, receiptable selection artifact) on top of item 6's completed underwriting + telemetry loop (RES-2026-09-13-VELA-RISK-INVARIANT-TELEMETRY-HOOK-001).",
+  "problem": "Items 5-6 proved and instrumented the full Party A/B -> joint-compute scope -> confidential verdict -> underwriting quote -> causal receipt -> golden_cycle_records telemetry loop. The operator's own ruling: Factor should now be added, but strictly as a SELECTION layer — discovering a candidate agent/service/counterparty, carrying its economic terms/availability as evidence, and constructing a deterministic selection artifact MoneyPenny can later bind into the request/receipt chain — never as a second decision engine, never with authority to admit a candidate itself (that remains MoneyPenny's decision, informed by Aegis), and never with a path to confidential operands merely because it assembled the transaction.",
+  "observedFailure": [
+    "Not an observed runtime defect — a milestone-scoped additive item, like its predecessors. The gap was the ABSENCE of any Factor-owned selection/proposal artifact narrow enough to satisfy all six of the operator's invariants simultaneously; the existing `services/factor/` surface (`useCaseZeroOrchestrator.ts`, `factorCaseService.ts`, `authorityChain.ts`) is a differently-shaped, pre-existing agent-onboarding readiness state machine that does not fit this request-scoped selection concern."
+  ],
+  "rootCauses": [
+    "`services/factor/useCaseZeroOrchestrator.ts` (built 2026-09-06, an earlier, unrelated session) shares the name 'Use Case Zero' and the vocabulary Factor/Aegis/MoneyPenny/Vela with THIS item's own domain, but is a case-scoped (`factor_cases`) agent-onboarding bootstrap state machine — a genuinely different artifact. Building this item's selection artifact as a step inside that orchestrator, or keying it on `case_id`/`state`, would have been exactly the naming-collision conflation CLAUDE.md's Adversarial Research Review section warns against for research publication, applied here to engineering code.",
+    "No existing module in this codebase resolves a caller-named candidate slug against the real, non-speculative agent registry (`services/horizen/registrableAgents.ts`'s `REGISTRABLE_AGENTS`) and turns it into a receiptable, commitment-safe selection proposal — this is a genuinely new, narrow seam."
+  ],
+  "resolution": [
+    "Added `services/factor/factorSelectionArtifact.ts`: `proposeFactorSelection(input: FactorSelectionInput): FactorSelectionArtifact` (pure — no DB, no receipt, no network call) and `recordFactorSelection(artifact, params)` (writes the ONE causal receipt via `createActivityReceipt` directly, mirroring every prior item in this chain's own choice never to route through the `constitutionalCommerce` apparatus).",
+    "`proposeFactorSelection` resolves `input.candidateAgentSlug` via `resolveRegistrableAgent` (`services/horizen/registrableAgents.ts`) — the ONLY real candidate-agent registry that exists — and throws rather than inventing a `candidateAgentId` when the slug is unrecognised (No-Guessing rule). `providerMode` is hardcoded to `'SIMULATED'` (no LIVE candidate-discovery provider exists anywhere in this codebase) and is deliberately NOT an input field at all, so a caller cannot claim LIVE for a capability that does not exist.",
+    "`selectionRef` is a deterministic 16-char sha256 commitment over `'factor:selection:' + requestRef + ':' + candidateAgentId` — the same HMS-locker-ref recipe shape CLAUDE.md's own worked example uses, reused verbatim rather than reinvented (mirrors `deriveVelaPartyNamespaceRef`/`commitMultiPartyPayload`'s own choices in the Vela chain).",
+    "`quotedTermsRef` is a FULL 64-char sha256 hex digest over any caller-supplied `rawQuotedTerms`, computed only when terms are actually supplied (`null` otherwise — never a hash of an empty/fabricated object). The full digest, not a truncated one, mirrors `commitMultiPartyPayload`'s own explicit choice in `velaUnderwritingProjection.ts`, made because collision-resistance across many candidates' quoted terms matters more than brevity in this context. `rawQuotedTerms` itself never appears on the returned artifact — proven by a runtime own-property check.",
+    "`FactorSelectionInput`'s field set has structurally no place for a party's raw financial inputs (`currentExposure`/`proposedSpend`/`privateSpendLimit`/`privateRiskLimit`, or any generic map of those) — mirroring `underwritingProviderTypes.ts`'s own gate-1 structural proof and `velaUnderwritingRiskTelemetry.ts`'s own privacy-boundary field set exactly. Proven by a `@ts-expect-error` gate test.",
+    "Added `'factor_selection_proposed'` to `ActivityActionType` (`services/receipts/activityReceiptService.ts`) and to `ANCHORABLE_ACTION_TYPES` (`services/dvn/activityReceiptDvnPipeline.ts`, the ONE permitted unilateral change to that file). Added `supabase/migrations/20261001000800_factor_selection_proposed_receipt_type.sql`, rebuilding `activity_receipts_action_type_check` wholesale (carried forward verbatim from `20261001000700` plus this one new entry), per `tests/activity-receipts-action-type-parity.test.ts`'s governing rule.",
+    "This module imports NOTHING from `services/factor/authorityChain.ts`, `services/delegation/*`, `services/access/evaluateAccess.ts`, `services/identity/getActivePersona.ts`, `services/aegis/*`, `services/vela/velaMultiPartyProjection.ts`, `services/vela/velaUnderwritingProjection.ts`, or `services/financialServices/providers/underwriting/*` — proven structurally (not merely documented) by two import-boundary tests in `tests/factor-selection-artifact.test.ts`, one grepping stripped source text for the forbidden specifiers and one using `tests/_lib/sourceAuthority.ts`'s `importAuthority`/`forbiddenImportFindings` AST-based helper (the same technique `tests/persona-spine-fetch.test.ts` uses for its own forbidden-transport canary) to confirm no forbidden BINDING is reachable via named, namespace, or dynamic import.",
+    "Added `tests/factor-selection-artifact.test.ts` (18 tests): a structural privacy gate (`@ts-expect-error`), providerMode-always-SIMULATED-and-not-settable, selectionRef determinism (same pair -> same ref; different requestRef or candidateAgentSlug -> different ref), quotedTermsRef commitment discipline (omitted -> null; supplied -> 64-char hex; different terms -> different ref; never present on the artifact itself), unknown-slug refusal, evidenceRefs defaulting to `[]`, a receipt-write correctness + leak-check pair (mocking `createActivityReceipt` per the same `vi.mock` pattern `tests/vela-underwriting-projection.test.ts` uses), and the two import-boundary tests above.",
+    "Targeted run: `tests/factor-selection-artifact.test.ts` — 18/18 passed. Full run of `tests/vela-*.test.ts` + `tests/underwriting-provider-simulated.test.ts` + `tests/factor-vela-confidential-workload.test.ts` + `tests/activity-receipts-action-type-parity.test.ts` + this new file (14 files): 213 passed + 2 skipped (215 total) — exactly the prior item's own recorded baseline (195 passed + 2 skipped, 13 files) plus this item's +18 additive tests in one new file, with every pre-existing file's own pass/skip count unchanged. `tests/use-case-zero-orchestrator.test.ts` (35/35) and `tests/use-case-zero-readiness-corrections.test.ts` (44/44) — the two test files covering the UNRELATED, untouched `useCaseZeroOrchestrator.ts` — both confirmed unchanged, proving that module was never touched by this item."
+  ],
+  "rejectedApproaches": [
+    "Reusing `useCaseZeroOrchestrator.ts`/`factor_cases` as the home for this selection artifact — rejected: that is a different, pre-existing lifecycle/artifact entirely (a case-scoped agent-onboarding readiness state machine), not the request-scoped selection concern this item implements. Conflating the two on the strength of shared vocabulary ('Factor', 'Use Case Zero') would be exactly the naming-collision defect CLAUDE.md's Adversarial Research Review section warns against for research publication, applied here to engineering code.",
+    "Auto-resolving `serviceId` from the underwriting provider (`services/financialServices/providers/underwriting/*`) — rejected: doing so would require this module to import from a path it must never touch (the operator's own explicit instruction that Factor must not call the underwriting provider directly, bypassing MoneyPenny's orchestration path). `serviceId` stays a caller-supplied opaque identifier instead.",
+    "Letting Factor call Aegis or Vela/underwriting directly in this pass (e.g. invoking `runVelaUnderwritingProjection` to validate a candidate before proposing it, or calling an Aegis assessment inline) — rejected per the operator's own explicit sequencing: 'Once Factor is in, Aegis should be the next and last backend layer before UI.' This item produces the selection artifact + its receipt only, structurally isolated, for a later item to bind into the request/receipt chain.",
+    "Building a live/external candidate-agent registry or a scoring/ranking engine for 'candidate discovery' — rejected as speculative (CLAUDE.md Change Sizing: no speculative features): no such capability exists in this codebase today. `REGISTRABLE_AGENTS` (`services/horizen/registrableAgents.ts`) is the only real, non-speculative registry, and this item resolves against it directly, failing closed on an unrecognised slug rather than inventing a lookup mechanism that does not exist.",
+    "Truncating `quotedTermsRef` to 16 hex characters (matching `selectionRef`'s own length) — rejected: `commitMultiPartyPayload`'s own explicit precedent in `velaUnderwritingProjection.ts` uses a FULL, untruncated digest specifically because collision-resistance matters more than brevity for a commitment that must distinguish many candidates' quoted terms; this item mirrors that same reasoning rather than a shorter, more collision-prone form."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-13-FACTOR-SELECTION-NEVER-CONSEQUENTIAL-001"
+  ],
+  "canaries": [
+    "tests/factor-selection-artifact.test.ts",
+    "tests/activity-receipts-action-type-parity.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "milestone-complete",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/factor-selection-artifact.test.ts",
+      "tests/vela-underwriting-projection.test.ts",
+      "tests/vela-underwriting-risk-telemetry.test.ts",
+      "tests/underwriting-provider-simulated.test.ts",
+      "tests/vela-multi-party-projection.test.ts",
+      "tests/vela-party-namespace.test.ts",
+      "tests/vela-asset-bearing-request.test.ts",
+      "tests/vela-confidential-projection-provider.test.ts",
+      "tests/vela-agent-p521-derivation.test.ts",
+      "tests/vela-config-early-access.test.ts",
+      "tests/vela-slice2f-capability-invocation.test.ts",
+      "tests/vela-slice2g-execution-observation-validation.test.ts",
+      "tests/factor-vela-confidential-workload.test.ts",
+      "tests/activity-receipts-action-type-parity.test.ts",
+      "tests/use-case-zero-orchestrator.test.ts",
+      "tests/use-case-zero-readiness-corrections.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-09-13_vela-underwriting-vertical-slice.md",
+      "codexes/packs/agentiq/updates/2026-09-13_vela-risk-invariant-telemetry-hook.md",
+      "codexes/packs/agentiq/updates/2026-09-13_factor-selection-artifact.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-13_factor-selection-artifact.md",
+    "services/factor/factorSelectionArtifact.ts",
+    "services/horizen/registrableAgents.ts",
+    "services/vela/velaUnderwritingProjection.ts",
+    "services/financialServices/providers/underwriting/underwritingProviderTypes.ts",
+    "services/factor/useCaseZeroOrchestrator.ts"
+  ],
+  "date": "2026-09-13",
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}
