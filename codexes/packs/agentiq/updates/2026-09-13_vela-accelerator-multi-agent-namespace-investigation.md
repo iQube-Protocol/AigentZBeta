@@ -180,6 +180,18 @@ the multi-party pilot extend the existing stateless `app.go` projector, or ship 
 — restated here because it is now load-bearing for the acceptance property, not merely an
 architecture-tidiness question.
 
+**This gap is already, independently, a live Vela-team-facing question, not only an internal one.**
+`docs/vela/accelerator/constitutional-financial-services/08_VELA_OFFICE_HOURS_QUESTIONS_2026-09-11.md`
+Priority A, questions 3–4, ask the Vela team directly: *"For a multi-agent app, what state-namespace
+pattern do you recommend for independent organizations using the same app?"* and *"Can one request
+safely include contributions from several users/agents if the WASM enforces the logical
+authorization and disclosure rules?"* — as of this investigation, that document carries no recorded
+Vela-team answer. This means the hard blocker in §5.2 is gated on TWO answers, not one: an internal
+operator ruling on option (a) vs (b) above, AND (if option (a) is chosen) Vela's own guidance on
+whether/how the platform itself expects multi-party WASM apps to enforce this — do not treat this as
+resolved once the operator rules; confirm the office-hours answer lands before Phase 11's guest
+design is finalized.
+
 ## 6. Test results
 
 Narrow suite:
