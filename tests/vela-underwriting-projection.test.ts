@@ -21,6 +21,11 @@ vi.mock('@/services/receipts/activityReceiptService', () => ({
   createActivityReceipt: (...args: any[]) => createActivityReceiptMock(...args),
 }));
 
+const recordVelaUnderwritingRiskTelemetryMock = vi.fn(async (_input: any) => ({ id: 'telemetry-stub' }));
+vi.mock('@/services/vela/velaUnderwritingRiskTelemetry', () => ({
+  recordVelaUnderwritingRiskTelemetry: (...args: any[]) => recordVelaUnderwritingRiskTelemetryMock(...args),
+}));
+
 import {
   runVelaUnderwritingProjection,
   type RunVelaUnderwritingProjectionParams,
@@ -179,6 +184,8 @@ function baseCallParams(overrides: Partial<RunVelaUnderwritingProjectionParams> 
 
 beforeEach(() => {
   createActivityReceiptMock.mockClear();
+  recordVelaUnderwritingRiskTelemetryMock.mockClear();
+  recordVelaUnderwritingRiskTelemetryMock.mockImplementation(async () => ({ id: 'telemetry-stub' }));
 });
 
 // ── Gate 1 ───────────────────────────────────────────────────────────────
@@ -188,6 +195,7 @@ describe('gate 1 — risk inputs remain private and separately namespaced', () =
     const seenArgs: unknown[][] = [];
     const spyProvider: UnderwritingProvider = {
       mode: 'SIMULATED',
+      policyVersion: 'test-provider-v1',
       async quoteForVerdict(...args: any[]) {
         seenArgs.push(args);
         return new SimulatedUnderwritingProvider().quoteForVerdict(args[0]);
@@ -415,5 +423,72 @@ describe('gate 8 — composes the existing substrate without forking it', () => 
     // No underwriting-shaped export leaked backward into the substrate module.
     expect((substrate as any).runVelaUnderwritingProjection).toBeUndefined();
     expect((substrate as any).createUnderwritingProvider).toBeUndefined();
+  });
+});
+
+// ── Risk telemetry hook (item 6) ──────────────────────────────────────────
+
+describe('risk telemetry hook (item 6)', () => {
+  it('the result carries telemetryRecordId from the telemetry call\'s resolved id', async () => {
+    recordVelaUnderwritingRiskTelemetryMock.mockResolvedValueOnce({ id: 'golden-cycle-row-1' });
+    const result = await runVelaUnderwritingProjection(baseCallParams());
+    expect(result.telemetryRecordId).toBe('golden-cycle-row-1');
+  });
+
+  it('the result carries telemetryRecordId null when the telemetry call resolves null (write unavailable/failed)', async () => {
+    recordVelaUnderwritingRiskTelemetryMock.mockResolvedValueOnce(null);
+    const result = await runVelaUnderwritingProjection(baseCallParams());
+    expect(result.telemetryRecordId).toBeNull();
+  });
+
+  it('the telemetry function is called with the SAME disposition/quote/applicationId/partyNamespaceRefs/onChainRequestId this run actually produced', async () => {
+    const build = buildParams('req-1', []);
+    const result = await runVelaUnderwritingProjection(baseCallParams({ build, transport: makeTransport(REF_A) }));
+
+    expect(recordVelaUnderwritingRiskTelemetryMock).toHaveBeenCalledTimes(1);
+    const call = recordVelaUnderwritingRiskTelemetryMock.mock.calls[0][0];
+    expect(call.onChainRequestId).toBe(result.onChainRequestId);
+    expect(call.disposition).toBe(result.disposition);
+    expect(call.quote).toEqual(result.quote);
+    expect(call.applicationId).toBe(APP_ID);
+    expect(call.partyNamespaceRefs.sort()).toEqual([REF_A, REF_B].sort());
+    expect(call.receiptId).toBe(result.receiptId);
+    expect(call.policyVersion).toBe('vela-use-case-zero-underwriting-simulated-v1');
+  });
+
+  it('settlementOccurred is false when no asset is supplied and true when one is', async () => {
+    const noAssetBuild = buildParams('req-1', []);
+    await runVelaUnderwritingProjection(baseCallParams({ build: noAssetBuild, transport: makeTransport(REF_A) }));
+    expect(recordVelaUnderwritingRiskTelemetryMock.mock.calls[0][0].settlementOccurred).toBe(false);
+
+    recordVelaUnderwritingRiskTelemetryMock.mockClear();
+    const asset: VelaAssetRef = { tokenAddress: ETH_SENTINEL_ADDRESS, assetAmount: 999n };
+    const assetBuild = buildParams('req-1', []);
+    await runVelaUnderwritingProjection(
+      baseCallParams({ build: assetBuild, transport: makeTransport(REF_A), asset }),
+    );
+    expect(recordVelaUnderwritingRiskTelemetryMock.mock.calls[0][0].settlementOccurred).toBe(true);
+  });
+
+  it('timeToCompletionMs passed to the telemetry call is a number >= 0', async () => {
+    await runVelaUnderwritingProjection(baseCallParams());
+    const call = recordVelaUnderwritingRiskTelemetryMock.mock.calls[0][0];
+    expect(typeof call.timeToCompletionMs).toBe('number');
+    expect(call.timeToCompletionMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('a telemetry failure (mock resolves null) never regresses the run\'s own disposition/quote/receiptId', async () => {
+    recordVelaUnderwritingRiskTelemetryMock.mockImplementation(async () => ({ id: 'telemetry-stub' }));
+    const passingResult = await runVelaUnderwritingProjection(baseCallParams());
+
+    recordVelaUnderwritingRiskTelemetryMock.mockImplementation(async () => null);
+    const resultWithFailedTelemetry = await runVelaUnderwritingProjection(baseCallParams());
+
+    expect(resultWithFailedTelemetry.disposition).toBe(passingResult.disposition);
+    expect(resultWithFailedTelemetry.quote).toEqual(passingResult.quote);
+    // receiptId comes from the (unrelated, still-passing) receipt mock in
+    // both runs — proving the telemetry outcome is fully independent of it.
+    expect(typeof resultWithFailedTelemetry.receiptId).toBe(typeof passingResult.receiptId);
+    expect(resultWithFailedTelemetry.telemetryRecordId).toBeNull();
   });
 });
