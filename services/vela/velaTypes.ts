@@ -74,6 +74,63 @@ export interface VelaApplicationRef {
 }
 
 /**
+ * The zero address `ProcessorEndpoint.submitRequest` treats as "native ETH,
+ * no ERC-20" (`tokenAddress` parameter). Exported so the real transport and
+ * any asset-bearing caller share one spelling instead of each hardcoding it.
+ */
+export const ETH_SENTINEL_ADDRESS = '0x0000000000000000000000000000000000000000';
+
+const HEX_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
+
+/**
+ * A real on-chain asset to carry alongside a Vela request — the wire-level
+ * counterpart of `submitRequest`'s `tokenAddress`/`assetAmount` parameters
+ * (`PROCESSOR_ABI`, `velaClientAdapter.ts`). This is plumbing, not a new
+ * domain concept: it exists solely so an ADDITIVE asset-bearing request path
+ * can thread a real value through the existing wire call.
+ *
+ * Never accepted by `VelaTransport.submitProcessRequest` — that method's
+ * no-funds behaviour (VELA-001's confidential-projection path; see the "a
+ * projection carries no funds" comment in `velaClientAdapter.ts`) is frozen.
+ * Use `VelaTransport.submitAssetBearingProcessRequest` instead.
+ */
+export interface VelaAssetRef {
+  /** ERC-20 contract address, or `ETH_SENTINEL_ADDRESS` for native ETH. */
+  tokenAddress: string;
+  /** Amount in the asset's smallest on-chain unit (wei for ETH; the ERC-20's own decimals otherwise). Must be > 0n. */
+  assetAmount: bigint;
+}
+
+/**
+ * Fails closed on a malformed or non-positive asset before any network/chain
+ * call is made — a zero or negative `assetAmount`, or a `tokenAddress` that
+ * isn't a 20-byte hex address, is a caller defect, never something to submit
+ * and let the chain reject. A zero-value request should use
+ * `submitProcessRequest` (the existing no-funds projection path), not this
+ * one — asset-bearing plumbing exists only for a request that actually
+ * carries value.
+ */
+export function validateVelaAssetRef(asset: VelaAssetRef): void {
+  if (!HEX_ADDRESS_RE.test(asset.tokenAddress)) {
+    throw new Error(
+      `invalid Vela asset tokenAddress "${asset.tokenAddress}" — must be a 20-byte hex address ` +
+        `(use ETH_SENTINEL_ADDRESS for native ETH)`,
+    );
+  }
+  if (typeof asset.assetAmount !== 'bigint') {
+    throw new Error(
+      `invalid Vela asset assetAmount — must be a bigint, got ${typeof asset.assetAmount}`,
+    );
+  }
+  if (asset.assetAmount <= 0n) {
+    throw new Error(
+      `invalid Vela asset assetAmount ${asset.assetAmount} — must be > 0 ` +
+        `(use submitProcessRequest for a no-funds projection request)`,
+    );
+  }
+}
+
+/**
  * The result of one completed Vela request, as observed on-chain/via subgraph.
  * This is the WIRE shape — the provider translates it into the domain's
  * `ConfidentialProjectionEvidence`. Deliberately NOT exported past the
@@ -122,8 +179,28 @@ export interface VelaTransport {
    * AES-256-GCM, nonce prepended. Matches vela/pkg/crypto/cipher.go exactly.
    */
   encryptForTee(plaintext: Uint8Array): Promise<Uint8Array>;
-  /** Submits a PROCESS request carrying the ciphertext. Returns the on-chain requestId. */
+  /**
+   * Submits a PROCESS request carrying the ciphertext and NO asset value
+   * (`tokenAddress`/`assetAmount` are the ETH sentinel / zero on the real
+   * transport — "a projection carries no funds"). Returns the on-chain
+   * requestId. Frozen behaviour: never extend this method with an asset
+   * parameter — use `submitAssetBearingProcessRequest` instead.
+   */
   submitProcessRequest(applicationId: string, encryptedPayload: Uint8Array): Promise<string>;
+  /**
+   * Submits a PROCESS request carrying the ciphertext AND a real on-chain
+   * asset (native ETH or an allowlisted ERC-20) — the asset-bearing sibling
+   * of `submitProcessRequest`, additive and separate so the no-funds
+   * projection path above can never accidentally start carrying value.
+   * Implementations MUST call `validateVelaAssetRef(asset)` (or equivalent)
+   * before any network/chain call, so an invalid amount never reaches the
+   * chain. Returns the on-chain requestId.
+   */
+  submitAssetBearingProcessRequest(
+    applicationId: string,
+    encryptedPayload: Uint8Array,
+    asset: VelaAssetRef,
+  ): Promise<string>;
   /** Polls for a completed result. Returns null while still pending. */
   fetchResult(requestId: string): Promise<VelaRequestResult | null>;
   /**

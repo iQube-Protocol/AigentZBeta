@@ -15,10 +15,12 @@
  */
 
 import { createHash, randomBytes } from 'crypto';
-import type {
-  VelaDeploymentDescriptor,
-  VelaRequestResult,
-  VelaTransport,
+import {
+  validateVelaAssetRef,
+  type VelaAssetRef,
+  type VelaDeploymentDescriptor,
+  type VelaRequestResult,
+  type VelaTransport,
 } from './velaTypes';
 
 export interface VelaTestTransportOptions {
@@ -44,6 +46,8 @@ export class VelaTestTransport implements VelaTransport {
   private readonly opts: VelaTestTransportOptions;
   /** requestId -> submitted ciphertext + the plaintext it wrapped. */
   private readonly submissions = new Map<string, { payload: Uint8Array; plaintext: string }>();
+  /** requestId -> the asset submitted with it, for asset-bearing requests only (test-only assertion aid). */
+  private readonly assetByRequest = new Map<string, VelaAssetRef>();
   private readonly pollCounts = new Map<string, number>();
   private nonce = 0;
 
@@ -87,6 +91,26 @@ export class VelaTestTransport implements VelaTransport {
     return requestId;
   }
 
+  async submitAssetBearingProcessRequest(
+    _applicationId: string,
+    encryptedPayload: Uint8Array,
+    asset: VelaAssetRef,
+  ): Promise<string> {
+    // Validated before any state is recorded, mirroring the real transport's
+    // fail-closed contract — invalid amounts never "submit" even here.
+    validateVelaAssetRef(asset);
+    this.nonce += 1;
+    const requestId = `0x${createHash('sha256')
+      .update(`test-asset-request:${this.nonce}`)
+      .digest('hex')}`;
+    this.submissions.set(requestId, {
+      payload: encryptedPayload,
+      plaintext: this.decrypt(encryptedPayload),
+    });
+    this.assetByRequest.set(requestId, asset);
+    return requestId;
+  }
+
   async fetchResult(requestId: string): Promise<VelaRequestResult | null> {
     const submission = this.submissions.get(requestId);
     if (!submission) return null;
@@ -123,5 +147,10 @@ export class VelaTestTransport implements VelaTransport {
   /** Test-only: the ciphertext actually submitted, for leak assertions. */
   submittedPayloadFor(requestId: string): Uint8Array | undefined {
     return this.submissions.get(requestId)?.payload;
+  }
+
+  /** Test-only: the asset actually threaded through for a given requestId, if any. */
+  assetSubmittedFor(requestId: string): VelaAssetRef | undefined {
+    return this.assetByRequest.get(requestId);
   }
 }
