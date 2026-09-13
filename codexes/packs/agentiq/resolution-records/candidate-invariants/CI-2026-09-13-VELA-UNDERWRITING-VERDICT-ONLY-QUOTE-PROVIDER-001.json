@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-13-VELA-UNDERWRITING-VERDICT-ONLY-QUOTE-PROVIDER-001",
+  "statement": "A business-logic layer built on top of a confidential-projection's disclosed coarse verdict MUST: (1) accept ONLY that verdict as input to its pluggable pricing/decisioning seam — a structural, type-level property (the function's own signature has no parameter shape that could carry a party's raw private inputs), never merely a documented convention; (2) live behind a documented provider interface with exactly one concrete implementation until a real second implementation is needed, mirroring this codebase's existing pluggable-provider shape (interface + concrete implementation + one construction point that could later branch on a real live-mode gate) rather than inventing a new pluggability convention; (3) make its 'this output is simulated, not real' status a REQUIRED field of its own output type, never optional or inferred by a consumer; (4) NEVER let a value computed FROM that output (e.g. a quoted premium) retroactively decide whether a real financial/asset-bearing instruction is submitted — the asset-bearing decision must be made by a call parameter supplied independently by the caller, and ideally be temporally prior to the simulated output's own computation, so that deriving one from the other is not merely undisciplined but structurally impossible; (5) bind the full causal chain (request identity, party namespace refs, the disclosure scope actually used, the disclosed result, whatever execution evidence concepts the substrate actually exposes — reusing that substrate's own evidence vocabulary rather than inventing new terms, the business output, and its simulated/live status) into one receipt, with a dedicated test proving no raw financial input, delivery-routing address, or T0 identity string leaks into that receipt.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": "CI-2026-09-13-VELA-MULTI-PARTY-TS-WIRE-EXACT-CONSTRUCTION-001",
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "The business-logic counterpart of CI-2026-09-13-VELA-MULTI-PARTY-TS-WIRE-EXACT-CONSTRUCTION-001: that candidate proved a caller could safely REACH the guest's disclosed verdict; this one is the FIRST occurrence of what a caller must do to safely BUILD something (a priced, actionable decision) on top of that verdict without smuggling private inputs back in or letting a simulated output masquerade as, or silently create, a real obligation. Also composes services/financialServices/providers/bankr/'s existing pluggable-provider SHAPE (requirement 2) — reused as a naming/structural convention, not imported from.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/underwriting-provider-simulated.test.ts",
+      "assertion": "Gate-1 structural proof (arity 1, a @ts-expect-error case for an object argument), the deterministic lookup table's exact shape for all three verdicts (including UNRESOLVED's confidence-exactly-0 and null estimatedExposure), and gate-4's structural proof that UnderwritingQuote cannot be constructed without providerMode, plus every quote this provider returns being 'SIMULATED'.",
+      "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/vela-underwriting-projection.test.ts",
+      "assertion": "Eight describe blocks proving: (1) the provider is called with exactly one string argument, never an object; (2) omitted/mismatched COMPUTE_WITH scope never yields a computed accept/reject quote (own-standalone or UNRESOLVED only) and a mismatched scope binding is rejected before any transport call; (3) genuine one-directional DISCLOSE_TO asymmetry produces a different quote per party from the SAME underlying request; (4) providerMode is always SIMULATED, bound both in the quote and explicitly on the receipt; (5)/(7) omitting an asset ref never routes through the asset-bearing path regardless of a non-zero simulated premium, while an explicit caller-supplied ref routes through with exactly that ref, and a non-positive supplied ref is refused before submission; (6) every one of the eight required receipt-binding elements is present as a distinct field, with a dedicated leak-check test grepping the serialized receipt for raw financial figures, recipientAddress values, and the source identity strings namespace refs were derived from; (8) an import-boundary check that no business-logic export leaked backward into the substrate module.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "vela-001-confidential-constitutional-execution / Use Case Zero underwriting vertical slice",
+      "defect": "No business-logic layer existed that could safely turn a Vela-disclosed coarse verdict into a priced, actionable underwriting decision without either (a) requiring access to a party's raw financial inputs, or (b) risking a simulated output being mistaken for, or silently escalated into, a real financial obligation.",
+      "resolutionId": "RES-2026-09-13-VELA-UNDERWRITING-VERTICAL-SLICE-001",
+      "evidence": [
+        "services/financialServices/providers/underwriting/underwritingProviderTypes.ts",
+        "services/financialServices/providers/underwriting/simulatedUnderwritingProvider.ts",
+        "services/vela/velaUnderwritingProjection.ts",
+        "tests/underwriting-provider-simulated.test.ts",
+        "tests/vela-underwriting-projection.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-09-13-VELA-UNDERWRITING-VERTICAL-SLICE-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This is the FIRST recorded occurrence — status stays `candidate`; only an operator act may raise this to `ratified`/`canonical`.",
+    "Not yet applied to a second implementation — occurrence count is 1. The natural second occurrence to watch for is any future confidential-execution business-logic layer built on a disclosed verdict (a real insurer/reinsurer LIVE provider slotting into the SAME UnderwritingProvider interface would be a confirming, not a new, occurrence; a genuinely different domain — e.g. a lending-limit or settlement-eligibility decision built on a different Vela guest's disclosed verdict — would be the second real occurrence)."
+  ]
+}

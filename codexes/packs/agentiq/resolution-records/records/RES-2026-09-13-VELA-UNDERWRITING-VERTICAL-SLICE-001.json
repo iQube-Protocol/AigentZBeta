@@ -1,0 +1,79 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-09-13-VELA-UNDERWRITING-VERTICAL-SLICE-001",
+  "capability": "vela-001-confidential-constitutional-execution",
+  "milestone": "Use Case Zero's first demoable business-logic layer on the proven Vela multi-party substrate — a pluggable underwriting quote provider fed ONLY the guest-disclosed coarse verdict, orchestrated end-to-end into a causal receipt (RES-2026-09-13-VELA-MULTI-PARTY-TS-WIRING-001's own stated 'next item').",
+  "problem": "The guest-side authorization mechanism (RES-2026-09-13-VELA-MULTI-PARTY-GUEST-DISCLOSURE-ENFORCEMENT-001) and its TS-side wiring (RES-2026-09-13-VELA-MULTI-PARTY-TS-WIRING-001) together proved a party could construct, submit, and decode a multi-party confidential projection safely — but nothing in this codebase yet turned the resulting coarse verdict into a business artifact (a risk/coverage/premium quote) or bound the whole flow into a causal, DVN-anchorable receipt. The operator ruled: build exactly that, keep the underwriting formula deterministic and simple (not actuarial), keep it in a REPLACEABLE module (mirroring the existing services/financialServices/providers/bankr/ pluggable-provider pattern), and prove eight new acceptance gates — most centrally, that risk inputs stay private (the quote engine sees only the 3-valued verdict, never raw financial figures) and that a simulated quote can never automatically create a real financial obligation.",
+  "observedFailure": [
+    "Not an observed runtime defect — a prerequisite-closure item, like its two predecessors. The gap was the ABSENCE of: (1) any pluggable quote-generation seam for Vela-disclosed verdicts (confirmed by grep: no UnderwritingProvider-shaped interface existed anywhere in this repo before this session), and (2) any orchestration composing the proven multi-party wiring with a receipt write for this workload (services/vela/velaMultiPartyProjection.ts's own header explicitly excludes business logic; no caller composed it with createActivityReceipt before this item)."
+  ],
+  "rootCauses": [
+    "RES-2026-09-13-VELA-MULTI-PARTY-TS-WIRING-001 was deliberately scoped to wire-exact construction/submission/decoding only ('no new business logic yet', verbatim in that item's own operator ruling) — it explicitly named RiskSlice/coverage/premium/underwriting computation as the next item's job, not its own.",
+    "No existing pluggable-provider seam in this codebase was shaped for a business-logic function whose ENTIRE input is a coarse three-valued disposition — the closest analog, services/financialServices/riskEnvelope.ts, is a structurally different concept (MoneyPenny's own-principal spend-limit derivation from a FULL financial profile) that this item was explicitly instructed not to conflate with or extend."
+  ],
+  "resolution": [
+    "Added services/financialServices/providers/underwriting/underwritingProviderTypes.ts: the UnderwritingProvider interface + the exact nine-field UnderwritingQuote type the operator specified verbatim (riskBand, estimatedExposure, riskOfRepair, coverageEligible, coverageLimit, premium, conditions, confidence, providerMode). quoteForVerdict's ONLY parameter is ConfidentialProjectionDisposition — a structural, not merely documented, guarantee that raw party financial inputs cannot reach this seam.",
+    "Added services/financialServices/providers/underwriting/simulatedUnderwritingProvider.ts: the ONE UnderwritingProvider implementation today — a deterministic lookup table keyed only on the verdict (ACCEPTABLE -> low/eligible/fixed premium+limit; UNACCEPTABLE -> high/not-eligible/conditions; UNRESOLVED -> unknown/not-eligible/confidence 0, per the operator's own verbatim instruction) — plus createUnderwritingProvider(), the one construction point, mirroring services/financialServices/providers/bankr/bankrProviderAdapter.ts's createBankrProviderAdapter shape exactly (operator's explicit instruction). No LIVE provider or live/fake gating logic was built, since no LIVE provider exists yet (CLAUDE.md Change Sizing: no speculative features).",
+    "Added services/vela/velaUnderwritingProjection.ts: runVelaUnderwritingProjection composes buildVelaMultiPartyProjectionRequest -> prepareVelaMultiPartyProjection -> submitVelaMultiPartyProjection -> getVelaMultiPartyProjectionDisposition (all reused verbatim from the proven substrate, zero lines modified) -> createUnderwritingProvider().quoteForVerdict(disposition) -> createActivityReceipt. A NEW file rather than an edit to velaMultiPartyProjection.ts, preserving that module's own 'no new business logic' invariant (its own gate-6 test still passes unchanged).",
+    "actionType 'vela_underwriting_projection_completed' added to services/receipts/activityReceiptService.ts's ActivityActionType union (one literal) and to services/dvn/activityReceiptDvnPipeline.ts's ANCHORABLE_ACTION_TYPES (the ONE permitted unilateral change to that file, per CLAUDE.md's DVN Pipeline Protection carve-out) — plus the accompanying CHECK-constraint-rebuild migration (supabase/migrations/20261001000700_vela_underwriting_projection_receipt_type.sql), required by tests/activity-receipts-action-type-parity.test.ts's own governing rule.",
+    "The causal receipt's actionInput binds all eight operator-mandated elements as distinct named fields: requestRef, onChainRequestId, applicationId, partyNamespaceRefs (+ optional requestingPartyNamespaceRef), scopeBinding + scopeGrants, disposition, payloadCommitment + attestationMode (Vela execution evidence — reusing types/confidentialProjection.ts's own evidence field-name vocabulary rather than inventing new terms), the full quote object, and an explicit top-level providerMode. Never a raw financial input, recipientAddress, or T0 identity string — proven by a dedicated leak-check test mirroring the prior items' own discipline.",
+    "Gate 5/7 (simulated coverage never auto-creates a financial obligation) is enforced STRUCTURALLY, not just procedurally: submitVelaMultiPartyProjection (where an asset ref is consumed) runs BEFORE provider.quoteForVerdict is ever called in runVelaUnderwritingProjection's own control flow — the quote object literally does not exist yet at the point an asset-bearing decision would have to be made, so no code path could derive one from the other even in principle. A caller-supplied VelaAssetRef routes through unchanged (velaTypes.ts's own validateVelaAssetRef already rejects any non-positive amount before it can reach a transport, so 'carries value' reduces exactly to 'a caller supplied one at all' — no separate zero-amount check was needed).",
+    "Full pre-existing Vela suite (8 files, 131 tests + 2 skips) plus the two new test files (tests/underwriting-provider-simulated.test.ts, 10 tests; tests/vela-underwriting-projection.test.ts, 13 tests) run together: 177 passed + 2 skipped (179 total) — the 8 pre-existing files' own pass/skip counts are unchanged. A full whole-repo `npx vitest run` before vs. after this item's changes shows identical pre-existing failure counts (27 failed files / 87 failed tests / 11115 total, unchanged) plus exactly the 23 new passing tests, with no new failures introduced in any file this item touched."
+  ],
+  "rejectedApproaches": [
+    "Extending services/financialServices/riskEnvelope.ts to also produce underwriting quotes — rejected per the task's own explicit instruction: that module is a structurally different concept (MoneyPenny's bounded spend-limit derivation for an EXISTING principal's own full financial profile), and conflating the two would blur a domain boundary the task explicitly named as a hazard to avoid.",
+    "Building underwriting business logic inside services/vela/velaMultiPartyProjection.ts directly — rejected: that module's own header states twice, and its own gate-6 test proves, that it adds no business logic; folding underwriting logic into it would violate an invariant this item is required to preserve, not extend.",
+    "Building a LIVE UnderwritingProvider implementation or a live/fake gating factory (mirroring Bankr's BANKR_LIVE_MODE_ENABLED pattern) now — rejected: no real insurer/reinsurer integration exists to gate, so building the gate today would be speculative structure with nothing real behind it (CLAUDE.md Change Sizing). The factory is shaped so a future LIVE provider slots in behind the same interface without an orchestration-caller change, which is the operator's own stated 'right amount' of forward structure.",
+    "Deriving 'carries a real financial obligation' from a caller-supplied asset ref's specific amount, with a bespoke zero-amount carve-out in the new orchestration function — rejected as redundant: velaTypes.ts's own validateVelaAssetRef already refuses any assetAmount <= 0n before it can reach a transport, so a caller-supplied VelaAssetRef is, by construction, always positive; adding a second check here would duplicate existing enforcement rather than compose with it (CLAUDE.md inv.engineering.036/037).",
+    "Routing the receipt write through services/constitutionalCommerce's CausalChainRefs/ActionAuthorisation apparatus (as the single-party authority/mandate flow does) — rejected per the task's own explicit instruction: that is a DIFFERENT flow this multi-party path does not have; createActivityReceipt is used directly, mirroring services/factor/factorConfidentialWorkload.ts's own precedent for a Vela-driven workload receipt."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-13-VELA-UNDERWRITING-VERDICT-ONLY-QUOTE-PROVIDER-001"
+  ],
+  "canaries": [
+    "tests/underwriting-provider-simulated.test.ts",
+    "tests/vela-underwriting-projection.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "milestone-complete",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/underwriting-provider-simulated.test.ts",
+      "tests/vela-underwriting-projection.test.ts",
+      "tests/vela-multi-party-projection.test.ts",
+      "tests/vela-party-namespace.test.ts",
+      "tests/vela-asset-bearing-request.test.ts",
+      "tests/vela-confidential-projection-provider.test.ts",
+      "tests/vela-agent-p521-derivation.test.ts",
+      "tests/vela-config-early-access.test.ts",
+      "tests/vela-slice2f-capability-invocation.test.ts",
+      "tests/vela-slice2g-execution-observation-validation.test.ts",
+      "tests/factor-vela-confidential-workload.test.ts",
+      "tests/activity-receipts-action-type-parity.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-09-13_vela-accelerator-multi-party-ts-wiring.md",
+      "codexes/packs/agentiq/updates/2026-09-13_vela-pilot-milestone-guest-side-namespace-isolation.md",
+      "codexes/packs/agentiq/updates/2026-09-13_vela-underwriting-vertical-slice.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-13_vela-accelerator-multi-party-ts-wiring.md",
+    "codexes/packs/agentiq/updates/2026-09-13_vela-pilot-milestone-guest-side-namespace-isolation.md",
+    "services/vela/velaMultiPartyProjection.ts",
+    "services/financialServices/providers/bankr/bankrProviderAdapter.ts",
+    "services/factor/factorConfidentialWorkload.ts"
+  ],
+  "date": "2026-09-13",
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}
