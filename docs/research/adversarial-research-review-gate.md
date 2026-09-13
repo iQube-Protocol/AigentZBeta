@@ -385,3 +385,26 @@ adds it:
   admission disqualifies it.
 
 Full build record and ten test results: `codexes/packs/agentiq/updates/2026-09-13_threshold-007-publication-gate-approval.md`.
+
+### Canonical Research Edition promotion (`promote_threshold_research_edition`, added 2026-09-13)
+
+A diagnostic of the metaMe Threshold MCP bridge (`list_public_capabilities` across all four
+cartridges) found exactly two live Qriptopian capabilities, both read-only projections — nothing
+publishes/promotes/canonicalizes a Research Edition anywhere in the bridge, app code, or as a
+described-only/planned entry. `supabase/migrations/20260913220000_research_canonical_promotion_boundary.sql`
+adds the missing mechanism directly against the deterministic gate above:
+
+- `public.research_publication_records` — an append-only canonical publication ledger. At most one
+  `CANONICAL` row per `(content_id, candidate_sha256)`, enforced by a unique partial index in
+  addition to the function's own idempotency check.
+- `public.promote_threshold_research_edition(content_id, candidate_version)` — the ONLY function
+  permitted to create a `CANONICAL` row or set `content.ai_metadata.researchCompanionStatus =
+  'canonical'`. Re-verifies everything `approve_threshold_research_gate()` already established
+  (gate approved, publishable, admitted review's candidate SHA still current, not superseded,
+  disposition admissible, zero blockers, evidence resolved, no regression) before promoting — it
+  never reassesses the science or mutates the manuscript.
+- A narrow `BEFORE UPDATE` trigger on `content` refuses any direct write setting
+  `ai_metadata.researchCompanionStatus` to `'canonical'` outside that function, without restricting
+  any other `ai_metadata` write.
+
+Full build record and thirteen test results: `codexes/packs/agentiq/updates/2026-09-13_threshold-007-canonical-promotion.md`.
