@@ -8,6 +8,8 @@
 
 **Method:** This addendum is built from a dedicated read-only research sweep conducted 2026-09-13 across the whole repository (grep + full-file reads of `services/invariants/riskField.ts`, `services/venture/ventureOutcomeAccrual.ts`, `services/factor/*`, `services/horizen/*`, `services/vela/*`, `services/crm/standingAccrualService.ts`, `services/receipts/activityReceiptService.ts`, `services/dvn/activityReceiptDvnPipeline.ts`, relevant CFS docs, the Vela accelerator doctrine set, and the Lehigh corpus files already committed under `codexes/packs/agentiq/resources/lehigh-reit-risk-corpus/`), plus re-reads of `2026-09-13_threshold-007-evidence-resolution-pass.md` and `2026-09-13_lehigh-risk-calibration-primary-source-verification.md` (including its Dhrunal Belani addendum). File:line citations are given wherever the underlying sweep produced them.
 
+**2026-09-13 operator-directed refinement note:** three subsections (B.1, D.1, G.1) were added after initial publication of this addendum, at the operator's explicit direction, to sharpen — not correct — the positive relationship between RoR and Consequence-Horizon substrate, the Vela/Horizon consequential-measurement pathway, and the Pilot-vs-Experiment epistemic complementarity. Two items the operator explicitly withheld from this document are recorded separately rather than here: a candidate research proposition on constitutional robustness under deceptive cognition (`2026-09-13_threshold-007-candidate-research-proposition-deceptive-cognition.md` and `research_candidate_experiments` row `threshold-007-constitutional-robustness-under-deception`), and infrastructure/backlog items — the Evidence Access ClusterQube and Lehigh-corpus constitutionalization — recorded in `research_backlog_items` and a companion backlog note, not in this evidence-resolution prose.
+
 ---
 
 ## A. Updated Lehigh Risk / Value / Price Lineage
@@ -56,6 +58,12 @@ Per the requested 13-point ladder, using ABSENT / CONCEPTUAL / IMPLEMENTED / INS
 
 **RoR maturity summary, unchanged in ceiling from v1.0, refined in detail:** doctrine → typed structures → discovery-ordering use → partial data-capture schema, **stopping there**. No calibrated scalar, no experimentally-exercised scoring run against real repair outcomes, no causal validation.
 
+### B.1 — Risk-of-Repair as Consequence-Horizon Substrate (operator-directed addendum)
+
+The absence of direct Consequence-Horizon measurement should not be interpreted as absence of relevant measurement substrate. The Lehigh risk-calibration lineage was not designed to measure Consequence Horizon. Its relevance is antecedent: it establishes substantive methodology for risk identification, scoring and calibration from which Risk-of-Repair instrumentation may develop. RoR and Consequence Horizon are distinct but coupled research quantities. Consequence Horizon concerns how far consequential projection remains sufficiently reliable; RoR concerns the repair exposure associated with acting when such projection or intervention proves wrong. The candidate constitutional relationship therefore concerns CH together with calibration, uncertainty, reversibility and RoR in determining a warranted action boundary. This relationship remains a research proposition rather than an experimentally established law.
+
+This is consistent with, and sharpens, §H below (the RoR → Consequence-Horizon Substrate Relationship table): RoR remains the most concrete of that relationship's five components, without itself constituting CH measurement.
+
 ---
 
 ## C. PoTS / Time-to-Value Evidence Status
@@ -94,6 +102,12 @@ Per the requested 13-point ladder, using ABSENT / CONCEPTUAL / IMPLEMENTED / INS
 | Golden Cycle records | IMPLEMENTED (schema only) | Section E below |
 | Factor | IMPLEMENTED, substantially OPERATIONAL | `services/factor/authorityChain.ts` — real, reconciled delegation-chain implementation backed by real tables |
 
+### D.1 — Vela/Horizon and Consequential Measurement (operator-directed addendum)
+
+PoTS (Proof of Time Saved) and Risk of Repair form central candidate measurement surfaces in the Vela/Horizon financial-services pilot architecture, alongside consequential signals including Pulse, P&L and Standing/evidence accrual where implemented. The governing proposition is that information or intelligent intervention should compress Time-to-Value without exporting unacceptable Risk of Repair. This creates an operational pathway from antecedent risk calibration toward observed consequential measurement. Venture Lab/pilot telemetry must not be retrospectively classified as controlled scientific validation; equally, its consequential character should not be dismissed merely because it is not an IRL experiment. The Venture Lab provides a real-world environment in which intervention, value, time, financial consequence and repair can potentially become observable. IRL provides the controlled environment in which relationships surfaced through that pilot can subsequently be isolated, calibrated and falsified.
+
+This framing is what the table above already shows in practice: PoTS is IMPLEMENTED/INSTRUMENTED, RoR is present but not yet a dedicated Vela/Horizon KPI, and Standing/Pulse/P&L sit at varying degrees of operational maturity — none of which amounts to controlled validation, and none of which should be dismissed as irrelevant to it.
+
 ---
 
 ## E. Golden Cycle Status Update
@@ -124,6 +138,12 @@ Both are real and implemented in this codebase; nothing in this sweep collapses 
 ## G. Pilot vs. Experiment Distinction
 
 The task's proposed formulation — "Experimentation isolates a relationship. Piloting exposes it to reality." — is **not contradicted** by anything found this pass, and the codebase does implement mechanisms consistent with each half (isolated/controlled testing infrastructure for IRL; consequential, partner-facing, gated-accrual infrastructure for Venture Lab/Horizen). This is recorded per the task's own instruction as an **ARCHITECTURAL / METHODOLOGICAL PROPOSITION SUPPORTED BY IMPLEMENTATION**, explicitly **not** a scientifically validated law — no experiment in this codebase tests the proposition itself.
+
+### G.1 — Pilot versus Experiment (operator-directed addendum, sharpened)
+
+Within the emerging research architecture, controlled experimentation and consequential piloting perform complementary epistemic functions. IRL experimentation isolates and falsifies candidate relationships under controlled conditions. Venture Lab piloting exposes those relationships to consequential reality, including live uncertainty, incentives, changing state, external actors, financial effects, tacit behaviour and repair. Accordingly, the Vela/Horizon pilot may provide the programme's most tangible operational environment for observing a Consequence Horizon, while IRL research supplies the instrumentation and controls necessary to establish whether the apparent relationships are scientifically invariant. Pilot observation is therefore neither equivalent to scientific validation nor epistemically irrelevant to it.
+
+This restates and sharpens §I below (Venture Lab as Potential Operational Consequence-Horizon Environment): the operational-environment/instrument/scientific-evidence distinction drawn there is the concrete form of the pilot-versus-experiment complementarity stated here.
 
 ---
 
@@ -320,7 +340,15 @@ The primary-source doctrine above is **consistent with, and arguably supportive 
     "journey_states/orchestration_events linkage to RoR/PoTS/Golden-Cycle apparatus (not verified column-by-column)"
   ],
   "primary_source_receipt": "read-only repository sweep, 2026-09-13, no database access, file:line citations recorded inline above",
-  "constitutional_enforcement_locus_status": "PRIMARY_SOURCE_VERIFIED_DOCTRINE_ACTION_LAYER_NOT_REASONING_LAYER_CONSISTENT_WITH_ALTERNATIVE_4_NOT_DISPOSITIVE"
+  "constitutional_enforcement_locus_status": "PRIMARY_SOURCE_VERIFIED_DOCTRINE_ACTION_LAYER_NOT_REASONING_LAYER_CONSISTENT_WITH_ALTERNATIVE_4_NOT_DISPOSITIVE",
+  "ror_consequence_horizon_substrate_status": "RESEARCH_PROPOSITION_NOT_EXPERIMENTALLY_ESTABLISHED_SEE_B1_H",
+  "vela_horizon_consequential_pathway_status": "OPERATIONAL_PATHWAY_ARTICULATED_NOT_VALIDATED_SEE_D1",
+  "pilot_vs_experiment_epistemic_role_status": "ARCHITECTURAL_METHODOLOGICAL_PROPOSITION_SUPPORTED_BY_IMPLEMENTATION_SEE_G1_I",
+  "deferred_out_of_scope_items": [
+    "candidate research proposition: constitutional robustness under deceptive cognition -- recorded separately, not as evidence-resolution fact (see 2026-09-13_threshold-007-candidate-research-proposition-deceptive-cognition.md and research_candidate_experiments row threshold-007-constitutional-robustness-under-deception)",
+    "Evidence Access ClusterQube -- infrastructure/backlog, recorded in research_backlog_items, not evidence-resolution prose",
+    "Lehigh corpus constitutionalization -- infrastructure/backlog, recorded in research_backlog_items, not evidence-resolution prose"
+  ]
 }
 ```
 

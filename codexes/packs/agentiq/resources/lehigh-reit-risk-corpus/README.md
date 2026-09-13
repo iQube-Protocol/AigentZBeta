@@ -53,6 +53,16 @@ truncation/corruption risk to disclose here (contrast the earlier blocked cover-
 attempt, which hit a base64-transcription limit; this path avoided that failure mode entirely by
 never routing file bytes through the conversation).
 
+**Artifact integrity and availability: established. Constitutional asset registration: pending.**
+Eight dense Lehigh REIT Risk corpus artifacts are now durably hosted with verified SHA-256
+integrity and repository-manifested locations. They are presently direct Storage objects rather
+than assets registered through the normal content-asset / iQube-trinity provenance pipeline. This
+affects constitutional registration and governed access status, not the evidentiary contents of
+the artifacts themselves. Public exposure in this bucket is a temporary state, not the intended end
+state for internal research materials — see the migration/constitutionalization backlog item in
+`codexes/packs/agentiq/updates/2026-09-13_threshold-007-infrastructure-backlog-note.md` and the
+`threshold-007-lehigh-corpus-constitutionalization` row in `research_backlog_items`.
+
 | File | sha256 (confirmed pre- and post-upload) | Size | Supabase Storage URL |
 |---|---|---|---|
 | `DATA_RISK_FOR_MARKETPLACES_V2.md` | `b98acea6442d6ca6298d078cf6f8e5fa064ffd40006db35c6d59bfb21ddcb468` | 186,139 bytes | https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-assets/research/lehigh-reit-risk-corpus/DATA_RISK_FOR_MARKETPLACES_V2.md |
