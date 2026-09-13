@@ -25,7 +25,10 @@ import { createCipheriv, createDecipheriv, createECDH, hkdfSync, randomBytes } f
 import { Contract, JsonRpcProvider, Wallet, type Log } from 'ethers';
 import { deriveAgentP521KeyPair } from './agentP521Derivation';
 import {
+  ETH_SENTINEL_ADDRESS,
   VELA_REQUEST_TYPE,
+  validateVelaAssetRef,
+  type VelaAssetRef,
   type VelaDeploymentDescriptor,
   type VelaRequestResult,
   type VelaTransport,
@@ -33,7 +36,6 @@ import {
 
 /** `ProcessorEndpoint.PROTOCOL_VERSION` — 0 at v0.2.0. */
 const PROTOCOL_VERSION = 0;
-const ETH_SENTINEL = '0x0000000000000000000000000000000000000000';
 
 /** Minimal ABI — only what this transport actually calls. */
 const PROCESSOR_ABI = [
@@ -195,24 +197,77 @@ export class VelaClientAdapter implements VelaTransport {
     applicationId: string,
     encryptedPayload: Uint8Array,
   ): Promise<string> {
+    const maxFee = await this.resolveMaxFee();
+    return this.submitAndAwaitRequestId(
+      'submitProcessRequest',
+      applicationId,
+      encryptedPayload,
+      ETH_SENTINEL_ADDRESS,
+      0n, // a projection carries no funds
+      maxFee,
+      maxFee, // msg.value must cover assetAmount(0) + maxFeeValue
+    );
+  }
+
+  async submitAssetBearingProcessRequest(
+    applicationId: string,
+    encryptedPayload: Uint8Array,
+    asset: VelaAssetRef,
+  ): Promise<string> {
+    // Validated before ANY network/chain call — an invalid amount never
+    // reaches minFeePerRequest(), let alone submitRequest().
+    validateVelaAssetRef(asset);
+    const maxFee = await this.resolveMaxFee();
+    const isNativeEth = asset.tokenAddress.toLowerCase() === ETH_SENTINEL_ADDRESS;
+    // Native ETH must actually move as msg.value alongside the fee; an
+    // ERC-20 asset moves via the contract's own token-transfer path (subject
+    // to the caller having already authorised it — an allowlist/approval
+    // concern this transport does not manage), so msg.value there covers
+    // only the fee.
+    const value = isNativeEth ? asset.assetAmount + maxFee : maxFee;
+    return this.submitAndAwaitRequestId(
+      'submitAssetBearingProcessRequest',
+      applicationId,
+      encryptedPayload,
+      asset.tokenAddress,
+      asset.assetAmount,
+      maxFee,
+      value,
+    );
+  }
+
+  /** `maxFeeValueWei` if set, else the contract's own `minFeePerRequest()`. Shared by both submit paths so neither drifts from the other's fee logic. */
+  private async resolveMaxFee(): Promise<bigint> {
     const minFee: bigint = await this.processor.minFeePerRequest();
     const maxFee = this.opts.maxFeeValueWei ?? minFee;
     if (maxFee < minFee) {
       throw new Error(`maxFeeValue ${maxFee} is below minFeePerRequest ${minFee}`);
     }
+    return maxFee;
+  }
 
+  /** Shared `submitRequest` call + requestId extraction for both submit paths. */
+  private async submitAndAwaitRequestId(
+    callerLabel: string,
+    applicationId: string,
+    encryptedPayload: Uint8Array,
+    tokenAddress: string,
+    assetAmount: bigint,
+    maxFee: bigint,
+    value: bigint,
+  ): Promise<string> {
     const tx = await this.processor.submitRequest(
       PROTOCOL_VERSION,
       BigInt(applicationId),
       VELA_REQUEST_TYPE.PROCESS,
       encryptedPayload,
-      ETH_SENTINEL,
-      0n, // a projection carries no funds
+      tokenAddress,
+      assetAmount,
       maxFee,
-      { value: maxFee }, // msg.value must cover assetAmount + maxFeeValue
+      { value },
     );
     const receipt = await tx.wait();
-    if (!receipt) throw new Error('submitProcessRequest: no receipt');
+    if (!receipt) throw new Error(`${callerLabel}: no receipt`);
 
     // The requestId is the RequestSubmitted log's second topic.
     const submitted = receipt.logs.find((l: Log) => {
@@ -222,7 +277,7 @@ export class VelaClientAdapter implements VelaTransport {
         return false;
       }
     });
-    if (!submitted) throw new Error('submitProcessRequest: no RequestSubmitted log');
+    if (!submitted) throw new Error(`${callerLabel}: no RequestSubmitted log`);
     const requestId = this.processor.interface.parseLog(submitted)!.args.requestId as string;
     this.submitBlock.set(requestId, receipt.blockNumber);
     return requestId;

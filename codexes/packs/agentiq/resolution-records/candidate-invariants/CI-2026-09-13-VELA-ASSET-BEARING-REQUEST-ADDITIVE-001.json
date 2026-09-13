@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-13-VELA-ASSET-BEARING-REQUEST-ADDITIVE-001",
+  "statement": "When a Vela (or any other confidential-workload) transport interface gains the ability to carry a real on-chain asset value, the existing no-funds/zero-value code path MUST be extended by a NEW, separately-named method (or an equally unambiguous separate seam) — never by adding an optional parameter or a silent default to the existing method. Every asset-bearing request MUST validate its asset (non-empty/well-formed token reference, strictly positive amount) BEFORE any network or chain call is made, so an invalid amount is a synchronous caller error, never something submitted and left for the chain to reject. A confidential-projection request (or any other request whose domain meaning is 'this carries no funds') must remain structurally incapable of accidentally starting to carry funds because of an interface change made for an unrelated, asset-bearing caller.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "Task instruction, 2026-09-13 (Vela accelerator build order item 2, asset-neutrality widening): \"never a silent default that could let an existing no-funds caller accidentally start carrying funds\" / \"the existing no-funds projection path must remain byte-for-byte unchanged in behavior, provably (a test)\".",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/vela-asset-bearing-request.test.ts",
+      "assertion": "Asserts (a) `VelaClientAdapter.submitProcessRequest` still binds to its original 2-argument, no-asset type signature; (b) the full `VelaConfidentialProjectionProvider` lifecycle (prepare/submit/status/evidence/verify) still passes unmodified through the same transport that now also supports asset-bearing requests; (c) `assetSubmittedFor(requestId)` is `undefined` for anything submitted via the original no-funds method; (d) a negative, zero, or malformed asset is rejected by `validateVelaAssetRef` and by both transport implementations before any submission is recorded or any chain call is attempted — proven against the REAL `VelaClientAdapter` by pointing at an unreachable RPC port and showing the rejection is the specific validation error, not a network error.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "vela-asset-neutrality-transport-widening",
+      "defect": "Not a defect being fixed — a reusable pattern established while closing a genuine capability gap (no asset-bearing Vela request path existed at all). Recorded per trigger #7 (\"a successful implementation established a reusable pattern\"), not because anything broke.",
+      "resolutionId": "RES-2026-09-13-VELA-ASSET-NEUTRALITY-TRANSPORT-001",
+      "evidence": [
+        "tests/vela-asset-bearing-request.test.ts",
+        "services/vela/velaTypes.ts",
+        "services/vela/velaClientAdapter.ts",
+        "services/vela/velaTestTransport.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-09-13-VELA-ASSET-NEUTRALITY-TRANSPORT-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "Generalises beyond Vela: any confidential-workload or projection-style transport in this repo that later needs to carry real value should follow the same additive-sibling-method + validate-before-network-call shape, rather than widening an existing no-funds method's parameter list.",
+    "Does not itself resolve the ERC-20 allowlist/permit question — that stays an external Vela-Engineering dependency (see the resolution record's 'ERC-20 allowlist question' section and the companion update doc). This invariant is about the SHAPE of the extension, not about ERC-20 support being complete.",
+    "An agent may not raise this candidate above `validated` — ratification to `validated`/`ratified`/`canonical` is an operator act per the Resolution → Invariant Loop rule in CLAUDE.md."
+  ]
+}
