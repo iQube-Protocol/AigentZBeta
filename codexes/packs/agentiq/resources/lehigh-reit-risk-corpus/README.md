@@ -10,10 +10,11 @@ a future Threshold edition, REIT/DeFi application work) can cite these artifacts
 than through filename/hash reference alone.
 
 **Per `CLAUDE.md`'s Dense Materials rule, this directory carries source CODE and TEXT only.**
-PDFs, spreadsheets, and binary documents from the same upload batch are NOT committed here — they
-are listed below as pending pointers, to be uploaded to Autonomys Auto Drive (their correct home
-per that rule) once the two upload-side credentials are available. See "Pending Auto Drive
-uploads" below.
+PDFs, spreadsheets, and binary documents from the same upload batch are NOT committed here — the
+repo carries only the pointer. Those 8 dense files are now uploaded to **Supabase Storage**
+(`content-assets` bucket, public, `research/lehigh-reit-risk-corpus/` prefix) in the live "Aigent Z"
+Supabase project, per the Dense Materials rule's sanctioned home for "working drafts... anything the
+app serves." See "Dense materials — Supabase Storage" below for the resolved URLs.
 
 ## Committed in this directory
 
@@ -35,35 +36,45 @@ It does not implement or validate the constitutional Proof of Risk / Proof of Ri
 construct, and provides no evidence for Consequence Horizon, H1b, or longitudinal instrumentation.
 See the linked update doc for the full epistemic boundary.
 
-## Pending Auto Drive uploads (dense materials — not committed here)
+## Dense materials — Supabase Storage (uploaded 2026-09-13)
 
 Per `CLAUDE.md`: "Manuscripts, corpora, media and build output do not belong in git. The repo
-carries the POINTER... never the bytes." These files were supplied in the same batch and are
-listed here with their sha256 fingerprints so the pointer records can be filled in once uploaded
-via `upload_content_asset` (requires either the two upload-side secrets, `AUTONOMYS_API_KEY` +
-`CODEX_MASTER_KEY`, to script the upload locally reading bytes directly off disk with no
-transcription step, or a native admin-UI upload by the operator whose resulting asset id/CID can
-then be recorded here):
+carries the POINTER... never the bytes." These 8 files were supplied across the 2026-09-13 upload
+batch and are now uploaded to Supabase Storage — `content-assets` bucket (public,
+`research/lehigh-reit-risk-corpus/` prefix), project `bsjhfvctmduxhohtllly` ("Aigent Z", the live
+project verified by schema match — `codex_media_assets`, `content_publication_gates`,
+`golden_cycle_records`, `venture_qubes` all present). Upload was done via a temporary,
+secret-gated Edge Function that streamed each file's raw bytes directly from disk to Storage using
+the project's own service-role credential (never exposed to or handled by the agent); the function
+has since been retired (redeployed as an inert 410 stub — no delete-function capability was
+available via MCP at the time). **Every post-upload sha256 was recomputed server-side and matches
+the pre-upload fingerprint below exactly** — no transcription step was involved, so there is no
+truncation/corruption risk to disclose here (contrast the earlier blocked cover-image upload
+attempt, which hit a base64-transcription limit; this path avoided that failure mode entirely by
+never routing file bytes through the conversation).
 
-| File | sha256 | Size | Status |
+| File | sha256 (confirmed pre- and post-upload) | Size | Supabase Storage URL |
 |---|---|---|---|
-| `DATA_RISK_FOR_MARKETPLACES_V2.md` | `b98acea6442d6ca6298d078cf6f8e5fa064ffd40006db35c6d59bfb21ddcb468` | 186 KB | pending — treated as long-form research report, not source code |
-| `Pricng_Data_and_Risk_Final_Project_Paper.pdf` | `5667a6789e216db3c0888f1932950ef4a281b5f4379491467626ded98a16458c` | 856 KB | pending |
-| `Plan_v.02.pdf` | `b01b26728361d6a941813f398efdb3ca4ad7d4f76ba9b17bfc3268fd7851f7c3` | 196 KB | pending |
-| `Final_Report_metaMe1.pdf` | `d1eb8f10ae86de3edad770163a49d4662f4c4486787002cd2b035feb87a59084` | 1.78 MB | pending |
-| `PoTS_Protocol_Integration_Pack_v0.1.pdf` | `ba9605a8074549d9414898000eaf27823947e46a923c09422a16fd4373d89d88` | 206 KB | pending |
-| `Value_engine_Logic.docx` | `2e5316369b71a0f75f70a2c5cc31ef69ee8e8012bcae8088b5f03dabdce5128f` | 17 KB | pending |
-| `Book4.xlsx` | `34858ed95809431e8e2923857f0e6df157c34a2aac0bfb420d3819626ccd773d` | 1.0 MB | pending — the expert-labelled 105×19 risk matrix `Test_metatMe_DataRisk_1.ipynb` (above) loads |
-| `Dhrunal_Belani_Final_Report_MetaMe_2.pdf` | `8693f29535c7cea8b72bb5831f18e24411fd368ddc539228512b199e2c9121eb` | 394.6 KB | pending — Lehigh MFE capstone report; a second, independent risk-calibration writeup (32-dimension taxonomy, 5-source empirical weighting). See the terminology caveat below — this document uses "Proof of Risk" as a third, non-equivalent term and references PoTS in a new, unvalidated pricing-formula context. |
+| `DATA_RISK_FOR_MARKETPLACES_V2.md` | `b98acea6442d6ca6298d078cf6f8e5fa064ffd40006db35c6d59bfb21ddcb468` | 186,139 bytes | https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-assets/research/lehigh-reit-risk-corpus/DATA_RISK_FOR_MARKETPLACES_V2.md |
+| `Pricng_Data_and_Risk_Final_Project_Paper.pdf` | `5667a6789e216db3c0888f1932950ef4a281b5f4379491467626ded98a16458c` | 876,491 bytes | https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-assets/research/lehigh-reit-risk-corpus/Pricng_Data_and_Risk_Final_Project_Paper.pdf |
+| `Plan_v.02.pdf` | `b01b26728361d6a941813f398efdb3ca4ad7d4f76ba9b17bfc3268fd7851f7c3` | 195,719 bytes | https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-assets/research/lehigh-reit-risk-corpus/Plan_v.02.pdf |
+| `Final_Report_metaMe1.pdf` | `d1eb8f10ae86de3edad770163a49d4662f4c4486787002cd2b035feb87a59084` | 1,785,178 bytes | https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-assets/research/lehigh-reit-risk-corpus/Final_Report_metaMe1.pdf |
+| `PoTS_Protocol_Integration_Pack_v0.1.pdf` | `ba9605a8074549d9414898000eaf27823947e46a923c09422a16fd4373d89d88` | 206,460 bytes | https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-assets/research/lehigh-reit-risk-corpus/PoTS_Protocol_Integration_Pack_v0.1.pdf |
+| `Value_engine_Logic.docx` | `2e5316369b71a0f75f70a2c5cc31ef69ee8e8012bcae8088b5f03dabdce5128f` | 17,274 bytes | https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-assets/research/lehigh-reit-risk-corpus/Value_engine_Logic.docx |
+| `Book4.xlsx` | `34858ed95809431e8e2923857f0e6df157c34a2aac0bfb420d3819626ccd773d` | 1,002,273 bytes | https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-assets/research/lehigh-reit-risk-corpus/Book4.xlsx — the expert-labelled 105×19 risk matrix `Test_metatMe_DataRisk_1.ipynb` (above) loads |
+| `Dhrunal_Belani_Final_Report_MetaMe_2.pdf` | `8693f29535c7cea8b72bb5831f18e24411fd368ddc539228512b199e2c9121eb` | 404,058 bytes | https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-assets/research/lehigh-reit-risk-corpus/Dhrunal_Belani_Final_Report_MetaMe_2.pdf — Lehigh MFE capstone report; a second, independent risk-calibration writeup (32-dimension taxonomy, 5-source empirical weighting). Uses "Proof of Risk" as a third, non-equivalent term and references PoTS in a new, unvalidated pricing-formula context — see the terminology caveat in `2026-09-13_lehigh-risk-calibration-primary-source-verification.md`. |
 
-**Why these aren't in git:** even setting the Dense Materials rule aside, several of these exceed
-what can be reliably transcribed through a single MCP tool-call argument in this session (base64
-payloads above roughly 150–200 KB have been observed to exceed this environment's per-call read/
-context limits, risking silent truncation-driven corruption with no cheap way to detect it). The
-correct path is a local upload script reading these files directly off disk (no transcription
-through the conversation at all), which requires the two upload-side secrets named above.
+**Not registered in `codex_media_assets`.** These uploads went directly to Storage via the
+mechanism above, bypassing the app's normal `upload_content_asset` → `codex_media_assets` →
+iQube-trinity registration pipeline (that pipeline targets Autonomys Auto Drive for canonical,
+provenance-bearing content, not Supabase Storage, and was unavailable this session — the
+`threshold` MCP connector required OAuth re-authorization). These files are plain public Storage
+objects: durable, directly linkable, and sha256-verified, but **not** iQube-registered artifacts. If
+a future pass wants them to carry iQube metadata/registry entries, that is separate work, not
+implied by this upload.
 
 ## Update this manifest
 
-Once any pending file is uploaded, replace its row above with: CID, `codex_media_assets` id,
-upload timestamp, and confirm the sha256 matches post-upload before marking it resolved.
+If any file above is superseded (a corrected version, an Auto Drive/iQube-registered promotion),
+replace its row with the new pointer and re-confirm the sha256 before marking the old row
+superseded rather than silently overwritten.
