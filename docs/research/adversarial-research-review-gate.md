@@ -327,3 +327,38 @@ A candidate row moves `candidate → evidence_resolution_required → arr_pendin
 `arr_disposition` except as the direct, disclosed output of an actually-performed independent ARR
 pass by the Adversary role — never as a side effect of an evidence-resolution or citation-hardening
 pass, however complete.
+
+### ARR Admission Boundary (`research_review_records` / `admit_research_review`, added 2026-09-13)
+
+The rule above was, until 2026-09-13, enforced only by convention: `arr_disposition` was a plain
+`service_role`-writable column with no reviewer-identity binding and no candidate-SHA binding. A
+read-only diagnostic that day confirmed this explicitly (no app code referenced the table, no
+policies existed, and none of three operator-relayed "independent ARR" artifacts for Threshold 007
+could be admitted, since no first-class, verifiable record of any of them existed in the database).
+
+This is now closed by `supabase/migrations/20260913200000_research_review_arr_admission_boundary.sql`:
+
+- `public.research_reviewer_authorities` — a human (operator)-minted record of who holds ARR-review
+  authority under which role (`adversary | evidence_agent | author | publication_gate`), optionally
+  scoped to one piece of content. No agent-callable path creates these rows.
+- `public.research_review_records` — an append-only (trigger-enforced) ledger of ARR review
+  artifacts (`ORIGINAL_ARR | ARR_ADDENDUM | CANDIDATE_DELTA_CONFIRMATION`). `candidate_sha256`,
+  `reviewer_role_at_review` and `reviewer_principal_ref` are derived server-side at insert time —
+  never trusted from the caller.
+- `public.admit_research_review(review_record_id uuid)` — the ONLY function permitted to write
+  `content_publication_gates.arr_disposition` / `.arr_review_record_id` (enforced by a
+  `BEFORE UPDATE` trigger on the gate table, which holds even against `service_role`). It refuses
+  admission when: the review's candidate SHA no longer matches the gate's live candidate; the bound
+  reviewer authority is revoked, out of role (must be `adversary`), out of scope, or shares the
+  content's own `author_principal_ref` (self-certification); the review reports a material evidence
+  regression; or the review-type lineage (`ORIGINAL_ARR` has no parent; `ARR_ADDENDUM` /
+  `CANDIDATE_DELTA_CONFIRMATION` require one) is missing.
+
+**Disclosed limitation, not glossed over:** this closes the *structural* self-certification and
+candidate-binding gaps, but the platform still has no session-level, cryptographic mechanism that
+distinguishes an "Adversary" session from an "Evidence Agent" session — both act through the same
+`service_role` credential. `research_reviewer_authorities` rows are human-attested, not
+cryptographically verified reviewer sessions. A genuine uplift (e.g. a per-session signing key, or a
+distinct credential for Adversary-class review) remains open future work. Full build record, ten
+required-test results, and the Threshold 007 bootstrap treatment:
+`codexes/packs/agentiq/updates/2026-09-13_threshold-007-arr-admission-boundary.md`.
