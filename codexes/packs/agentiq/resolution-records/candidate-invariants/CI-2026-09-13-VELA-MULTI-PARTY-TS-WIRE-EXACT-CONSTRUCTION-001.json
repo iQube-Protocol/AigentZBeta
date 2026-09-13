@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-13-VELA-MULTI-PARTY-TS-WIRE-EXACT-CONSTRUCTION-001",
+  "statement": "A client-side construction/submission/decoding path built against a confidential-execution guest's in-enclave authorization mechanism MUST: (1) make the disclosure/authorization scope a required parameter at BOTH the type-system level and a runtime check that fails closed even when the compile-time type is defeated — never merely documented as required; (2) key any multi-party private-input structure by each party's own derived namespace ref, never reading or merging two parties' private inputs together anywhere in client code, so the one-time encryption of the whole serialized request is transport, not combination; (3) derive every namespace ref ONLY from the same constitutional identity-commitment function the guest's own key space already assumes, structurally excluding any on-chain sender/submitter/signing identity from being able to reach that derivation; (4) reuse the guest's own wire vocabulary field-for-field (verified against the actual source, including how the guest's runtime serializes its own domain types, e.g. an address as hex vs. a byte array) rather than paraphrasing or approximating it; (5) add a client-side pre-submission check that the scope's binding matches the request's actual context, positioned BEFORE any transport/network call, as defense-in-depth ADDITIVE to (never a replacement for) the guest's own equivalent enforcement — and prove BOTH that the client-side check blocks a mismatch before the transport is touched AND that the guest-side (or its faithful test double) independently reaches the same fail-closed outcome if the client-side check is bypassed; (6) compose the existing transport/decoding surface without adding a new transport method or a second decoder, and default to whatever no-value/no-funds path the existing transport already uses, only optionally carrying additional context (e.g. a real on-chain asset) when a caller explicitly opts in.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": "CI-2026-09-13-VELA-GUEST-ENFORCES-DISCLOSURE-SCOPE-BEFORE-COMBINING-001",
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "The client-side counterpart of CI-2026-09-13-VELA-GUEST-ENFORCES-DISCLOSURE-SCOPE-BEFORE-COMBINING-001: that candidate proved the in-enclave half of the isolation property; this one is the FIRST occurrence of what a caller must do to actually reach that guest without weakening or bypassing what it proved. Also a further specialization of CI-2026-09-13-VELA-PARTY-NAMESPACE-KEY-BEFORE-STATEFUL-GUEST-001's namespace-ref-derivation discipline (reused, not reinvented, here) and composes with CI-2026-09-13-VELA-ASSET-BEARING-REQUEST-ADDITIVE-001's additive-optional-asset pattern for requirement (6)'s asset-neutral default.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/vela-multi-party-projection.test.ts",
+      "assertion": "Eight describe blocks, one per operator-mandated gate: (1) scope is a required TS field AND a runtime-validated one, proven both by a @ts-expect-error compile-time case (confirmed via a full `tsc --noEmit` pass showing zero errors in this file, meaning the expected error fired and was correctly suppressed) and multiple runtime-rejection cases; (2) a keyed-by-namespace-ref construction test plus a same-ref-collision-refused test; (3) a structural no-signer-parameter proof plus a recipientAddress-does-not-affect-the-ref test; (4) the two ScopeAction literals are independent, plus a full disclosure vs. no-disclosure round trip through the deterministic fake transport proving the joint verdict is only ever seen when actually and fully disclosed; (5) a mismatched-binding-rejected-before-any-transport-call test (asserting the transport spy was never invoked) AND a bypass test proving a guest-faithful fake transport independently resolves UNRESOLVED; (6) an import-boundary test plus the full pre-existing 8-file/131-test Vela suite run unchanged before and after; (7)/(8) omitted-vs-supplied VelaAssetRef routing tests with exact-ref assertion.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "vela-001-confidential-constitutional-execution / TS-side wiring against the guest-enforced multi-party disclosure scope",
+      "defect": "No TS-side path existed at all to construct, validate, submit, or decode a request against the just-proven guest authorization mechanism — the guest-side proof alone could not yet be exercised by any real caller, and a naive port risked either reusing the wrong (non-wire-compatible) existing TS type or paraphrasing the wire format instead of matching it field-for-field.",
+      "resolutionId": "RES-2026-09-13-VELA-MULTI-PARTY-TS-WIRING-001",
+      "evidence": [
+        "services/vela/velaMultiPartyProjection.ts",
+        "tests/vela-multi-party-projection.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-09-13-VELA-MULTI-PARTY-TS-WIRING-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This is the FIRST recorded occurrence — status stays `candidate`; only an operator act may raise this to `ratified`/`canonical`.",
+    "Requirement (4)'s 'verified against the actual source, including how the guest's runtime serializes its own domain types' is not a generic platitude here — this item specifically had to read vela-common-go's types.Address.MarshalJSON (Go module cache, not the repo itself) to confirm addresses serialize as lowercase-0x hex strings rather than guessing from convention alone (CLAUDE.md's No-Guessing rule, applied to a wire format rather than a URL/env var).",
+    "Not yet applied to a second implementation — occurrence count is 1. The natural second occurrence to watch for is the underwriting vertical slice itself (the next build-order item), IF it needs to add a second multi-party-shaped wire construction against a different guest/operation, or any future confidential-execution integration that must construct a request against an already-proven in-enclave authorization mechanism."
+  ]
+}

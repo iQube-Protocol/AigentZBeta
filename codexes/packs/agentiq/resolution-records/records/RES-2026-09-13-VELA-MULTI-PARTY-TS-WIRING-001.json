@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-09-13-VELA-MULTI-PARTY-TS-WIRING-001",
+  "capability": "vela-001-confidential-constitutional-execution",
+  "milestone": "Vela accelerator build-order item — TS-side wiring against the guest-enforced multi-party disclosure scope (RES-2026-09-13-VELA-MULTI-PARTY-GUEST-DISCLOSURE-ENFORCEMENT-001), immediately preceding the underwriting vertical slice",
+  "problem": "The guest-side multi-party disclosure-scope enforcement (RES-2026-09-13-VELA-MULTI-PARTY-GUEST-DISCLOSURE-ENFORCEMENT-001, de4222fe7/d20c5a79c) proved the required in-enclave isolation property inside app.go, but no TS-side caller existed that could construct, validate, submit, or decode a MultiPartyProjectionRequest against that guest at all. The operator ruled: build that TS-side wiring next, deliberately narrow (construct the request, serialize the disclosure scope, bind it to applicationId+requestRef+operationType+outputClass, preserve per-party namespace refs, submit through the existing Vela transport, decode the authorized result, no new business logic), and specified eight concrete acceptance gates the wiring must satisfy, each with its own required test.",
+  "observedFailure": [
+    "Not an observed runtime defect — this is a prerequisite-closure item, like its guest-side predecessor. The gap was the ABSENCE of any TS-side construction/submission/decoding path for the wire format app.go now expects, confirmed by grep: no `MultiPartyProjectionRequest`-shaped type existed anywhere in services/vela/ before this session, and no dedicated TS `ProjectionInputs` type existed either (confirmed by grep for the identifier across the whole repo)."
+  ],
+  "rootCauses": [
+    "The guest-side item (RES-2026-09-13-VELA-MULTI-PARTY-GUEST-DISCLOSURE-ENFORCEMENT-001) was explicitly scoped to the enclave side only — it built and proved the Go authorization mechanism but deliberately did not touch prepareProjection()/submitProcessRequest or compile a caller against the new request type, per its own stated out-of-scope list.",
+    "services/vela/velaPartyNamespace.ts's own VelaDisclosureScope/isVelaCrossPartyAccessAuthorized gate — the only pre-existing multi-party-shaped TS code in this area — was built for a narrower, earlier item BEFORE the Go guest's actual wire format existed, and is a genuinely different, non-wire-compatible model (single-owner-fans-out-to-an-authorized-list, no COMPUTE_WITH/DISCLOSE_TO split, no request/application/operation/output-class binding) — conflating the two would have produced a client that could not actually talk to the guest that was just built."
+  ],
+  "resolution": [
+    "Added services/vela/velaMultiPartyProjection.ts: wire-exact TypeScript types matching app.go's Go structs field-for-field by JSON tag (VelaScopeAction, VelaScopeGrant, VelaScopeBinding, VelaMultiPartyDisclosureScope, VelaMultiPartyContribution, VelaMultiPartyProjectionInputs, VelaMultiPartyProjectionRequest), plus the three wire-format string constants (VELA_MULTI_PARTY_PROJECTION_REQUEST_TYPE, VELA_MULTI_PARTY_OPERATION_JOINT_CONSEQUENCE_PROJECTION, VELA_MULTI_PARTY_OUTPUT_CLASS_JOINT_VERDICT) verified against the actual Go source and JSON marshaling (including reading vela-common-go's types.Address.MarshalJSON to confirm addresses serialize as lowercase-0x-prefixed hex strings, not a Go byte-array JSON representation).",
+    "assertValidVelaMultiPartyDisclosureScope: a runtime (not merely compile-time) validator making the disclosure scope's binding + grants shape non-negotiable — required to make gate 1 (no construction without an explicit scope) hold even against a JS caller or a TS caller that defeats the type with `as any`.",
+    "buildVelaMultiPartyProjectionRequest: keys VelaMultiPartyProjectionInputs by each party's own namespace ref (derived via the EXISTING deriveVelaPartyNamespaceRef, reused verbatim — never a second derivation), never merging or reading two parties' inputs together anywhere in its own body; throws on a namespace-ref collision between two supplied parties rather than silently overwriting one party's contribution.",
+    "assertVelaMultiPartyScopeBindingMatchesContext: a client-side, pre-submission defense-in-depth check comparing the scope's binding against the request's actual (applicationId, requestRef, operationType, outputClass) BEFORE any transport call — additive to, never a replacement for, the guest's own resolveAuthorizedCombination enforcement.",
+    "prepareVelaMultiPartyProjection / submitVelaMultiPartyProjection: compose the EXISTING VelaTransport (encryptForTee, submitProcessRequest, submitAssetBearingProcessRequest) with no new transport method; default to the existing no-funds submitProcessRequest path, routing through submitAssetBearingProcessRequest only when a caller explicitly supplies a VelaAssetRef (from the immediately-prior asset-neutrality build-order item, RES-2026-09-13-VELA-ASSET-NEUTRALITY-TRANSPORT-001).",
+    "getVelaMultiPartyProjectionDisposition: decodes a result by calling the EXISTING parseConfidentialVerdict (velaProjectionProvider.ts) verbatim — no new decoding/business logic of any kind, matching the operator's explicit narrow-scope instruction.",
+    "Full pre-existing Vela suite (8 files, 131 tests + 2 pre-existing skips) run before and after adding the new module and confirmed byte-for-byte identical pass/skip counts; a temporary holdout of the two new files proved the whole-repo baseline (27 failed files/87 failed tests out of 11092) and the after-run (27 failed files/87 failed tests out of 11115, +23 new passing tests) differ by exactly one unrelated, pre-existing timing-flake test (tests/corpus-scout-verification-step.test.ts, a millisecond-race assertion with no connection to Vela or any file this session touched) — confirmed by inspecting its own failure message directly."
+  ],
+  "rejectedApproaches": [
+    "Extending services/vela/velaPartyNamespace.ts's VelaDisclosureScope to carry the new fields — rejected: that type is a structurally different, non-wire-compatible model (no COMPUTE_WITH/DISCLOSE_TO split, no per-field binding) built for an earlier item before the guest's real wire format existed; retrofitting it would either break its own existing tests/contract or produce a type that still does not match what app.go actually unmarshals. Its reusable half (deriveVelaPartyNamespaceRef) is composed here; its disclosure-scope gate is not extended.",
+    "Reimplementing per-party ProjectionInputs as a new, stricter TS interface (with named currentBalance/currentExposure/proposedSpend/privateSpendLimit/privateRiskLimit fields) — rejected per CLAUDE.md inv.engineering.036/037 and the task's own instruction to reuse the existing shape: no such type exists anywhere in this repo today (confirmed by grep), and the single-party path already sends this exact Record<string, number> shape as ConfidentialProjectionRequest.confidentialInputs; inventing a stricter type here would be the second, parallel definition of the same concept the ontology forbids.",
+    "Building a class (mirroring VelaConfidentialProjectionProvider) instead of standalone functions — rejected: the operator's ruling explicitly bounds this item to construction/validation/submission/decoding with 'no new business logic', and the existing single-party provider's class shape carries authority/evidence/verification methods this item is not asked to build; standalone functions composing the existing transport and existing decoder is the minimal shape that satisfies the eight gates without speculative structure (CLAUDE.md 'Change Sizing').",
+    "Modifying services/vela/velaTestTransport.ts to natively model per-recipient multi-party events — rejected as unnecessary: the existing verdictFor(plaintextJson) callback already receives the full decrypted request JSON, which is sufficient for a TEST-ONLY closure (multiPartyVerdictForRecipient, in the test file only, never exported, never production code) to mirror app.go's authorization/disclosure logic for whichever recipient a given test is checking — extending the shared production test double was not required to prove gate 4/5's behaviour.",
+    "Skipping the gate-5(b) 'bypass the client-side check' test on the theory that the client-side check alone is sufficient — rejected: the operator explicitly required proving the guest-side (fake-transport) enforcement independently survives a bypassed client check, since the client-side check is defense-in-depth, not the sole enforcement point."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-13-VELA-MULTI-PARTY-TS-WIRE-EXACT-CONSTRUCTION-001"
+  ],
+  "canaries": [
+    "tests/vela-multi-party-projection.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/vela-multi-party-projection.test.ts",
+      "tests/vela-party-namespace.test.ts",
+      "tests/vela-asset-bearing-request.test.ts",
+      "tests/vela-confidential-projection-provider.test.ts",
+      "tests/vela-agent-p521-derivation.test.ts",
+      "tests/vela-config-early-access.test.ts",
+      "tests/vela-slice2f-capability-invocation.test.ts",
+      "tests/vela-slice2g-execution-observation-validation.test.ts",
+      "tests/factor-vela-confidential-workload.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-09-13_vela-accelerator-multi-party-guest-enforcement.md",
+      "codexes/packs/agentiq/updates/2026-09-13_vela-pilot-milestone-guest-side-namespace-isolation.md",
+      "codexes/packs/agentiq/updates/2026-09-13_vela-accelerator-multi-party-ts-wiring.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-13_vela-accelerator-multi-party-guest-enforcement.md",
+    "codexes/packs/agentiq/updates/2026-09-13_vela-pilot-milestone-guest-side-namespace-isolation.md",
+    "services/vela/wasm/projector/app/app.go",
+    "services/vela/velaPartyNamespace.ts",
+    "services/vela/velaTypes.ts",
+    "services/vela/velaProjectionProvider.ts"
+  ],
+  "date": "2026-09-13",
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}
