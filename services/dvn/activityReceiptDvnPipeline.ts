@@ -448,6 +448,12 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // never a party's raw financial inputs. Same anchorability class as
   // 'vela_underwriting_projection_completed' above.
   'factor_selection_proposed',
+  // Use Case Zero build-order item 8 (2026-09-13) — Aegis admission-evidence
+  // artifact (services/vela/velaUnderwritingAdmissionEvidence.ts). Carries
+  // only opaque refs, the resolved runtime agent id, and Aegis's own
+  // decision/conditions/rationale — never a party's raw financial inputs.
+  // Same anchorability class as 'factor_selection_proposed' above.
+  'vela_underwriting_admission_evidence_composed',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

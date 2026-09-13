@@ -645,7 +645,19 @@ export type ActivityActionType =
   // never a party's raw financial inputs, and never itself a MoneyPenny
   // admission decision or an Aegis assessment (those remain separate,
   // future receipt types). DVN-anchorable (activityReceiptDvnPipeline.ts).
-  | 'factor_selection_proposed';
+  | 'factor_selection_proposed'
+  // Use Case Zero build-order item 8 (2026-09-13) —
+  // services/vela/velaUnderwritingAdmissionEvidence.ts's admission-evidence
+  // artifact: reads Factor's selection artifact and Aegis's EXISTING
+  // ('agent'-subject-type) assessment machinery to produce a deterministic
+  // ADMITTED/REFUSED/UNRESOLVED verdict bound to selectionRef + requestRef +
+  // candidate + assessment version. Distinct from Aegis's own generic
+  // aegis_assessment_requested/aegis_assessment_ratified receipt types
+  // (unchanged, not duplicated) — this event is the underwriting-flow's own
+  // downstream consumption of that verdict, never the assessment itself.
+  // DVN-anchorable (activityReceiptDvnPipeline.ts). Contains no raw party
+  // financial data.
+  | 'vela_underwriting_admission_evidence_composed';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 
