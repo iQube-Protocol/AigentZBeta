@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-13-VELA-PARTY-NAMESPACE-KEY-BEFORE-STATEFUL-GUEST-001",
+  "statement": "A confidential-execution guest that will ever hold more than one contributor's private state within one shared application identity MUST key that state by a deterministic, T0-safe, per-(application, contributor) namespace ref — composed from EXISTING opaque identity commitments via the repo's established namespaced-commitment helper, never a new hashing scheme or a new IAM system — and MUST enforce an explicit, per-transaction (never standing) authorized-scope check BEFORE combining, reading, or disclosing one contributor's state to another. A TS-side (or any out-of-enclave) gate implementing this check protects evidence handling AFTER it leaves the confidential environment; it CANNOT retroactively enforce the property for computation that happens INSIDE the enclave — that enforcement must be built into the guest itself, before the guest is allowed to combine more than one contributor's confidential input in a single execution. Building the namespace-key derivation and the out-of-enclave gate is safe and useful to do BEFORE the guest architecture is decided; deploying a multi-party stateful guest without an equivalent in-enclave check is not.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "Same general shape as CI-2026-08-23-PER-AGENT-AUTHORITY-KEY-001 (\"any durable store representing a principal's current state must key on [principal, agent], never the principal alone, whenever the principal may structurally act through more than one agent\") applied to a NEW substrate — a confidential-execution guest's own internal state — before a leak occurs in it rather than after, and extended with an explicit authorized-scope gate (not just a composite key) because the guest's substrate is a TEE, where an unauthorized combination cannot be undone once it has happened inside the enclave.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/vela-party-namespace.test.ts",
+      "assertion": "Determinism, within-app isolation (two contributors in the same applicationId derive different namespace refs), cross-app non-correlation, fail-closed on missing inputs, and reuse of the existing constitutionalRef commitment helper (asserted directly) for the key-derivation half; plus a dedicated 'cross-party disclosure gate' suite proving the operator-mandated property both ways — unauthorized cross-party access denied by default (including with an explicit-but-empty scope), explicitly-scoped legitimate multi-party access allowed, no carry-over across different actionRefs, and no inheritance by an unnamed third party.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "vela-001-confidential-constitutional-execution / multi-agent namespace investigation (accelerator build-order item 3)",
+      "defect": "No per-party namespace primitive existed anywhere in services/vela, services/constitutionalCommerce, or services/factor/factorConfidentialWorkload.ts; the WASM guest (app.go) keeps one global, undifferentiated state blob per applicationId with no per-contributor subdivision, and receives no disclosure scope in its payload at all. Not yet a live leak (today's guest is stateless), but a structural absence that would become one the moment a stateful multi-party guest is built without addressing it.",
+      "resolutionId": "RES-2026-09-13-VELA-MULTI-AGENT-NAMESPACE-INVESTIGATION-001",
+      "evidence": [
+        "services/vela/velaPartyNamespace.ts",
+        "tests/vela-party-namespace.test.ts",
+        "services/vela/wasm/projector/app/app.go"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-09-13-VELA-MULTI-AGENT-NAMESPACE-INVESTIGATION-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This is the FIRST recorded occurrence — status stays `candidate` per this loop's own discipline; only an operator act may raise this to `ratified`/`canonical`.",
+    "Analogous existing precedent this candidate generalises FROM (not formally parented to, since the substrate — a TEE guest's internal state, not a Supabase row or localStorage key — is genuinely different and the enforcement requirement is stronger: an out-of-enclave gate is necessary but not sufficient here, unlike the DB-row/localStorage-key cases): CI-2026-08-23-PER-AGENT-AUTHORITY-KEY-001 (delegation grants), services/factor/useUseCaseZeroReadiness.ts's storageKey() (tenantId + personaSessionToken + agentSlug), services/financialServices/providers/providerWalletBinding.ts (tenant_id, agent_runtime_id, provider).",
+    "The operator's mandated acceptance test (2026-09-13, verbatim: \"Party A must be unable to cause Party B's confidential state to be read, combined, disclosed, or emitted unless the exact transaction/disclosure scope authorizes it\") is fully satisfied by this candidate's canary FOR THE OUT-OF-ENCLAVE LAYER ONLY. The candidate's own statement is explicit that in-enclave enforcement is a separate, not-yet-built requirement — this is a hard blocker for Phase 11 (the Use Case Zero vertical slice), not resolved by this candidate, and must not be read as resolved just because the TS-side gate's tests pass.",
+    "The exact guest-architecture decision (extend the existing stateless app.go projector vs. ship a new stateful multi-party guest) that would let a guest-side enforcement be built is still open — see this candidate's resolution record's unresolvedRisks and the companion update doc for the decision stated with options, for operator/Vela-team ruling."
+  ]
+}
