@@ -48,6 +48,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-09-13_threshold-007-publication-gate-approval.md",
         "updates/2026-09-13_threshold-007-arr-legacy-root-admission.md",
         "updates/2026-09-13_threshold-007-arr-admission-boundary.md",
         "updates/2026-09-13_threshold-007-arr-post-addendum-received.md",

@@ -362,3 +362,26 @@ cryptographically verified reviewer sessions. A genuine uplift (e.g. a per-sessi
 distinct credential for Adversary-class review) remains open future work. Full build record, ten
 required-test results, and the Threshold 007 bootstrap treatment:
 `codexes/packs/agentiq/updates/2026-09-13_threshold-007-arr-admission-boundary.md`.
+
+### Publication Gate approval boundary (`approve_threshold_research_gate`, added 2026-09-13)
+
+Admitting an ARR review only sets `arr_disposition`. Nothing previously owned the separate
+`gate_status → 'approved'` transition — a diagnostic that day found no such function anywhere in the
+repo or live schema. `supabase/migrations/20260913210000_research_publication_gate_approval_boundary.sql`
+adds it:
+
+- `public.approve_threshold_research_gate(content_id, candidate_version)` — the ONLY function
+  permitted to advance `gate_status` to `'approved'`. It never reassesses the science: it verifies
+  (all server-derived) that an admitted review exists, its bound candidate SHA still matches the
+  gate's live candidate, `arr_disposition ∈ {PASS, PASS_WITH_DISCLOSED_GAPS}`, the review reports
+  zero `publication_blockers` and no material evidence regression, `evidence_resolved` and
+  `no_evidence_regression` are true, and the admitted review has not been superseded by a later
+  record. Idempotent on an already-approved gate.
+- A `BEFORE UPDATE` trigger (`content_publication_gates_guard_gate_status_write`) refuses any direct
+  write to `gate_status`, mirroring the existing `arr_disposition` guard.
+- A safety net: an approved gate whose `candidate_text_sha256` changes underneath it is
+  automatically downgraded to `blocked` (never silently left `approved` against a stale candidate).
+  `admit_research_review()` similarly auto-reverts an approved gate to `arr_pending` if a later
+  admission disqualifies it.
+
+Full build record and ten test results: `codexes/packs/agentiq/updates/2026-09-13_threshold-007-publication-gate-approval.md`.
