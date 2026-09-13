@@ -8,6 +8,8 @@
 
 **Threshold 007 · Research Edition · Aletheon Draft**
 
+**Cybernetic authorship:** Dele Atanda (Operator) × Aletheon
+
 Research status: Nascent but operational — theory under active falsifiable investigation.
 
 **Epistemic status:** Invariant Intelligence is a research thesis. Its central capability claims are not established. Constitutional Invariance is substantially more developed as doctrine, architecture and operational software than Structural Invariance is as a demonstrated intelligence-scaling mechanism. Cybernetic primitives are increasingly instantiated through metaMe, the Experience Matrix, aigentMe, Standing and consequence architecture, but their proposed intelligence effects remain experimental. H4—the claim that these mechanisms interact and compound—is the principal synthesis under test.
@@ -176,6 +178,22 @@ It would not by itself demonstrate the stronger thesis.
 
 This is the first major falsification boundary.
 
+Time saved is still, by itself, an efficiency result. Even if recovered reasoning time is reapplied to harder problems, that alone does not establish that the frontier of intelligence has moved. Invariant Intelligence should concede this directly.
+
+But this concession exposes a deeper frontier: the relationship among intelligence, time, value and consequence. The race to superintelligence is already temporally framed—time to capability, time to inference, time to discovery, time to deployment—while time itself remains comparatively under-theorized as a coordinate of what intelligence is for.
+
+Price is a powerful but domain-bounded representation of value. Time is not asserted to be equivalent to value. Rather, time is a more universal coordinate through which value is pursued, experienced, deferred, lost and repaired. Every transition toward or away from a valued state has temporal structure, and intelligence can alter that structure.
+
+This paper therefore introduces a candidate **Temporal Consequence Thesis**: intelligence has consequential value insofar as it changes the time required to reach valuable states without creating unacceptable present or future Risk of Repair. The claim is not that faster is always better, nor that all value can be reduced to time. It is that the relationship between capability, time, value and consequence is itself a measurable research frontier.
+
+**If price is how markets compress value, time may be how intelligence encounters it.**
+
+The proposition is not that time and value are equivalent. It is that every transition toward value has a temporal structure, and intelligence changes that structure.
+
+The first frontier of Invariant Intelligence may therefore be the computational relationship between information, capability, time, value and consequence.
+
+This framing does not rescue H1b by rhetoric. It creates an additional object that H1b can be required to measure.
+
 Suppose an invariant-assisted system solves the same tasks as a baseline while consuming 30% less inference.
 
 That is valuable.
@@ -276,6 +294,14 @@ The thesis fails as a distinct research programme if these properties do not pro
 ## 8. Consequence Is the Unifying Primitive
 
 Reasoning alone cannot establish whether an applied representation continues to work after intelligence acts upon it.
+
+Invariant Intelligence does not claim novelty for observing consequence or feeding observations back into a system. Control theory, experimentation, reinforcement learning and ordinary optimization already do this. The stronger candidate contribution is **consequence measurement**: whether consequential computation can be evaluated against a common measurable surface relating Time to Value to Risk of Repair, including who bears repair and whether apparent acceleration merely displaces cost into the future or onto another actor.
+
+A useful intervention is therefore not merely one that reaches an outcome sooner. It must be examined against the repair liabilities created by that compression. An action that saves ten hours now but creates fifty hours of repair later has not necessarily compressed time; it may have borrowed time from the future at an adverse rate. Likewise, a system that saves time for one actor by imposing repair on another has exported rather than eliminated temporal cost.
+
+Risk of Repair can therefore be understood partly as a potential future claim on time, resources, agency and consequence created by present action. Not every harm can or should be reduced to elapsed time, but time provides a common orienting coordinate against which heterogeneous forms of value and repair can be investigated.
+
+This gives Consequence Engineering a sharper research object: **did computation convert finite time into valuable consequence without creating disproportionate future claims on time, agency or repair?**
 
 This introduces the central cybernetic loop:
 
@@ -474,6 +500,16 @@ But the current architecture introduces a fourth mechanism.
 ## 14. The Experience Matrix
 
 The Experience Matrix provides a structurally explicit representation of a person's intended experiential trajectory.
+
+Intent should not be confused with the total informational content of the Matrix. **Intent is a compass of agency, not a boundary on discovery.** A person may declare an objective while acquiring capabilities, judgment and expertise they did not anticipate and may not be able to articulate fully. A pursuit of financial sovereignty may generate legal, entrepreneurial, creative, probabilistic or interpersonal capabilities along the way. Those accumulations are not invalidated because the journey began with declared intent.
+
+The Matrix should therefore distinguish intentional state from accreted state. Its research opportunity is not to pretend tacit knowledge has become an explicit database field, but to investigate latent structure inferable from repeated consequential experience.
+
+Intent → Journey → Experience → Consequence → Latent Capability Evidence → Candidate Tacit Structure → Transfer Test
+
+This creates a direct response to the tacit-knowledge objection. The programme does not assume tacit expertise can be losslessly verbalized. It asks whether consequence-bearing interaction can preserve or infer useful structure from expert judgment that the expert cannot fully articulate. Constitutionality establishes the legitimate conditions under which this learning may occur; it does not delimit what may be learned from experience within those conditions.
+
+A strong H2 result would therefore include discovery of a consequentially useful capability that was not declared in advance, identification of the conditions under which it appears, and successful prediction of its usefulness in a new context.
 
 At minimum:
 
@@ -744,6 +780,16 @@ Human intentions, machine reasoning, real consequences and evidenced expertise r
 
 The Experience Matrix provides a potentially important answer to the cross-domain-transfer problem because it offers a common representational frame across otherwise heterogeneous activities.
 
+The Golden Cycle should be treated here with particular discipline. Its currently resolved doctrine and instrumentation arise from financial services. That makes finance the first high-resolution calibration environment, not evidence that the relationship is already universal. Finance supplies unusually mature machinery for pricing value, actuarializing risk, settling action and observing realized repair. It therefore allows the programme to calibrate a more general candidate consequence surface with unusual precision.
+
+The founding Golden Cycle transformation is:
+
+Information → Time to Value → Value → Price → Money → Information
+
+The deeper research proposition is not that price is value. Price is a powerful economic encoding of value. Time is proposed as a more universal coordinate through which value attainment, opportunity, consequence and repair can be investigated. The cross-domain question is whether Time to Value and Risk of Repair remain useful consequence bearings when price is absent or incomplete.
+
+Accordingly, finance is a calibration environment for consequence, not evidence of its universality.
+
 Finance, education, entrepreneurship, creative work and other domains differ substantially in their domain variables.
 
 But each can potentially be represented through:
@@ -919,6 +965,36 @@ Cybernetic observability must remain subordinate to human agency rather than tur
 ---
 
 ## 27. Trusted Superintelligence
+
+### The Consequence Horizon
+
+The temporal argument introduces a second form of boundedness. Intelligence is not only bounded by authority. Consequential intelligence is also bounded by how far into the causal future the effects of contemplated reasoning and action can be projected with sufficient reliability for a specified purpose.
+
+This paper calls that boundary the **Consequence Horizon**.
+
+**Consequence Horizon:** the temporal and causal distance over which the consequences of a contemplated computational action can be projected with sufficient reliability for a specified purpose, under stated uncertainty and constitutional conditions.
+
+The horizon is not a claim to predict the future in an unbounded sense. It is action-, purpose- and evidence-specific. Projection reliability should be expected to degrade as causal distance, environmental uncertainty and system complexity increase. The empirical object is therefore the calibration of projected consequence against subsequently observed consequence across increasing temporal and causal distance.
+
+This gives capability a temporal dimension. Raw Capability describes what a system can technically do. Consequential Capability must also ask how far the effects of what it does remain responsibly projectable.
+
+A candidate constitutional relationship follows:
+
+**Authorized Action Horizon ≤ Constitutionally Warranted Consequence Horizon**
+
+This is not proposed as an exceptionless law. Reversibility, uncertainty, mandate, stakes and Risk of Repair can justify different evidentiary thresholds. But it identifies the constitutional danger precisely: **the reach of action may exceed the reach of consequence awareness.**
+
+This also creates a concrete H1b frontier test. If invariant-assisted intelligence merely computes the same consequence projection faster, H1a has improved. If, under matched computational resources and matched calibration thresholds, accumulated invariant structure allows reliable projection farther along a causal-temporal consequence chain than strong reasoning, retrieval and unscoped library-learning baselines, then the Consequence Horizon itself has moved.
+
+CH_Invariant > CH_ComputeMatchedBaseline
+
+That would constitute frontier extension rather than efficiency alone.
+
+Perhaps the frontier of intelligence is not simply what an intelligence can do, but how far into consequence it can see before it acts.
+
+And perhaps the frontier of Trusted Intelligence is how far it can act without exceeding what it can responsibly see.
+
+### From Raw to Trusted Superintelligence
 
 Consequence does not solve deceptive alignment.
 
