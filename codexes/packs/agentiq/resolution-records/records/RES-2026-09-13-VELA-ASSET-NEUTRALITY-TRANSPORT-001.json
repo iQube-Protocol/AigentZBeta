@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-13",
+  "resolutionId": "RES-2026-09-13-VELA-ASSET-NEUTRALITY-TRANSPORT-001",
+  "capability": "vela-001-confidential-constitutional-execution",
+  "milestone": "Vela accelerator build order item 2 — asset-neutrality transport widening (Phase 9 of docs/vela/accelerator/constitutional-financial-services/09_CLAUDE_IMPLEMENTATION_HANDOFF_v0.2.md)",
+  "problem": "`VelaTransport.submitProcessRequest` and its real implementation `VelaClientAdapter.submitProcessRequest` hardcoded `ETH_SENTINEL`/`0n` for `tokenAddress`/`assetAmount` on every call — correct and deliberate for the no-funds confidential-projection path, but there was no way anywhere in the codebase to submit a Vela request that carried a real ETH or ERC-20 asset value, even though the on-chain `submitRequest` ABI already supported it and the Vela team confirmed ERC-20/ETH paths are live on their deployment.",
+  "observedFailure": [
+    "`codexes/packs/agentiq/updates/2026-09-11_vela-accelerator-phase0-code-inventory.md` §2.2 identified the gap by static reading: `grep -rln \"P-521|...\"`-style searches plus direct reading of `velaClientAdapter.ts:193-228` confirmed the transport interface took no asset parameter at all, and `05_ACCELERATOR_USE_CASE_ZERO_SPEC_v0.1.md` §11 anticipates a real settlement/premium payment needing to move value through the same request path eventually.",
+    "No test or code path exercised an asset-bearing Vela request — the gap was invisible at runtime (nothing had needed it yet) and only surfaced by deliberate inventory against the accelerator handoff's Phase 9 checklist."
+  ],
+  "rootCauses": [
+    "`VelaTransport.submitProcessRequest` was designed and has only ever been used for one workload shape — the confidential consequence PROJECTION, which by definition carries no funds (`services/vela/wasm/projector/app/app.go`'s own header: \"It moves no funds and holds no balances of its own\") — so no caller had a reason to thread a real asset through, and the interface was never widened to support one.",
+    "The wire ABI (`PROCESSOR_ABI`, `velaClientAdapter.ts`) already fully supported `tokenAddress`/`assetAmount` as real parameters; the gap was purely in this repo's own transport abstraction, not in the underlying protocol."
+  ],
+  "resolution": [
+    "Added `VelaAssetRef` ({tokenAddress, assetAmount}) and a fail-closed `validateVelaAssetRef()` to `services/vela/velaTypes.ts`, next to the existing wire types — matching the on-chain ABI's own parameter names rather than inventing new vocabulary, per the task's explicit instruction not to build a large new asset abstraction unprompted.",
+    "Added ONE new interface member to `VelaTransport`: `submitAssetBearingProcessRequest(applicationId, encryptedPayload, asset)`. `submitProcessRequest`'s existing signature and behaviour are completely unchanged — verified both by a compile-time signature-binding test and by re-reading the refactored method body against the pre-refactor version line for line.",
+    "Implemented the new method in `VelaClientAdapter` against the SAME `PROCESSOR_ABI.submitRequest` call already in the file, now passing the real `tokenAddress`/`assetAmount` instead of the hardcoded sentinel/zero. Factored the shared maxFee-resolution and requestId-extraction logic into two small private helpers used by BOTH the old and new public methods, so neither can silently drift from the other's fee/receipt-parsing behaviour.",
+    "Mirrored the same additive shape in `VelaTestTransport` (the deterministic in-memory double `velaProjectionProvider.ts`'s own test suite is built on), adding `submitAssetBearingProcessRequest` + a test-only `assetSubmittedFor()` accessor.",
+    "Wrote `tests/vela-asset-bearing-request.test.ts` (12 cases): regression proof the no-funds path is unaffected (transport level + a compile-time signature check + the full existing provider lifecycle re-run), asset-threading proof (ERC-20-shaped address, native ETH sentinel, still resolves via `fetchResult`), and fail-closed validation proof against BOTH the test transport and the REAL `VelaClientAdapter` (an unreachable-RPC test proves validation runs before any chain call, not merely before a mocked one).",
+    "Re-ran the full pre-existing Vela/constitutional-commerce test suite (`vela-confidential-projection-provider`, `vela-slice2f-capability-invocation`, `vela-slice2g-execution-observation-validation`, `vela-config-early-access`, `factor-vela-confidential-workload`, `unified-consequence-projection`) unmodified alongside the new file — all 148 pass, 2 pre-existing skips unchanged."
+  ],
+  "rejectedApproaches": [
+    "Adding an optional `asset?` parameter directly onto `submitProcessRequest` — rejected: the task explicitly required the existing no-funds signature and behaviour to remain byte-for-byte unchanged and provable by a test; a shared method with an optional parameter risks an existing or future caller passing a stray value and silently starting to carry funds through the confidential-projection path, which would be a constitutional violation of what a projection is (evidence, not a transfer). A wholly separate, clearly-named method removes that risk structurally.",
+    "Making the new `VelaTransport` interface member optional (`submitAssetBearingProcessRequest?`) — rejected after confirming (via grep) that exactly two modules implement `VelaTransport` in this repo (`velaClientAdapter.ts`, `velaTestTransport.ts`), both updated in this same change; a required member gives every future implementer (and every future test double) a compile-time reminder to decide how it handles asset-bearing requests, rather than letting the capability silently go unimplemented.",
+    "Building an ERC-20 `TokenAllowlist` management surface, or implementing the EIP-2612 permit/`transferFrom` onboarding flow the Vela-team-confirmed baseline names — explicitly out of scope per the task instructions; both are external Vela-Engineering/deployment-side concerns (allowlisting a token on Vela's own `ProcessorEndpoint` deployment) that this repo's transport plumbing cannot and should not attempt to simulate or pre-empt.",
+    "Reusing `services/venture/trading/serviceLedger.ts` as the asset abstraction — rejected after reading it in full: it is a deterministic SIMULATED obligation ledger for the venture/service-economy comp model (no chain calls, no wallet, no real token/asset type at all — its own header states 'Balances here are SIMULATED... there is no wallet, and there is no chain call'), a different concern entirely from a real on-chain asset reference for a Vela `submitRequest` call."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-13-VELA-ASSET-BEARING-REQUEST-ADDITIVE-001"
+  ],
+  "canaries": [
+    "tests/vela-asset-bearing-request.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/vela-asset-bearing-request.test.ts",
+      "tests/vela-confidential-projection-provider.test.ts",
+      "tests/factor-vela-confidential-workload.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "docs/vela/accelerator/constitutional-financial-services/09_CLAUDE_IMPLEMENTATION_HANDOFF_v0.2.md",
+    "docs/vela/accelerator/constitutional-financial-services/11_VELA_TEAM_CONFIRMED_BASELINE_v0.1.md",
+    "codexes/packs/agentiq/updates/2026-09-11_vela-accelerator-phase0-code-inventory.md",
+    "codexes/packs/agentiq/updates/2026-09-13_vela-accelerator-asset-neutrality-transport.md"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}
