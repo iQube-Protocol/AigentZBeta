@@ -74,6 +74,7 @@ import { RiskEnvelopePanel } from "@/app/(shell)/moneypenny/components/RiskEnvel
 import { MoneyPennyLearnPanel } from "@/app/(shell)/moneypenny/components/MoneyPennyLearnPanel";
 import { FactorPanel } from "@/app/(shell)/moneypenny/components/FactorPanel";
 import { AegisPanel } from "@/app/(shell)/moneypenny/components/AegisPanel";
+import { ConstitutionalRiskFlowPanel } from "@/app/(shell)/moneypenny/components/ConstitutionalRiskFlowPanel";
 import { MoneyPennyCopilotWorkspace } from "@/app/(shell)/moneypenny/components/MoneyPennyCopilotWorkspace";
 import {
   MONEYPENNY_CODEX_ID,
@@ -113,6 +114,15 @@ export type MoneyPennyPanelKey =
   // Aegis's assessment workflow opens as a mode within "aegis".
   | "factor"
   | "aegis"
+  // Use Case Zero build-order item 10a (2026-09-13) — the read-only,
+  // per-request viewer over the Vela confidential-underwriting causal chain
+  // (Factor selection -> Aegis admission -> disclosure authorization ->
+  // frozen envelope -> Vela execution -> quote -> settlement -> receipts ->
+  // telemetry). NOT the same system as the pre-existing, case-scoped "Use
+  // Case Zero" readiness capsule (`components/moneypenny/useCaseZero/`) —
+  // see `services/vela/velaUnderwritingChainProjection.ts`'s own header for
+  // the full disambiguation.
+  | "constitutional-risk-flow"
   // SPEC-MPY-002 MPY2-2 (2026-09-01) — Understand / Financial Profile.
   | "financial-profile"
   // SPEC-MPY-002 MPY2-3 (2026-09-01) — Design / Risk & Limits.
@@ -150,6 +160,7 @@ const PANELS: Record<MoneyPennyPanelKey, React.ComponentType> = {
   "service-orchestration": ServiceOrchestrationPanel,
   factor: FactorPanel,
   aegis: AegisPanel,
+  "constitutional-risk-flow": ConstitutionalRiskFlowPanel,
   "financial-profile": FinancialProfilePanel,
   "risk-envelope": RiskEnvelopePanel,
   learn: MoneyPennyLearnPanel,
@@ -329,9 +340,26 @@ export function MoneyPennyPanelTab({ panel: explicitPanel, area }: MoneyPennyPan
   // follows applies without needing a persistence signal.
   const [activeCase, setActiveCase] = useState<MoneyPennyActiveCase | null>(null);
 
+  // Shared active-requestRef snapshot for the Constitutional Risk Flow panel
+  // (Use Case Zero build-order item 10a) — same "plain component state, one
+  // owner" discipline as activeCase above; a loaded requestRef is scoped to
+  // the Activity area's own constitutional-risk-flow panel, never needs to
+  // survive a cross-area native-tab remount.
+  const [activeRiskFlowRequestRef, setActiveRiskFlowRequestRef] = useState<string | null>(null);
+
   const navigationValue = useMemo(
-    () => ({ activePanel, area: area ?? null, navigate, navigationError, clearNavigationError, activeCase, setActiveCase }),
-    [activePanel, area, navigate, navigationError, clearNavigationError, activeCase],
+    () => ({
+      activePanel,
+      area: area ?? null,
+      navigate,
+      navigationError,
+      clearNavigationError,
+      activeCase,
+      setActiveCase,
+      activeRiskFlowRequestRef,
+      setActiveRiskFlowRequestRef,
+    }),
+    [activePanel, area, navigate, navigationError, clearNavigationError, activeCase, activeRiskFlowRequestRef],
   );
 
   const Panel = PANELS[activePanel];

@@ -94,6 +94,11 @@ export const MONEYPENNY_CAPABILITY_GROUPS: MoneyPennyCapabilityGroup[] = [
       // WITHIN their own panel, not as the panel's only entry point.
       { id: "factor", label: "Aigent Factor", description: "Candidate-intake facilitation — evidence, authority chains, standing proposals, Pulse/P&L registration. Never assesses or admits.", panel: "factor", mode: null },
       { id: "aegis", label: "Aegis", description: "Independent assessment of a candidate or any external agent/system/provider/model. Never self-assesses, never decides admission.", panel: "aegis", mode: null },
+      // Use Case Zero build-order item 10a (2026-09-13) — the causal-chain
+      // viewer for a private multi-party underwriting request. NOT the
+      // pre-existing case-scoped "Use Case Zero" readiness capsule — see
+      // services/vela/velaUnderwritingChainProjection.ts's own header.
+      { id: "constitutional-risk-flow", label: "Constitutional Risk Flow", description: "The causal chain for a private multi-party underwriting request — Factor selection, Aegis admission, disclosure authorization, frozen envelope, private Vela execution, quote, settlement, receipt and telemetry.", panel: "constitutional-risk-flow", mode: null },
     ],
   },
   {
@@ -171,6 +176,7 @@ export const MONEYPENNY_AREA_FOR_PANEL: Record<Exclude<MoneyPennyPanelKey, "lear
   "service-orchestration": "activity",
   factor: "activity",
   aegis: "activity",
+  "constitutional-risk-flow": "activity",
   crm: "activity",
 };
 

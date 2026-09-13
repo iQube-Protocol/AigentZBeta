@@ -96,6 +96,21 @@ export interface MoneyPennyActiveCase {
   currentAegisDecision: string | null;
 }
 
+/**
+ * Bounded, T1-safe active-requestRef snapshot for the Constitutional Risk
+ * Flow panel (Use Case Zero build-order item 10a) — the SAME "one shared
+ * snapshot, one writer, one reader" pattern `MoneyPennyActiveCase` above
+ * already established for Factor/Aegis candidate cases. Never a persona/
+ * caseId — a `requestRef` is the caller-supplied, opaque request identifier
+ * the whole Vela underwriting chain is keyed on (see
+ * `services/vela/velaUnderwritingChainProjection.ts`). Written by
+ * `ConstitutionalRiskFlowPanel` whenever it successfully loads a chain state;
+ * read by `MoneyPennyCopilotWorkspace` to fold a bounded ground-context
+ * summary into the copilot — never a second, independent fetch of the same
+ * requestRef.
+ */
+export type MoneyPennyActiveRiskFlowRequestRef = string;
+
 const PENDING_PANEL_STORAGE_KEY = 'moneypenny.pending-panel';
 
 /** Written immediately before a cross-area native tab switch — see this
@@ -246,6 +261,9 @@ export interface MoneyPennyNavigationContextValue {
   /** See MoneyPennyActiveCase's own comment above. */
   activeCase: MoneyPennyActiveCase | null;
   setActiveCase: (activeCase: MoneyPennyActiveCase | null) => void;
+  /** See MoneyPennyActiveRiskFlowRequestRef's own comment above. */
+  activeRiskFlowRequestRef: MoneyPennyActiveRiskFlowRequestRef | null;
+  setActiveRiskFlowRequestRef: (requestRef: MoneyPennyActiveRiskFlowRequestRef | null) => void;
 }
 
 const MoneyPennyNavigationContext = createContext<MoneyPennyNavigationContextValue | null>(null);
