@@ -29,6 +29,19 @@ Research status: Nascent but operational — theory under active falsifiable inv
 > been performed by an independent reviewer. Per this draft's own disposition ladder, current status
 > remains **CANONICAL_DRAFT / EVIDENCE_RESOLUTION_COMPLETE / ARR_REVIEW_REQUIRED / NOT_FOR_PUBLICATION**.
 
+> **Addendum (2026-09-13):** the manuscript was subsequently reconciled with direct-DB additions made
+> outside git (Temporal Consequence Thesis, Consequence Horizon, tacit-knowledge passage, Golden Cycle
+> calibration framing — see "The Research Process as a Cybernetic Object" section and the
+> Reconciliation update doc), and a targeted heritage-search Evidence Agent pass then traced these new
+> constructs to their actual doctrinal ancestry (Threshold 004/005/006, COYN Thesis, Polity Embodied)
+> rather than treating them as originating here — see the **Temporal, Consequence and
+> Constitutional-Control Lineage Register** near the end of this file. That pass also corrected a
+> standing evidence-resolution error (IRL-010/IRL-010A wrongly carried forward as unresolved across
+> multiple prior passes) and renamed an internal naming collision (**Constitutional Consequence
+> Deviation**, formerly "constitutional drift," which collided with this repository's unrelated prior
+> use of that term). Status remains **EVIDENCE_RESOLUTION_COMPLETE / ARR_REVIEW_REQUIRED /
+> NOT_FOR_PUBLICATION** — this addendum is evidence resolution, not the independent ARR itself.
+
 ---
 
 ## Abstract
@@ -1008,13 +1021,17 @@ Observed acceptable consequence does not prove benign internal intent.
 
 Constitutional control must consequently be tested against increasing capability.
 
-Define conceptual constitutional drift:
+Define conceptual **Constitutional Consequence Deviation** — renamed from an earlier draft's "constitutional
+drift" to avoid collision with this repository's existing, unrelated use of "constitutional drift" for
+duplicate-capability/state-amnesia defects (`codexes/packs/irl/foundation/CS-001_duplicate-capability-as-constitutional-drift.md`).
+Deviation is the distance; drift, defined below, is the rate of change of that distance:
 
-D_c = distance(Observed Consequence, Constitutionally Admissible Consequence)
+D_cc = distance(Observed Consequence, Constitutionally Admissible Consequence)
 
-A key research quantity is then:
+Where the rate at which this deviation changes as capability grows is of interest, that rate is the
+Constitutional Consequence Deviation's **drift**:
 
-ΔD_c / ΔC
+ΔD_cc / ΔC
 
 where C represents relevant capability.
 
@@ -1102,7 +1119,7 @@ Its epistemic status should advance only when corresponding evidence exists.
 
 **Level D — Important Research Direction.** Requires replicated frontier extension, transfer across multiple domains, evidence of invariant compounding, robust consequential learning, and demonstrated constitutional control under materially increasing capability.
 
-**Level E — Credible Path to Trusted Superintelligence.** Would require evidence that hierarchical invariant accumulation produces sustained frontier acceleration; constitutional cybernetic mechanisms continue functioning as capability increases; cross-domain transfer compounds; and consequential capability can expand without corresponding uncontrolled constitutional drift or Risk of Repair.
+**Level E — Credible Path to Trusted Superintelligence.** Would require evidence that hierarchical invariant accumulation produces sustained frontier acceleration; constitutional cybernetic mechanisms continue functioning as capability increases; cross-domain transfer compounds; and consequential capability can expand without corresponding uncontrolled Constitutional Consequence Deviation or Risk of Repair.
 
 Nothing in the present thesis warrants claiming Level E.
 
@@ -1562,6 +1579,8 @@ the ARR Gate's citation-integrity requirement.
 | II007-IA31 | Golden Cycle — **Risk Cycle / Risk-of-Repair invariant thesis** (ΔTTV against ΔRisk-of-Repair; "time saved must not be purchased by exporting repair") | Same two sources as II007-IA30: `01_CONSTITUTIONAL_YIELD_AND_RISK_THESIS_v0.2.md` and `05_ACCELERATOR_USE_CASE_ZERO_SPEC_v0.1.md` §12 (the `GoldenCycleRecord`-compatible evidence package each run must produce: information provenance, time to value, risk prediction, premium/terms, coverage decision, action authorization, execution evidence, observed outcome, repair/claim, burden bearer, calibration error) | **Research thesis / hypothesis-generating** unless separately protocolized — not demonstrated scientific law |
 | II007-IA32 | Golden Cycle **evidence substrate** (the database table backing `GoldenCycleRecord`-shaped evidence packages) | Supabase migration [`supabase/migrations/20260912195402_golden_cycle_evidence_records.sql`](https://github.com/iQube-Protocol/AigentZBeta/blob/abf0795a/supabase/migrations/20260912195402_golden_cycle_evidence_records.sql), table `public.golden_cycle_records` | **Implemented** database substrate. No scientific validity is implied by the table's existence — it records that a run occurred and what it observed, per its own `evidence_status` column (`doctrine`/`planned`/`implemented`/`operational_hypothesis_generating`/`controlled_research_evidence`/`demonstrated`) |
 | II007-IA33 | Threshold Research **Publication Gate** (the deterministic control this paper itself is subject to before canonical publication) | Supabase migration [`supabase/migrations/20260912195252_threshold_research_publication_gate.sql`](https://github.com/iQube-Protocol/AigentZBeta/blob/abf0795a/supabase/migrations/20260912195252_threshold_research_publication_gate.sql), table `public.content_publication_gates` + function `threshold_research_gate_is_publishable`; role model and workflow documented in [`docs/research/adversarial-research-review-gate.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/abf0795a/docs/research/adversarial-research-review-gate.md) ("Publication roles and separation of powers") | **Implemented** constitutional publication-control substrate. This paper's own current gate row: `gate_status = arr_pending`, `evidence_resolved = true`, `no_evidence_regression = true`, `arr_disposition = null` — **not yet approved, not yet canonical** |
+| II007-IA34 | IRL-010 (Constitutional Runtime Technical Specification) and IRL-010A (Claims Traceability Matrix) — **corrected 2026-09-13, was wrongly Unresolved** | [`codexes/packs/irl/foundation/IRL-010_constitutional-runtime-technical-specification.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/dev/codexes/packs/irl/foundation/IRL-010_constitutional-runtime-technical-specification.md); [`codexes/packs/irl/foundation/IRL-010A_claims-traceability-matrix.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/dev/codexes/packs/irl/foundation/IRL-010A_claims-traceability-matrix.md) (row 1.11 verified verbatim against Threshold 006's own citation of it) | Doctrine + implementation-witnessed claims matrix. See the dedicated provenance note above: this corrects an inherited evidence-resolution error carried across multiple prior passes, not merely a new finding |
+| II007-IA35 | EXP-P2-CH — **Consequence Horizon Calibration Arm** (proposed companion to EXP-P2, not existing coverage) | No path — this is a proposed, not-yet-authored protocol. Core test: `Action_t → predicted Consequences_{t+1...t+n}`, compared against observed `C_{t+n}`, yielding a calibration-decay curve `Error = f(Horizon)`; H1b comparison is `CH_Invariant > CH_Baseline` under fixed compute/information/time budgets and a preregistered reliability threshold | **Proposed / Not Registered.** Deliberately given its own child identifier rather than edited into EXP-P2 (which is mid-freeze) or folded into reserved EXP-P4 (whose interaction/field-behavior role this is not) |
 
 Two entries (II007-IA14, DevOn; and II007-IA20, Aegis Crucible) remain explicitly unresolved, carried
 forward unchanged from 007.1. **II007-IA25 (myClaw/myBot) was corrected in a follow-up pass
@@ -1597,11 +1616,12 @@ The Research-Evidence Register (EXP-P1–P4 question/claim/status/generalization
 Limitations section, the References and Canonical Lineage, and the external methodological
 bibliography are unchanged from the 007.1 Research Edition and are carried forward by reference rather
 than being retyped here, per this draft's own §36 instruction not to reconstruct the apparatus from
-zero. Six of the seven internal citations 007.1 left unresolved — CI, PE, IRL-010, IRL-010A,
-AEGIS-0.0, AEGIS-CRUCIBLE-0.0 — remain unresolved and are carried forward unchanged (none
-load-bearing). **The seventh, GC-0.1 ("Golden Cycle Research Thesis v0.1"), is corrected in this pass
-— see the note below and II007-IA19: it is resolved, not unresolved**, once the search was directed at
-the Vela Use Case Zero package rather than the general repository.
+zero. Of the seven internal citations 007.1 originally left unresolved, **two more are corrected in this
+pass, in addition to GC-0.1**: CI, PE, AEGIS-0.0 and AEGIS-CRUCIBLE-0.0 remain genuinely unresolved and
+are carried forward unchanged (none load-bearing). GC-0.1 ("Golden Cycle Research Thesis v0.1") was
+corrected in the prior pass — see the note below and II007-IA19. **IRL-010 and IRL-010A are now also
+corrected — see the dedicated provenance note and II007-IA34 below: both were an inherited
+evidence-resolution error, not a genuine absence.**
 
 **Correction to the Golden Cycle finding (2026-09-12, operator-directed re-check):** 007.1 marked
 "Golden Cycle Research Thesis v0.1" unresolved (GC-0.1), and the initial version of this pass repeated
@@ -1622,11 +1642,70 @@ this pass and remains genuinely unresolved, unchanged from 007.1. The full text 
 commit `a3c77375` (`docs/qriptopian/thresholds/007-research-edition.md`) and in
 `codexes/packs/agentiq/updates/2026-09-12_threshold-007-arr-gate-and-final-hardening.md`.
 
+**Correction to the IRL-010/IRL-010A finding — an evidence-PROCESS error, not merely a content
+correction (2026-09-13):** 007.1 marked both **IRL-010** ("Constitutional Runtime Technical
+Specification") and **IRL-010A** ("Claims Traceability Matrix") unresolved, describing them as residing
+only in an external File Library outside this repository. That was wrong, and it was wrong every time
+it was carried forward — this pass's own initial draft repeated the same error before the operator
+caught it. Both files exist in this repository right now:
+
+- [`codexes/packs/irl/foundation/IRL-010_constitutional-runtime-technical-specification.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/dev/codexes/packs/irl/foundation/IRL-010_constitutional-runtime-technical-specification.md)
+- [`codexes/packs/irl/foundation/IRL-010A_claims-traceability-matrix.md`](https://github.com/iQube-Protocol/AigentZBeta/blob/dev/codexes/packs/irl/foundation/IRL-010A_claims-traceability-matrix.md)
+
+Threshold 006's own published Research Edition already cites `IRL-010A row 1.11` for the exact
+"consequence ladder / consequence modeling stage" claim this paper's Consequence Horizon section
+depends on — row 1.11 was opened and verified verbatim: *"Consequence ladder on all artifacts
+(disposable/operational/constitutional, never born constitutional); consequence modeling stage +
+validation fork + deploy threshold (`validationRequiresRemediation`, `constitutionalThresholdMet`)."*
+See II007-IA34 below.
+
+**This is useful evidence about the evidence process itself, not only about these two files.** An
+unresolved-citation finding was carried forward across at least two prior passes without anyone
+re-checking whether the underlying premise (that the files live only outside the repo) still held. The
+standing instruction going forward: an inherited "Unresolved" status is a claim to re-verify at each
+pass, not a fact to propagate.
+
 **What this pass does not do:** it does not run the five-pass Adversarial Research Review this
-draft's own §37 requires; it does not independently re-verify the seven still-unresolved external/
-internal lineage citations inherited from 007.1; and it does not assign per-claim evidence states
-across the new H2d/H3/H4/H4b apparatus this draft adds beyond what 007.1's register covered. Those
-remain outstanding, disclosed here rather than silently absent.
+draft's own §37 requires; it does not independently re-verify the four still-genuinely-unresolved
+external/internal lineage citations (CI, PE, AEGIS-0.0, AEGIS-CRUCIBLE-0.0); and it does not assign
+per-claim evidence states across the new H2d/H3/H4/H4b apparatus beyond what is registered below.
+Those remain outstanding, disclosed here rather than silently absent.
+
+---
+
+## Temporal, Consequence and Constitutional-Control Lineage Register (2026-09-13 targeted Evidence Agent pass)
+
+This register resolves the specific heritage-search directive issued 2026-09-13: trace the temporal,
+consequence-horizon and constitutional-control constructs this draft introduces back through the
+actual doctrinal record — Threshold 004/005/006, the COYN Thesis, Experience Sovereignty and Polity
+Embodied series — rather than treating them as originating in 007. It also fixes a naming collision
+this pass discovered (`Constitutional Consequence Deviation`, formerly mis-termed "constitutional
+drift" in earlier drafts of this paper) and registers a proposed future experiment
+(`EXP-P2-CH`). The **Novelty status** column is the load-bearing addition an operator review requested:
+`Inherited` (this paper did not originate it), `Synthesized` (this paper newly combines existing
+elements), or `Newly proposed in 007` (no ancestor states it in any form).
+
+| Claim | Lineage source | Exact path/ID | Evidence class | Evidence state | Support type | Load-bearing | Caveat | Novelty status |
+|---|---|---|---|---|---|---|---|---|
+| Reduce Time to Value without expanding Risk of Repair; Proof of Time Saved; Proof of Risk | Threshold 004, "Constitutional Computing" | Qriptopian essay, machine endpoint `/api/codex/qripto/essays/constitutional-computing/machine` (verified verbatim via MCP) | Doctrine | Ratified | Direct quote | Yes | None | Inherited |
+| Raw Capability × Trust → Effective Capability; Operational Trust = "sufficient, falsifiable confidence..." | Threshold 005, "Trusted Intelligence" (Research Edition) | Qriptopian essay, machine endpoint `/api/codex/qripto/essays/trusted-intelligence/machine` (verified verbatim via MCP) | Doctrine | Ratified | Direct quote | Yes | **Scope narrowed 2026-09-13**: 005 supports only warranted trust, Raw/Effective Capability and Operational Trust. It does **not** support "sovereign time," "finite time," "not merely an efficiency metric," or a `Trust↑→Delegable Authority↑→Effective Capability↑→Verification Friction↓→TTV↓` formula — none of that exact wording exists anywhere in this repository's copy of 005. Those propositions are relocated below to their actual sources | Inherited |
+| Sovereign time; finite/existential time; Time-to-Value and Time-to-Repair; Proof of Time Saved as compression, not marketing | COYN Thesis Paper 2, "Time Sovereignty" | `codexes/packs/polity-core/items/commentary/coyn-thesis/02-time-sovereignty.md` (verified: abstract + TOC §§3, 6, 12, 13) | Doctrine (PDF-extracted commentary) | Ratified | Direct quote/structure | Yes | **Relocated here from an unsupported Threshold 005 attribution** (see row above) — this is the actual, deeper source; predates and underlies 004's TTV/RoR language too | Inherited |
+| Proof of Time Saved; time-to-repair; consequence profile; trust threshold; risk score; unbounded consequence | Polity Embodied, Paper I ("From Assertion to Canon") | `codexes/packs/polity-core/items/embodied/The Polity Embodied Series.txt` (verified, exact lines quoted in this pass) | Doctrine | Ratified | Direct quote | Yes | None | Inherited |
+| **Consequence Horizon** — "the depth and breadth across which a system can identify, anticipate, observe and attribute the effects of an action"; must expand as consequential capability grows; consequence-calibrated Operational Trust | Threshold 006, "From Constitutional AI to Trusted Intelligence" (Research Edition), §"The Consequence Horizon" | Qriptopian essay, machine endpoint `/api/codex/qripto/essays/from-constitutional-ai-to-trusted-intelligence/machine` (verified verbatim via MCP) | Doctrine | Ratified | Direct quote | Yes | **This is inherited doctrine, not this paper's H1b metric** — see the next row for what 007 actually adds | Inherited |
+| `CH_Invariant > CH_ComputeMatchedBaseline` — reliably calibrated Consequence Horizon as a measurable frontier quantity comparing invariant-assisted intelligence against matched baselines | 007 synthesis of the Consequence Horizon concept (006) with the H1a/H1b compression/frontier-extension distinction (this paper, §5-6) | No prior source — synthesis | Hypothesis | Hypothesized / not yet registered or executed | Ancestry only, no direct citation | Central to this paper's H1b claim | Must never be described as something 006 already proposed; 006 states the construct exists and must expand, not that it can be measured against a baseline | **Newly proposed in 007** |
+| `Authorized Action Horizon ≤ Constitutionally Warranted Consequence Horizon` | Synthesizes Threshold 005 (Effective Capability) + Threshold 006 (consequence-calibrated Operational Trust) | No prior source — synthesis | Hypothesis | Hypothesized / candidate constitutional invariant | Ancestry only, no direct citation | Central to this paper's constitutional-control and Trusted Superintelligence argument — **not primarily an H1b claim; it governs what may legitimately be exercised once a Consequence Horizon is demonstrated, distinct from the row above, which is the frontier-extension test itself** | Searched for "delegation frontier," "action horizon," "authority horizon" across the full repository — none found under any name | **Newly proposed in 007** |
+| Trusted Superintelligence (term + full definition) | Synthesizes Threshold 005 (warranted trust) + Threshold 006 (consequence-calibrated control) | No prior source — synthesis | Hypothesis | Hypothesized | Ancestry only | Central | The term itself is absent from every prior Threshold paper (repo-wide search confirms) | **Newly proposed in 007** |
+| Constitutional Consequence Deviation, `D_cc = distance(Observed Consequence, Constitutionally Admissible Consequence)`; drift rate `ΔD_cc/ΔC` | This paper (renamed 2026-09-13 from an earlier draft's "constitutional drift") | This document, §27/§29 (both editions renamed in this pass) | Hypothesis | Hypothesized | Original to this paper | Central to §27's Trusted Superintelligence control argument | **Naming-collision correction**: `codexes/packs/irl/foundation/CS-001_duplicate-capability-as-constitutional-drift.md` already uses "constitutional drift" for an unrelated concept (duplicate-capability/state-amnesia between pipeline stages). Renamed to prevent permanent confusion; CS-001's own usage is preserved unchanged | **Newly proposed in 007** |
+| Tacit capability discovery via consequence (Intent → Journey → Experience → Consequence → Latent Capability Evidence → Candidate Tacit Structure → Transfer Test) | — | Searched `codexes/packs/polity-core` (coyn-thesis, experience-sovereignty, embodied) for tacit knowledge, latent capability, emergent skill, skill accumulation, expertise transfer | Hypothesis | **Hypothesized / Experimental** | Absence of prior doctrine confirmed by search, not merely assumed | **No, as evidence — the absence of prior doctrine is not itself evidence for the hypothesis. Yes, as a research question** worth investigating | Existing Experience Matrix (`services/strategy/experienceMatrixDeriver.ts`), Standing (`services/standing/buildStandingGraph.ts`), aigentMe and consequence infrastructure constitute an **experimental substrate only** — not evidence that tacit capability discovery actually occurs | **Newly proposed in 007** |
+| EXP-P1 (structural compression, informational budgets) | IRL experiment corpus | `codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/` | Research infrastructure | Protocol exists ("DRAFT FOR SIGN-OFF, frozen upon joint signature"); instrument exists (`export-grounding-slice.mjs`, `evaluate-exp001.mjs`); **execution does not** — its own checklist shows "Runs executed; results published" unchecked | Protocol/instrument inspection, not a result | No result exists to be load-bearing | Do not treat protocol design as evidence of H1a or H1b | N/A |
+| EXP-P2 (consequential correctness, expert-effort-to-acceptance) | IRL experiment corpus | `codexes/packs/irl/foundation/experiments/exp-p2-consequential-performance/02_protocol-v0.5.md` | Research infrastructure | Protocol candidate, not frozen (placeholders `⟦…⟧` still unresolved); no execution, no result | Protocol inspection | No result exists | Closest existing analog to consequence measurement, but does not test calibrated projection reliability over temporal/causal distance | N/A |
+| EXP-P3 (representation of structural invariants) | IRL experiment corpus | `codexes/packs/irl/foundation/experiments/exp-p3-representation-of-structural-invariants/` | Research infrastructure | Candidate design, pending series ratification; no execution, no result | Protocol inspection | No result exists | Representation-focused, not a frontier-extension or consequence-calibration test | N/A |
+| EXP-P4 (interaction/field-behavior) | IRL experiment corpus | `codexes/packs/irl/foundation/experiments/exp-p4-invariant-interaction/README.md` | Research infrastructure | **Reserved** — "not a design," must not be sent to reviewers as a brief | None | None — explicitly no evidentiary claim permitted | Not consumed for the Consequence Horizon test; that role goes to the proposed EXP-P2-CH below instead | N/A |
+| `EXP-P2-CH` — proposed Consequence Horizon Calibration Arm | Proposed by this pass, not yet authored | No path — see II007-IA35 | Research infrastructure (proposed) | **Proposed / Not Registered** | None yet — proposal only | Not load-bearing until registered and executed | Given its own child identifier rather than edited into EXP-P2 (mid-freeze) or folded into reserved EXP-P4 (a different hypothesis class) | N/A |
+
+**None of EXP-P1–P4 can currently measure `CH_Invariant > CH_Baseline`.** This is stated plainly rather
+than implied: no registered protocol tests calibrated consequence projection over temporal/causal
+distance today.
 
 ---
 

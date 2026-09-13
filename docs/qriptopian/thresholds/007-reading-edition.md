@@ -997,7 +997,7 @@ This is the candidate engine of Invariant Intelligence.
 
 ⸻
 
-## 28. Superintelligence and Constitutional Drift
+## 28. Superintelligence and Constitutional Consequence Deviation
 
 None of this solves the hardest problem.
 
@@ -1009,15 +1009,17 @@ The relevant constitutional question is:
 
 Does exercised capability continue to produce constitutionally admissible consequences as capability increases?
 
-Conceptually:
+Conceptually, define the **Constitutional Consequence Deviation** (renamed from an earlier draft's
+"constitutional drift" to avoid collision with this repository's existing, unrelated use of that term
+for duplicate-capability/state-amnesia defects):
 
-> D_c = distance(Observed Consequence, Constitutionally Admissible Consequence)
+> D_cc = distance(Observed Consequence, Constitutionally Admissible Consequence)
 
-and:
+and its drift — the rate at which that deviation changes as capability grows:
 
-> ΔD_c / ΔCapability
+> ΔD_cc / ΔCapability
 
-Does constitutional drift remain bounded?
+Does the deviation remain bounded?
 
 Does it increase?
 
