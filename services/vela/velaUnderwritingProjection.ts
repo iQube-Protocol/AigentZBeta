@@ -130,6 +130,7 @@ import {
 } from './velaMultiPartyProjection';
 import { toDomainAttestationMode, type VelaAssetRef, type VelaTransport } from './velaTypes';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import { recordVelaUnderwritingRiskTelemetry } from './velaUnderwritingRiskTelemetry';
 import { createUnderwritingProvider } from '@/services/financialServices/providers/underwriting/simulatedUnderwritingProvider';
 import type {
   UnderwritingProvider,
@@ -185,6 +186,13 @@ export interface VelaUnderwritingProjectionResult {
    *  (mirrors `createActivityReceipt`'s own `| null` return contract) — never
    *  when the projection itself failed, which throws instead. */
   receiptId: string | null;
+  /**
+   * `null` only when the telemetry write itself is skipped/unavailable
+   * (`recordVelaUnderwritingRiskTelemetry` never throws — see that module's
+   * own header). A telemetry failure NEVER changes `disposition`/`quote`/
+   * `receiptId` above; item 6's own hook is purely additive.
+   */
+  telemetryRecordId: string | null;
 }
 
 const DEFAULT_MAX_POLL_ATTEMPTS = 10;
@@ -311,6 +319,7 @@ function buildUnderwritingActionInput(input: {
 export async function runVelaUnderwritingProjection(
   params: RunVelaUnderwritingProjectionParams,
 ): Promise<VelaUnderwritingProjectionResult> {
+  const startedAtMs = Date.now();
   if (!params.actorPersonaId) {
     throw new Error('runVelaUnderwritingProjection: actorPersonaId is required.');
   }
@@ -369,10 +378,33 @@ export async function runVelaUnderwritingProjection(
     }),
   });
 
+  // 6. Risk-invariant telemetry hook (Use Case Zero build-order item 6) —
+  //    purely additive evidence for `golden_cycle_records`, fed ONLY the
+  //    already-authorized fields above (see
+  //    `velaUnderwritingRiskTelemetry.ts`'s own header). Never throws, so no
+  //    additional try/catch is needed at this call site — see that module's
+  //    own fail-closed contract, proven by a dedicated test.
+  const telemetryResult = await recordVelaUnderwritingRiskTelemetry({
+    requestRef: prepared.request.requestRef,
+    onChainRequestId: submission.onChainRequestId,
+    applicationId: params.build.applicationId,
+    partyNamespaceRefs,
+    requestingPartyNamespaceRef: params.requestingPartyNamespaceRef,
+    scopeBinding: prepared.request.scope.binding,
+    scopeGrants: prepared.request.scope.grants,
+    disposition,
+    quote,
+    receiptId: receipt?.id ?? null,
+    policyVersion: provider.policyVersion,
+    settlementOccurred: params.asset != null,
+    timeToCompletionMs: Date.now() - startedAtMs,
+  });
+
   return {
     onChainRequestId: submission.onChainRequestId,
     disposition,
     quote,
     receiptId: receipt?.id ?? null,
+    telemetryRecordId: telemetryResult?.id ?? null,
   };
 }
