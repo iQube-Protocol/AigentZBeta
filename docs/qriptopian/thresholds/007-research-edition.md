@@ -56,6 +56,14 @@ Research status: Nascent but operational — theory under active falsifiable inv
 
 ## Abstract
 
+**This paper proposes a falsifiable research programme, not an established theory of
+superintelligence. Invariant Intelligence is empirically nascent but no longer pre-experimental:
+foundational experiments and instrument-validation work have begun, while its central claims of
+frontier extension, cross-domain transfer and cybernetic compounding remain unvalidated.** (Added
+2026-09-13, correcting an earlier "pre-experimental" characterization now known to be factually
+inaccurate — see the Genealogy Reconciliation Addendum and the accompanying ARR factual-corrections
+handoff for the evidence.)
+
 Artificial intelligence is advancing through an increasingly powerful scaling paradigm: more compute, more data, larger models, longer reasoning traces, greater inference-time search, more tools, more agents and more parallelism. These methods continue to produce substantial gains. Invariant Intelligence does not propose replacing them.
 
 It asks whether another scaling resource has been comparatively underdeveloped:
@@ -1713,7 +1721,7 @@ elements), or `Newly proposed in 007` (no ancestor states it in any form).
 | EXP-P4 (interaction/field-behavior) | IRL experiment corpus | `codexes/packs/irl/foundation/experiments/exp-p4-invariant-interaction/README.md` | Research infrastructure | **Reserved** — "not a design," must not be sent to reviewers as a brief | None | None — explicitly no evidentiary claim permitted | Not consumed for the Consequence Horizon test; that role goes to the proposed EXP-P2-CH below instead | N/A |
 | `EXP-P2-CH` — proposed Consequence Horizon Calibration Arm | Proposed by this pass, not yet authored | No path — see II007-IA35 | Research infrastructure (proposed) | **Proposed / Not Registered** | None yet — proposal only | Not load-bearing until registered and executed | Given its own child identifier rather than edited into EXP-P2 (mid-freeze) or folded into reserved EXP-P4 (a different hypothesis class) | N/A |
 | EXP-001/EXP-002/EXP-003 (Living KnowledgeQube, invariant video, rediscovery savings) — **foundational media/coherence experiments, resolved 2026-09-13** | IRL foundation experiment corpus, authored 2026-07-03 (before Consequence Engineering's 2026-07-04 doctrinal grounding and the 2026-07-18 EXP-P1–P4 charter) | `codexes/packs/irl/foundation/experiments/exp-001-living-knowledgeqube/`, `exp-002-invariant-video/`, `exp-003-rediscovery-savings/` (results dated 2026-07-04 through 2026-07-06) | Research evidence (preliminary, pre-P1–P4) | **Executed and published** — these are not protocol-only; results exist | Direct commit/artifact inspection | **Preliminary experimental evidence only — not validation of H1b, H3d, or H4.** They predate and are narrower in scope than the P1–P4 series that superseded them | Inherited (predates this paper; foundational to the later P1–P4 formalization, not evidence for 007's own compounding claims) |
-| OpenClaw's historical rationale for pre-execution consequence/risk assessment | Searched: filenames, all PRD-* content in `codexes/packs/irl/foundation/` and `codexes/packs/agentiq/items/`, and the three real ClawHack docs (`README.md`, `IMPLEMENTATION_SUMMARY.md`, `STUDIO_ACCESS.md`) | No PRD or design doc found; the actual Feb 2026 implementation (`clawhack-group-agents/openclaw-wrapper/`) is a generic MCP tool-invocation wrapper with no risk/consequence-assessment code | — | **Unresolved** | Absence confirmed by search, not assumed | **No — explicitly non-load-bearing.** Not cited as support for any claim in this paper | N/A |
+| OpenClaw — **repositioned 2026-09-13: implementation footnote on the Capability side, not load-bearing genealogy** | Searched: filenames, all PRD-* content in `codexes/packs/irl/foundation/` and `codexes/packs/agentiq/items/`, and the three real ClawHack docs (`README.md`, `IMPLEMENTATION_SUMMARY.md`, `STUDIO_ACCESS.md`) | No PRD or design doc found for a historical pre-execution consequence/risk-assessment rationale; the actual Feb 2026 implementation (`clawhack-group-agents/openclaw-wrapper/`) is a generic MCP tool-invocation wrapper with no risk/consequence-assessment code | — | **Unresolved as history; reclassified, not merely left unresolved** — OpenClaw belongs with myClaw/myBot on the **Capability** side of §17's companion architecture (execution/assistance), not the **Constitutional** side. **myGuard is the load-bearing constitutional counterpart** — see II007-IA24 and the new note below | Absence of a historical rationale confirmed by search | **No, on either count** — not load-bearing as history, and not asked to carry constitutional significance the architecture never assigned it | N/A |
 
 **None of EXP-P1–P4 can currently measure `CH_Invariant > CH_Baseline`.** This is stated plainly rather
 than implied: no registered protocol tests calibrated consequence projection over temporal/causal
@@ -1746,14 +1754,51 @@ independent reviewer does not have to reconstruct them:
    consolidation/metrology environment — not the origin of the programme.** It appears roughly two
    months after the P1–P4 charter and provides unusually precise instrumentation, which is why it was
    adopted as a convergence domain, not because the theory was derived from finance.
-5. **OpenClaw's historical rationale for pre-execution consequence/risk assessment remains unresolved
-   and is explicitly non-load-bearing** — see the register entry above. No claim in this paper depends
-   on OpenClaw having performed consequence assessment at any particular date.
+5. **OpenClaw is not part of the load-bearing genealogy — corrected 2026-09-13.** It belongs, with
+   myClaw and myBot, on the **Capability** side of §17's companion architecture (execution and
+   assistance), not the Constitutional side. **myGuard is the load-bearing constitutional
+   counterpart**: the earlier architecture explicitly positions myGuard as guardian of the person's
+   boundary, permissions, safety and trust within the metaMe runtime, while myClaw/myBot/OpenClaw
+   perform bounded execution and assistance. This gives:
+
+   **Capability ↔ Constitutionality**, with **myClaw / myBot / OpenClaw → Capability** and
+   **myGuard → Constitutional Protection**
+
+   which connects directly to this paper's own **Capability ≠ Authority** distinction (§9) and, from
+   there, to **Authorized Action Horizon ≤ Constitutionally Warranted Consequence Horizon** (the
+   Consequence Horizon section) — without asking OpenClaw's unresolved historical rationale to carry
+   constitutional significance the git record does not establish. OpenClaw remains an implementation
+   footnote on the capability side, not a genealogy anchor.
 6. **This paper's core H1b (frontier extension), H3d (cross-domain consequential transfer) and H4
    (constitutional cybernetic compounding) claims remain unvalidated.** Nothing in this reconciliation,
    the heritage-search pass, or the genealogy audit constitutes evidence for any of the three; all
    remain Hypothesized, exactly as stated throughout this document's own falsification and
    evidence-state sections.
+
+### The genealogy, frozen at this level of resolution
+
+Further chronological forensics has diminishing value relative to the paper's own falsifiability
+work. The genealogy is frozen here, not pursued toward a perfectly linear reconstruction:
+
+```
+Experience Vibing → Composable Production Structure
+        ↓
+Dev Vibing / Gap-Directed Development → Consequence Engineering
+        ↓
+Media Coherence Experiments (EXP-001/002/003) → Invariant Structure
+        ↓
+Structural + Constitutional Invariance → Invariant Intelligence
+        ↓
+P1–P4 Cross-Domain Research Programme — candidate domains {Media, Software, Legal, Finance}
+        ↓
+MoneyPenny + Vela + Golden Cycle → Financial Services as Consolidated Metrology/Operating Domain
+```
+
+Law is retained in this history deliberately, not incidentally: its language-heavy, intrinsically
+constitutional structure made it an obvious candidate environment for the thesis alongside media,
+software and finance. This is not elevated into a dedicated section — it is preserved here so a future
+reader does not retroactively narrow P1–P4's candidate domains to "media/software/finance" and drop
+law from the record.
 
 **This addendum is Evidence Agent work, not an Adversarial Research Review.** It was prepared by the
 same authoring context that has drafted and evidence-resolved this manuscript throughout, and per this
