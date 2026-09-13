@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-13-CONSTITUTIONAL-CHAIN-VIEWER-READS-EACH-STEPS-OWN-EVIDENCE-001",
+  "statement": "A read-only viewer that assembles and displays the state of a multi-step constitutional/causal chain built from independently-produced evidence (e.g. Factor selection -> Aegis admission -> disclosure authorization -> frozen envelope -> execution -> quote -> settlement -> receipt -> telemetry, or any structurally analogous chain of separately-receipted acts) MUST derive EACH step's own state strictly from THAT step's own persisted evidence, independently of every other step: the presence of a downstream artifact must never be treated as proof an upstream step succeeded, and the absence of a step's own evidence must always resolve an honest 'not started' rather than being inferred from context. The state vocabulary itself must distinguish at minimum 'not attempted' from 'attempted and refused' from 'attempted and could not be decided' from 'attempted and concluded' -- and 'concluded'/'complete' must NEVER be conflated with 'the outcome was favourable': a step that concluded with an honestly-reported unfavourable result (e.g. a coarse verdict of UNACCEPTABLE, an ineligible coverage decision) is exactly as 'complete' as one that concluded favourably, and its real fields must render verbatim rather than being suppressed or softened. Such a viewer must add NO new write path and NO new evidence/receipt type of its own -- it is a pure reduction over evidence other, already-audited modules already produced -- and must fail closed (report absent evidence, never throw) on any read failure, mirroring the producer-side fail-closed discipline the same chain's own telemetry/receipt writers already established.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": "CI-2026-09-13-MONEYPENNY-COMPOSITION-GATE-BINDS-EVIDENCE-BEFORE-FREEZE-001",
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "The READ-SIDE counterpart of CI-2026-09-13-MONEYPENNY-COMPOSITION-GATE-BINDS-EVIDENCE-BEFORE-FREEZE-001 (which proved a WRITE-side composition gate must cross-reference and freeze upstream evidence before a consequential execution call) and, one layer further back, CI-2026-09-13-AEGIS-ADMISSION-EVIDENCE-INDEPENDENT-MEMBRANE-001 / CI-2026-09-13-FACTOR-SELECTION-NEVER-CONSEQUENTIAL-001 (which each proved a single evidence-producing layer must stay honest and non-consequential on its own). This candidate is a DIFFERENT discipline from all three -- it governs a pure VIEWER assembling already-produced evidence for display, never a producer or a gate -- but belongs to the same chain-integrity family: every layer of this constitutional pipeline (produce evidence honestly; compose/freeze it honestly; now, READ and RENDER it honestly) must independently refuse to fabricate certainty it does not have.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/vela-underwriting-chain-projection.test.ts",
+      "assertion": "Every step resolves not_started when its own evidence is absent, even when OTHER steps' evidence exists (an empty receipt list produces not_started for all nine steps; a receipt scoped to a DIFFERENT requestRef is ignored, proving the requestRef filter is real, not a no-op). Aegis's own ADMITTED/REFUSED/UNRESOLVED admissionStatus maps 1:1 onto the viewer's complete/blocked/unresolved vocabulary. A frozen-envelope receipt present resolves Freeze AND Execute complete from that SAME receipt (never inferred from a later step). A vela_underwriting_projection_completed receipt carrying disposition UNACCEPTABLE / coverageEligible:false / riskBand HIGH resolves the Quote step's OWN state to 'complete' while its real, unfavourable fields (riskBand, coverageEligible, coverageLimit:0, premium:0) render verbatim -- proving 'complete' is never silently upgraded to imply approval. disposition UNRESOLVED resolves the step to 'unresolved', never 'complete'. Settlement is derived ONLY from a real, already-authorized execution_evidence.settlementOccurred fact (never a fabricated 'pending'): absent telemetry -> not_started/null; settlementOccurred:false -> not_started/false (never upgraded); settlementOccurred:true -> complete/true. A leak-check confirms no raw party financial figures (currentExposure/proposedSpend/privateSpendLimit/privateRiskLimit) or T0 identifiers (personaId/authProfileId/rootDid) appear anywhere in the serialized state. A dedicated canary proves the module contains no createActivityReceipt call and no .insert/.upsert/.update call anywhere in its own source -- it writes nothing.",
+      "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/moneypenny-constitutional-risk-flow-route.test.ts",
+      "assertion": "401 when unauthenticated; 400 when requestRef is missing or blank; and the resolved persona's OWN personaId (never a client-supplied ?personaId= query parameter) is what reaches the chain-projection service.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "vela-001-confidential-constitutional-execution / Use Case Zero build-order item 10a — Constitutional Risk Flow panel",
+      "defect": "No reader existed over the causal chain items 5-9 already receipted -- every fact (Factor selection, Aegis admission, disclosure authorization, frozen envelope, Vela execution, underwriting quote, telemetry) sat in Supabase with no assembly point, and the naive approach of inferring a step's success from a later step's presence (or fabricating an in-flight Settlement state to match a suggested-but-unevidenced UI vocabulary) was rejected during this item's own design in favour of reading each step's own evidence independently and reporting absence honestly.",
+      "resolutionId": "RES-2026-09-13-CONSTITUTIONAL-RISK-FLOW-PANEL-001",
+      "evidence": [
+        "services/vela/velaUnderwritingChainProjection.ts",
+        "tests/vela-underwriting-chain-projection.test.ts",
+        "tests/moneypenny-constitutional-risk-flow-route.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-09-13-CONSTITUTIONAL-RISK-FLOW-PANEL-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This is the FIRST recorded occurrence of THIS candidate — status stays `candidate`; only an operator act may raise this to `ratified`/`canonical`.",
+    "Parented to CI-2026-09-13-MONEYPENNY-COMPOSITION-GATE-BINDS-EVIDENCE-BEFORE-FREEZE-001 for FAMILY continuity (same causal chain, same 'never fabricate certainty' lineage) even though the two candidates govern genuinely different sides of the pipeline (write/compose vs. read/render) — a future ratification pass should read all four family members (this one, the composition-gate one, and its own two ancestors) together rather than in isolation, per that file's own note.",
+    "Not yet applied to a second implementation — occurrence count is 1. The natural second occurrence to watch for is any future read-only viewer over a different multi-step receipted chain elsewhere in this platform (e.g. a Reciprocal Artifact Exchange status viewer, a QriptoCENT cross-denomination settlement viewer) that must resist the same temptation to infer an upstream step's success from a downstream artifact's mere presence."
+  ]
+}

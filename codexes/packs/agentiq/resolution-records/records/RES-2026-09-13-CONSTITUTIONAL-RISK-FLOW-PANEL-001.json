@@ -1,0 +1,87 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-09-13-CONSTITUTIONAL-RISK-FLOW-PANEL-001",
+  "capability": "vela-001-confidential-constitutional-execution",
+  "milestone": "Use Case Zero build-order item 10a — Constitutional Risk Flow panel: a READ-ONLY, additive MoneyPenny surface that assembles and renders items 5-9's own causal chain (Factor selection -> Aegis admission -> disclosure authorization -> frozen envelope -> Vela execution -> underwriting quote -> settlement -> causal receipt -> risk telemetry) for one operator-supplied requestRef, via a new chain-assembly service, a new persona-scoped API route, and a new MoneyPenny panel + copilot ground-context wiring. Zero changes to any of the six upstream backend files items 5-9 built.",
+  "problem": "Items 5-9 each independently proved and receipted one link of the confidential multi-party underwriting chain, but nothing in the platform let an operator (or the copilot) SEE the assembled chain state for a given request — the six upstream files' own evidence (activity_receipts rows + one golden_cycle_records row) had no reader, and this build-order item's own naming space collided directly with a pre-existing, unrelated, case-scoped 'Use Case Zero' agent-onboarding readiness system that already shares the words Factor/Aegis/Use Case Zero, making misnaming or accidental cross-import a live risk that had to be structurally foreclosed, not merely documented.",
+  "observedFailure": [
+    "Not an observed runtime defect — a milestone-scoped additive item, like several of its immediate predecessors. The gap was the ABSENCE of any reader over the six upstream files' own receipts/telemetry row: an operator with a real requestRef had no way to see whether Factor had proposed a candidate, whether Aegis had admitted it, whether disclosure had been authorized, whether an envelope had been frozen and submitted, what the resulting quote said, or whether telemetry had been recorded — every fact already existed in Supabase but nowhere in the UI."
+  ],
+  "rootCauses": [
+    "Items 7-9 each deliberately scoped themselves to producing ONE artifact + ONE receipt and explicitly deferred any UI/demo surface — correct for their own scope, but it meant no aggregation point existed anywhere for a human to read the assembled chain.",
+    "The five relevant receipt action types (factor_selection_proposed, vela_underwriting_admission_evidence_composed, vela_underwriting_disclosure_authorized, vela_underwriting_envelope_frozen, vela_underwriting_projection_completed) each carry requestRef inside their own actionInput independently — verified by reading all five files in full rather than assumed — so a uniform requestRef filter across all five was possible, but only after that verification.",
+    "golden_cycle_records (the item-6 telemetry sink) carries no persona-scoping column and no existing reader anywhere in the codebase (velaUnderwritingRiskTelemetry.ts is producer-only by its own header's explicit OUT OF SCOPE list) — a lookup key had to be chosen and justified (action_ref = onChainRequestId, available only once a frozen-envelope receipt exists) rather than assumed from the writer's own JSONB shape.",
+    "A pre-existing, unrelated, case-scoped 'Use Case Zero' agent-onboarding readiness capsule (components/moneypenny/useCaseZero/UseCaseZeroReadinessCapsule.tsx, services/factor/useCaseZeroOrchestrator.ts et al.) already occupies the same naming space this item's own build-order title uses, and is already mounted inside FactorPanel.tsx/AegisPanel.tsx — the exact same collision items 7-9's own file headers each documented and resolved by NEVER naming their own symbols 'UseCaseZero*'."
+  ],
+  "resolution": [
+    "Added services/vela/velaUnderwritingChainProjection.ts: getConstitutionalRiskFlowState({personaId, requestRef}) — a pure-read, fail-closed (never throws) service. Calls the EXISTING listActivityReceiptsForPersona (services/receipts/activityReceiptService.ts) filtered to the five relevant action types, then filters client-side by actionInput.requestRef === requestRef (verified uniform across all five real receipt shapes by reading each of the six upstream files in full first). Adds the ONE new query this item needed with no existing reader to reuse: a golden_cycle_records lookup by action_ref = onChainRequestId (chosen and documented over a value_cycle->>requestRef filter, since golden_cycle_records carries no persona-scoping column and action_ref is the exact, already-persona-verified on-chain request id). Defines a five-value step-state vocabulary (not_started | in_progress | blocked | unresolved | complete) applied independently per step — Aegis's own ADMITTED/REFUSED/UNRESOLVED maps 1:1 onto complete/blocked/unresolved; 'complete' is documented and tested to never imply a favourable outcome (a Quote step reading complete with disposition UNACCEPTABLE and coverageEligible:false renders those real fields verbatim, never suppressed). Settlement is derived honestly from the one genuine, already-recorded fact this chain produces (golden_cycle_records.execution_evidence.settlementOccurred) rather than inventing a new receipt type or a fabricated 'pending' state.",
+    "Added app/api/moneypenny/constitutional-risk-flow/route.ts: a GET route resolving the caller via getActivePersona (identity spine), reading ?requestRef= (400 when missing/empty), and calling the new service scoped to the resolved persona only — never a client-supplied personaId.",
+    "Added app/(shell)/moneypenny/components/constitutionalRiskFlow/riskFlowSurfaceKit.tsx: a small, parallel slate-house-style presentation kit (section/capsule/step-chip/badge/provider-mode-badge primitives) mirroring components/moneypenny/bankr/bankrSurfaceKit.tsx's shape and visual contract exactly, without importing Bankr's own components by name into a non-Bankr surface.",
+    "Added app/(shell)/moneypenny/components/ConstitutionalRiskFlowPanel.tsx: a requestRef text input + Load action, a clickable 9-step journey spine, 9 state chips derived strictly from the service's own vocabulary, and 9 expandable capsules (Participants & Services, Admission Evidence, Disclosure Scope, Frozen Envelope, Vela Execution, Risk & Coverage Quote, Settlement, Causal Receipt, Constitutional Risk Telemetry). The Disclosure Scope capsule renders every scope grant's COMPUTE_WITH/DISCLOSE_TO distinction explicitly with an honest static caption; the Vela Execution capsule visually separates MoneyPenny's own constitutional-evidence refs from Vela's own execution evidence, and states plainly that no environment-trust/attestation field exists on this receipt today rather than fabricating a badge.",
+    "Registered the new panel as 'constitutional-risk-flow' in MoneyPennyPanelTab.tsx's MoneyPennyPanelKey union + PANELS map, and in moneypennyCapabilities.ts (MONEYPENNY_AREA_FOR_PANEL -> 'activity'; a new capability item under the 'operate' group).",
+    "Extended moneyPennyNavigation.tsx with a new MoneyPennyActiveRiskFlowRequestRef snapshot (mirroring the existing MoneyPennyActiveCase pattern exactly: one writer -- ConstitutionalRiskFlowPanel on a successful load -- one reader -- MoneyPennyCopilotWorkspace), and wired MoneyPennyCopilotWorkspace.tsx to fetch a small, bounded T1-safe reduction of the chain state (one state word per step, plus a handful of one-line facts) into groundContext when the panel is active, refetching on mount/visibility/focus exactly like the existing financial-profile ground snapshot.",
+    "Registered 'constitutional-risk-flow' as a new ChipTargetId in app/api/codex/chat/route.ts (LAYOUT_TAG_IDS, a new LAYOUT_KEYWORDS entry, and the aigent-moneypenny system-prompt's Valid <id> values list) -- reusing the EXISTING groundContext + [layout:<id>|<substance>] suggestion mechanism, deliberately NOT a new deterministic specialist-delegation trigger (that is a distinct mechanism for a different purpose).",
+    "Added tests/vela-underwriting-chain-projection.test.ts (17 tests): every step not_started with no evidence; requestRef filtering is real (a receipt for a different requestRef is ignored); Select/Admit/Freeze/Execute/Quote state derivations built on REAL upstream constructors (proposeFactorSelection, authorizeUnderwritingDisclosure) wherever one exists; the Aegis ADMITTED/REFUSED/UNRESOLVED -> complete/blocked/unresolved mapping; a frozen-envelope receipt present resolves Freeze AND Execute complete from the SAME receipt; a projection-completed receipt with disposition UNACCEPTABLE resolves Quote complete while its own fields (riskBand HIGH, coverageEligible false, coverageLimit/premium 0) render honestly, never suppressed; Settlement's three real states (no telemetry -> not_started/null; settlementOccurred:true -> complete; settlementOccurred:false -> not_started, never a fabricated pending); a leak-check across the full serialized state (no currentExposure/proposedSpend/privateSpendLimit/privateRiskLimit/personaId/authProfileId/rootDid); and import-boundary tests (both a stripComments substring check and an AST-based forbiddenImportFindings check) proving this file never imports useCaseZeroOrchestrator.ts/useCaseZeroReadinessProjection.ts/useUseCaseZeroReadiness.ts/admissionAuthority.ts/disclosurePolicy.ts, plus a canary proving this file writes NOTHING (no createActivityReceipt/.insert/.upsert/.update calls anywhere in its own source).",
+    "Added tests/moneypenny-constitutional-risk-flow-route.test.ts (4 tests): 401 unauthenticated; 400 missing requestRef; 400 empty/whitespace requestRef; and a happy-path proof that the RESOLVED persona's own personaId (never a client-supplied ?personaId= query value) is what reaches the service.",
+    "Verification: both new test files pass in full (21/21). tests/vela-underwriting-composition-gate.test.ts, vela-underwriting-admission-evidence.test.ts, vela-underwriting-disclosure-authorization.test.ts, vela-underwriting-projection.test.ts, vela-underwriting-risk-telemetry.test.ts, vela-multi-party-projection.test.ts, moneypenny-capability-navigation.test.ts, and moneypenny-copilot-workspace.test.ts (160 tests total) all pass unchanged. A full repo-wide vitest run (707 test files, 11255 tests) shows 87 pre-existing failures across 27 files (e.g. tests/threshold-public-knowledge-bridge.test.ts, tests/vela-confidential-projection-provider.test.ts, tests/workspace-capabilities-authorization-2026-09-08.test.ts) -- none of which reference MoneyPenny, Vela underwriting, or any file this item touched or created; confirmed unrelated to this change by inspection of each failure's own stack trace. npx tsc --noEmit shows 677 pre-existing repo-wide errors (this repo runs with next.config's typescript.ignoreBuildErrors); none of this item's new or touched files (velaUnderwritingChainProjection.ts, the new route, the new panel/kit components, MoneyPennyPanelTab.tsx, moneyPennyNavigation.tsx, moneypennyCapabilities.ts, MoneyPennyCopilotWorkspace.tsx, app/api/codex/chat/route.ts) appear anywhere in the tsc output. git diff against the base commit confirms zero changes to the six upstream backend files (factorSelectionArtifact.ts, velaUnderwritingAdmissionEvidence.ts, velaUnderwritingDisclosureAuthorization.ts, velaMultiPartyProjection.ts, velaUnderwritingCompositionGate.ts, velaUnderwritingProjection.ts) and zero changes to useCaseZeroOrchestrator.ts/useCaseZeroReadinessProjection.ts/admissionAuthority.ts/disclosurePolicy.ts. A fully populated chain-state render was NOT visually verified in a live browser -- no live end-to-end request exists in the DB yet to load; only the empty/prompt-for-requestRef state and the unit/route test coverage are verified."
+  ],
+  "rejectedApproaches": [
+    "Naming this panel or its service around 'Use Case Zero' (matching the brief's own build-order title literally) -- rejected per the operator's own explicit naming instruction and items 7-9's own established precedent: components/moneypenny/useCaseZero/UseCaseZeroReadinessCapsule.tsx already occupies that name for a completely different, case-scoped agent-onboarding readiness system. Named 'Constitutional Risk Flow' throughout instead.",
+    "Deriving a step's state by inferring success from a LATER step's presence (e.g. treating a frozen-envelope receipt's mere existence as proof Aegis admitted the candidate) -- rejected per the No-Guessing rule: every step reads its OWN receipt/record independently, since a caller could in principle construct evidence out of the canonical sequence and this reader must report exactly what it finds, never what it assumes must have preceded it.",
+    "Inventing a 'pending'/'in_progress' Settlement state to make the UI vocabulary match the brief's own suggested 'None / Pending / Complete' triad literally -- rejected because no code path in this chain produces a genuine in-flight settlement fact today; the honest, real vocabulary (not_started when no evidence or settlementOccurred:false, complete when settlementOccurred:true) is used instead, with the deviation documented inline.",
+    "Building a new deterministic specialist-delegation trigger (mirroring ASK_FACTOR_ABOUT_CASE_PROMPT) for the copilot to reference chain state -- rejected as over-engineering for this item's actual need; the existing groundContext + [layout:<id>|<substance>] suggestion mechanism already suffices.",
+    "Querying golden_cycle_records by value_cycle->>'requestRef' instead of action_ref=onChainRequestId -- rejected because that table carries no persona-scoping column at all, so a requestRef-only filter could not be safely distinguished from a value another persona's own request happened to reuse; action_ref is the exact, already-persona-verified on-chain request id this persona's own frozen-envelope receipt names.",
+    "Treating the frozen-envelope receipt's providerMode/disposition fields as sufficient for the Quote capsule -- rejected once velaUnderwritingProjection.ts was read in full and shown to carry the FULL nine-field UnderwritingQuote only on its own vela_underwriting_projection_completed receipt; the chain-projection service reads that receipt specifically for the Quote step rather than reusing the thinner frozen-envelope fields."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-13-CONSTITUTIONAL-CHAIN-VIEWER-READS-EACH-STEPS-OWN-EVIDENCE-001"
+  ],
+  "canaries": [
+    "tests/vela-underwriting-chain-projection.test.ts",
+    "tests/moneypenny-constitutional-risk-flow-route.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "milestone-complete",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/vela-underwriting-chain-projection.test.ts",
+      "tests/moneypenny-constitutional-risk-flow-route.test.ts",
+      "tests/vela-underwriting-composition-gate.test.ts",
+      "tests/vela-underwriting-admission-evidence.test.ts",
+      "tests/vela-underwriting-disclosure-authorization.test.ts",
+      "tests/vela-underwriting-projection.test.ts",
+      "tests/vela-underwriting-risk-telemetry.test.ts",
+      "tests/vela-multi-party-projection.test.ts",
+      "tests/moneypenny-capability-navigation.test.ts",
+      "tests/moneypenny-copilot-workspace.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-09-13_constitutional-risk-flow-panel.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-13_constitutional-risk-flow-panel.md",
+    "services/vela/velaUnderwritingChainProjection.ts",
+    "app/api/moneypenny/constitutional-risk-flow/route.ts",
+    "app/(shell)/moneypenny/components/ConstitutionalRiskFlowPanel.tsx",
+    "app/(shell)/moneypenny/components/constitutionalRiskFlow/riskFlowSurfaceKit.tsx",
+    "services/factor/factorSelectionArtifact.ts",
+    "services/vela/velaUnderwritingAdmissionEvidence.ts",
+    "services/vela/velaUnderwritingDisclosureAuthorization.ts",
+    "services/vela/velaUnderwritingCompositionGate.ts",
+    "services/vela/velaUnderwritingProjection.ts",
+    "services/vela/velaUnderwritingRiskTelemetry.ts"
+  ],
+  "date": "2026-09-13",
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}
