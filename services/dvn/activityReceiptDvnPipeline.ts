@@ -436,6 +436,12 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // agent gaining control of a wallet), same anchorability class as
   // 'bankr_provider_bound' above. Never carries the private key.
   'agent_purpose_wallet_provisioned',
+  // Use Case Zero's first underwriting vertical slice (2026-09-13) — a
+  // completed Vela multi-party underwriting projection (namespace refs,
+  // scope binding, coarse verdict, and the SIMULATED quote only — never a
+  // party's raw financial inputs). Same anchorability class as
+  // 'confidential_projection_evaluated' above.
+  'vela_underwriting_projection_completed',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

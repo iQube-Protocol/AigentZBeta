@@ -629,7 +629,14 @@ export type ActivityActionType =
   | 'access_grant_capability_granted'
   | 'access_grant_capability_revoked'
   | 'research_persona_proposed'
-  | 'research_persona_updated';
+  | 'research_persona_updated'
+  // Use Case Zero's first underwriting vertical slice (2026-09-13) —
+  // services/vela/velaUnderwritingProjection.ts composes the proven Vela
+  // multi-party wiring with a pluggable, deterministic underwriting quote
+  // provider. Carries ONLY the coarse Vela verdict, namespace refs, scope
+  // binding, and the SIMULATED quote's own fields — never a party's raw
+  // financial inputs. DVN-anchorable (activityReceiptDvnPipeline.ts).
+  | 'vela_underwriting_projection_completed';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 
