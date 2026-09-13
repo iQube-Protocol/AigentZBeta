@@ -99,6 +99,16 @@ export interface UnderwritingQuote {
 export interface UnderwritingProvider {
   readonly mode: UnderwritingProviderMode;
   /**
+   * A version identifier for the pricing/policy formula this PROVIDER
+   * implements — a property of the provider itself (which formula/model
+   * generation is running), not of each individual quote it produces. Bound
+   * verbatim onto downstream telemetry's `provenance.policyVersion` (see
+   * `services/vela/velaUnderwritingRiskTelemetry.ts`) so a later change to
+   * the underlying formula is distinguishable in evidence without touching
+   * `UnderwritingQuote`'s own nine operator-specified fields.
+   */
+  readonly policyVersion: string;
+  /**
    * The ONLY input is the Vela-disclosed coarse verdict — see this file's
    * header for why that is a structural, not merely documented, property.
    * Never throws on a well-formed `ConfidentialProjectionDisposition`; a

@@ -96,6 +96,9 @@ const SIMULATED_QUOTE_TABLE: Record<ConfidentialProjectionDisposition, Omit<Unde
 
 export class SimulatedUnderwritingProvider implements UnderwritingProvider {
   readonly mode: UnderwritingProviderMode = 'SIMULATED';
+  /** Named constant identifying this deterministic formula generation — see
+   *  `UnderwritingProvider.policyVersion`'s own doc comment. */
+  readonly policyVersion = 'vela-use-case-zero-underwriting-simulated-v1';
 
   /**
    * `async` to match the `UnderwritingProvider` interface contract (a future
