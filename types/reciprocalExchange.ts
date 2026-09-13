@@ -224,6 +224,19 @@ export interface ExchangeArtifactRecord {
   registeringOperatorPersonaId: string | null;
   authorityBasis: string | null;
   pendingPrincipalAttestation: boolean;
+  /**
+   * Operator-supplied plaintext fallback (2026-09-12) — set only when
+   * automated extraction (`extractArtifactText` in
+   * `services/research/reciprocalExchange.ts`) cannot reach the underlying
+   * bytes for this artifact (e.g. an Auto Drive download failing from a
+   * given deployment) and the bound principal or an authorised operator has
+   * supplied the document's own text out of band. Never fabricated —
+   * populated only from text the operator confirms IS the artifact's own
+   * content. When present, `extractArtifactText` prefers it over attempting
+   * automated extraction, since a verified-accurate fallback beats a flaky
+   * network call; it never suppresses a WORKING automated extractor.
+   */
+  operatorProvidedText: string | null;
 }
 
 // ─── Attestation model (PRD §8–9, §17) ───────────────────────────────────────

@@ -13,7 +13,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
-import { createExchange, listMyExchanges } from '@/services/research/reciprocalExchange';
+import { createExchange, listMyExchanges, listExchangesByParentExperiment } from '@/services/research/reciprocalExchange';
+import { resolveWorkspaceRole } from '@/services/passport/participationAccess';
 import type { DisclosurePolicy } from '@/types/reciprocalExchange';
 
 export const runtime = 'nodejs';
@@ -93,6 +94,30 @@ export async function GET(req: NextRequest) {
   const scoped = parentExperimentId
     ? result.exchanges.filter((e) => e.parentExperimentId === parentExperimentId)
     : result.exchanges;
+
+  // Workspace-scoped observer inclusion (2026-09-12, operator instruction:
+  // "should not be restricted just to the parties who exchanged them but
+  // should be visible to anyone who has access rights to the experiment").
+  // A caller who holds workspace access to `parentExperimentId` but is not a
+  // direct party to any exchange tagged with it should still see it listed —
+  // the SAME admission getExchangeView/resolveExchangeArtifactContent grant
+  // for the single-exchange view, applied here to the LIST too, so a caller
+  // never sees an exchange listed that they'd then be refused opening.
+  if (parentExperimentId) {
+    const role = await resolveWorkspaceRole(admin, persona.personaId, parentExperimentId, null);
+    if (role) {
+      const all = await listExchangesByParentExperiment(admin, parentExperimentId);
+      if (all.ok) {
+        const seen = new Set(scoped.map((e) => e.id));
+        for (const e of all.exchanges) {
+          if (!seen.has(e.id)) {
+            scoped.push(e);
+            seen.add(e.id);
+          }
+        }
+      }
+    }
+  }
 
   // T0 STRIP (fixed in passing, 2026-09-08 — this list endpoint previously
   // returned the full `ReciprocalExchangeRecord`, including

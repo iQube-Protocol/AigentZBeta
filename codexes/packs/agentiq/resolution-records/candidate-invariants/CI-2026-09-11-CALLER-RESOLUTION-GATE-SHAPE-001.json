@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "Named gates sharing this shape as of 2026-09-11: requireChannelAccess, requireReviewAccess, resolveStewardAuthority.",
+    "The shape's second half is intentionally a ready-to-return NextResponse ('response'), not a raw error string or code -- this is what lets every call site do 'if (!gate.ok) return gate.response;' with no per-route translation logic.",
+    "This is a code-shape convention, not a security or access-control claim -- it says how a gate REPORTS failure, not what it is permitted to gate."
+  ],
+  "canaries": [
+    {
+      "path": "tests/irl-stewardship-access-capability.test.ts",
+      "assertion": "resolveStewardAuthority's failure branch returns { ok: false, response } where response is a NextResponse, matching the sibling gates' shape.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/persona-spine-fetch.test.ts",
+      "assertion": "Greps spine-aware routes/gates for shape drift; caught the original ad hoc '{ error }' shape before this fix.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "candidateId": "CI-2026-09-11-CALLER-RESOLUTION-GATE-SHAPE-001",
+  "statement": "A new server-side caller-resolution gate in this codebase must return the established '{ ok: true, ...resolvedFields } | { ok: false, response: NextResponse }' shape (the shape requireChannelAccess and requireReviewAccess already use), never a bespoke failure shape a caller must separately translate into an HTTP response.",
+  "scope": "local",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-09-11-STEWARD-GATE-SHAPE-CONVENTION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "app/api/steward/participation/_lib/resolveStewardAuthority.ts",
+      "defect": "First written with an ad hoc '{ error: string }' failure shape, forcing a refactor of five route files plus two test canaries once tests/persona-spine-fetch.test.ts caught the drift from the established gate shape.",
+      "resolutionId": "RES-2026-09-11-STEWARD-GATE-SHAPE-CONVENTION-001",
+      "evidence": [
+        "66384c65a",
+        "tests/irl-stewardship-access-capability.test.ts",
+        "tests/persona-spine-fetch.test.ts"
+      ]
+    }
+  ],
+  "family": "engineering",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "engineering"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
+}

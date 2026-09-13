@@ -99,6 +99,7 @@ const PREFIX_GATE_PROOF: Record<string, string> = {
   'app/api/qubetalk/channels/route.ts': 'app/api/qubetalk/_lib/requireChannelAccess.ts',
   'app/api/marketa/qubetalk/route.ts': 'app/api/marketa/qubetalk/_lib.ts',
   'app/api/research/review/route.ts': 'app/api/research/review/_lib/gate.ts',
+  'app/api/steward/participation/route.ts': 'app/api/steward/participation/_lib/resolveStewardAuthority.ts',
 };
 
 /**

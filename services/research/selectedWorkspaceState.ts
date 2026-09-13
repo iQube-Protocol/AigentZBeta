@@ -12,7 +12,9 @@
  *   - membership/role/access basis    → services/passport/participationAccess.ts
  *   - phase/stage/protocol/observer   → services/research/experimentLifecycleState.ts
  *   - reviewer countersignature       → services/research/reviewerAgreement.ts
- *   - documents (Stage-0-excluded)    → services/research/irlExperimentPathScope.ts
+ *   - documents (Stage-0-excluded,
+ *     review-grant gated)             → services/research/irlExperimentPathScope.ts +
+ *                                        resolveExperimentReviewGrant (participationAccess.ts)
  *   - reciprocal artifact exchange    → services/research/reciprocalExchange.ts
  *   - milestones / blockers           → services/experiments/workspaceTracking.ts
  *   - scientific activity trail       → services/research/experimentLifecycleState.ts
@@ -39,6 +41,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   getParticipantResearchWorkspaceAccess,
   resolveWorkspaceRole,
+  resolveExperimentReviewGrant,
   type ParticipantWorkspaceAccessBasis,
 } from '@/services/passport/participationAccess';
 import {
@@ -58,6 +61,7 @@ import {
 } from '@/services/research/experimentLifecycleState';
 import { listIrlPackDocumentsForExperiment } from '@/services/research/irlExperimentPathScope';
 import { reviewerAgreementStatus, type ReviewerAgreementStatus } from '@/services/research/reviewerAgreement';
+import { findReceiptsByIds, type ActivityReceiptRecord } from '@/services/receipts/activityReceiptService';
 import { listWorkspaceItems } from '@/services/experiments/workspaceTracking';
 import { listMyExchanges } from '@/services/research/reciprocalExchange';
 
@@ -73,6 +77,61 @@ export type SelectedWorkspaceStateResult =
 export interface UnmodeledField {
   available: false;
   reason: string;
+}
+
+/**
+ * The exact field set `components/metame/cards/ActivityReceiptCard.tsx`
+ * renders — a deliberate PICK of `ActivityReceiptRecord` (never the whole
+ * server record, which also carries connector/action-input fields this
+ * surface has no business forwarding). Keeping this as an explicit mapping
+ * (`toActivityReceiptCardData` below) rather than passing the server record
+ * through verbatim means a future field added to `ActivityReceiptRecord`
+ * for an unrelated surface never silently reaches this one.
+ */
+export interface ActivityReceiptCardData {
+  id: string;
+  sessionId: string | null;
+  intentId: string | null;
+  activeCartridge: string;
+  actionType: string;
+  summary: string;
+  agentsInvoked: string[];
+  toolsUsed: string[];
+  iqubesUsed: string[];
+  contextShared: string[];
+  artifactsCreated: string[];
+  approvalsGranted: string[];
+  policyEnvelopeId: string | null;
+  receiptStatus: 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
+  dvnReceiptId: string | null;
+  posStatus: 'pending' | 'batched' | 'broadcast' | 'anchored' | 'failed' | null;
+  btcAnchorTxid: string | null;
+  dvnStatus: 'submitted' | 'ready' | 'failed' | null;
+  createdAt: string;
+}
+
+function toActivityReceiptCardData(record: ActivityReceiptRecord): ActivityReceiptCardData {
+  return {
+    id: record.id,
+    sessionId: record.sessionId,
+    intentId: record.intentId,
+    activeCartridge: record.activeCartridge,
+    actionType: record.actionType,
+    summary: record.summary,
+    agentsInvoked: record.agentsInvoked,
+    toolsUsed: record.toolsUsed,
+    iqubesUsed: record.iqubesUsed,
+    contextShared: record.contextShared,
+    artifactsCreated: record.artifactsCreated,
+    approvalsGranted: record.approvalsGranted,
+    policyEnvelopeId: record.policyEnvelopeId,
+    receiptStatus: record.receiptStatus,
+    dvnReceiptId: record.dvnReceiptId,
+    posStatus: record.posStatus,
+    btcAnchorTxid: record.btcAnchorTxid,
+    dvnStatus: record.dvnStatus,
+    createdAt: record.createdAt,
+  };
 }
 
 export interface SelectedWorkspaceState {
@@ -131,6 +190,18 @@ export interface SelectedWorkspaceState {
    *  bound, honestly unmodeled otherwise (no such trail exists for a
    *  non-experiment workspace today). */
   activity: ExperimentActivityEntry[] | UnmodeledField;
+  /**
+   * The GENUINE `activity_receipts` row backing each `activity` entry's
+   * `receiptId` (2026-09-11, operator instruction: "reuse the canonical
+   * DVN/activity receipt source already used elsewhere" — the SAME row
+   * `writeLifecycleReceipt` writes via `createActivityReceipt`, real DVN
+   * status and all, never fabricated to fit the client card's shape).
+   * Keyed by receiptId so the Activity surface can render the canonical
+   * `ActivityReceiptCard` for any entry whose receipt resolved — an entry
+   * with no key here (older row, or the receipt lookup found nothing) falls
+   * back to the honest bare-fact row, never a guessed card.
+   */
+  activityReceipts: Record<string, ActivityReceiptCardData>;
   /** Workspace-scoped Locker items — genuinely unmodeled today (no T2-safe
    *  tagging convention exists for research materials; Locker items are
    *  holder-scoped only). See the round-3 update doc for the full account. */
@@ -184,6 +255,7 @@ export async function resolveSelectedWorkspaceState(
     available: false,
     reason: 'No workspace-scoped activity trail exists for a workspace with no bound experiment.',
   };
+  let activityReceipts: SelectedWorkspaceState['activityReceipts'] = {};
 
   if (experimentId) {
     experimentLifecycle = await resolveExperimentLifecycleState(admin, experimentId);
@@ -191,6 +263,23 @@ export async function resolveSelectedWorkspaceState(
     currentStage = experimentLifecycle.stageLabel;
     readinessAvailable = READINESS_AVAILABLE_EXPERIMENTS.has(experimentId);
     activity = await resolveExperimentActivity(experimentId);
+    // Batch-fetch the GENUINE activity_receipts row backing each entry's
+    // receiptId (message 3 item 11 — "reuse the canonical DVN/activity
+    // receipt source already used elsewhere"). Every research lifecycle
+    // transition writes through writeLifecycleReceipt -> createActivityReceipt,
+    // the SAME pipeline every other receipted act in the platform uses, so
+    // these ARE real DVN-pipeline rows, not a lookalike. Never fabricated:
+    // an entry whose receiptId doesn't resolve here (e.g. null, or a row
+    // that predates this pipeline) simply has no key in `activityReceipts`.
+    const receiptIds = Array.isArray(activity)
+      ? activity.map((a) => a.receiptId).filter((id): id is string => Boolean(id))
+      : [];
+    if (receiptIds.length > 0) {
+      const found = await findReceiptsByIds(receiptIds).catch(() => []);
+      for (const { record } of found) {
+        activityReceipts[record.id] = toActivityReceiptCardData(record);
+      }
+    }
     completedStages = deriveCompletedTemplateStages(experimentLifecycle);
     const evidenceEntry = {
       artifactId: experimentLifecycle.artifactId,
@@ -208,10 +297,27 @@ export async function resolveSelectedWorkspaceState(
       if (label) stageEvidence[label] = evidenceEntry;
     }
 
-    documents = (await listIrlPackDocumentsForExperiment(experimentId)).map((path) => ({
-      path,
-      url: `${origin}/api/codex/packs/irl/file?path=${encodeURIComponent(path)}`,
-    }));
+    // PER-ARTIFACT AUTHORIZATION PARITY (2026-09-11, message 3 item 7 /
+    // Progressive Surface acceptance requirement): `documents` must be
+    // populated ONLY for a caller who can ALSO retrieve every one of those
+    // paths through their canonical route,
+    // `GET /api/codex/packs/[packId]/file`. That route gates the `irl` pack
+    // on admin OR `resolveExperimentReviewGrant` (REVIEW_VIEW_READABLE_ROLES
+    // only) — a STRICTER check than this resolver's own primary gate
+    // (`getParticipantResearchWorkspaceAccess`, role-AGNOSTIC — ANY active
+    // research-lab grant scoped to the workspace/experiment). Without this
+    // check, a workspace member holding a real grant in a role outside
+    // REVIEW_VIEW_READABLE_ROLES (e.g. a non-reviewer participant role) would
+    // see documents listed here and get a 403 opening every one of them —
+    // exactly the defect this parity gate closes. Never widens the file
+    // route; only narrows what this resolver claims is retrievable.
+    const canReadDocuments = persona.isAdmin || Boolean(await resolveExperimentReviewGrant(admin, persona.personaId, experimentId));
+    documents = canReadDocuments
+      ? (await listIrlPackDocumentsForExperiment(experimentId)).map((path) => ({
+          path,
+          url: `${origin}/api/codex/packs/irl/file?path=${encodeURIComponent(path)}`,
+        }))
+      : [];
 
     const agreement = await reviewerAgreementStatus(admin, { personaId: persona.personaId, experimentId });
     const callerObserverStatus = await resolveCallerObserverStatus(admin, experimentId, persona.personaId);
@@ -275,6 +381,7 @@ export async function resolveSelectedWorkspaceState(
       reviewState,
       exchangeIds,
       activity,
+      activityReceipts,
       lockerScope: {
         available: false,
         reason:

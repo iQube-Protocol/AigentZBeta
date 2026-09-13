@@ -693,6 +693,93 @@ Supporting docs (in order):
 
 ---
 
+## Constitutional Identity & Resource Protocol (PARAMOUNT, 2026-09-11)
+
+**This protocol is normative for new development and directional for legacy systems. Conformance
+debt is not permission for destructive refactoring.**
+
+Full mapping, current-state audit (file:line citations), and two PROPOSED-not-ratified candidate
+invariants: `codexes/packs/agentiq/updates/2026-09-11_person-persona-iqube-constitutional-protocol-v0.1.md`.
+Machine-readable component classification seed: `codexes/packs/agentiq/retrofit-register.json`.
+
+### Canonical interaction chain
+
+```
+KybeDID → RootDID → Persona → Authority/Delegation → iQube → Action → DVN Receipt → Standing
+```
+
+- KybeDID is the durable personhood-continuity root.
+- RootDID is durable identity continuity.
+- Persona is the contextual activation and interaction boundary.
+- DiDQube owns Person/Identity/Persona resolution and continuity.
+- Authority/Delegation determines under whose mandate a Persona acts.
+- iQube owns or resolves resource-specific access and constitutional policy.
+- RLS enforces underlying storage permissions and must not be weakened to compensate for application projection defects.
+- DVN receipts provide attributable evidence of consequential action.
+- Standing is derived from evidenced action and accrues principally to personhood while retaining Persona/context provenance.
+
+Constitutional action is Persona-attributed, personhood-anchored, resource-governed and receipt-evidenced.
+
+Migration rule: new code MUST follow this model. Existing load-bearing code MUST NOT be destructively rewritten solely for architectural conformity. Prefer adapters, compatibility layers and incremental iQube wrapping. Replace legacy paths only after behavioral equivalence and default-deny authorization parity are proven.
+
+If code appears to conflict with this protocol:
+1. inspect the existing behavior;
+2. determine whether it is load-bearing;
+3. classify the gap;
+4. preserve working behavior;
+5. introduce the smallest protocol-compatible seam;
+6. add the retrofit to the architecture backlog;
+7. migrate only under tests and explicit authorization.
+
+Never silently broaden authorization while reconciling legacy systems.
+
+### Forward compliance, backward compatibility, progressive retrofit
+
+1. **All NEW implementation must conform.** No new cartridge-local definitions of Person, Identity,
+   Persona, delegation, resource-authority, receipt, or Standing-ownership semantics. Reuse the
+   canonical DiDQube/Persona/iQube/DVN/Standing boundaries.
+2. **Existing load-bearing code is grandfathered, not exempt from citation.** `participationAccess.ts`,
+   `selectedWorkspaceState.ts`, existing RLS policies, existing delegation/access resolvers, current
+   registry adapters, and other production-critical authorization paths must not be removed,
+   bypassed, or rewritten solely because they do not yet match this protocol perfectly.
+3. **Retrofit by adapters before replacement.** Wrap existing behavior behind canonical protocol
+   interfaces; introduce thin iQube/resource bindings for legacy content; make existing resolvers
+   providers to the canonical layer before considering replacement; preserve OS-9/default-deny
+   during any migration.
+4. **Migrate only when equivalence is demonstrated:** current semantics documented, protocol-
+   equivalent behavior implemented, authorization-parity tests pass, denial/default-deny tests pass,
+   receipts/auditability preserved, rollback possible.
+5. **Do not confuse identity resolution with resource authorization.** DiDQube owns
+   Person↔Identity↔Persona continuity; iQube/content policy owns resource authority/access; RLS
+   enforces storage-level access; DVN/activity receipts evidence consequential action; Standing
+   consumes attributable evidence and accrues principally to personhood.
+6. **Persona is the activation boundary.** Application code ordinarily acts through the active
+   Persona and its authority/delegation chain — never by spraying raw KybeDID/RootDID through
+   application code.
+7. **Standing attribution must retain lineage.** Evidence is Persona-attributed and personhood-
+   anchored; aggregating Standing to the Person must never destroy the Persona/resource/authority/
+   delegation/receipt lineage that produced it.
+8. **Content must carry or resolve its own constitutional access model.** New research objects,
+   Locker assets, documents, and experiment artifacts should be iQube-addressable or attached to an
+   appropriate ClusterQube/content wrapper from creation.
+9. **Legacy content retrofit is incremental.** Inventory and progressively assign light iQube
+   wrappers when a legacy object is touched by active development, creates an authorization-
+   projection defect, enters a consequential workflow, or can be completed safely in a bounded
+   batch. Do not launch a risky estate-wide bulk migration merely to eliminate technical debt.
+10. **Cartridges consume the protocol, they do not redefine it.** IRL, Venture Lab, MoneyPenny,
+    Horizon, Passport, MCP, aigentMe, and future cartridges may have domain-specific UX/workflows,
+    but Person/Persona/resource/Standing semantics must stay protocol-consistent.
+
+### Retrofit register
+
+`codexes/packs/agentiq/retrofit-register.json` — one entry per component: `component`,
+`current_model`, `target_protocol`, `status` (`compliant | adapter-backed | legacy-load-bearing |
+retrofit-planned | blocked`), `risk`, `adapter_available`, `migration_trigger`, `tests_required`.
+Seeded from the 2026-09-11 architecture audit above. This is a classification record, not a
+migration project — add entries when a new component is classified; do not add work items to it.
+
+---
+
 ## DVN Pipeline Protection — CRITICAL INFRASTRUCTURE (PARAMOUNT)
 
 **The DVN (Decentralised Verification Network) anchoring pipeline is critical infrastructure. Any DVN failure represents a break in the chain-of-provenance for operator actions. Failures MUST be escalated to the operator immediately — they are never silent or acceptable as "transient".**
@@ -1663,6 +1750,38 @@ available as a connector on claude.ai.
 If the endpoint changes (e.g. promoted from `dev-beta` to a production host), update `.mcp.json`
 and this section together — never let them drift.
 
+### Uploading content assets — use `upload_content_asset`, never ask the operator for upload secrets
+
+The Threshold MCP server exposes `upload_content_asset` (covers, thumbnails, PDFs, documents,
+media — roles `cover | thumbnail | hero | social | pdf | video | audio | attachment`). It runs the
+SAME canonical pipeline as every other codex asset upload (`services/threshold/uploadContentAsset.ts`
+→ `handleCodexAssetUpload` → `uploadCodexMediaAsset`: AES-256-GCM encryption, Autonomys Auto Drive
+upload, iQube trinity + `codex_media_assets` registration) but with its OWN credentials on the
+server side — it needs none of `AUTONOMYS_API_KEY`, `CODEX_MASTER_KEY`, or
+`SUPABASE_SERVICE_ROLE_KEY` from the calling session.
+
+**Before reaching for a manual encrypt-and-upload script, or asking the operator for any of those
+three secrets, try `upload_content_asset` first.** Asking an operator for `SUPABASE_SERVICE_ROLE_KEY`
+in particular is close to asking for the keys to the whole database (it bypasses RLS entirely) —
+a reasonable operator will decline, as happened in the incident this rule was written from
+(2026-09-12, Threshold 007 PDF uploads). Even where a manual path is used for another reason,
+prefer running the encryption/upload half through the app's own credentials or the MCP tool over
+requesting secrets whose blast radius is broader than the task needs.
+
+**Known real limitation, not a reason to avoid the tool for normal-sized assets:** `fileBase64` must
+be the ENTIRE file as one literal string in a single call — there is no chunked/streaming upload.
+For a typical cover image, thumbnail, or a few-hundred-KB document this is fine. For anything whose
+base64 encoding is large enough that an agent's own tool environment can't reliably surface that
+much literal text back into its context in one piece (Bash/Read output commonly truncates and
+persists-to-file past a few KB, and there is no mechanism to hand a persisted file to another tool's
+string parameter), attempting the upload risks silent transcription corruption of the payload with
+no cheap way to catch it except a full post-upload decrypt-and-checksum comparison. In that case,
+say so plainly rather than either (a) grinding through dozens of manual slice-and-reconstruct tool
+calls for an asset that isn't worth that risk, or (b) falling back to asking for
+`SUPABASE_SERVICE_ROLE_KEY` — a local script using `AUTONOMYS_API_KEY` + `CODEX_MASTER_KEY` only
+(the two upload-side secrets, never the DB-wide one) plus a direct Supabase MCP write for the
+resulting registry rows is the fallback that keeps credential exposure narrowest.
+
 ---
 
 ## Session Start — Verify Connector/MCP Access, Don't Assume It (MANDATORY)
@@ -1884,6 +2003,167 @@ Operator-delegated standing instruction (2026-07-18): the operator relies on age
 - **`proposed`** is for claims about the world that experiments exist to test (e.g. `323` intelligence-is-a-property-of-fields, `329` the Hybrid Intelligence Thesis, `333` the Cumulative Intelligence Hypothesis). Ratifying a hypothesis before its evidence exists would undermine the falsifiability that makes the research programme credible.
 - The same discipline applies to prose: reports and external documents must never state a `proposed` hypothesis as established fact, must report calibration metrics (e.g. IRV coverage) as proxies with their model config rather than pass/fail scores, and must not entangle discovery-calibration results with structural-thesis evidence (`inv.reasoning.326`/`328`).
 - When an operator instruction would canonize a hypothesis, flag it and recommend `proposed` — the operator has confirmed this is the wanted behaviour, not obstruction.
+
+---
+
+## Adversarial Research Review Gate — MANDATORY BEFORE RESEARCH PUBLICATION
+
+Any artifact represented as a **Research Edition**, scientific/research paper, experimental
+finding, invariant-research result, evidence-bearing policy paper, or publication making
+falsifiable capability claims MUST pass an independent Adversarial Research Review (ARR)
+before it is marked canonical/published.
+
+This rule exists because Threshold 007 demonstrated that adversarial inspection can uncover
+missing doctrine artifacts, citation drift, experiment-framing drift, namespace collisions and
+unsupported inference even when the underlying research programme is acting in good faith.
+
+**Full procedure, schema and worked precedent:** `docs/research/adversarial-research-review-gate.md`.
+The rules below are the mandatory summary; that document is canonical for the complete five-pass
+procedure, the ARR receipt schema, and the reasoning behind each rule — evolve the review protocol
+there, not by duplicating procedure text into this file.
+
+### Independence rule
+The ARR reviewer SHOULD NOT be the agent that authored the paper or implemented the cited
+code. Where practical, review through the same Codex/MCP/public research surfaces available
+to an external intelligent reader.
+
+The reviewer is not asked to improve or defend the paper. The reviewer is asked to BREAK it.
+
+### Evidence firewall
+Never collapse these categories:
+1. Doctrine / canonical constitutional proposition
+2. Implementation evidence
+3. Crucible / research candidate
+4. IRL controlled research evidence
+5. Venture Lab / operational evidence
+6. External evidence
+7. Hypothesis / projection
+
+Code proves that machinery exists. It does not prove the scientific effect attributed to that
+machinery.
+
+Operational success proves an observed consequence. It does not automatically prove the
+mechanism believed to have caused it.
+
+A controlled experiment proves only what its registered protocol and evidence support.
+
+### Mandatory ARR passes
+
+#### 1. Claim audit
+Extract every material claim and classify its evidence class and epistemic status.
+Flag wording whose certainty exceeds the underlying evidence.
+
+#### 2. Citation audit
+Follow every citation to the actual artifact.
+A citation passes only when:
+- the artifact resolves;
+- it is the artifact claimed;
+- it supports the proposition attributed to it;
+- publication-critical implementation citations are immutable/commit-pinned;
+- external citations are primary or appropriately authoritative where practical.
+
+NEVER invent a citation or silently substitute a similarly named artifact.
+A missing artifact is `UNRESOLVED`, not disproven.
+A read/search failure is `UNREADABLE`/`UNRESOLVED`, never an empty result.
+
+#### 3. Implementation audit
+For each implementation claim:
+- inspect the exact cited commit;
+- inspect the path/symbol/module;
+- verify that it implements the claimed mechanism;
+- distinguish Implemented, Operational, Demonstrated and Experimental status.
+
+Then state separately what scientific proposition, if any, that implementation evidence
+establishes. Usually implementation evidence establishes implementation only.
+
+#### 4. Experiment audit
+Resolve every experiment to its registered/frozen protocol and evidence package.
+The protocol's own:
+- research question;
+- hypothesis;
+- treatment;
+- control;
+- measures;
+- scope;
+- limitations;
+- falsification criteria
+
+OUTRANK any essay-level summary.
+
+Do not allow a result to support a broader claim than its protocol tested.
+Do not treat a planned/reserved experiment as evidence.
+Do not treat an experiment family as one experiment when its registered protocol separates it.
+
+#### 5. Falsification / alternative-explanation audit
+For every major hypothesis:
+- identify its explicit disconfirmation condition;
+- determine whether the protocol can actually observe that condition;
+- construct the strongest plausible competing explanation;
+- identify confounds;
+- check whether null/adverse findings remain publishable evidence.
+
+A theory that cannot lose under its own experimental design has not passed ARR.
+
+### Naming-collision rule
+If two artifacts/systems share a name, citations MUST disambiguate them explicitly.
+Never allow code for one artifact to stand in as evidence for a differently governed artifact
+with the same name.
+
+### Frozen protocol supremacy
+Once an experiment is registered/frozen, publication prose MUST conform to the protocol's
+canonical scope description. If prose and protocol differ, correct the prose or disclose the
+difference; never silently make the protocol appear to have tested the essay's broader claim.
+
+### Unresolved references
+Unresolved references are allowed when disclosed and non-load-bearing.
+They MUST:
+- be labeled `UNRESOLVED`;
+- state what was searched;
+- state what claim depends on them;
+- not inherit Ratified/Implemented/Experimental status from neighboring evidence.
+
+An unresolved load-bearing reference requires REVISION or BLOCK depending on materiality.
+
+### Research publication dispositions
+Every ARR ends with exactly one disposition:
+- `PASS`
+- `PASS_WITH_DISCLOSED_GAPS`
+- `REVISION_REQUIRED`
+- `BLOCK_PUBLICATION`
+
+Research content MUST NOT be marked published/canonical when disposition is
+`REVISION_REQUIRED` or `BLOCK_PUBLICATION`.
+
+### ARR receipt
+Every published Research Edition should preserve a machine-readable review receipt containing:
+- paper/content ID
+- version/content hash
+- reviewed commit SHA where applicable
+- reviewer identity/class
+- review timestamp
+- disposition
+- claims audited
+- citations checked
+- unresolved citations
+- experiment/protocol mismatches
+- corrections made
+- remaining disclosed limitations
+
+The receipt is provenance, not proof of truth.
+
+### Adversarial review principle
+The goal is not a paper with no gaps.
+
+The goal is a paper in which a competent adversarial reader can distinguish what is known,
+what is implemented, what has been experimentally observed, what remains unresolved, and what
+is still merely hypothesized.
+
+Finding and disclosing that the paper is wrong or unsupported in some respect is a SUCCESS of
+the review process, not a review failure.
+
+Canonical maxim:
+> The strongest evidence of epistemic discipline is not that the canon never gets something
+> wrong. It is that the canon is architected to discover, disclose and correct when it does.
 
 ---
 

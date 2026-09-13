@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-11",
+  "resolutionId": "RES-2026-09-11-STEWARD-GATE-SHAPE-CONVENTION-001",
+  "capability": "irl-stewardship-access-capability",
+  "milestone": "IRL Stewardship — Access Maintenance + Research Persona Legibility + Capability-Scoped Participation shipped and merged to dev (branch claude/irl-stewardship-access-capability, commits 505097826..c9abcc9a7). Filed at close-out per CLAUDE.md's Resolution -> Invariant Loop, triggers #7 (a successful implementation established a reusable pattern) and #8 (a milestone became demonstrably complete).",
+  "problem": "A new caller-resolution gate for the steward participation routes (app/api/steward/participation/_lib/resolveStewardAuthority.ts) was first written with an ad hoc '{ error }' failure shape instead of matching the shape every other caller-resolution gate in this codebase already uses.",
+  "observedFailure": [
+    "resolveStewardAuthority's first draft returned a bespoke '{ error: string }' object on failure, distinct from the shape its sibling gates (requireChannelAccess, requireReviewAccess) already return.",
+    "tests/persona-spine-fetch.test.ts (a canary that greps for gate-shape drift across spine-aware routes) caught the mismatch, forcing a refactor of five already-written route files (app/api/steward/participation/route.ts, grants/[grantId]/route.ts, capabilities/route.ts, capabilities/[capabilityId]/route.ts, research-persona/route.ts) plus the gate itself and two test canaries, after the routes had already been written against the wrong shape."
+  ],
+  "rootCauses": [
+    "No single documented convention named the expected shape of a caller-resolution gate before this route was written, so the natural-seeming '{ error }' shape was chosen locally instead of being checked against precedent first.",
+    "The mismatch was only caught downstream, by a canary scanning for a different concern (spine-fetch discipline), rather than by any explicit rule an author could consult while first writing the gate."
+  ],
+  "resolution": [
+    "resolveStewardAuthority (app/api/steward/participation/_lib/resolveStewardAuthority.ts) now returns exactly '{ ok: true, personaId, authority, admin } | { ok: false, response }', matching requireChannelAccess and requireReviewAccess's own established shape verbatim -- 'response' is a ready-to-return NextResponse, never a raw error string a caller must re-wrap.",
+    "All five steward-participation route files were refactored to destructure this shape and 'return gate.response' directly on failure, removing the bespoke error-to-NextResponse translation each route had begun writing independently.",
+    "tests/irl-stewardship-access-capability.test.ts includes one explicit shape-parity check asserting resolveStewardAuthority's failure branch matches the sibling gates' shape, so a future regression is caught at the gate's own test, not only downstream in an unrelated canary."
+  ],
+  "rejectedApproaches": [
+    "Leaving the bespoke '{ error }' shape in place and having each route translate it locally -- rejected once tests/persona-spine-fetch.test.ts flagged the drift, since it would have meant five call sites each carrying their own translation logic for the same gate, and a fourth or fifth future steward route repeating the same mistake."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-11-CALLER-RESOLUTION-GATE-SHAPE-001"
+  ],
+  "canaries": [
+    "tests/irl-stewardship-access-capability.test.ts",
+    "tests/persona-spine-fetch.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [
+      "66384c65a"
+    ],
+    "tests": [
+      "tests/irl-stewardship-access-capability.test.ts",
+      "tests/persona-spine-fetch.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-09-11_irl-stewardship-access-capability-handoff.md, Outstanding Work item 7: \"I initially wrote a different ad-hoc {error} shape and had to refactor five route files plus two test canaries to correct it after tests/persona-spine-fetch.test.ts caught the drift.\""
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-11_irl-stewardship-access-capability-handoff.md",
+    "app/api/steward/participation/_lib/resolveStewardAuthority.ts"
+  ],
+  "projections": {
+    "targets": [
+      "devon",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  }
+}

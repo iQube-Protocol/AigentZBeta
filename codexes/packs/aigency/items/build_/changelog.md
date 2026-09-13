@@ -1,4 +1,7 @@
 # Build — Changelog
+- [`534b413`](https://github.com/iQube-Protocol/AigentZBeta/commit/534b41340f69b614f4ada0b32676e7907fef0f66) [chore] chore(deploy): publish encoded-title routing fix (Kn0w1, 2026-09-11T13:53:11-04:00)
+- [`a4e4192`](https://github.com/iQube-Protocol/AigentZBeta/commit/a4e41921053eff40c96415dd157a18cba829eefa) [chore] chore(deploy): publish Threshold 006 deep-link repair (Kn0w1, 2026-09-11T13:39:54-04:00)
+- [`c6adeda`](https://github.com/iQube-Protocol/AigentZBeta/commit/c6adeda48c909be717a05a70b068a0dd44b44b4d) [feat] feat(codex): redirect legacy article deep links (Kn0w1, 2026-09-11T13:28:18-04:00)
 - [`0016af6`](https://github.com/iQube-Protocol/AigentZBeta/commit/0016af6d0988f8feec1c6b7820200b2397d59f43) [push] Project canonical exchange iQube references through MCP (Kn0w1, 2026-09-11T05:17:49-04:00)
 - [`c96529b`](https://github.com/iQube-Protocol/AigentZBeta/commit/c96529b3f3ecd2f83461ef4d09764a107c0a746a) [push] Make persona switch trigger real MCP OAuth reauthorization (Kn0w1, 2026-09-11T04:56:53-04:00)
 - [`9205129`](https://github.com/iQube-Protocol/AigentZBeta/commit/92051293c514db24cf263d504c391517196d9024) [push] Deploy reliable Polity Core public agent orientation (Kn0w1, 2026-09-11T04:05:25-04:00)

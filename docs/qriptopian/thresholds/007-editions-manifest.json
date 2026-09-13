@@ -1,0 +1,29 @@
+{
+  "schema": "qriptopian.reading-editions.v1",
+  "contentId": "a61343cb-d000-4359-a307-e9d380740eaa",
+  "series": "Thresholds",
+  "seriesNumber": 7,
+  "title": "Invariant Intelligence",
+  "originalDate": "2026-09-11",
+  "defaultEdition": "reading",
+  "research": {
+    "label": "Research Edition",
+    "version": "007.3",
+    "textSource": "modalities.read.text",
+    "manuscript": "docs/qriptopian/thresholds/007-research-edition.md",
+    "preservation": "Superseded 2026-09-12 by the operator-supplied 'Aletheon draft' (H1-H4, H4b, Experience Matrix, aigentMe, Standing/Consequence/Invariant/Experience Graphs, Constitutional Cybernetics). Implementation-citation resolution complete against commit b8936e59 (Implementation-Evidence Register carried forward from the 007.1 pass plus new anchors for Experience Matrix, aigentMe, Standing Graph, myGuard, Golden Cycle/PoTS, and -- per an explicit operator mandatory-lineage instruction -- Horizen/MoneyPenny journey, the CFS-055 Horizen Constitutional Admission Pilot doctrine, TII/Trusted Intelligence Index, and the Threshold 005 Trusted Intelligence lineage). Independent Adversarial Research Review NOT yet performed -- see the file's own editorial-status note and ARR Receipt section"
+  },
+  "reading": {
+    "label": "Reading Edition",
+    "version": "007.2",
+    "date": "2026-09-12",
+    "editorialMethod": "Superseded 2026-09-12 by the operator-supplied 007.2 essay prose (same H1-H4 thesis as the Research Edition)"
+  },
+  "constraints": {
+    "onePublication": true,
+    "oneCard": true,
+    "oneCover": true,
+    "paper005Unchanged": true,
+    "researchUnchanged": false
+  }
+}

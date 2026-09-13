@@ -15,72 +15,29 @@ import { RemixDialog } from "@/components/metame/runtime/RemixDialog";
 import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal";
 import { InviteModal } from "@/components/shared/InviteModal";
 import { ListenButton } from "@/components/shared/ListenButton";
-import { ActivateClaudeChip } from "@/components/shared/ActivateClaudeChip";
+import { ConnectClaudeExperience } from "@/components/shared/ConnectClaudeExperience";
+import { checkClaudeAgentConnected, recordClaudeAgentConnected } from "@/components/shared/connectClaudeConnection";
 import { useActivePersona } from "@/app/hooks/useActivePersona";
 import { usePassportSignInGate } from "@/app/hooks/usePassportSignInGate";
 import { CI_BRIDGE_CAMPAIGN_ID } from "@/services/journey/constitutionalInternetBridgeJourney";
 
-const CI_CONNECT_AGENT_ROUTE = "/api/journey/constitutional-internet-bridge/act/connect-agent";
-
-async function checkCiClaudeConnected(): Promise<boolean> {
-  const res = await personaFetch(CI_CONNECT_AGENT_ROUTE, { cache: "no-store" });
-  const json = await res.json().catch(() => null);
-  return Boolean(json?.connected);
-}
-
-async function recordCiClaudeConnected(): Promise<void> {
-  await personaFetch(CI_CONNECT_AGENT_ROUTE, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ agent: "claude" }),
-  });
-}
-
 /**
- * ConnectClaudeModal — same modal grammar as RemixDialog (overlay, bordered
- * card, icon+title header with a close X, scrollable body, no separate
- * footer needed here). Unlike ActivateClaudeChip's own plain-inline render
- * (still reused here for the actual connect/status UI), this modal adds the
- * explicit numbered setup walk-through the operator asked for, plus the
- * "grants context/read-query access, not delegation" language up front.
+ * ConnectClaudeModal — MyCanvas's existing floating centered popup, now a
+ * thin wrapper over the shared `ConnectClaudeExperience` (2026-09-11) so the
+ * Constitutional Internet and KNYTs bridges can reuse the exact same copy,
+ * steps and connected-state behavior in their own left-pane presentation
+ * rather than a second implementation.
  */
 function ConnectClaudeModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div
-        className="relative flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between gap-2 border-b border-white/[0.08] px-4 py-2.5">
-          <span className="flex items-center gap-2 text-sm font-semibold text-white">
-            <Bot className="h-4 w-4 text-amber-300" /> Connect Claude
-          </span>
-          <button type="button" onClick={onClose} className="rounded-md p-1 text-slate-400 hover:bg-white/5 hover:text-slate-200">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto px-4 py-3">
-          <p className="mb-3 text-xs font-medium text-amber-200">
-            Connection grants context/read-query access. It is not delegation — Claude cannot act, transact, or represent you.
-          </p>
-          <ol className="mb-4 list-decimal space-y-1 pl-5 text-xs text-slate-300">
-            <li>In Claude, open <span className="text-slate-100">Settings</span></li>
-            <li>Go to <span className="text-slate-100">Add / Manage Connections</span></li>
-            <li>Choose <span className="text-slate-100">Add custom MCP</span></li>
-            <li>Paste the metaMe MCP URL below</li>
-            <li>Sign in</li>
-            <li>Authorize the connection</li>
-            <li>Return to this Bridge</li>
-          </ol>
-          <ActivateClaudeChip
-            checkConnected={checkCiClaudeConnected}
-            recordConnected={recordCiClaudeConnected}
-            context="your Constitutional story"
-          />
-        </div>
-      </div>
-    </div>
+    <ConnectClaudeExperience
+      variant="modal"
+      onClose={onClose}
+      checkConnected={checkClaudeAgentConnected}
+      recordConnected={recordClaudeAgentConnected}
+      context="your Constitutional story"
+    />
   );
 }
 

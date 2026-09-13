@@ -1,0 +1,118 @@
+{
+  "schemaVersion": "retrofit-register.v1",
+  "purpose": "Lightweight, machine-readable seed for the Constitutional Identity & Resource Protocol's forward-compliance/backward-compatibility migration rule (CLAUDE.md, AGENTS.md). Prevents future patchwork by naming, once, what each component's relationship to the target Person-Persona-iQube protocol is. This is NOT a migration project tracker — do not add work items here; add only classification.",
+  "sourceDoc": "codexes/packs/agentiq/updates/2026-09-11_person-persona-iqube-constitutional-protocol-v0.1.md",
+  "statuses": ["compliant", "adapter-backed", "legacy-load-bearing", "retrofit-planned", "blocked"],
+  "entries": [
+    {
+      "component": "services/identity/didQubeResolver.ts (DiDQube Resolver)",
+      "current_model": "Read-only identity/personhood-continuity resolver (kybe_identity/agent_root_identity -> didqubes supertype tables). No authorization semantics.",
+      "target_protocol": "KybeDID/RootDID continuity root",
+      "status": "compliant",
+      "risk": "low",
+      "adapter_available": true,
+      "migration_trigger": "none — already matches target model",
+      "tests_required": []
+    },
+    {
+      "component": "services/identity/getActivePersona.ts + utils/personaSpine.tsx (Persona Spine)",
+      "current_model": "Single server resolver + client personaFetch/usePersonaSpine for the active Persona.",
+      "target_protocol": "Persona activation/access boundary",
+      "status": "compliant",
+      "risk": "low",
+      "adapter_available": true,
+      "migration_trigger": "none — already matches target model",
+      "tests_required": []
+    },
+    {
+      "component": "services/passport/participationAccess.ts",
+      "current_model": "Load-bearing resource/participation-authorization engine (access_grants/access_invitations) for passport, research-lab, venture-lab, metame-studio, developer-studio domains.",
+      "target_protocol": "iQube/resource-authority layer",
+      "status": "legacy-load-bearing",
+      "risk": "high if touched carelessly — many surfaces depend on it directly",
+      "adapter_available": false,
+      "migration_trigger": "never without demonstrated behavioral equivalence + default-deny parity tests (CLAUDE.md Migration rule)",
+      "tests_required": ["existing participation-access authorization suites"]
+    },
+    {
+      "component": "services/research/selectedWorkspaceState.ts",
+      "current_model": "Canonical (principal, workspaceId) composer over participationAccess/experimentLifecycleState/reviewerAgreement/reciprocalExchange/activityReceiptService.",
+      "target_protocol": "Persona-scoped resource-state projection (composes iQube-layer resolvers)",
+      "status": "compliant",
+      "risk": "low as a composer, but every consumer (Workspace UI, dossier resolver) inherits its gate — changes here are high blast-radius",
+      "adapter_available": true,
+      "migration_trigger": "none — extend by composition only, per its own header",
+      "tests_required": ["tests/selected-workspace-state-2026-09-08.test.ts"]
+    },
+    {
+      "component": "services/access/evaluateAccess.ts",
+      "current_model": "Single gate for content/asset delivery decisions (free/credential/ownership/payment).",
+      "target_protocol": "iQube/resource-authority layer (content-asset scope)",
+      "status": "compliant",
+      "risk": "low",
+      "adapter_available": true,
+      "migration_trigger": "none — already matches target model",
+      "tests_required": []
+    },
+    {
+      "component": "Supabase RLS policies on identity/resource tables",
+      "current_model": "Enabled broadly; policies sampled are service_role-gated or absent — real per-user authorization lives in TypeScript, not Postgres policy.",
+      "target_protocol": "Storage-level enforcement backstop, never the primary decision point",
+      "status": "adapter-backed",
+      "risk": "medium — RLS must never be weakened to compensate for an application projection defect (CLAUDE.md protocol rule)",
+      "adapter_available": false,
+      "migration_trigger": "only if a table's application-layer gate is found insufficient on its own",
+      "tests_required": []
+    },
+    {
+      "component": "services/receipts/activityReceiptService.ts + services/dvn/activityReceiptDvnPipeline.ts",
+      "current_model": "Canonical DVN receipt writer/pipeline; personaId is T0, never serialized; hashed persona reference only on-chain.",
+      "target_protocol": "DVN Receipt evidence layer",
+      "status": "compliant",
+      "risk": "low; DVN pipeline itself is separately marked CRITICAL INFRASTRUCTURE in CLAUDE.md",
+      "adapter_available": true,
+      "migration_trigger": "none",
+      "tests_required": []
+    },
+    {
+      "component": "services/standing/* (Standing computation)",
+      "current_model": "Real Standing computation/accrual (standingCore.ts, standingScore.ts, buildStandingGraph.ts) exists and runs.",
+      "target_protocol": "Standing accrues to personhood (KybeDID), retaining Persona/context provenance",
+      "status": "retrofit-planned",
+      "risk": "medium — DiDQube-anchored personhood wiring is Phase-4/in-progress per RES-2026-09-07-DIDQUBE-PHASE-4-STANDING-CONSUMER-MIGRATION-001",
+      "adapter_available": true,
+      "migration_trigger": "DiDQube Phase 4 Standing-consumer migration completion (already scheduled, not new work created by this register)",
+      "tests_required": ["existing Standing/DiDQube Phase 4 test suites"]
+    },
+    {
+      "component": "services/threshold/requireThresholdSession.ts (MCP/Threshold bearer auth)",
+      "current_model": "Deliberately segregated bearer-session identity channel (ths_ tokens), bridged into Persona Spine via getActivePersonaByPublicRef rather than duplicating it.",
+      "target_protocol": "Adapter into Persona/DiDQube layer for an external transport",
+      "status": "adapter-backed",
+      "risk": "low — the segregation is intentional and documented",
+      "adapter_available": true,
+      "migration_trigger": "none",
+      "tests_required": []
+    },
+    {
+      "component": "services/research/reciprocalExchange.ts (RAX / OCSGA exchange)",
+      "current_model": "Per-artifact disclosure-gated exchange resolver (getExchangeView, listMyExchanges) over reciprocal_exchanges.",
+      "target_protocol": "iQube/resource-authority layer (exchange-artifact scope)",
+      "status": "compliant",
+      "risk": "low",
+      "adapter_available": true,
+      "migration_trigger": "none",
+      "tests_required": []
+    },
+    {
+      "component": "services/horizen/* (MoneyPenny/Horizen identity normalization)",
+      "current_model": "Normalizes Horizen's own external agent-identity string formats; consumes personaId as opaque, resolves no identity of its own.",
+      "target_protocol": "External-system adapter into the Persona/Delegation/DVN layers",
+      "status": "adapter-backed",
+      "risk": "low",
+      "adapter_available": true,
+      "migration_trigger": "none",
+      "tests_required": []
+    }
+  ]
+}

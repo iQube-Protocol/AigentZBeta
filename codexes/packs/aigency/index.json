@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-11T09:19:29.680Z",
+  "last_updated": "2026-09-11T17:54:56.558Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "0016af6d0988f8feec1c6b7820200b2397d59f43",
-  "latest_commit_short": "0016af6",
-  "latest_commit_title": "Project canonical exchange iQube references through MCP",
+  "latest_commit": "534b41340f69b614f4ada0b32676e7907fef0f66",
+  "latest_commit_short": "534b413",
+  "latest_commit_title": "chore(deploy): publish encoded-title routing fix",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,33 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "534b413",
+      "full_sha": "534b41340f69b614f4ada0b32676e7907fef0f66",
+      "title": "chore(deploy): publish encoded-title routing fix",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-11T13:53:11-04:00",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-534b413.md"
+    },
+    {
+      "sha": "a4e4192",
+      "full_sha": "a4e41921053eff40c96415dd157a18cba829eefa",
+      "title": "chore(deploy): publish Threshold 006 deep-link repair",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-11T13:39:54-04:00",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-a4e4192.md"
+    },
+    {
+      "sha": "c6adeda",
+      "full_sha": "c6adeda48c909be717a05a70b068a0dd44b44b4d",
+      "title": "feat(codex): redirect legacy article deep links",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-11T13:28:18-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-c6adeda.md"
+    },
     {
       "sha": "0016af6",
       "full_sha": "0016af6d0988f8feec1c6b7820200b2397d59f43",
@@ -1225,33 +1252,6 @@
       "timestamp": "2026-09-02T00:44:55Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-b63c97e.md"
-    },
-    {
-      "sha": "3fdf50d",
-      "full_sha": "3fdf50d2730248a78f044c7a52a88687ec524a62",
-      "title": "Add fs-operate stage; wire fs-prepare to a real reviewed-profile evidence",
-      "author": "Claude",
-      "timestamp": "2026-09-02T00:45:11Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-3fdf50d.md"
-    },
-    {
-      "sha": "db79f3c",
-      "full_sha": "db79f3cddf0be7b8253e78dd34ecb0084df5f50b",
-      "title": "Harden A2 publish: config-write-first ordering + optimistic concurrency",
-      "author": "Claude",
-      "timestamp": "2026-09-02T00:45:21Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-db79f3c.md"
-    },
-    {
-      "sha": "37c6527",
-      "full_sha": "37c6527d025923c83436d1c1c9455d05fad0e72d",
-      "title": "Add MoneyPenny002 real-source donor audit (MPY2-0b)",
-      "author": "Claude",
-      "timestamp": "2026-09-02T01:15:27Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-37c6527.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

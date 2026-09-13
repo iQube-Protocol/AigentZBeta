@@ -33,7 +33,7 @@ export function fakeUuid(): string {
 
 interface Filter {
   col: string;
-  op: 'eq' | 'is' | 'in' | 'gt';
+  op: 'eq' | 'neq' | 'is' | 'in' | 'gt';
   val: unknown;
 }
 
@@ -96,6 +96,7 @@ function makeBuilder(tables: FakeTables, table: string) {
     if (f.op === 'is') return actual === null || actual === undefined;
     if (f.op === 'in') return Array.isArray(f.val) && f.val.includes(actual);
     if (f.op === 'gt') return typeof actual === 'string' && typeof f.val === 'string' && actual > f.val;
+    if (f.op === 'neq') return actual !== f.val;
     return actual === f.val;
   }
 
@@ -174,6 +175,10 @@ function makeBuilder(tables: FakeTables, table: string) {
     },
     eq: (col: string, val: unknown) => {
       filters.push({ col, op: 'eq', val });
+      return builder;
+    },
+    neq: (col: string, val: unknown) => {
+      filters.push({ col, op: 'neq', val });
       return builder;
     },
     is: (col: string, val: unknown) => {

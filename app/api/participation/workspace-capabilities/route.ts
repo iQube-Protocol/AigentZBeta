@@ -36,12 +36,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
-import { getParticipantResearchWorkspaceAccess, resolveExperimentReviewGrant } from '@/services/passport/participationAccess';
+import { getParticipantResearchWorkspaceAccess, resolveExperimentReviewGrant, resolveWorkspaceRole } from '@/services/passport/participationAccess';
 import { getResearchWorkspace } from '@/services/research/researchWorkspace';
 import { listIrlPackDocumentsForExperiment } from '@/services/research/irlExperimentPathScope';
 import { currentReviewerAgreement } from '@/services/research/reviewerAgreement';
-import { listMyExchanges } from '@/services/research/reciprocalExchange';
+import { listMyExchanges, listExchangesByParentExperiment } from '@/services/research/reciprocalExchange';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
+import { resolveEffectiveExperimentCapability } from '@/services/research/accessCapabilities';
+import { getArtifact, nextGovernedActionForFrozenCrystal } from '@/services/research/artifacts';
 
 export const dynamic = 'force-dynamic';
 
@@ -94,6 +96,31 @@ export async function GET(req: NextRequest) {
   let documents: Array<{ path: string; url: string }> = [];
   let readinessAvailable = false;
   let reviewAgreementAvailable = false;
+  // The rest of the reusable Laboratory dossier (2026-09-12, Austin/EXP-P1
+  // acceptance case — never hardcoded to it): Instrument Validation
+  // (IRV-001/IPV-001), Track 2 programme state, Crystal inspection, and the
+  // Independent Review/Observer Review machinery. All four are PROJECTIONS
+  // of the same canonical Laboratory routes, gated by the SAME
+  // experiment-scoped grant every other section above already requires —
+  // never a parallel resolver, never a hardcoded experimentId. A caller with
+  // no capability rows beyond bare workspace/experiment membership still
+  // gets 'read' (see resolveEffectiveExperimentCapability); explicit
+  // capability rows elevate to 'review'/'write'/'run'.
+  let instrumentValidationAvailable = false;
+  let track2Available = false;
+  let crystalAvailable = false;
+  let independentReviewAvailable = false;
+  let effectiveCapability: 'read' | 'review' | 'write' | 'run' | 'admin' = 'read';
+  // Compact Overview dependency status (2026-09-12, information-architecture
+  // correction) — a ONE-LINE reference to the frozen substrate's real
+  // generation and next governed action, never the full Crystal UI (that
+  // stays under Track 2 / the Crystal + Independent Review section). Reused
+  // fields, not a second derivation: the same `getArtifact`/
+  // `nextGovernedActionForFrozenCrystal` the Crystal freeze route itself
+  // calls.
+  let crystalGeneration: string | null = null;
+  let crystalFrozen = false;
+  let nextGovernedAction: string | null = null;
   if (experimentId) {
     const experimentGrant = isAdmin || (await resolveExperimentReviewGrant(admin, persona.personaId, experimentId)) !== null;
     if (experimentGrant) {
@@ -104,20 +131,59 @@ export async function GET(req: NextRequest) {
       }));
       readinessAvailable = READINESS_AVAILABLE_EXPERIMENTS.has(experimentId);
       reviewAgreementAvailable = currentReviewerAgreement(experimentId) !== null;
+      instrumentValidationAvailable = true;
+      track2Available = true;
+      crystalAvailable = true;
+      independentReviewAvailable = true;
+      effectiveCapability = isAdmin
+        ? 'admin'
+        : await resolveEffectiveExperimentCapability(admin, { personaId: persona.personaId, experimentId });
+
+      const crystalArtifact = await getArtifact(experimentId, 'crystal-version').catch(() => null);
+      crystalFrozen = crystalArtifact?.lifecycle === 'frozen';
+      const generationMatch = crystalArtifact?.id.match(/\/crystal-vP(\d+)$/);
+      crystalGeneration = generationMatch ? `vP${generationMatch[1]}` : null;
+      if (crystalFrozen && crystalArtifact) {
+        nextGovernedAction = nextGovernedActionForFrozenCrystal(crystalArtifact)?.label ?? null;
+      }
     }
   }
 
   // WORKSPACE-BOUND capability — Reciprocal Artifact Exchange materials,
   // keyed DIRECTLY off the canonical workspaceId via `parentExperimentId`
   // (services/research/reciprocalExchange.ts), no experimentId required at
-  // all. Scoped to the CALLER'S OWN exchanges (`listMyExchanges` is already
-  // persona-scoped) — an admin previewing this workspace sees none unless
-  // they are themselves a party, which is correct: exchange materials are
-  // personal/party-scoped, not workspace-broadcast.
+  // all. Starts from the CALLER'S OWN exchanges (`listMyExchanges` is
+  // already persona-scoped).
+  //
+  // Workspace-scoped observer inclusion (2026-09-12, operator instruction:
+  // "should not be restricted just to the parties who exchanged them but
+  // should be visible to anyone who has access rights to the experiment") —
+  // a caller who is not a direct party to any exchange here but DOES hold a
+  // research-lab grant reaching this workspace (the SAME `resolveWorkspaceRole`
+  // predicate `getExchangeView`/`GET /api/research/exchanges` already use to
+  // admit observers) still gets the section: never advertise a capability
+  // this same persona's exchange routes would then refuse to open, and never
+  // silently hide it either — one authoritative admission check, applied
+  // here and at the exchange routes alike.
   let exchangeIds: string[] = [];
   const myExchanges = await listMyExchanges(admin, persona.personaId);
   if (myExchanges.ok) {
     exchangeIds = myExchanges.exchanges.filter((e) => e.parentExperimentId === workspaceId).map((e) => e.id);
+  }
+  if (!isAdmin) {
+    const role = await resolveWorkspaceRole(admin, persona.personaId, workspaceId, experimentId);
+    if (role) {
+      const all = await listExchangesByParentExperiment(admin, workspaceId);
+      if (all.ok) {
+        const seen = new Set(exchangeIds);
+        for (const e of all.exchanges) {
+          if (!seen.has(e.id)) {
+            exchangeIds.push(e.id);
+            seen.add(e.id);
+          }
+        }
+      }
+    }
   }
 
   return NextResponse.json({
@@ -127,6 +193,14 @@ export async function GET(req: NextRequest) {
     documents,
     readinessAvailable,
     reviewAgreementAvailable,
+    instrumentValidationAvailable,
+    track2Available,
+    crystalAvailable,
+    independentReviewAvailable,
+    effectiveCapability,
+    crystalGeneration,
+    crystalFrozen,
+    nextGovernedAction,
     exchangeAvailable: exchangeIds.length > 0,
     exchangeIds,
   });

@@ -489,6 +489,14 @@ export type ActivityActionType =
   | 'exchange_derivative_created'
   | 'exchange_withdrawn'
   | 'exchange_access_revoked'
+  // A mistaken revocation, corrected by hand (2026-09-12). The exchange
+  // state machine deliberately has NO forward transition out of
+  // REVOKED_ACCESS_POST_EXCHANGE (types/reciprocalExchange.ts's own comment:
+  // exception states are terminal for forward progress; reversal is "an
+  // operator-governed act outside this state machine's own vocabulary").
+  // This type records exactly that class of act — never a first-class
+  // "restore" product transition.
+  | 'exchange_access_restored_operator_correction'
   // Operator-assisted custodial artifact registration (2026-08-28) — an
   // operator entered an artifact on a bound principal's behalf under
   // explicit out-of-band authorization (registerArtifactOperatorAssisted),
@@ -497,6 +505,11 @@ export type ActivityActionType =
   // other exchange_* entries above.
   | 'exchange_artifact_registered_operator_assisted'
   | 'exchange_operator_assisted_artifact_confirmed'
+  // Operator-provided plaintext fallback (2026-09-12) — attached to an
+  // already-deposited artifact when automated content extraction cannot
+  // reach the underlying bytes; never touches the artifact's fingerprint
+  // fields (see setArtifactOperatorProvidedText).
+  | 'exchange_artifact_operator_text_attached'
   // QubeTalk Communications Membrane (2026-08-25) — the consequential acts
   // named in domain spec §17's candidate list beyond what Phase 1's three
   // qubetalk_artifact_* types already cover, using the spec's own literal
@@ -604,7 +617,19 @@ export type ActivityActionType =
   // Local only, deliberately NOT in ANCHORABLE_ACTION_TYPES — the DVN
   // consumer/payload migration for DiDQube stays behind its own required
   // standalone approval (execution plan Phase 4 item 6).
-  | 'agent_didqube_container_bound';
+  | 'agent_didqube_container_bound'
+  // IRL Stewardship — Access Maintenance + Research Persona + Capability
+  // model (2026-10-01). Separate types per fact, not one generic
+  // 'access_changed' — see 20261001000300_stewardship_receipt_action_types.sql's
+  // header for the reasoning (mirrors standing_accrued/standing_corrected).
+  | 'access_grant_amended'
+  | 'access_grant_suspended'
+  | 'access_grant_reinstated'
+  | 'access_grant_revoked'
+  | 'access_grant_capability_granted'
+  | 'access_grant_capability_revoked'
+  | 'research_persona_proposed'
+  | 'research_persona_updated';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

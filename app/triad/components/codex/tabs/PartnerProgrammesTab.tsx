@@ -56,6 +56,7 @@ import {
   type PartnerWorkspace,
   type PartnerWorkspaceLink,
 } from "@/services/venture/partnerWorkspace";
+import { EXPERIMENT_REGISTRY } from "@/types/research";
 import {
   listResearchWorkspaces,
   researchWorkspaceExperiments,
@@ -98,6 +99,8 @@ import { scopesGrantedIn } from "@/services/passport/participationTabGate";
 import { useResearchWorkspaceAccess } from "@/app/hooks/useResearchWorkspaceAccess";
 import { WorkspaceCapabilitiesPanel, DocumentRow } from "@/components/research/WorkspaceCapabilitiesPanel";
 import { ReviewerAgreementPanel } from "@/components/research/ReviewerAgreementPanel";
+import { ActivityReceiptCard, type ActivityReceiptData } from "@/components/metame/cards/ActivityReceiptCard";
+import { ExperimentDossierPanel } from "@/components/research/ExperimentDossierPanel";
 
 // Peer exchange is client-only (clipboard/personaFetch) — same lazy pattern
 // as LockerTab's own mount of it.
@@ -106,13 +109,30 @@ const QubeTalkInboxTab = dynamic(() => import("@/components/composer/QubeTalkInb
   loading: () => <span className="text-[10px] text-slate-400">Loading…</span>,
 });
 
-// The Review surface's LEADING projection of Readiness (message 3 item 4:
-// "Review reordered — Readiness leads, then projected Working Materials").
-// The SAME component the Laboratory's admin-gated dashboard mounts — locked
-// to this workspace's experimentId via `fixedExperimentId`, never forked.
-const ExpP1ReadinessTab = dynamic(() => import("@/components/composer/ExpP1ReadinessTab"), {
+// Review's Crystal + Independent Review section (2026-09-12, information-
+// architecture correction — REPLACES the prior full ExpP1ReadinessTab mount
+// here, which duplicated Experiments' own ExperimentDossierPanel "readiness"
+// section). CrystalObserverReviewPanel is the canonical reviewer-facing
+// projection already built for the Validation Programme journey's
+// `crystal-review` stage: it composes IndependentReviewPanel's `reviewerMode`
+// (Crystal readiness/statistics/freeze-recommendation, read-only) with the
+// self-service Observer Review decision submission — Austin's actual review
+// action, not a second readiness dump.
+const CrystalObserverReviewPanel = dynamic(() => import("@/components/composer/CrystalObserverReviewPanel"), {
   ssr: false,
-  loading: () => <span className="text-[10px] text-slate-400">Loading readiness…</span>,
+  loading: () => <span className="text-[10px] text-slate-400">Loading Crystal &amp; Independent Review…</span>,
+});
+
+// Instrument Validation (IRV-001 / IPV-001) — mounted ONLY under the
+// Validation Programme v1 workspace's Experiments tab (2026-09-12), never
+// nested under EXP-P1: IRV-001/IPV-001 are prerequisite validation programme
+// evidence, not children of EXP-P1. The SAME component the Laboratory
+// mounts — inherently review-safe (it only reads the published, spine-gated
+// `/api/experiments/results` record; reruns happen via the CLI harness only,
+// by design — see the component's own header).
+const InstrumentValidationPanel = dynamic(() => import("@/components/composer/InstrumentValidationPanel"), {
+  ssr: false,
+  loading: () => <span className="text-[10px] text-slate-400">Loading instrument validation…</span>,
 });
 
 const PANEL = "rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm";
@@ -386,12 +406,47 @@ interface SelectedWorkspaceLiveStateReady {
    *  DVN receipt ledger... replacing the not-yet-wired state"). */
   activity: { objectId: string; objectKind: string; lifecycleState: string; receiptId: string | null; createdAt: string }[]
     | { available: false; reason: string };
+  /** The GENUINE activity_receipts row backing each activity entry's
+   *  receiptId, keyed by receiptId (2026-09-11 — reuses the canonical
+   *  ActivityReceiptCard/DVN pipeline, never a lookalike). An entry with no
+   *  key here falls back to the bare-fact row. */
+  activityReceipts: Record<string, ActivityReceiptData>;
 }
 type SelectedWorkspaceLiveState =
   | { kind: "loading" }
   | { kind: "ready"; state: SelectedWorkspaceLiveStateReady }
   | { kind: "denied" }
   | { kind: "error" };
+
+/**
+ * The progressive navigation contract (message 3 item 9, 2026-09-11): the
+ * shared object every named cross-surface flow reads and writes, so a hop
+ * from one Workspace surface to another (Experiments → Pipeline, Pipeline →
+ * Review, Review → Working Materials, …) carries WHY it happened and HOW to
+ * get back — never a bare `setSurface` that drops that context.
+ *
+ * Deliberately additive, not a replacement for `activeId`/`surface` (which
+ * already ARE `workspaceId`/the current surface — extending those two,
+ * per the operator's "prefer extending... rather than creating parallel
+ * state" instruction, means this object holds only the THREE fields that
+ * had no existing home: `selectedArtifactId`, `selectedStage`,
+ * `returnSurface`). A surface with nothing to say about them just ignores
+ * the fields — no cost to any surface that hasn't opted in yet.
+ */
+interface WorkspaceNavContext {
+  /** A document path (Working Materials/Review's projected documents) or
+   *  Locker itemId the caller navigated TO — the target surface highlights
+   *  or auto-expands it rather than requiring a second lookup. */
+  selectedArtifactId: string | null;
+  /** A template stage label (Pipeline's own stage names) the caller
+   *  navigated FROM/for — Review reads this to know which stage's
+   *  countersignature/reviewer-kit context to lead with. */
+  selectedStage: string | null;
+  /** The surface a "← Back" affordance returns to — set by the ORIGINATING
+   *  surface's forward action, cleared by the destination once followed. */
+  returnSurface: SubSurface | null;
+}
+const EMPTY_NAV_CONTEXT: WorkspaceNavContext = { selectedArtifactId: null, selectedStage: null, returnSurface: null };
 
 /** Live derivation state — 'unwired' renders the honest "Not yet wired". */
 type AgreementsState =
@@ -803,10 +858,18 @@ function PipelinePanel({
   ws,
   tracking,
   liveState,
+  onNavigate,
 }: {
   ws: WorkspaceView;
   tracking?: TrackingState;
   liveState?: SelectedWorkspaceLiveState;
+  /** The progressive navigation contract's forward-action entry point
+   *  (message 3 item 9) — Pipeline's OWN named flow, "Open in Review", is a
+   *  separate affordance from the evidence-disclosure toggle below (message
+   *  3 item 3: "separate disclosure vs. forward affordances"). Optional so
+   *  a caller that has nothing to navigate to (no navContext plumbed) still
+   *  renders the panel unchanged — same as every other optional prop here. */
+  onNavigate?: (target: SubSurface, opts?: { selectedStage?: string; returnSurface?: SubSurface }) => void;
 }) {
   if (!ws.lifecycle) {
     return (
@@ -880,13 +943,13 @@ function PipelinePanel({
                       : "border-slate-800 bg-slate-900/40"
                 }`}
               >
-                {/* Disclosure (evidence) and forward navigation (going to the
-                    stage's OWN home surface) are kept as separate affordances
-                    — message 3 item 3: "separate disclosure vs. forward
-                    affordances", never one control doing both. This row is
-                    disclosure-only; the stage's forward destination is the
-                    named surface itself (Review/Working Materials/etc.),
-                    reached via the tier-3 submenu, not from inside Pipeline. */}
+                {/* Disclosure (evidence) and forward navigation are kept as
+                    separate affordances — message 3 item 3: "separate
+                    disclosure vs. forward affordances", never one control
+                    doing both. This button is disclosure-only; the Review
+                    stage's own forward action ("Open in Review →") renders
+                    as a sibling control inside the expanded evidence panel
+                    below, never merged into this toggle. */}
                 <button
                   type="button"
                   onClick={() => canDisclose && setExpandedStage(isExpanded ? null : stage)}
@@ -935,6 +998,21 @@ function PipelinePanel({
                     {evidence.protocolMissing.length > 0 && (
                       <p>Protocol missing: <span className="text-amber-300">{evidence.protocolMissing.join(", ")}</span></p>
                     )}
+                    {/* The Review stage's OWN forward action — a SIBLING
+                        control to the disclosure toggle above, not a second
+                        job for the same button (message 3 item 3). Only the
+                        Review-mapped stage carries this: it's the one stage
+                        whose native home (the Review surface's reviewer kit +
+                        countersignature) is reachable from here at all. */}
+                    {onNavigate && stage === "Review" && (
+                      <button
+                        type="button"
+                        onClick={() => onNavigate("review", { selectedStage: stage, returnSurface: "pipeline" })}
+                        className="mt-1 rounded-md border border-violet-500/40 bg-violet-500/10 px-2 py-1 text-[10px] font-medium text-violet-200 hover:bg-violet-500/20"
+                      >
+                        Open in Review →
+                      </button>
+                    )}
                   </div>
                 )}
               </li>
@@ -973,21 +1051,38 @@ function PipelinePanel({
 }
 
 /**
- * The Activity surface's real DVN receipt ledger (message 3 item 8) — each
- * row IS the same `ExperimentActivityEntry` `resolveExperimentActivity`
- * already derives from `research_objects`, expandable to its full JSON so
- * an operator can inspect the receiptId/lifecycleState/objectKind pairing
- * without a second, summarized shape hiding the receipt's real fields.
+ * The Activity surface's real DVN receipt ledger (message 3 item 11 —
+ * 2026-09-11 revision: "reuse the canonical DVN/activity receipt source
+ * already used elsewhere... do not create a new IRL-only event model").
+ *
+ * Each `ExperimentActivityEntry` (a research_objects lifecycle row) carries
+ * a `receiptId` that — when it resolves in `activityReceipts` — points at a
+ * GENUINE `activity_receipts` row written by the SAME `writeLifecycleReceipt`
+ * -> `createActivityReceipt` path every other receipted act in the platform
+ * uses. When it resolves, render the canonical `ActivityReceiptCard`
+ * (components/metame/cards/ActivityReceiptCard.tsx — the same component
+ * Standing's Contribution History and Aigent Me's activity feed render) —
+ * never a lookalike card with fabricated DVN/BTC status fields. When it does
+ * NOT resolve (older row, or the receipt lookup found nothing), fall back to
+ * the honest bare-fact row: objectKind/objectId/lifecycleState/timestamp,
+ * expandable to the entry's own JSON — never invented card chrome for data
+ * that isn't there.
  */
 function ActivityLedger({
   entries,
+  receipts,
 }: {
   entries: { objectId: string; objectKind: string; lifecycleState: string; receiptId: string | null; createdAt: string }[];
+  receipts: Record<string, ActivityReceiptData>;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   return (
     <div className="mt-3 space-y-1.5">
       {entries.map((e) => {
+        const receipt = e.receiptId ? receipts[e.receiptId] : undefined;
+        if (receipt) {
+          return <ActivityReceiptCard key={e.objectId} data={receipt} theme="dark" />;
+        }
         const isExpanded = expandedId === e.objectId;
         return (
           <div key={e.objectId} className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
@@ -1867,10 +1962,30 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
         ? "overview"
         : null;
   const [surface, setSurface] = useState<SubSurface>(menuSurface ?? "overview");
+  // The progressive navigation contract (message 3 item 9) — see
+  // WorkspaceNavContext's own header. A FORWARD action (a named flow between
+  // two surfaces) goes through `navigateToSurface`, which sets both `surface`
+  // and the context together; a bare tier-3 submenu click is a deliberate
+  // fresh navigation (MS-5 — "a deliberate act outranks an ambient
+  // observation") and always resets to EMPTY_NAV_CONTEXT, never carrying
+  // leftover context from wherever the caller was before.
+  const [navContext, setNavContext] = useState<WorkspaceNavContext>(EMPTY_NAV_CONTEXT);
+  function navigateToSurface(target: SubSurface, opts?: Partial<WorkspaceNavContext>) {
+    setSurface(target);
+    setNavContext({
+      selectedArtifactId: opts?.selectedArtifactId ?? null,
+      selectedStage: opts?.selectedStage ?? null,
+      returnSurface: opts?.returnSurface ?? null,
+    });
+  }
   // The tier-3 row keeps this component mounted and swaps the prop, so state
   // initialised once would stick on whichever surface was opened first.
   useEffect(() => {
-    if (menuSurface) setSurface(menuSurface);
+    if (menuSurface) {
+      setSurface(menuSurface);
+      setNavContext(EMPTY_NAV_CONTEXT);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menuSurface]);
   const [collabView, setCollabView] = useState<CollabView>("invitations");
   const [agreements, setAgreements] = useState<AgreementsState>({ kind: "loading" });
@@ -2163,7 +2278,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
           .map((s) => (
           <button
             key={s}
-            onClick={() => setSurface(s)}
+            onClick={() => navigateToSurface(s)}
             className={`rounded-md border px-3 py-1.5 text-xs transition ${
               surface === s
                 ? "border-violet-500/50 bg-violet-500/10 text-violet-200"
@@ -2286,28 +2401,95 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
                       const Icon = WORKSPACE_TYPE_ICON[item.workspaceType];
                       const isActive = item.id === ws.id;
                       return (
-                        <button
+                        <div
                           key={item.id}
-                          onClick={() => setActiveId(item.id)}
                           style={{ paddingLeft: `${item.navDepth * 14}px` }}
-                          className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs transition ${
+                          className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition ${
                             isActive
                               ? "border-violet-500/50 bg-violet-500/10 text-violet-200"
                               : "border-slate-800 bg-slate-900/40 text-slate-300 hover:bg-slate-800/60"
                           }`}
                         >
-                          <Icon className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate font-medium">{item.chipLabel}</span>
-                            {item.phaseLabel && <span className="block truncate text-[10px] text-slate-500">{item.phaseLabel}</span>}
-                          </span>
-                        </button>
+                          <button onClick={() => setActiveId(item.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                            <Icon className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate font-medium">{item.chipLabel}</span>
+                              {item.phaseLabel && <span className="block truncate text-[10px] text-slate-500">{item.phaseLabel}</span>}
+                            </span>
+                          </button>
+                          {/* The Experiments dossier's forward action to Pipeline
+                              (message 3 item 2) — a named flow, not a bare tab
+                              switch: it carries returnSurface so Pipeline can
+                              offer "← Back to Experiments". Only on the active
+                              item — a forward action always acts on what's
+                              already open, never a not-yet-selected row. */}
+                          {isActive && (
+                            <button
+                              onClick={() => navigateToSurface("pipeline", { returnSurface: "experiments" })}
+                              className="shrink-0 rounded-md border border-violet-500/40 bg-violet-500/10 px-2 py-1 text-[10px] font-medium text-violet-200 hover:bg-violet-500/20"
+                              title="View this experiment's pipeline"
+                            >
+                              View pipeline →
+                            </button>
+                          )}
+                        </div>
                       );
                     })}
                   </div>
                 </div>
               );
             })
+          )}
+          {/* Instrument Validation (IRV-001/IPV-001) — 2026-09-12,
+              information-architecture correction. Rendered ONLY for the
+              Validation Programme v1 workspace itself, never nested under
+              EXP-P1: IRV-001/IPV-001 are prerequisite validation-programme
+              evidence, siblings of EXP-P1 within VP1 (types/research.ts's
+              VP1 series), not its children. This is the one narrow,
+              named exception to "no experiment-specific branching in this
+              component" — justified the same way ExperimentDossierPanel's
+              own header justifies its "Exchange (OCSGA workspaces only)"
+              section: a genuine structural fact about what this specific
+              workspace is, not a special case invented for Austin. */}
+          {ws.id === "irl-validation-programme-vp1" && (
+            <div className={`${PANEL} p-4`}>
+              <h3 className="text-sm font-semibold text-slate-100">Instrument Validation</h3>
+              <p className="mt-1 text-[11px] text-slate-500">
+                IRV-001 Resolution Validation and IPV-001 Projection Validation — Stage-0 prerequisite evidence
+                for the Validation Programme v1 series, read from the canonical published results. EXP-P1
+                depends on this evidence but does not own it.
+              </p>
+              <div className="mt-3 space-y-4">
+                {(["IRV-001", "IPV-001"] as const).map((expId) => {
+                  const reg = EXPERIMENT_REGISTRY.find((e) => e.id === expId);
+                  return (
+                    <InstrumentValidationPanel
+                      key={expId}
+                      experimentId={expId}
+                      family={reg?.family ?? expId}
+                      hypothesis={reg?.hypothesis ?? ""}
+                      protocolRef={reg?.protocolRef}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {/* Full experiment/programme dossier (message 5/6, IRL Workspace
+              Experiment Dossier Completion Pass) — a projection over the
+              SAME `resolveExperimentDossier` a machine consumer reads as
+              JSON from `/api/participation/workspace-dossier`; rendered here
+              for the currently active workspace only. Generalizes to any
+              workspace (research or OCSGA) — no experiment-specific
+              branching in this component either. */}
+          {workspaces.length > 0 && (
+            <ExperimentDossierPanel
+              workspaceId={ws.id}
+              personaId={personaId}
+              onOpenDocument={(path) =>
+                navigateToSurface("working-materials", { selectedArtifactId: path, returnSurface: "experiments" })
+              }
+            />
           )}
         </div>
       )}
@@ -2439,7 +2621,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
               {liveState.state.activity.length === 0 ? (
                 <p className="mt-2 text-xs italic text-slate-500">No activity recorded yet for this experiment.</p>
               ) : (
-                <ActivityLedger entries={liveState.state.activity} />
+                <ActivityLedger entries={liveState.state.activity} receipts={liveState.state.activityReceipts} />
               )}
             </div>
           )}
@@ -2478,11 +2660,25 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
       )}
 
       {/* ── Pipeline (SPEC §7) ── */}
-      {surface === "pipeline" && <PipelinePanel ws={ws} tracking={tracking} liveState={liveState} />}
+      {surface === "pipeline" && <PipelinePanel ws={ws} tracking={tracking} liveState={liveState} onNavigate={navigateToSurface} />}
 
       {/* ── Review — the IRL-REVIEW-001 front end (SPEC §7) ── */}
       {surface === "review" && (
         <div className="space-y-4">
+          {/* The navigation contract's "← Back" affordance (message 3 item
+              9) — set only by a forward action that named Review as its
+              destination (Pipeline's "Open in Review →"); a direct tier-3
+              submenu click leaves this empty, so there is nothing to go
+              back TO. */}
+          {navContext.returnSurface && (
+            <button
+              type="button"
+              onClick={() => navigateToSurface(navContext.returnSurface!)}
+              className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200"
+            >
+              ← Back to {surfaceLabel(navContext.returnSurface, kind)}
+            </button>
+          )}
           <BoundaryNote surface="review" />
           <div className={`${PANEL} p-4`}>
             <h3 className="text-sm font-semibold text-slate-100">Independent Review</h3>
@@ -2513,14 +2709,39 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
               {liveState.kind === "loading" && (
                 <div className={`${PANEL} p-4 text-xs text-slate-500`}>Loading reviewer materials…</div>
               )}
+              {/* Crystal + Independent Review (2026-09-12 — replaces the
+                  prior full ExpP1ReadinessTab mount, which duplicated
+                  Experiments' own ExperimentDossierPanel "readiness"
+                  section). This is Austin's actual review action: inspect
+                  the frozen Crystal's readiness/statistics/freeze
+                  recommendation (read-only here — reviewerMode) and submit
+                  an Observer Review decision. */}
               {liveState.kind === "ready" && liveState.state.capabilities.readinessAvailable && (
                 <div className={`${PANEL} p-4`}>
-                  <ExpP1ReadinessTab personaId={personaId} fixedExperimentId={ws.experimentId as "EXP-P1" | "EXP-P2" | "EXP-P3"} />
+                  <h3 className="mb-3 text-sm font-semibold text-slate-100">Crystal &amp; Independent Review</h3>
+                  <CrystalObserverReviewPanel experimentId={ws.experimentId} />
                 </div>
               )}
               {liveState.kind === "ready" && liveState.state.documents.length > 0 && (
                 <div className={`${PANEL} p-4`}>
-                  <h3 className="text-sm font-semibold text-slate-100">Reviewer Kit &amp; Protocol</h3>
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-slate-100">Reviewer Kit &amp; Protocol</h3>
+                    {/* Acting on this projected object takes the caller to
+                        its NATIVE home (message 3's projection rule) —
+                        Working Materials, never a promote/freeze act here. */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigateToSurface("working-materials", {
+                          selectedArtifactId: liveState.state.documents[0]?.path ?? null,
+                          returnSurface: "review",
+                        })
+                      }
+                      className="shrink-0 rounded-md border border-violet-500/40 bg-violet-500/10 px-2 py-1 text-[10px] font-medium text-violet-200 hover:bg-violet-500/20"
+                    >
+                      Open in Working Materials →
+                    </button>
+                  </div>
                   <p className="mt-1 text-[11px] text-slate-500">
                     The registered protocol and reviewer documentation for {ws.experimentId} — read
                     inline, never a browser-tab download.
@@ -2569,6 +2790,15 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
       {/* ── Working Materials (SPEC §7, §9) ── */}
       {surface === "working-materials" && (
         <div className="space-y-4">
+          {navContext.returnSurface && (
+            <button
+              type="button"
+              onClick={() => navigateToSurface(navContext.returnSurface!)}
+              className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200"
+            >
+              ← Back to {surfaceLabel(navContext.returnSurface, kind)}
+            </button>
+          )}
           <BoundaryNote surface="working-materials" />
           <div className={`${PANEL} p-4`}>
             <h3 className="text-sm font-semibold text-slate-100">Working Materials</h3>
@@ -2589,9 +2819,10 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
               <h3 className="text-sm font-semibold text-slate-100">Authorized materials — {ws.experimentId}</h3>
               {liveState.state.documents.length > 0 ? (
                 <div className="mt-3 space-y-1.5">
-                  {liveState.state.documents.map((doc) => (
-                    <DocumentRow key={doc.path} doc={doc} />
-                  ))}
+                  {liveState.state.documents.map((doc) => {
+                    const isSelected = navContext.selectedArtifactId === doc.path;
+                    return <DocumentRow key={doc.path} doc={doc} autoOpen={isSelected} highlighted={isSelected} />;
+                  })}
                 </div>
               ) : (
                 <p className="mt-2 text-xs italic text-slate-500">No authorized materials resolved for this caller.</p>

@@ -1370,6 +1370,7 @@ export default function CodexPanelDynamic({
                 activeSlug={activeTab.slug}
                 activeSubSlug={activeSubSubTab?.slug}
                 personaId={resolvedPersonaId}
+                isAdmin={isAdmin}
               />
             )}
             {activeTab && (

@@ -6123,6 +6123,10 @@ export const IRL_CARTRIDGE: CodexConfig = {
     // too, deliberately stubbed as the future access point IF invariant
     // aggregation opens beyond admin (cohort/token/payment-gated), but not
     // built now. Both stay adminOnly: true in both cartridges either way.
+    //
+    // EXP-P1 Readiness's own Laboratory entry (both cartridges) is now
+    // `enabled: false` (2026-09-11, operator item 6) — relocated to
+    // Workspace → Review, see that entry's own comment below.
     {
       id: 'irl-corpus-scout',
       label: 'Corpus Scout',
@@ -6135,11 +6139,22 @@ export const IRL_CARTRIDGE: CodexConfig = {
       config: { component: 'CorpusScoutTab', props: {} },
       metadata: { icon: 'FileSearch', description: 'PRD-ICA-001 §9 — verify, review, and hand approved sources to the Discovery Engine. Retrieval → byte verification → human approval → add-evidence.', color: 'violet' },
     },
+    // EXP-P1 Readiness relocated to Workspace → Review (2026-09-11,
+    // Progressive Surface pass, operator item 6: "EXP-P1 Readiness does not
+    // belong as a permanent top-level Laboratory concern... remove that tab
+    // from Laboratory navigation. Preserve the readiness component/content
+    // itself."). Disabled, not deleted — same pattern as the Locker tab's
+    // own 2026-09-08 relocation (`irl-os-passport-locker` below): the SAME
+    // `ExpP1ReadinessTab` component now renders as the leading block of the
+    // Workspace Review subTab (`PartnerProgrammesTab.tsx`'s Review surface,
+    // `fixedExperimentId` scoped to the selected experiment), never forked.
+    // Laboratory stays general-purpose across experiments/programmes, as the
+    // operator required ("Laboratory should remain general-purpose").
     {
       id: 'irl-exp-p1-readiness',
       label: 'EXP-P1 Readiness',
       slug: 'irl-exp-p1-readiness',
-      enabled: true,
+      enabled: false,
       adminOnly: true,
       group: 'laboratory',
       order: 5,
@@ -6621,11 +6636,19 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
     // deliberately, not removed: a stub for a future cohort/token/payment-
     // gated access point if invariant aggregation opens beyond admin.
     // adminOnly: true today either way; not built out beyond that flag.
+    //
+    // `enabled: false` (2026-09-11, operator item 6 — "EXP-P1 Readiness does
+    // not belong as a permanent top-level Laboratory concern... Laboratory
+    // should remain general-purpose"). The SAME `ExpP1ReadinessTab` now
+    // renders as the leading block of Workspace → Review, scoped via
+    // `fixedExperimentId` to the selected experiment — never forked, and the
+    // component itself is unchanged; only this Laboratory registration is
+    // disabled, matching the Locker tab's own 2026-09-08 relocation pattern.
     {
       id: 'irl-os-exp-p1-readiness',
       label: 'EXP-P1 Readiness',
       slug: 'irl-os-exp-p1-readiness',
-      enabled: true,
+      enabled: false,
       adminOnly: true,
       group: 'laboratory',
       order: 4,

@@ -27,6 +27,8 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
+  ChevronDown,
+  ChevronRight,
   FileText,
   Loader2,
   Lock,
@@ -38,6 +40,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 /**
  * Reciprocal Artifact Exchange focus contract (semantic repair, 2026-08-25).
@@ -144,6 +147,12 @@ interface ExchangeViewPayload {
     createdAt: string;
   };
   viewerParty: "A" | "B";
+  /** True when the caller is not a direct party but was admitted via
+   *  workspace access (2026-09-12) — action affordances (invite/freeze/
+   *  sign/withdraw/revoke/acknowledge/open-comparison) are hidden for an
+   *  observer; the server refuses them regardless, this just avoids
+   *  showing a control that would silently no-op. */
+  isObserver: boolean;
   yourArtifact: ArtifactView | null;
   counterpartyArtifact: ArtifactView | null;
   receipt: ExchangeReceiptView | null;
@@ -203,7 +212,107 @@ function Panel({
   );
 }
 
-function ArtifactCard({ label, artifact }: { label: string; artifact: ArtifactView | null }) {
+interface ArtifactContentPayload {
+  ok: boolean;
+  title?: string;
+  mimeType?: string | null;
+  format?: "markdown" | "text" | "unsupported";
+  content?: string;
+  note?: string;
+  error?: string;
+  origin?: "operator-provided";
+}
+
+/**
+ * The actual document, read inline — never a link out (CLAUDE.md's "render,
+ * don't redirect" rule; this is the exact gap the operator flagged 2026-09-12:
+ * "It's pointless having all of this wrapping if we can't actually see the
+ * content"). Fetches GET /api/research/exchanges/[exchangeId]/artifact-content
+ * only once, on first expand — the route re-enforces the SAME disclosure
+ * gate the metadata above already reflects, so a click here never surfaces
+ * anything the card wasn't already allowed to show as AVAILABLE.
+ */
+function ArtifactContentReader({ exchangeId, party }: { exchangeId: string; party: "A" | "B" }) {
+  const [open, setOpen] = useState(false);
+  const [state, setState] = useState<
+    | { kind: "idle" }
+    | { kind: "loading" }
+    | { kind: "ready"; payload: ArtifactContentPayload }
+    | { kind: "error"; message: string }
+  >({ kind: "idle" });
+
+  const toggle = useCallback(async () => {
+    setOpen((prev) => !prev);
+    if (state.kind !== "idle") return;
+    setState({ kind: "loading" });
+    try {
+      const res = await personaFetch(
+        `/api/research/exchanges/${exchangeId}/artifact-content?party=${party}`,
+        { cache: "no-store" },
+      );
+      const data = (await res.json()) as ArtifactContentPayload;
+      if (!res.ok || !data.ok) {
+        setState({ kind: "error", message: data.error || `Could not load this document (HTTP ${res.status}).` });
+        return;
+      }
+      setState({ kind: "ready", payload: data });
+    } catch (e) {
+      setState({ kind: "error", message: e instanceof Error ? e.message : "Could not load this document." });
+    }
+  }, [state.kind, exchangeId, party]);
+
+  return (
+    <div className="mt-2 rounded-lg border border-slate-800 bg-slate-900/40">
+      <button
+        type="button"
+        onClick={() => void toggle()}
+        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-[11px] font-medium text-violet-200 hover:bg-white/5"
+      >
+        {open ? <ChevronDown className="h-3.5 w-3.5 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
+        <FileText className="h-3.5 w-3.5 shrink-0" /> Read document
+      </button>
+      {open && (
+        <div className="max-h-[32rem] overflow-y-auto border-t border-slate-800 px-3 py-2.5">
+          {state.kind === "loading" && (
+            <span className="flex items-center gap-1.5 text-[11px] text-slate-500">
+              <Loader2 className="h-3 w-3 animate-spin" /> Loading…
+            </span>
+          )}
+          {state.kind === "error" && <p className="text-[11px] text-rose-300">{state.message}</p>}
+          {state.kind === "ready" && state.payload.format === "unsupported" && (
+            <p className="text-[11px] text-amber-300/90">
+              {state.payload.note || "This document's format has no reader yet."}
+            </p>
+          )}
+          {state.kind === "ready" && state.payload.format !== "unsupported" && (
+            <>
+              {state.payload.origin === "operator-provided" && (
+                <p className="mb-2 text-[10px] font-medium text-amber-300/80">
+                  Operator-provided text — automated extraction was unavailable for this artifact; this is the document's own text, verified by the operator.
+                </p>
+              )}
+              <pre className="whitespace-pre-wrap break-words font-sans text-[12px] leading-relaxed text-slate-200">
+                {state.payload.content}
+              </pre>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ArtifactCard({
+  label,
+  artifact,
+  exchangeId,
+  party,
+}: {
+  label: string;
+  artifact: ArtifactView | null;
+  exchangeId: string;
+  party: "A" | "B";
+}) {
   if (!artifact) {
     return (
       <div className="rounded-xl border border-dashed border-slate-700 p-4 text-[13px] text-slate-500">
@@ -239,11 +348,14 @@ function ArtifactCard({ label, artifact }: { label: string; artifact: ArtifactVi
       {artifact.locked ? (
         <p className="mt-2 text-[11px] text-amber-300/90">{artifact.lockedReason}</p>
       ) : (
-        <div className="mt-2 space-y-1 text-[11px] text-slate-400">
-          {artifact.contentHash ? <p>fingerprint: {artifact.contentHash.slice(0, 24)}…</p> : null}
-          {artifact.sourceReference ? <p className="truncate">source: {artifact.sourceReference}</p> : null}
-          {artifact.repositoryCommit ? <p>commit: {artifact.repositoryCommit.slice(0, 12)}</p> : null}
-        </div>
+        <>
+          <div className="mt-2 space-y-1 text-[11px] text-slate-400">
+            {artifact.contentHash ? <p>fingerprint: {artifact.contentHash.slice(0, 24)}…</p> : null}
+            {artifact.sourceReference ? <p className="truncate">source: {artifact.sourceReference}</p> : null}
+            {artifact.repositoryCommit ? <p>commit: {artifact.repositoryCommit.slice(0, 12)}</p> : null}
+          </div>
+          <ArtifactContentReader exchangeId={exchangeId} party={party} />
+        </>
       )}
     </div>
   );
@@ -270,6 +382,7 @@ export function IRLExchangeTab({ workspaceScopeId }: IRLExchangeTabProps = {}) {
   const [error, setError] = useState<string | null>(null);
   const [rawInviteCode, setRawInviteCode] = useState<string | null>(null);
   const [joinCode, setJoinCode] = useState("");
+  const [confirmRevokeOpen, setConfirmRevokeOpen] = useState(false);
 
   // Reciprocal Artifact Exchange focus contract (2026-08-25) — see the
   // module-level doc comment. `null` (no param, or an unrecognized value)
@@ -382,9 +495,17 @@ export function IRLExchangeTab({ workspaceScopeId }: IRLExchangeTabProps = {}) {
   }
 
   if (selectedId && view) {
-    const { exchange, viewerParty, yourArtifact, counterpartyArtifact, receipt, comparison, derivatives } = view;
-    const yourLabel = viewerParty === "A" ? "Your artifact (Party A)" : "Your artifact (Party B)";
-    const cpLabel = viewerParty === "A" ? "Counterparty artifact (Party B)" : "Counterparty artifact (Party A)";
+    const { exchange, viewerParty, isObserver, yourArtifact, counterpartyArtifact, receipt, comparison, derivatives } = view;
+    const yourLabel = isObserver
+      ? "Party A artifact"
+      : viewerParty === "A"
+        ? "Your artifact (Party A)"
+        : "Your artifact (Party B)";
+    const cpLabel = isObserver
+      ? "Party B artifact"
+      : viewerParty === "A"
+        ? "Counterparty artifact (Party B)"
+        : "Counterparty artifact (Party A)";
     const crossed = ["EXCHANGED", "RECEIPT_ACKNOWLEDGED", "COMPARISON_OPEN", "COMPLETED", "REVOKED_ACCESS_POST_EXCHANGE"].includes(
       exchange.status,
     );
@@ -408,6 +529,11 @@ export function IRLExchangeTab({ workspaceScopeId }: IRLExchangeTabProps = {}) {
           <span className="mt-2 inline-block rounded-full border border-violet-500/40 bg-violet-500/10 px-2.5 py-0.5 text-[11px] text-violet-200">
             {STATUS_LABEL[exchange.status] ?? exchange.status}
           </span>
+          {isObserver && (
+            <span className="mt-2 ml-2 inline-block rounded-full border border-slate-600 bg-slate-800/60 px-2.5 py-0.5 text-[11px] text-slate-300">
+              Viewing via workspace access — read-only
+            </span>
+          )}
         </div>
 
         {error ? <p className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-[12px] text-rose-300">{error}</p> : null}
@@ -427,7 +553,7 @@ export function IRLExchangeTab({ workspaceScopeId }: IRLExchangeTabProps = {}) {
             <span className="text-slate-100">{exchange.counterpartyRef ?? "not yet joined"}</span>
             {viewerParty === "B" ? " (you)" : ""}
           </p>
-          {!exchange.counterpartyRef && viewerParty === "A" ? (
+          {!isObserver && !exchange.counterpartyRef && viewerParty === "A" ? (
             <div className="mt-3 space-y-2">
               <button
                 disabled={busy}
@@ -447,63 +573,72 @@ export function IRLExchangeTab({ workspaceScopeId }: IRLExchangeTabProps = {}) {
         </Panel>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <ArtifactCard label={yourLabel} artifact={yourArtifact} />
-          <ArtifactCard label={cpLabel} artifact={counterpartyArtifact} />
+          <ArtifactCard label={yourLabel} artifact={yourArtifact} exchangeId={exchange.id} party={viewerParty} />
+          <ArtifactCard
+            label={cpLabel}
+            artifact={counterpartyArtifact}
+            exchangeId={exchange.id}
+            party={viewerParty === "A" ? "B" : "A"}
+          />
         </div>
 
-        {!yourArtifact ? (
+        {!isObserver && !yourArtifact ? (
           <Panel title="Deposit your artifact" icon={FileText} {...panelFocusProps("Deposit your artifact")}>
             <DepositForm onSubmit={(fields) => act("deposit", fields)} busy={busy} />
           </Panel>
         ) : null}
 
-        <Panel title="Freeze Declaration" icon={ShieldCheck} {...panelFocusProps("Freeze Declaration")}>
-          {yourArtifact?.pendingPrincipalAttestation ? (
-            <>
-              <p className="text-[12px] text-slate-300">
-                This artifact was registered on your behalf by an operator, on your authorization. Confirm it is the
-                artifact you intended before it can be frozen or signed — this does not change its content or
-                fingerprint, only your own acknowledgment of it.
-              </p>
-              <button
-                disabled={busy}
-                onClick={() => act("confirm")}
-                className="mt-3 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 py-1.5 text-[12px] font-medium text-emerald-100 hover:bg-emerald-500/25 disabled:opacity-40"
-              >
-                Confirm this artifact
-              </button>
-            </>
-          ) : (
-            <>
-              <p className="text-[12px] text-slate-400">
-                &ldquo;I declare that this artifact represents the version independently frozen by my party for this
-                exchange…&rdquo;
-              </p>
-              <button
-                disabled={busy || !yourArtifact || yourArtifact.frozen}
-                onClick={() => act("freeze")}
-                className="mt-3 rounded-lg border border-violet-500/40 bg-violet-500/15 px-3 py-1.5 text-[12px] font-medium text-violet-100 hover:bg-violet-500/25 disabled:opacity-40"
-              >
-                {yourArtifact?.frozen ? "Freeze declared" : "Declare freeze"}
-              </button>
-            </>
-          )}
-        </Panel>
+        {!isObserver && (
+          <Panel title="Freeze Declaration" icon={ShieldCheck} {...panelFocusProps("Freeze Declaration")}>
+            {yourArtifact?.pendingPrincipalAttestation ? (
+              <>
+                <p className="text-[12px] text-slate-300">
+                  This artifact was registered on your behalf by an operator, on your authorization. Confirm it is the
+                  artifact you intended before it can be frozen or signed — this does not change its content or
+                  fingerprint, only your own acknowledgment of it.
+                </p>
+                <button
+                  disabled={busy}
+                  onClick={() => act("confirm")}
+                  className="mt-3 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 py-1.5 text-[12px] font-medium text-emerald-100 hover:bg-emerald-500/25 disabled:opacity-40"
+                >
+                  Confirm this artifact
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-[12px] text-slate-400">
+                  &ldquo;I declare that this artifact represents the version independently frozen by my party for this
+                  exchange…&rdquo;
+                </p>
+                <button
+                  disabled={busy || !yourArtifact || yourArtifact.frozen}
+                  onClick={() => act("freeze")}
+                  className="mt-3 rounded-lg border border-violet-500/40 bg-violet-500/15 px-3 py-1.5 text-[12px] font-medium text-violet-100 hover:bg-violet-500/25 disabled:opacity-40"
+                >
+                  {yourArtifact?.frozen ? "Freeze declared" : "Declare freeze"}
+                </button>
+              </>
+            )}
+          </Panel>
+        )}
 
-        <Panel title="Exchange Instrument" icon={ClipboardCheck} {...panelFocusProps("Exchange Instrument")}>
-          <p className="text-[12px] text-slate-400">
-            Signing acknowledges your identity, your deposited artifact and its frozen version, the agreed purpose,
-            confidentiality terms, that receipt does not transfer ownership, and that later normalization is
-            derivative work — never evidence of native compatibility.
-          </p>
-          <button
-            disabled={busy || !yourArtifact?.frozen || yourArtifact?.signed || crossed}
-            onClick={() => act("sign")}
-            className="mt-3 rounded-lg border border-violet-500/40 bg-violet-500/15 px-3 py-1.5 text-[12px] font-medium text-violet-100 hover:bg-violet-500/25 disabled:opacity-40"
-          >
-            {yourArtifact?.signed ? "Instrument signed" : "Sign Exchange Instrument"}
-          </button>
-        </Panel>
+        {!isObserver && (
+          <Panel title="Exchange Instrument" icon={ClipboardCheck} {...panelFocusProps("Exchange Instrument")}>
+            <p className="text-[12px] text-slate-400">
+              Signing acknowledges your identity, your deposited artifact and its frozen version, the agreed purpose,
+              confidentiality terms, that receipt does not transfer ownership, and that later normalization is
+              derivative work — never evidence of native compatibility.
+            </p>
+            <button
+              disabled={busy || !yourArtifact?.frozen || yourArtifact?.signed || crossed}
+              onClick={() => act("sign")}
+              className="mt-3 rounded-lg border border-violet-500/40 bg-violet-500/15 px-3 py-1.5 text-[12px] font-medium text-violet-100 hover:bg-violet-500/25 disabled:opacity-40"
+            >
+              {yourArtifact?.signed ? "Instrument signed" : "Sign Exchange Instrument"}
+            </button>
+          </Panel>
+        )}
 
         <Panel title="Crossing" icon={Unlock} {...panelFocusProps("Crossing")}>
           <p className="text-[12px] text-slate-400">
@@ -517,13 +652,15 @@ export function IRLExchangeTab({ workspaceScopeId }: IRLExchangeTabProps = {}) {
           <Panel title="Exchange Receipt" icon={ShieldCheck} {...panelFocusProps("Exchange Receipt")}>
             <p className="text-[13px] leading-relaxed text-slate-200">{receipt.humanReadableSummary}</p>
             <p className="mt-2 text-[11px] text-slate-500">Crossed at {new Date(receipt.crossedAt).toLocaleString()}</p>
-            <button
-              disabled={busy}
-              onClick={() => act("acknowledge")}
-              className="mt-3 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-[12px] font-medium text-slate-200 hover:bg-slate-800"
-            >
-              Acknowledge receipt
-            </button>
+            {!isObserver && (
+              <button
+                disabled={busy}
+                onClick={() => act("acknowledge")}
+                className="mt-3 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-[12px] font-medium text-slate-200 hover:bg-slate-800"
+              >
+                Acknowledge receipt
+              </button>
+            )}
           </Panel>
         ) : null}
 
@@ -538,6 +675,8 @@ export function IRLExchangeTab({ workspaceScopeId }: IRLExchangeTabProps = {}) {
           <Panel title="Comparison" icon={GitBranch} {...panelFocusProps("Comparison")}>
             {comparison ? (
               <p className="text-[12px] text-slate-400">Comparison workspace open — read-only against both frozen artifacts.</p>
+            ) : isObserver ? (
+              <p className="text-[12px] text-slate-500">No comparison workspace has been opened yet.</p>
             ) : (
               <button
                 disabled={busy}
@@ -572,7 +711,7 @@ export function IRLExchangeTab({ workspaceScopeId }: IRLExchangeTabProps = {}) {
           </Panel>
         ) : null}
 
-        {exchange.status !== "WITHDRAWN_PRE_EXCHANGE" && exchange.status !== "DECLINED" ? (
+        {!isObserver && exchange.status !== "WITHDRAWN_PRE_EXCHANGE" && exchange.status !== "DECLINED" ? (
           <div className="pt-2 text-right">
             {!crossed ? (
               <button
@@ -585,14 +724,33 @@ export function IRLExchangeTab({ workspaceScopeId }: IRLExchangeTabProps = {}) {
             ) : exchange.status !== "REVOKED_ACCESS_POST_EXCHANGE" ? (
               <button
                 disabled={busy}
-                onClick={() => act("revoke", { reason: "access revoked from the exchange UI" })}
-                className="text-[11px] text-slate-500 hover:text-rose-300"
+                onClick={() => setConfirmRevokeOpen(true)}
+                className="rounded-md border border-rose-900/60 px-2 py-1 text-[11px] font-medium text-rose-400 hover:border-rose-700 hover:bg-rose-950/40 hover:text-rose-300"
               >
-                Revoke my future access
+                Revoke reciprocal access…
               </button>
             ) : null}
           </div>
         ) : null}
+
+        <ConfirmDialog
+          open={confirmRevokeOpen}
+          title="Revoke reciprocal access?"
+          confirmText="Revoke access"
+          cancelText="Cancel"
+          confirmClassName="bg-rose-700 text-white hover:bg-rose-600"
+          onCancel={() => setConfirmRevokeOpen(false)}
+          onConfirm={() => {
+            setConfirmRevokeOpen(false);
+            act("revoke", { reason: "access revoked from the exchange UI" });
+          }}
+        >
+          This is a mutual, one-way action — it does not just remove your own future access. Once revoked,{" "}
+          <strong>neither you nor your counterparty</strong> will be able to read either party&apos;s deposited
+          artifact through this exchange going forward. The historical Exchange Receipt (proof the crossing
+          happened) stays on record and is never affected, but there is no undo button in this UI — reversing it
+          requires a manual correction.
+        </ConfirmDialog>
       </div>
     );
   }

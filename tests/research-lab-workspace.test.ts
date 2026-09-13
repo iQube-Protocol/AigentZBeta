@@ -1088,8 +1088,15 @@ describe('canary R11 — OCSGA Boundary Research reuses the standard invitation 
   it('no new invitation-issuance API route was created for this', () => {
     // Structural, grep-based — mirrors this session's own architectural-
     // invariant test pattern (e.g. canary R5's route-composition check
-    // above). The steward invitation surface stays exactly the three routes
-    // that existed before this workspace was registered.
+    // above). The steward invitation surface itself stays exactly the three
+    // original routes; the OCSGA workspace never got a route of its own.
+    //
+    // IRL Stewardship pass (2026-10-01) added four SIBLING routes — grant
+    // maintenance, capability grant/revoke, research-persona — none of them
+    // invitation-issuance and none of them OCSGA-specific (they are the
+    // general access-maintenance mechanism every domain shares). This list
+    // was widened to include them; the OCSGA-specific-directory check below
+    // is what actually enforces this canary's intent and is unchanged.
     const files = execSync("find app/api/steward -type f -name 'route.ts' | sort", {
       cwd: process.cwd(),
       encoding: 'utf8',
@@ -1099,7 +1106,11 @@ describe('canary R11 — OCSGA Boundary Research reuses the standard invitation 
       .filter(Boolean);
     expect(files.sort()).toEqual(
       [
+        'app/api/steward/participation/capabilities/[capabilityId]/route.ts',
+        'app/api/steward/participation/capabilities/route.ts',
+        'app/api/steward/participation/grants/[grantId]/route.ts',
         'app/api/steward/participation/invitations/route.ts',
+        'app/api/steward/participation/research-persona/route.ts',
         'app/api/steward/participation/results/route.ts',
         'app/api/steward/participation/route.ts',
       ].sort(),

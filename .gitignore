@@ -167,3 +167,8 @@ data/investors/consolidated_investors.json
 
 # Test-generated screenshots (browser regression tests) — never committed, see CLAUDE.md Dense Materials rule.
 test-artifacts/
+
+# Rendered Qriptopian threshold-edition PDFs (scripts/render-threshold-*.py output) —
+# build output, never committed; the canonical bytes live in Autonomys Auto Drive
+# once uploaded, referenced from the content row via pdfCid/pdfAssetId.
+output/pdf/

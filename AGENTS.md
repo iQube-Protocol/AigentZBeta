@@ -34,6 +34,46 @@
 - At a natural milestone or close of a substantive turn, perform a lightweight scan: did this work surface a candidate invariant, experiment, architecture refinement, or capability? If yes, surface the candidates and proposed classifications before moving on.
 - Canonical rule: `docs/agent-harness/prospective-evolution-capture.md`. Roadmap model: `codexes/packs/irl/foundation/CFS-051A_prospective-evolution-roadmaps.md`. This composes with, but is broader than, the Resolution → Invariant Loop.
 
+## Constitutional Identity & Resource Protocol (PARAMOUNT, 2026-09-11)
+
+**This protocol is normative for new development and directional for legacy systems. Conformance
+debt is not permission for destructive refactoring.** Full audit + citations:
+`codexes/packs/agentiq/updates/2026-09-11_person-persona-iqube-constitutional-protocol-v0.1.md`.
+Retrofit register: `codexes/packs/agentiq/retrofit-register.json`.
+
+Canonical interaction chain:
+
+```
+KybeDID → RootDID → Persona → Authority/Delegation → iQube → Action → DVN Receipt → Standing
+```
+
+- KybeDID is the durable personhood-continuity root.
+- RootDID is durable identity continuity.
+- Persona is the contextual activation and interaction boundary.
+- DiDQube owns Person/Identity/Persona resolution and continuity.
+- Authority/Delegation determines under whose mandate a Persona acts.
+- iQube owns or resolves resource-specific access and constitutional policy.
+- RLS enforces underlying storage permissions and must not be weakened to compensate for application projection defects.
+- DVN receipts provide attributable evidence of consequential action.
+- Standing is derived from evidenced action and accrues principally to personhood while retaining Persona/context provenance.
+
+Constitutional action is Persona-attributed, personhood-anchored, resource-governed and receipt-evidenced.
+
+**Migration rule:** new code MUST follow this model. Existing load-bearing code (`participationAccess.ts`,
+`selectedWorkspaceState.ts`, existing RLS policies, existing delegation/access resolvers, current
+registry adapters, other production-critical authorization paths) MUST NOT be destructively
+rewritten solely for architectural conformity. Prefer adapters, compatibility layers and incremental
+iQube wrapping. Replace legacy paths only after behavioral equivalence and default-deny
+authorization parity are proven.
+
+If code appears to conflict with this protocol: (1) inspect the existing behavior; (2) determine
+whether it is load-bearing; (3) classify the gap; (4) preserve working behavior; (5) introduce the
+smallest protocol-compatible seam; (6) add the retrofit to the architecture backlog; (7) migrate
+only under tests and explicit authorization. Never silently broaden authorization while
+reconciling legacy systems. See `CLAUDE.md` for the full ten-rule forward-compliance/backward-
+compatibility/progressive-retrofit statement — this protocol applies identically to Codex and every
+other agent working this repo.
+
 ## Delivery rules
 - **Golden Rule: Do not recreate what already exists.** Reuse first, extend existing platform/cartridge functionality second, and create new systems only when there is no suitable existing surface, service, schema, connector, or workflow to extend.
 - Make clear in initial implementation plans what will be reused, what will be extended, and what is genuinely new.
@@ -210,3 +250,170 @@ from a human, not from the platform's own tooling. Full account:
 4. **This applies to every agent** working this repo, for the same reason the dev-merge-message
    rule does: a silent failure here is indistinguishable from success until someone notices a live
    page is missing.
+
+## Adversarial Research Review Gate — MANDATORY BEFORE RESEARCH PUBLICATION
+
+Any artifact represented as a **Research Edition**, scientific/research paper, experimental
+finding, invariant-research result, evidence-bearing policy paper, or publication making
+falsifiable capability claims MUST pass an independent Adversarial Research Review (ARR)
+before it is marked canonical/published.
+
+This rule exists because Threshold 007 demonstrated that adversarial inspection can uncover
+missing doctrine artifacts, citation drift, experiment-framing drift, namespace collisions and
+unsupported inference even when the underlying research programme is acting in good faith.
+
+**Full procedure, schema and worked precedent:** `docs/research/adversarial-research-review-gate.md`.
+The rules below are the mandatory summary; that document is canonical for the complete five-pass
+procedure, the ARR receipt schema, and the reasoning behind each rule — evolve the review protocol
+there, not by duplicating procedure text into this file.
+
+**Publication roles (added 2026-09-12):** publication runs
+`Operator ↔ Aletheon → Evidence Agent → The Adversary → Publication Gate → Canon`. **No agent may
+both author a material claim and independently certify that claim for canonical publication** — an
+Evidence Agent's citation-resolution pass, however thorough, never substitutes for an independent
+Adversary review, and an agent working in the same authoring context as the paper must never set
+`arr_disposition` or advance a `content_publication_gates` row to `approved`. Full role definitions
+and the deterministic DB gate mechanism: see the canonical doc above.
+
+### Independence rule
+The ARR reviewer SHOULD NOT be the agent that authored the paper or implemented the cited
+code. Where practical, review through the same Codex/MCP/public research surfaces available
+to an external intelligent reader.
+
+The reviewer is not asked to improve or defend the paper. The reviewer is asked to BREAK it.
+
+### Evidence firewall
+Never collapse these categories:
+1. Doctrine / canonical constitutional proposition
+2. Implementation evidence
+3. Crucible / research candidate
+4. IRL controlled research evidence
+5. Venture Lab / operational evidence
+6. External evidence
+7. Hypothesis / projection
+
+Code proves that machinery exists. It does not prove the scientific effect attributed to that
+machinery.
+
+Operational success proves an observed consequence. It does not automatically prove the
+mechanism believed to have caused it.
+
+A controlled experiment proves only what its registered protocol and evidence support.
+
+### Mandatory ARR passes
+
+#### 1. Claim audit
+Extract every material claim and classify its evidence class and epistemic status.
+Flag wording whose certainty exceeds the underlying evidence.
+
+#### 2. Citation audit
+Follow every citation to the actual artifact.
+A citation passes only when:
+- the artifact resolves;
+- it is the artifact claimed;
+- it supports the proposition attributed to it;
+- publication-critical implementation citations are immutable/commit-pinned;
+- external citations are primary or appropriately authoritative where practical.
+
+NEVER invent a citation or silently substitute a similarly named artifact.
+A missing artifact is `UNRESOLVED`, not disproven.
+A read/search failure is `UNREADABLE`/`UNRESOLVED`, never an empty result.
+
+#### 3. Implementation audit
+For each implementation claim:
+- inspect the exact cited commit;
+- inspect the path/symbol/module;
+- verify that it implements the claimed mechanism;
+- distinguish Implemented, Operational, Demonstrated and Experimental status.
+
+Then state separately what scientific proposition, if any, that implementation evidence
+establishes. Usually implementation evidence establishes implementation only.
+
+#### 4. Experiment audit
+Resolve every experiment to its registered/frozen protocol and evidence package.
+The protocol's own:
+- research question;
+- hypothesis;
+- treatment;
+- control;
+- measures;
+- scope;
+- limitations;
+- falsification criteria
+
+OUTRANK any essay-level summary.
+
+Do not allow a result to support a broader claim than its protocol tested.
+Do not treat a planned/reserved experiment as evidence.
+Do not treat an experiment family as one experiment when its registered protocol separates it.
+
+#### 5. Falsification / alternative-explanation audit
+For every major hypothesis:
+- identify its explicit disconfirmation condition;
+- determine whether the protocol can actually observe that condition;
+- construct the strongest plausible competing explanation;
+- identify confounds;
+- check whether null/adverse findings remain publishable evidence.
+
+A theory that cannot lose under its own experimental design has not passed ARR.
+
+### Naming-collision rule
+If two artifacts/systems share a name, citations MUST disambiguate them explicitly.
+Never allow code for one artifact to stand in as evidence for a differently governed artifact
+with the same name.
+
+### Frozen protocol supremacy
+Once an experiment is registered/frozen, publication prose MUST conform to the protocol's
+canonical scope description. If prose and protocol differ, correct the prose or disclose the
+difference; never silently make the protocol appear to have tested the essay's broader claim.
+
+### Unresolved references
+Unresolved references are allowed when disclosed and non-load-bearing.
+They MUST:
+- be labeled `UNRESOLVED`;
+- state what was searched;
+- state what claim depends on them;
+- not inherit Ratified/Implemented/Experimental status from neighboring evidence.
+
+An unresolved load-bearing reference requires REVISION or BLOCK depending on materiality.
+
+### Research publication dispositions
+Every ARR ends with exactly one disposition:
+- `PASS`
+- `PASS_WITH_DISCLOSED_GAPS`
+- `REVISION_REQUIRED`
+- `BLOCK_PUBLICATION`
+
+Research content MUST NOT be marked published/canonical when disposition is
+`REVISION_REQUIRED` or `BLOCK_PUBLICATION`.
+
+### ARR receipt
+Every published Research Edition should preserve a machine-readable review receipt containing:
+- paper/content ID
+- version/content hash
+- reviewed commit SHA where applicable
+- reviewer identity/class
+- review timestamp
+- disposition
+- claims audited
+- citations checked
+- unresolved citations
+- experiment/protocol mismatches
+- corrections made
+- remaining disclosed limitations
+
+The receipt is provenance, not proof of truth.
+
+### Adversarial review principle
+The goal is not a paper with no gaps.
+
+The goal is a paper in which a competent adversarial reader can distinguish what is known,
+what is implemented, what has been experimentally observed, what remains unresolved, and what
+is still merely hypothesized.
+
+Finding and disclosing that the paper is wrong or unsupported in some respect is a SUCCESS of
+the review process, not a review failure.
+
+Canonical maxim:
+> The strongest evidence of epistemic discipline is not that the canon never gets something
+> wrong. It is that the canon is architected to discover, disclose and correct when it does.

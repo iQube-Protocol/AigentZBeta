@@ -5704,3 +5704,18 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-0016af6.md](../build_/COMMITS/COMMIT-0016af6.md)
 - Message: Project canonical exchange iQube references through MCP
+
+## Commit `c6adeda` — 2026-09-11T13:28:18-04:00
+- Type: `feat`
+- Brief: [COMMIT-c6adeda.md](../build_/COMMITS/COMMIT-c6adeda.md)
+- Message: feat(codex): redirect legacy article deep links
+
+## Commit `a4e4192` — 2026-09-11T13:39:54-04:00
+- Type: `chore`
+- Brief: [COMMIT-a4e4192.md](../build_/COMMITS/COMMIT-a4e4192.md)
+- Message: chore(deploy): publish Threshold 006 deep-link repair
+
+## Commit `534b413` — 2026-09-11T13:53:11-04:00
+- Type: `chore`
+- Brief: [COMMIT-534b413.md](../build_/COMMITS/COMMIT-534b413.md)
+- Message: chore(deploy): publish encoded-title routing fix

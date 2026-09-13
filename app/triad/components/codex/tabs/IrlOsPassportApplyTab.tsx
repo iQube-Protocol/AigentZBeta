@@ -38,9 +38,24 @@
  * it early with a still-unknown value and updating the prop afterward would
  * silently do nothing. A brief loading state is the honest alternative to
  * either guessing `false` first or building a `key`-remount workaround.
+ *
+ * SPONSORSHIP ENTRY POINT (2026-09-11, Progressive Surface pass, operator
+ * item 3: "Extend this post-passport surface with the agent-side options
+ * already established in the Horizen/financial-services journey... These
+ * are secondary actions, not blockers"). A caller with a usable Citizen
+ * Passport gets a "Sponsor an Agent" toggle alongside their recognized-
+ * passport view — clicking it remounts `PassportBureauApplyTab` with
+ * `routeTo="delegate"`, the SAME prop `PilotJourneyTab`/`IanJourneyTab`
+ * already use to jump straight to the "Polity Agent Passport Sponsorship"
+ * wizard (`PassportBureauApplyTab.tsx`'s own `handleClassChoice` on that
+ * prop) — never a second sponsorship implementation. A fresh `key` forces
+ * the remount `routeTo`'s one-shot auto-route effect needs; the citizen
+ * passport itself is untouched, and "Back to my Passport" returns to the
+ * recognized-state view without losing anything (nothing was mutated).
  */
 
 import { useEffect, useState } from "react";
+import { Bot, ArrowLeft } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { PassportBureauApplyTab } from "./PassportBureauApplyTab";
 
@@ -52,6 +67,7 @@ type UsableStatus = { kind: "loading" } | { kind: "checked"; usable: boolean } |
 
 export function IrlOsPassportApplyTab({ personaId }: IrlOsPassportApplyTabProps) {
   const [status, setStatus] = useState<UsableStatus>({ kind: "loading" });
+  const [mode, setMode] = useState<"passport" | "sponsor-agent">("passport");
 
   useEffect(() => {
     let alive = true;
@@ -81,15 +97,45 @@ export function IrlOsPassportApplyTab({ personaId }: IrlOsPassportApplyTabProps)
     return <div className="p-8 text-center text-sm text-slate-500">Checking your Passport status…</div>;
   }
 
-  // 'error' falls through with initialUsablePassport left unset — the
-  // honest default (class picker renders), never a guess in either
-  // direction, matching PassportBureauApplyTab's own "no observer answer"
-  // behaviour for `routeTo`.
+  const hasUsablePassport = status.kind === "checked" && status.usable;
+
   return (
-    <PassportBureauApplyTab
-      personaId={personaId}
-      initialUsablePassport={status.kind === "checked" ? status.usable : undefined}
-    />
+    <div className="space-y-3">
+      {hasUsablePassport && (
+        <div className="flex justify-end px-2">
+          {mode === "passport" ? (
+            <button
+              type="button"
+              onClick={() => setMode("sponsor-agent")}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-200 hover:bg-violet-500/20"
+            >
+              <Bot className="h-3.5 w-3.5" /> Sponsor an Agent
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setMode("passport")}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900/40 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800/60"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" /> Back to my Passport
+            </button>
+          )}
+        </div>
+      )}
+      {/* `key` forces a fresh mount on mode change — `routeTo`'s auto-route
+          effect fires once per mount (`autoRoutedRef`), so switching modes
+          without remounting would silently stay on whichever wizard opened
+          first. 'error' falls through with initialUsablePassport left
+          unset — the honest default (class picker renders), never a guess
+          in either direction, matching PassportBureauApplyTab's own
+          "no observer answer" behaviour for `routeTo`. */}
+      <PassportBureauApplyTab
+        key={mode}
+        personaId={personaId}
+        initialUsablePassport={status.kind === "checked" ? status.usable : undefined}
+        routeTo={mode === "sponsor-agent" ? "delegate" : undefined}
+      />
+    </div>
   );
 }
 

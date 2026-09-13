@@ -48,8 +48,18 @@ export async function GET(req: NextRequest) {
     authProfileId: persona.authProfileId,
   });
 
+  // isAdmin — server-resolved from the authenticated session only, never a
+  // client-supplied value (2026-09-11 fix). Platform admin authority is a
+  // `cartridgeFlags.isAdmin` flag, NOT an `access_grants` row, so every
+  // consumer of this route that inferred "onboarded"/"has access" purely
+  // from `grants` (IRLWelcomeTab, AccessionProgressBar) silently read an
+  // admin as not-yet-onboarded. Surfacing it here lets every such consumer
+  // treat admin authority explicitly and legibly, rather than each guessing
+  // at it independently.
+  const isAdmin = Boolean(persona.cartridgeFlags?.isAdmin);
+
   return NextResponse.json(
-    { ok: true, authenticated: true, ...view },
+    { ok: true, authenticated: true, isAdmin, ...view },
     { headers: { 'Cache-Control': 'no-store' } },
   );
 }

@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { BookOpenText, Loader2, ImageOff, ArrowUpRight, Share2, Bot } from 'lucide-react';
 import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
 import { SmartContentListenButton } from '@/components/shared/SmartContentListenButton';
 import { buildSpeechScript } from '@/services/smartcontent/readableTextForSpeech';
 import { defaultReadingText, resolveReadingEdition, readingAudioId, type EditionReadSource } from '@/services/smartcontent/readingEditions';
+import { resolveContentDeepLink } from '@/services/smartcontent/codexArticleDeepLink';
 
 interface EssayCard {
   id: string;
@@ -30,6 +32,8 @@ interface QriptoEssaysTabProps {
 
 export function QriptoEssaysTab({ theme = 'dark' }: QriptoEssaysTabProps) {
   const { actions } = useSmartTriad();
+  const searchParams = useSearchParams();
+  const openedDeepLink = useRef<string | null>(null);
   const [essays, setEssays] = useState<EssayCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,12 +59,26 @@ export function QriptoEssaysTab({ theme = 'dark' }: QriptoEssaysTabProps) {
     };
   }, []);
 
-  const openEssay = async (essay: EssayCard) => {
+  const openEssay = useCallback(async (essay: EssayCard) => {
     await actions.loadContent(essay.id);
     actions.setContentAccessGranted(true);
     actions.setViewerModality('read');
     actions.setActiveDrawer('contentViewer');
-  };
+  }, [actions]);
+
+  useEffect(() => {
+    const deepLink = searchParams.get('article');
+    if (!deepLink || loading || openedDeepLink.current === deepLink) return;
+
+    const essay = resolveContentDeepLink(essays, deepLink);
+    if (!essay) {
+      setError(`Threshold essay not found: ${deepLink}`);
+      return;
+    }
+
+    openedDeepLink.current = deepLink;
+    void openEssay(essay);
+  }, [essays, loading, openEssay, searchParams]);
 
   const shareEssay = (essay: EssayCard) => {
     actions.openShare({

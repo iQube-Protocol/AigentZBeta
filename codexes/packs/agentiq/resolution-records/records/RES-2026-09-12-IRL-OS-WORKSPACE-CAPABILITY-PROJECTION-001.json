@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-12",
+  "resolutionId": "RES-2026-09-12-IRL-OS-WORKSPACE-CAPABILITY-PROJECTION-001",
+  "capability": "irl-os-workspace-capability-projection",
+  "milestone": "Austin/EXP-P1 reviewer experience closed: the IRL OS Workspace now projects Instrument Validation (IRV-001/IPV-001), Track 2 state, Crystal inspection, and Independent Review/Observer Review into the reviewer-facing Workspace surface, gated by the existing capability-ladder system (services/research/accessCapabilities.ts, shipped 2026-10-01) rather than a parallel reviewer UI or resolver. Filed at close-out per CLAUDE.md's Resolution -> Invariant Loop, triggers #7 (a successful implementation established a reusable pattern) and #8 (a milestone became demonstrably complete).",
+  "problem": "An invited reviewer (e.g. Austin, holding a research-lab 'reviewer' grant scoped to EXP-P1) could appear entitled to a Workspace, but the Workspace projection (WorkspaceCapabilitiesPanel.tsx / GET /api/participation/workspace-capabilities) exposed only readiness, reviewer-kit documents, and the review-agreement countersignature -- not the Instrument Validation evidence, Track 2 programme state, Crystal readiness/provenance/receipts, or the Independent Review/Observer Review machinery the reviewer had actually been granted access to inspect. Several of the underlying Laboratory GET routes were ALSO admin-only despite having no mutation risk, which would have blocked the fix even after the Workspace panel was extended.",
+  "observedFailure": [
+    "GET /api/research/track2/[experimentId] (Track 2 programme state) required persona.cartridgeFlags.isAdmin outright -- a scoped reviewer received 403 on the read path, not merely on mutation.",
+    "GET /api/research/crystal/[experimentId]/rehearsal (internal rehearsal lineage/results) and GET /api/research/crystal/[experimentId]/freeze (frozen artifact hashes/receipts, next governed action) were likewise admin-only reads, even though the sibling GET /api/research/crystal/[experimentId] (readiness/statistics/freeze recommendation) had already been correctly loosened to admit a scoped reviewer via callerMayReadExperimentReview.",
+    "No caller anywhere computed 'the highest ordinary capability rung (read/review/write/run) this persona holds at this resource' -- every existing caller of resolveCapability checked exactly one literal capability value (e.g. 'run'), which is correct for a single mutation gate but left the Workspace projection and any future UI/MCP surface with no single source of truth for which ladder rung to render or report."
+  ],
+  "rootCauses": [
+    "The 2026-09-08 IRL OS Workspace consolidation and the 2026-10-01 capability-ladder system were both built correctly but had not yet been composed: the Workspace projection route was extended with new experiment-bound sections only up to the point OCSGA/EXP-P1 needed (readiness, documents, review agreement), and several Laboratory GET routes were written admin-only before the reviewer-read admission check (callerMayReadExperimentReview) existed as an established pattern, then never revisited once it did."
+  ],
+  "resolution": [
+    "Loosened four READ-ONLY routes to admit isAdmin OR callerMayReadExperimentReview, the SAME check already used by the sibling Crystal readiness route and the readiness dashboard route: GET /api/research/track2/[experimentId]/route.ts, GET /api/research/crystal/[experimentId]/rehearsal/route.ts, and GET /api/research/crystal/[experimentId]/freeze/route.ts (the fourth sibling, instrument-falsification, was found already correctly loosened). Every mutating route beneath these (Track 2 merge/promote/reconcile/accept-bridges/relationship- and provenance-cohort/validate-all/suggest-relationships/diversity-candidates/relationship-adjudication; Crystal freeze POST, rehearsal POST, execution-rehearsal POST) was left untouched -- admin-only or resolveCapability('run')-gated exactly as before.",
+    "Added resolveEffectiveExperimentCapability (services/research/accessCapabilities.ts) -- the ONE cascade helper ('run' > 'write' > 'review', else 'read') any human UI, MCP tool, or future delegated-agent surface calls to render/report a persona's effective ordinary-ladder rung at one resource, rather than re-deriving the cascade per caller. High-risk capabilities remain explicitly OUT of this cascade, per the module's own existing discipline.",
+    "Extended GET /api/participation/workspace-capabilities and WorkspaceCapabilitiesPanel.tsx with four new experiment-bound sections -- Instrument Validation (mounts the existing, already read-only InstrumentValidationPanel for IRV-001/IPV-001), Track 2 state (a new, deliberately minimal READ-ONLY summary, Track2StateSummary.tsx, reading the loosened canonical GET route -- NOT a reviewer-mode retrofit of the ~7,000-line admin Track2ProgrammePanel, which was judged too large to safely retrofit in this pass and is named below as a remaining gap), and Crystal + Independent Review (mounts the existing CrystalObserverReviewPanel, which already composes IndependentReviewPanel reviewerMode with the self-service Observer Review decision submission -- built 2026-08-01/2026-09-08 for exactly this reviewer-safe purpose and reused unchanged). A capability badge (read/review/write/run/admin) renders from the server-resolved effectiveCapability field, never inferred client-side.",
+    "Bootstrapped the real acceptance-test grant: an access_grant_capabilities row (capability='review', scope_type='experiment', scope_ref='EXP-P1') was attached to the real, pre-existing 'Brozi' (Austin) research-lab reviewer grant (19d67c72-2194-45ab-8310-c48fba242c32) so this pass could verify against a live principal rather than only a fake/mocked one -- verified via direct read of the live access_grants/access_grant_capabilities tables (no SUPABASE_SERVICE_ROLE_KEY was available in this session's local environment to invoke the real TS functions end-to-end; verification composed live-DB inspection of the exact rows resolveCapability/resolveEffectiveExperimentCapability query, plus unit tests exercising the real functions against an equivalent fake dataset)."
+  ],
+  "rejectedApproaches": [
+    "Retrofitting a full reviewerMode into Track2ProgrammePanel (~7,000 lines, dozens of mutation controls: duplicate-pair merge, promotion, reconciliation, relationship/provenance cohorts, diversity/bridge candidates, validate-all) and mounting it directly in Workspace -- rejected for this pass as too large to audit for completeness within the available time without risking an unaudited mutation control being missed; every mutating Track 2 route is independently admin-gated regardless (server-side security is not weakened by this deferral), but the UI-level 'looks read-only, not broken' requirement is only partially met via the smaller Track2StateSummary substitute. Named explicitly as outstanding, not silently done partially.",
+    "Deriving 'effective capability' by checking resolveCapability once per specific value inline at each call site (as every existing caller already did for its own single gate) -- rejected in favor of one shared resolveEffectiveExperimentCapability helper, so the Workspace projection, any future UI, and MCP/agent parity all compute the SAME cascade rather than three independent re-derivations that could silently drift apart (inv.engineering.036/037).",
+    "Minting a fabricated HTTP session/bearer token to simulate Austin literally hitting the deployed routes through a browser -- rejected; no real credential for the 'Brozi' principal was available in this session, and fabricating a login flow result would violate this repo's No-Guessing rule. Verification instead composed direct, real-database inspection of the exact rows the authorization functions query, plus unit tests against the real functions with an equivalent seeded fake dataset -- the gap between this and a literal authenticated HTTP walkthrough is named explicitly rather than glossed over."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-12-CAPABILITY-CASCADE-IS-ONE-FUNCTION-001"
+  ],
+  "canaries": [
+    "tests/irl-os-workspace-capability-projection.test.ts",
+    "tests/irl-stewardship-access-capability.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "milestone-complete",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/irl-os-workspace-capability-projection.test.ts",
+      "tests/irl-stewardship-access-capability.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-09-11_irl-stewardship-access-capability-handoff.md, item 3/17: 'no MCP tool yet exercises resolveCapability -- structurally proven, not behaviorally proven.'",
+      "codexes/packs/agentiq/updates/2026-09-12_irl-stewardship-capability-wiring-round-2.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-12_irl-os-workspace-austin-exp-p1-reviewer-dossier.md",
+    "services/research/accessCapabilities.ts",
+    "components/research/WorkspaceCapabilitiesPanel.tsx",
+    "app/api/participation/workspace-capabilities/route.ts"
+  ],
+  "projections": {
+    "targets": [
+      "constitutional-computing",
+      "irl-os"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  }
+}

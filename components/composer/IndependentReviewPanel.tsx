@@ -347,7 +347,7 @@ export default function IndependentReviewPanel({ reviewerMode = false }: { revie
             ["new", "New Review", FlaskConical],
             ["queue", "Review Queue", ClipboardList],
             ["result", "Review Result", ShieldCheck],
-            ["crystal", "Crystal vP1", Gem],
+            ["crystal", "Crystal", Gem],
           ] as const
         )
           .filter(([id]) => !(reviewerMode && id === "new"))
@@ -961,13 +961,24 @@ function CrystalPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {})
       }
     | undefined;
 
+  // The frozen artifact's OWN id names its real generation (e.g.
+  // "EXP-P1/crystal-vP2") — the heading below reads it from THIS response,
+  // never a hardcoded literal (fixed 2026-09-12: this heading previously
+  // always read "Crystal vP1" regardless of which generation was actually
+  // frozen, which had gone stale the moment EXP-P1 advanced to vP2's
+  // internal-pilot freeze). Unfrozen or not-yet-loaded renders the
+  // generation-neutral "Crystal" rather than guessing.
+  const frozenArtifactId = (data?.frozenArtifact as { id?: string } | null | undefined)?.id ?? null;
+  const generationMatch = frozenArtifactId?.match(/\/crystal-vP(\d+)$/);
+  const crystalHeadingLabel = generationMatch ? `Crystal vP${generationMatch[1]}` : "Crystal";
+
   return (
     <div className="space-y-4">
       <div className={PANEL}>
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Gem className="h-4 w-4 text-slate-400" />
-            <h3 className="text-sm font-semibold text-slate-100">Crystal vP1 — Readiness · Statistics · Freeze Recommendation</h3>
+            <h3 className="text-sm font-semibold text-slate-100">{crystalHeadingLabel} — Readiness · Statistics · Freeze Recommendation</h3>
           </div>
           <div className="flex items-center gap-2">
             <button

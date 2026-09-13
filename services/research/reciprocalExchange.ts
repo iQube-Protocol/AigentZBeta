@@ -53,9 +53,12 @@
 
 import { createHash, randomBytes } from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
 
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { personaPublicRef } from '@/services/identity/personaReferences';
+import { resolveWorkspaceRole } from '@/services/passport/participationAccess';
 import { createOrGetChannel } from '@/services/qubetalk/peerChannel';
 import { listOwnedPersonaIds } from '@/services/identity/passportPrincipal';
 import {
@@ -149,6 +152,7 @@ function rowToArtifact(r: Record<string, unknown>): ExchangeArtifactRecord {
     registeringOperatorPersonaId: (r.registering_operator_persona_id as string | null) ?? null,
     authorityBasis: (r.authority_basis as string | null) ?? null,
     pendingPrincipalAttestation: Boolean(r.pending_principal_attestation),
+    operatorProvidedText: (r.operator_provided_text as string | null) ?? null,
   };
 }
 
@@ -809,6 +813,54 @@ export async function registerArtifactOperatorAssisted(
 }
 
 /**
+ * Attach (or replace) an operator-supplied plaintext fallback for an
+ * ALREADY-DEPOSITED artifact — for when automated extraction
+ * (`extractArtifactText`) cannot reach the underlying bytes in a given
+ * deployment even though the artifact's own deposit/freeze/fingerprint is
+ * completely valid (operator instruction, 2026-09-12: the OCSGA DOCX's Auto
+ * Drive download works from some networks but not others).
+ *
+ * Deliberately narrow: this ONLY writes `operator_provided_text`. It never
+ * touches `content_hash`, `source_reference`, or `storage_reference` — the
+ * artifact's evidentiary identity is untouched, so this can never be used to
+ * substitute different content for what was actually frozen/signed. Callable
+ * for an artifact in any exchange state (unlike first-deposit registration,
+ * this is a read-convenience annotation, not a new deposit) — gated at the
+ * ROUTE layer to admin/steward callers, since an ordinary party has no
+ * legitimate reason to need it (their own artifact's extractor either works
+ * or the operator fixes the underlying reference).
+ */
+export async function setArtifactOperatorProvidedText(
+  admin: SupabaseClient,
+  input: { exchangeId: string; party: PartySlot; text: string; settingPersonaId: string },
+): Promise<{ ok: true; artifact: ExchangeArtifactRecord } | { ok: false; error: string }> {
+  if (!input.text.trim()) return { ok: false, error: 'text required' };
+  const existing = await currentArtifact(admin, input.exchangeId, input.party);
+  if (!existing) return { ok: false, error: 'no-artifact' };
+
+  const { data, error } = await admin
+    .from(T_ARTIFACTS)
+    .update({ operator_provided_text: input.text })
+    .eq('id', existing.id)
+    .select('*')
+    .maybeSingle();
+  if (error || !data) return { ok: false, error: error?.message ?? 'update failed' };
+  const artifact = rowToArtifact(data as Record<string, unknown>);
+
+  await createActivityReceipt({
+    personaId: input.settingPersonaId,
+    activeCartridge: 'irl',
+    actionType: 'exchange_artifact_operator_text_attached',
+    summary:
+      `Operator-provided plaintext fallback attached [exchange=${input.exchangeId}] party=${input.party} ` +
+      `artifact="${artifact.title}" fingerprint=${artifact.contentHash?.slice(0, 16)} — extraction unavailable, content verified by operator`,
+    contextShared: ['exchange_id', 'artifact_class', 'content_hash'],
+  }).catch(() => null);
+
+  return { ok: true, artifact };
+}
+
+/**
  * The ONLY way `pendingPrincipalAttestation` ever clears. Callable ONLY by
  * the exact bound Party B (or A) principal the pending artifact is
  * attributed to — never by the registering operator, never by the
@@ -1454,6 +1506,17 @@ export interface ExchangeView {
     counterpartyRef: string | null;
   };
   viewerParty: PartySlot;
+  /** True when the caller is NOT a direct party (initiator/counterparty) but
+   *  was admitted via workspace access to the exchange's own
+   *  parentExperimentId (2026-09-12). `viewerParty` is still set (to 'A')
+   *  for internal framing, but callers MUST check this flag before treating
+   *  `viewerParty`/`yourArtifact` as "this caller's own side" — an observer
+   *  has no side, and every governed act (freeze/sign/invite/withdraw/
+   *  revoke/acknowledge) must stay refused for them (resolveMembership
+   *  already refuses these server-side regardless of this flag; UI surfaces
+   *  should also hide the affordances rather than show a control that will
+   *  silently no-op). */
+  isObserver: boolean;
   yourArtifact: ExchangeArtifactView | null;
   counterpartyArtifact: ExchangeArtifactView | null;
   receipt: ExchangeReceiptRecord | null;
@@ -1520,8 +1583,25 @@ export async function getExchangeView(
   const loaded = await loadExchange(admin, input.exchangeId);
   if (!loaded.ok) return { ok: false, error: loaded.error };
   const { exchange } = loaded;
-  const viewerParty = resolveMembership(exchange, input.personaId);
-  if (!viewerParty) return { ok: false, error: 'not-a-party' };
+  let viewerParty = resolveMembership(exchange, input.personaId);
+  let isObserver = false;
+  if (!viewerParty) {
+    // NOT a direct party — admit a workspace-scoped observer (operator
+    // instruction, 2026-09-12: "should not be restricted just to the
+    // parties who exchanged them but should be visible to anyone who has
+    // access rights to the experiment"). Same canonical workspace resolver
+    // every other Workspace surface uses, never a second membership check.
+    // `viewerParty` is set to 'A' purely as an internal framing convenience
+    // (which raw artifact each Promise.all slot below fetches) — `isObserver`
+    // is what callers must actually branch on; an observer's OWN "party A"
+    // slot is NOT unconditionally disclosed the way a real party's own
+    // artifact is (see the disclosure computation below).
+    if (!exchange.parentExperimentId) return { ok: false, error: 'not-a-party' };
+    const role = await resolveWorkspaceRole(admin, input.personaId, exchange.parentExperimentId, null);
+    if (!role) return { ok: false, error: 'not-a-party' };
+    viewerParty = 'A';
+    isObserver = true;
+  }
   const counterpartyParty: PartySlot = viewerParty === 'A' ? 'B' : 'A';
 
   const [yourArtifactRaw, counterpartyArtifactRaw] = await Promise.all([
@@ -1586,7 +1666,18 @@ export async function getExchangeView(
       counterpartyRef: exchange.counterpartyPersonaId ? personaPublicRef(exchange.counterpartyPersonaId) : null,
     } as ExchangeView['exchange'],
     viewerParty,
-    yourArtifact: toArtifactView(yourArtifactRaw, Boolean(yourFreeze), Boolean(yourSign), true, null),
+    isObserver,
+    // A real party's OWN artifact is always disclosed to them (true). An
+    // observer has no "own" artifact — BOTH slots follow the identical
+    // counterpartyDisclosed/lockedReason gate, so an observer never sees
+    // anything before crossing that a real party wouldn't also already see.
+    yourArtifact: toArtifactView(
+      yourArtifactRaw,
+      Boolean(yourFreeze),
+      Boolean(yourSign),
+      isObserver ? counterpartyDisclosed : true,
+      isObserver ? lockedReason : null,
+    ),
     counterpartyArtifact: toArtifactView(
       counterpartyArtifactRaw,
       Boolean(cpFreeze),
@@ -1656,6 +1747,172 @@ export async function listExchangesByParentExperiment(
     .order('created_at', { ascending: true });
   if (error) return { ok: false, error: isMissingTable(error) ? MIGRATION_HINT : error.message };
   return { ok: true, exchanges: (data ?? []).map((r) => rowToExchange(r as Record<string, unknown>)) };
+}
+
+// ─── 11. Artifact content — the actual bytes, not just metadata ────────────
+//
+// The exchange model's whole point is disclosing a REVIEWABLE artifact, not
+// merely a hash/title/status card (operator instruction, 2026-09-12: "It's
+// pointless having all of this wrapping if we can't actually see the
+// content, the actual bytes"). Every field this depends on already existed
+// (sourceType/sourceReference/storageReference/repositoryCommit/mimeType,
+// deposited by declareArtifact/registerArtifactOperatorAssisted); this is
+// the FIRST function that ever dereferences them into actual readable
+// content.
+//
+// AUTHORIZATION: reuses getExchangeView's own gated projection — never a
+// second, independently-derived disclosure check. A caller only ever
+// reaches the extraction branches below for an artifact getExchangeView
+// already decided (fail-closed) is visible to them: their own artifact
+// always, the counterparty's only once genuinely disclosed.
+
+export type ExchangeArtifactContentResult =
+  | { ok: true; title: string; mimeType: string | null; format: 'markdown' | 'text'; content: string; origin?: 'operator-provided' }
+  | { ok: true; title: string; mimeType: string | null; format: 'unsupported'; content: ''; note: string }
+  | { ok: false; error: string };
+
+const REPO_TEXT_ROOT = 'codexes/';
+/** Extraction is intentionally narrow — every branch is a REAL, verified
+ *  mechanism already used elsewhere in this codebase (the reviewer-kit
+ *  file-read pattern for repo docs, mammoth for DOCX, the PDF-stream
+ *  route's own Auto Drive download call) — never a fabricated "we support
+ *  this" for a format with no actual extractor. */
+async function extractArtifactText(
+  artifact: ExchangeArtifactRecord,
+): Promise<
+  | { format: 'markdown' | 'text'; content: string; origin?: 'operator-provided' }
+  | { format: 'unsupported'; note: string }
+> {
+  // Operator-supplied fallback (2026-09-12) takes priority over automated
+  // extraction. It exists precisely BECAUSE automated extraction can fail
+  // in a given deployment (e.g. an Auto Drive download that succeeds from
+  // one network but not another) — a verified-accurate fallback the
+  // operator has confirmed IS the artifact's own text beats a flaky network
+  // call, and we never silently prefer a live re-fetch over it once set.
+  if (artifact.operatorProvidedText?.trim()) {
+    return { format: 'text', content: artifact.operatorProvidedText, origin: 'operator-provided' };
+  }
+
+  if (artifact.sourceType === 'repository-commit') {
+    const rel = artifact.sourceReference.replace(/^\/+/, '');
+    if (!rel.startsWith(REPO_TEXT_ROOT) || rel.includes('..')) {
+      return { format: 'unsupported', note: `Repository reference '${rel}' is outside the readable document root.` };
+    }
+    const absolute = path.join(process.cwd(), rel);
+    if (!absolute.startsWith(path.join(process.cwd(), REPO_TEXT_ROOT))) {
+      return { format: 'unsupported', note: 'Repository reference resolved outside the readable document root.' };
+    }
+    try {
+      const text = await fs.readFile(absolute, 'utf-8');
+      const isMarkdown = /\.mdx?$/i.test(rel) || artifact.mimeType === 'text/markdown';
+      return { format: isMarkdown ? 'markdown' : 'text', content: text };
+    } catch (err) {
+      return {
+        format: 'unsupported',
+        note: `Could not read '${rel}' from the repository: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+  }
+
+  if (artifact.storageReference?.startsWith('autodrive:')) {
+    const cid = artifact.storageReference.split(':').pop()?.trim();
+    if (!cid) return { format: 'unsupported', note: 'storageReference names no CID after the autodrive: prefix.' };
+    const apiKey = process.env.AUTONOMYS_API_KEY;
+    if (!apiKey) return { format: 'unsupported', note: 'AUTONOMYS_API_KEY is not configured on this server.' };
+
+    let buffer: Buffer;
+    try {
+      const { createAutoDriveApi } = await import('@autonomys/auto-drive');
+      const { NetworkId } = await import('@autonomys/auto-utils');
+      const api = createAutoDriveApi({ apiKey, network: NetworkId.MAINNET });
+      const stream = await api.downloadFile(cid);
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of stream) chunks.push(chunk as Uint8Array);
+      buffer = Buffer.concat(chunks);
+    } catch (err) {
+      return {
+        format: 'unsupported',
+        note: `Could not download CID '${cid}' from Auto Drive: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+
+    const mime = (artifact.mimeType ?? '').toLowerCase();
+    if (mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || /\.docx$/i.test(artifact.sourceReference)) {
+      try {
+        const mammoth = (await import('mammoth')).default;
+        const { value } = await mammoth.extractRawText({ buffer });
+        return { format: 'text', content: value };
+      } catch (err) {
+        return {
+          format: 'unsupported',
+          note: `Downloaded the DOCX but could not extract text: ${err instanceof Error ? err.message : String(err)}`,
+        };
+      }
+    }
+    if (mime === 'text/markdown' || mime === 'text/plain' || mime === '') {
+      return { format: mime === 'text/markdown' ? 'markdown' : 'text', content: buffer.toString('utf-8') };
+    }
+    return { format: 'unsupported', note: `No text extractor exists yet for mime type '${artifact.mimeType}'.` };
+  }
+
+  return {
+    format: 'unsupported',
+    note: `Source type '${artifact.sourceType}' has no content-retrieval mechanism yet — only 'repository-commit' and an 'autodrive:'-prefixed storageReference are supported.`,
+  };
+}
+
+/**
+ * The actual readable content of one party's artifact.
+ *
+ * TWO admission paths (operator instruction, 2026-09-12: "should not be
+ * restricted just to the parties who exchanged them but should be visible
+ * to anyone who has access rights to the experiment... Party A or Party B
+ * may want to invite others to the experiment to view materials"):
+ *
+ *   1. A direct party (initiator/counterparty) — gated by the SAME
+ *      disclosure decision getExchangeView already computes for them.
+ *   2. A NON-party who holds an active research-lab access grant scoped to
+ *      this exchange's OWN parentExperimentId (the same canonical workspace
+ *      resolver `resolveWorkspaceRole` every other Workspace surface uses —
+ *      never a second, parallel membership check). An admitted observer's
+ *      visibility mirrors EXACTLY what the counterparty itself would see:
+ *      never before the exchange has crossed (both signed), never after
+ *      post-exchange revocation. An observer must never see MORE than a
+ *      party would — this is READ access to already-mutually-disclosed
+ *      content, not a third party to the exchange ritual itself (freeze/
+ *      sign/withdraw/revoke stay principal-only, unaffected by this path).
+ */
+export async function resolveExchangeArtifactContent(
+  admin: SupabaseClient,
+  input: { exchangeId: string; personaId: string; party: PartySlot },
+): Promise<ExchangeArtifactContentResult> {
+  // getExchangeView is the ONE place that decides admission (direct party OR
+  // workspace-scoped observer, see its own doc comment) and disclosure
+  // timing — never re-derived here. For an observer it always frames
+  // viewerParty as 'A', so `input.party === viewerParty` still correctly
+  // selects yourArtifact (=party A's raw view) vs counterpartyArtifact
+  // (=party B's raw view) in both the real-party and observer cases.
+  const viewed = await getExchangeView(admin, { exchangeId: input.exchangeId, personaId: input.personaId });
+  if (!viewed.ok) return { ok: false, error: viewed.error };
+  const targetView = input.party === viewed.view.viewerParty ? viewed.view.yourArtifact : viewed.view.counterpartyArtifact;
+  if (!targetView) return { ok: false, error: 'no-artifact' };
+  if (targetView.locked) return { ok: false, error: targetView.lockedReason ?? 'locked' };
+
+  const raw = await currentArtifact(admin, input.exchangeId, input.party);
+  if (!raw) return { ok: false, error: 'no-artifact' };
+
+  const extracted = await extractArtifactText(raw);
+  if (extracted.format === 'unsupported') {
+    return { ok: true, title: raw.title, mimeType: raw.mimeType, format: 'unsupported', content: '', note: extracted.note };
+  }
+  return {
+    ok: true,
+    title: raw.title,
+    mimeType: raw.mimeType,
+    format: extracted.format,
+    content: extracted.content,
+    ...(extracted.origin ? { origin: extracted.origin } : {}),
+  };
 }
 
 
