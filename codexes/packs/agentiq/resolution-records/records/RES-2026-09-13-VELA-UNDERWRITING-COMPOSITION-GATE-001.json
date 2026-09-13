@@ -1,0 +1,94 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-09-13-VELA-UNDERWRITING-COMPOSITION-GATE-001",
+  "capability": "vela-001-confidential-constitutional-execution",
+  "milestone": "Use Case Zero build-order item 9 — MoneyPenny Constitutional Composition Gate: the missing end-to-end enforcement step that consumes the Factor selection artifact (item 7), Aegis admission evidence (item 8), and a new Tier-1 QubeTalk/iQube disclosure authorization, and only then constructs/freezes the multi-party Vela request. Sequence realized: Factor selection -> Aegis admission -> QubeTalk/iQube disclosure authorization -> MoneyPenny composition gate -> frozen multi-party consequence/risk envelope -> Vela submission.",
+  "problem": "Items 5-8 each independently proved a correct link in the constitutional chain (multi-party wiring, underwriting projection, Factor selection, Aegis admission) but the operator's own diagnosis was explicit: 'the pieces are individually correct but the causal chain is not yet actually enforced end-to-end.' Nothing bound the four artifacts together before a Vela submission could happen, nothing prevented a caller from pairing mismatched selection/admission/disclosure artifacts, nothing structurally prevented a candidate/parties/scope swap between freeze and submission, and QubeTalk/iQube disclosure authorization — named in the operator's own architecture doc as Tier 1 of the flow — had never been built at all (deferred twice already, in items 8's own header and before). This item had to (1) build the deferred Tier-1 disclosure-authorization artifact, reusing the EXISTING VelaMultiPartyDisclosureScope wire format rather than inventing a second one, (2) cross-reference Factor selection against Aegis admission and against the disclosure authorization, refusing to compose from mismatched artifacts, (3) reuse (never reimplement) the substrate's own scope-binding-matches-context assertion, (4) gate on ADMITTED-only admission status as an honest BLOCKED outcome rather than a thrown error, (5) freeze the three evidence refs into one envelope BEFORE any Vela submission can occur, (6) make 'no swap after freeze' a structural property of a separate submission function's own narrow signature rather than a discipline, and (7) bind all four evidence classes (Factor selection, Aegis admission, disclosure authorization, Vela execution) into one final causal receipt.",
+  "observedFailure": [
+    "Not an observed runtime defect — a milestone-scoped additive item, like its predecessors. The gap was the ABSENCE of any module that actually enforced the chain end-to-end: a caller could in principle construct a `buildVelaMultiPartyProjectionRequest` directly from a Factor selection and an Aegis admission evidence object without either ever being cross-checked against each other, without any disclosure-scope authorization artifact existing at all, and with nothing preventing the scope/candidate used at submission time from silently diverging from whatever Factor/Aegis had actually evaluated."
+  ],
+  "rootCauses": [
+    "Item 7 explicitly deferred 'any party/provider selected by Factor must be bound into the transaction context before the consequence/risk envelope is frozen' to a later item (its own invariant 4, documented as NOT enforced by that item's code).",
+    "Item 8 explicitly deferred 'only an ADMITTED artifact may be bound into the frozen multi-party envelope' to a later item (its own invariant 7, documented as NOT enforced by that item's code) — both items correctly recognized that binding required a THIRD artifact (a disclosure authorization) that did not exist yet.",
+    "QubeTalk/iQube disclosure-scope authorization was never built as its own artifact — `VelaMultiPartyDisclosureScope` (the wire format) existed and was validated at construction time, but no module produced a RECEIPTABLE, PROVENANCE-BOUND record of WHO authorized a given scope for WHICH selection/request, distinct from the wire format itself.",
+    "`FactorSelectionArtifact` (read in full before writing this item) carries no `applicationId` field — `applicationId` is an input to `proposeFactorSelection` but does not survive onto the artifact — so any cross-reference design that assumed all three artifacts shared a common `applicationId` ground truth would have been building on a field that does not exist, which the No-Guessing rule required surfacing rather than assuming."
+  ],
+  "resolution": [
+    "Added `services/vela/velaUnderwritingDisclosureAuthorization.ts`: `authorizeUnderwritingDisclosure(input): VelaUnderwritingDisclosureAuthorization` (pure — validates via the EXISTING `assertValidVelaMultiPartyDisclosureScope` from `velaMultiPartyProjection.ts`, reused verbatim, before stamping a deterministic 16-char sha256 `authorizationRef` commitment over `(selectionRef, requestRef, applicationId, scope)`) and `recordUnderwritingDisclosureAuthorization(authorization, params)` (writes the ONE causal receipt via `createActivityReceipt` directly). This is the Tier-1 QubeTalk/iQube act the operator required be built in this item, not deferred again — it wraps the ALREADY-BUILT wire format rather than inventing a second one, per the operator's own explicit instruction ('bind the real upstream authorization artifact into that wire format').",
+    "Added `services/vela/velaUnderwritingCompositionGate.ts`: `composeUnderwritingEnvelope(input): ComposeUnderwritingEnvelopeResult` (pure — no I/O) implementing, in order: (1) a THROW (`VelaCompositionError('selection-admission-mismatch')`) when Aegis admission evidence's `selectionRef`/`requestRef`/`candidateAgentId` disagree with the Factor selection's own; (2) a THROW (`VelaCompositionError('selection-disclosure-mismatch')`) when the disclosure authorization's `selectionRef`/`requestRef` disagree with the Factor selection's own — limited to those two fields because `FactorSelectionArtifact` carries no `applicationId` to cross-check against (see rootCauses); (3) a REUSED (never reimplemented) call to `assertVelaMultiPartyScopeBindingMatchesContext` from `velaMultiPartyProjection.ts`, given `disclosureAuthorization.applicationId` as the context's own applicationId (the only artifact in this chain that carries one) — this proves the authorization's declared applicationId agrees with its own embedded scope binding, an internal-consistency property distinct from, and honestly documented as NOT equivalent to, a Factor-side cross-check that cannot exist; (4) an honest `{ outcome: 'BLOCKED' }` (never a throw) when `admissionStatus !== 'ADMITTED'`, distinguishing a correctly-paired-but-refused/unresolved candidate (an expected epistemic outcome) from a mismatched-artifact pairing (a caller/integrity defect that throws); (5) a deterministic 16-char sha256 `envelopeRef` freeze binding `selectionRef`/`admissionRef`/`disclosureAuthorizationRef`/`requestRef`/`applicationId`/`candidateAgentId`/`scope` into one `FrozenUnderwritingEnvelope`.",
+    "Added `submitFrozenUnderwritingEnvelope(params): Promise<SubmitFrozenUnderwritingEnvelopeResult>` in the same file — the ONE authorized, effectful consumer of an already-frozen envelope. Its own signature accepts `envelope: FrozenUnderwritingEnvelope` as the ONLY source of `applicationId`/`requestRef`/`scope`/`candidateAgentId` — there is no second, independently-suppliable field for any of these on this function's own type, making 'no later stage may swap the candidate, parties, scope or operation after freeze' a structural property of THIS function's narrow signature rather than a discipline that could have been violated had freeze and submission been merged into one function. Calls the EXISTING, UNMODIFIED `runVelaUnderwritingProjection` (item 5) with the frozen envelope's own fields, then writes ONE final `vela_underwriting_envelope_frozen` receipt binding all four evidence classes the operator named as distinct, named `actionInput` fields (`selectionRef`, `admissionRef`, `disclosureAuthorizationRef`, plus the Vela execution evidence: `onChainRequestId`/`disposition`/`providerMode`/`veloProjectionReceiptId`/`telemetryRecordId`).",
+    "Added `'vela_underwriting_disclosure_authorized'` and `'vela_underwriting_envelope_frozen'` to `ActivityActionType` (`services/receipts/activityReceiptService.ts`) and to `ANCHORABLE_ACTION_TYPES` (`services/dvn/activityReceiptDvnPipeline.ts`, the ONE permitted unilateral change to that file). Added `supabase/migrations/20261001001000_vela_underwriting_composition_gate_receipt_types.sql`, rebuilding `activity_receipts_action_type_check` wholesale (carried forward verbatim from `20261001000900` plus these two new entries), per `tests/activity-receipts-action-type-parity.test.ts`'s governing rule.",
+    "Added `tests/vela-underwriting-disclosure-authorization.test.ts` (16 tests): scope-validation reuse (missing grants array, invalid action value, missing binding, well-formed empty-grants scope accepted); authorizationRef determinism across (selectionRef, requestRef, applicationId, scope); evidenceRefs defaults; a receipt-write correctness + activeCartridge-default + leak-check triple; import-boundary tests (forbidding velaUnderwritingProjection, aegis, authority/delegation/access/identity, and services/qubetalk/disclosurePolicy — the OTHER, unrelated disclosure concept) plus a positive assertion that the file DOES import the reused scope validator.",
+    "Added `tests/vela-underwriting-composition-gate.test.ts` (18 tests), built on REAL upstream constructors (`proposeFactorSelection`, `authorizeUnderwritingDisclosure`) wherever one exists, with `runVelaUnderwritingProjection` mocked: one describe block per gate (selection<->admission mismatch throws naming each of selectionRef/requestRef/candidateAgentId; selection<->disclosure mismatch throws naming each of selectionRef/requestRef; scope-binding-matches-context reuse throws on an applicationId or requestRef disagreement; the admission gate resolves BLOCKED for UNRESOLVED/REFUSED and FROZEN with every field populated verbatim for ADMITTED); envelopeRef determinism (same tuple -> same ref; a different admissionRef -> a different ref); a `submitFrozenUnderwritingEnvelope` block proving the scope object passed into the mocked `runVelaUnderwritingProjection`'s `build.scope` is the EXACT SAME (`toBe`) object as `envelope.scope` (gate 7, referential-identity proof of 'no swap after freeze'), a full-receipt-binding assertion, and a leak-check; import-boundary tests proving this file both DOES import `runVelaUnderwritingProjection` (a positive assertion, deliberately different from every prior item's own all-forbidding discipline) and never imports Aegis/authority/delegation/MoneyPenny-admission-authority/qubetalk-chat-disclosure paths.",
+    "Targeted run: both new test files — 34/34 passed (16 + 18). Full run of `tests/vela-*.test.ts` + `tests/underwriting-provider-simulated.test.ts` + `tests/factor-vela-confidential-workload.test.ts` + `tests/activity-receipts-action-type-parity.test.ts` + `tests/factor-selection-artifact.test.ts` + `tests/use-case-zero-orchestrator.test.ts` + `tests/use-case-zero-readiness-corrections.test.ts` (19 files): 352 passed + 2 skipped (354 total) — exactly the prior item's own recorded baseline (318 passed + 2 skipped, 17 files) plus this item's +34 additive tests across two new files, every pre-existing file's own pass/skip count unchanged. Separately confirmed `tests/aegis-assessment-service.test.ts` (12/12) and `tests/factor-authority-and-admission.test.ts` (19/19, the file covering `services/moneypenny/admissionAuthority.ts`) both completely unaffected. `git diff` against the base commit confirms zero changes to `velaUnderwritingProjection.ts`, `velaMultiPartyProjection.ts`, `factorSelectionArtifact.ts`, and `velaUnderwritingAdmissionEvidence.ts` — this item only ever imports from them."
+  ],
+  "rejectedApproaches": [
+    "Calling `services/moneypenny/admissionAuthority.ts::decideAdmission` from this gate — rejected as conflating a different, case-scoped (`factor_cases`) agent-onboarding admission lifecycle with this request-scoped underwriting flow's own composition gate. 'MoneyPenny' in this item's own name refers to the role the governing architecture doc assigns for THIS flow, not a call into that other module.",
+    "Extending `services/qubetalk/disclosurePolicy.ts`'s `evaluateDisclosure`/`isDisclosableTo` to cover Vela multi-party scope authorization — rejected as a different concept: that module decides which pieces of CONVERSATION CONTEXT may be surfaced to which audience in QubeTalk messaging, never a financial-computation scope authorization (which parties may COMPUTE_WITH/DISCLOSE_TO which output, for which specific request).",
+    "Inventing a NEW, second disclosure-scope wire shape instead of reusing `VelaMultiPartyDisclosureScope` verbatim — rejected per the operator's own explicit instruction to bind the real upstream authorization artifact into the EXISTING wire format, not a parallel one.",
+    "Letting `composeUnderwritingEnvelope` itself submit to Vela (merging gate and submission into one function) — rejected because keeping them separate makes 'no later stage may swap after freeze' a STRUCTURAL, testable property of `submitFrozenUnderwritingEnvelope`'s own narrow signature (no second scope/context parameter exists to accept a swap), rather than merely a discipline a combined function would have had to be trusted to uphold.",
+    "Resolving a non-ADMITTED admission status as a thrown error rather than a `BLOCKED` result — rejected because an UNRESOLVED/REFUSED candidate, correctly paired with its own selection artifact, is a normal, expected epistemic outcome for this gate to report — not a caller/integrity bug. Mismatched artifact refs (wrong selectionRef/requestRef/candidateAgentId), by contrast, ARE a caller/integrity bug and correctly throw `VelaCompositionError`.",
+    "Assuming (without reading `factorSelectionArtifact.ts` first) that `FactorSelectionArtifact` carries an `applicationId` field and cross-checking all three artifacts' applicationId against it — rejected per the No-Guessing rule once the actual field list was read: no such field exists on the artifact. The cross-reference was scoped down to selectionRef/requestRef (the fields that actually exist on both sides), and the disclosure authorization's own applicationId was used as the sole ground truth for the scope-binding check instead, with the limitation of that substitution documented explicitly in the composition gate's own header rather than silently overstated."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-13-MONEYPENNY-COMPOSITION-GATE-BINDS-EVIDENCE-BEFORE-FREEZE-001"
+  ],
+  "canaries": [
+    "tests/vela-underwriting-disclosure-authorization.test.ts",
+    "tests/vela-underwriting-composition-gate.test.ts",
+    "tests/activity-receipts-action-type-parity.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "milestone-complete",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/vela-underwriting-disclosure-authorization.test.ts",
+      "tests/vela-underwriting-composition-gate.test.ts",
+      "tests/vela-underwriting-admission-evidence.test.ts",
+      "tests/factor-selection-artifact.test.ts",
+      "tests/vela-underwriting-projection.test.ts",
+      "tests/vela-underwriting-risk-telemetry.test.ts",
+      "tests/underwriting-provider-simulated.test.ts",
+      "tests/vela-multi-party-projection.test.ts",
+      "tests/vela-party-namespace.test.ts",
+      "tests/vela-asset-bearing-request.test.ts",
+      "tests/vela-confidential-projection-provider.test.ts",
+      "tests/vela-agent-p521-derivation.test.ts",
+      "tests/vela-config-early-access.test.ts",
+      "tests/vela-slice2f-capability-invocation.test.ts",
+      "tests/vela-slice2g-execution-observation-validation.test.ts",
+      "tests/factor-vela-confidential-workload.test.ts",
+      "tests/activity-receipts-action-type-parity.test.ts",
+      "tests/use-case-zero-orchestrator.test.ts",
+      "tests/use-case-zero-readiness-corrections.test.ts",
+      "tests/aegis-assessment-service.test.ts",
+      "tests/factor-authority-and-admission.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-09-13_vela-underwriting-admission-evidence.md",
+      "codexes/packs/agentiq/updates/2026-09-13_vela-underwriting-composition-gate.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-13_vela-underwriting-composition-gate.md",
+    "services/vela/velaUnderwritingDisclosureAuthorization.ts",
+    "services/vela/velaUnderwritingCompositionGate.ts",
+    "services/factor/factorSelectionArtifact.ts",
+    "services/vela/velaUnderwritingAdmissionEvidence.ts",
+    "services/vela/velaMultiPartyProjection.ts",
+    "services/vela/velaUnderwritingProjection.ts",
+    "docs/vela/accelerator/constitutional-financial-services/03_MONEYPENNY_DISCLOSURE_AND_RISK_ARCHITECTURE_v0.1.md"
+  ],
+  "date": "2026-09-13",
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

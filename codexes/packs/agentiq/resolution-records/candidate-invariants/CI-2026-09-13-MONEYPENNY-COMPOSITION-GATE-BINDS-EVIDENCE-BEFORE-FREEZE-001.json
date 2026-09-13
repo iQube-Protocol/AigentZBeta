@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-13-MONEYPENNY-COMPOSITION-GATE-BINDS-EVIDENCE-BEFORE-FREEZE-001",
+  "statement": "A composition gate that sits between an upstream candidate-selection artifact, an independent admission-evidence artifact, and a disclosure/scope-authorization artifact on one side, and a consequential multi-party execution substrate on the other (MoneyPenny binding Factor selection + Aegis admission + QubeTalk/iQube disclosure authorization into a Vela submission, or any structurally analogous multi-evidence composition-before-execution gate) MUST: (1) cross-reference every pairing of upstream artifacts against each other on the fields they ACTUALLY share (read from the real, current field set of each artifact — never assumed) and THROW a caller/integrity error on a mismatch, since pairing artifacts that do not describe the same proposal is a defect, not an epistemic outcome; (2) reuse (never reimplement) the substrate's own scope-binding-matches-context validation, and document honestly which cross-artifact facts that reuse can and cannot prove when an upstream artifact lacks a field (e.g. applicationId) needed for a fuller check; (3) resolve a correctly-paired-but-non-admitted/non-authorized upstream evidence state to an explicit BLOCKED/refused outcome, never a thrown error and never a fabricated pass — the same THROW-vs-BLOCKED distinction CI-2026-09-13-AEGIS-ADMISSION-EVIDENCE-INDEPENDENT-MEMBRANE-001 established one layer up; (4) bind every consulted evidence artifact's own reference (never the artifact's raw content) into one deterministic, receiptable frozen envelope BEFORE any execution/submission call can occur — freezing must be a separate, provably pure step from submission; (5) make 'no later stage may swap the frozen candidate/parties/scope/operation' a STRUCTURAL property of the submission function's own signature (the frozen envelope its ONLY source of those fields, with no second, independently-suppliable parameter for any of them) rather than a discipline the implementer merely intends to uphold; (6) bind every evidence class actually named by the governing instruction into the FINAL causal receipt as distinct, named fields, including the terminal execution result itself, not merely the frozen envelope's own inputs.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": "CI-2026-09-13-AEGIS-ADMISSION-EVIDENCE-INDEPENDENT-MEMBRANE-001",
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "The composition/freeze-before-execution counterpart of CI-2026-09-13-AEGIS-ADMISSION-EVIDENCE-INDEPENDENT-MEMBRANE-001 (which proved an independent-assessment-membrane layer could translate an assessor's verdict into fail-closed evidence without gaining execution authority) and CI-2026-09-13-FACTOR-SELECTION-NEVER-CONSEQUENTIAL-001 (which proved a candidate-selection/proposal layer could recommend without gaining authority): this candidate is the THIRD occurrence of the analogous discipline at the layer where the Factor -> Aegis -> MoneyPenny -> Vela chain finally becomes consequential — a composition gate that consumes every upstream evidence artifact, cross-references and freezes them, and only then authorizes exactly one, structurally-incapable-of-drifting execution call.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/vela-underwriting-composition-gate.test.ts",
+      "assertion": "One describe block per operator-mandated gate: a mismatched admissionEvidence.selectionRef/.requestRef/.candidateAgentId against the real Factor selection throws VelaCompositionError naming the mismatch; a mismatched disclosureAuthorization.selectionRef/.requestRef against the real Factor selection throws naming the mismatch; a disclosureAuthorization.scope.binding.applicationId or .requestRef that disagrees with the authorization's own top-level fields throws (propagated from the REUSED assertVelaMultiPartyScopeBindingMatchesContext); admissionStatus UNRESOLVED/REFUSED for a correctly-paired triple resolves { outcome: 'BLOCKED' } naming the status, never a throw and never an envelope; admissionStatus ADMITTED resolves { outcome: 'FROZEN' } with every field (selectionRef, admissionRef, disclosureAuthorizationRef, requestRef, applicationId, candidateAgentId, scope) populated verbatim from the real inputs; envelopeRef determinism (same (selectionRef, admissionRef, disclosureAuthorizationRef, requestRef) tuple -> same ref; a different admissionRef -> a different ref); submitFrozenUnderwritingEnvelope proven to pass the EXACT SAME (toBe, referential identity) scope object into the mocked runVelaUnderwritingProjection's build.scope as envelope.scope, proving no recomputation between freeze and submission; the final vela_underwriting_envelope_frozen receipt binding all four evidence classes (selectionRef, admissionRef, disclosureAuthorizationRef, plus onChainRequestId/disposition/providerMode/veloProjectionReceiptId/telemetryRecordId) as distinct named actionInput fields; a leak-check confirming no raw financial figures or T0 identifiers reach that receipt; and import-boundary tests proving the module both DOES import runVelaUnderwritingProjection (a positive assertion — this file is its one authorized caller) and never imports services/aegis/aegisAssessmentService, services/factor/authorityChain, services/delegation/, services/access/evaluateAccess, services/identity/getActivePersona, services/moneypenny/admissionAuthority, or services/qubetalk/disclosurePolicy.",
+      "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/vela-underwriting-disclosure-authorization.test.ts",
+      "assertion": "A malformed scope (missing grants array, invalid grant action, missing/non-object binding) throws via the REUSED assertValidVelaMultiPartyDisclosureScope, never a locally-reimplemented check; authorizationRef determinism across (selectionRef, requestRef, applicationId, scope); a receipt-write correctness + leak-check pair; and import-boundary tests proving the module never imports the submission substrate, Aegis, authority/delegation/access/identity code, or services/qubetalk/disclosurePolicy (the OTHER, unrelated conversation-context disclosure concept) while DOES import the reused scope validator (a positive assertion)."
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "vela-001-confidential-constitutional-execution / Use Case Zero MoneyPenny Constitutional Composition Gate",
+      "defect": "No module bound the Factor selection, Aegis admission evidence, and a (previously nonexistent) QubeTalk/iQube disclosure authorization into one frozen, cross-referenced, receiptable envelope before a Vela multi-party submission could occur — each prior item had correctly recognized and deferred this exact binding step (item 7's own invariant 4; item 8's own invariant 7) because the third artifact it depended on, a Tier-1 disclosure-authorization record, did not exist yet.",
+      "resolutionId": "RES-2026-09-13-VELA-UNDERWRITING-COMPOSITION-GATE-001",
+      "evidence": [
+        "services/vela/velaUnderwritingDisclosureAuthorization.ts",
+        "services/vela/velaUnderwritingCompositionGate.ts",
+        "tests/vela-underwriting-disclosure-authorization.test.ts",
+        "tests/vela-underwriting-composition-gate.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-09-13-VELA-UNDERWRITING-COMPOSITION-GATE-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This is the FIRST recorded occurrence of THIS candidate — status stays `candidate`; only an operator act may raise this to `ratified`/`canonical`.",
+    "Parented to CI-2026-09-13-AEGIS-ADMISSION-EVIDENCE-INDEPENDENT-MEMBRANE-001 (item 8's own candidate, itself parented to item 7's CI-2026-09-13-FACTOR-SELECTION-NEVER-CONSEQUENTIAL-001) — all three describe the same discover-then-admit-then-compose-then-act discipline at successive layers of one chain, and a future ratification pass should consider all three together as one family rather than in isolation.",
+    "Not yet applied to a second implementation — occurrence count is 1. The natural second occurrence to watch for is a future item that adds a fourth evidence class (e.g. a risk-slice/portfolio decomposition artifact, explicitly out of scope for this item) into the same freeze-before-submission shape, or a second consequential-execution flow elsewhere in the platform that composes multiple independent evidence artifacts before acting."
+  ]
+}

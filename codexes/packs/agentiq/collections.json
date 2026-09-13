@@ -48,6 +48,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-09-13_vela-underwriting-composition-gate.md",
         "updates/2026-09-13_vela-underwriting-admission-evidence.md",
         "updates/2026-09-13_factor-selection-artifact.md",
         "updates/2026-09-13_vela-risk-invariant-telemetry-hook.md",
