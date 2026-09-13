@@ -44,3 +44,33 @@ This is the difference between **genealogical evidence** (the Lehigh materials s
 ## Disposition relative to Threshold 007.2
 
 007.2's frozen candidate, ARR disposition (`PASS_WITH_DISCLOSED_GAPS`), and canonical publication record are unchanged and untouched by this entry. This is recorded as post-publication research provenance available to a future edition or the B→C validation programme.
+
+## Addendum — second primary source: Dhrunal Belani Lehigh MFE capstone report (2026-09-13)
+
+A second, independent Lehigh MFE capstone report (`Dhrunal_Belani_Final_Report_MetaMe_2.pdf`, sha256 `8693f29535c7cea8b72bb5831f18e24411fd368ddc539228512b199e2c9121eb`) has been read in full. It is a distinct document from the Amit Rajendra Patil / Data Risk for Marketplaces lineage above, not a revision of it. Separately, a re-upload of `copy_of_metame_practice_amit.py` supplied in the same batch was checked byte-for-byte (`diff` + `sha256sum`) against the already-committed `original_risk_matrix_amit_patil.py` in this corpus: **it is identical** (sha256 `679b70f63f5a9b275ca5f37c2c4669b70e9fae2d690d1123d7ca02832f4a86e3` on both) — no revised model exists in this batch, despite being framed as "the more recent risk model."
+
+**What the Belani report contains:**
+
+- Its own 32-dimension personal-data risk taxonomy (larger than the 22/23-dimension Patil/Atanda taxonomy — a related but independently-elaborated scheme, not a shared source file).
+- A 5-source empirical weighting methodology: historical breach-incident frequency, a Delphi expert panel (reporting Kendall's W convergence rising across rounds: 0.470 → 0.749 → 0.855), regulatory fine structures, insurance/actuarial premium signals, and an ML/Ridge-regression fit (R² = 0.951) — which the report's own author flags as a possible overfitting indicator given the small sample.
+- Context-transition multipliers and temporal decay models for how a data type's risk score evolves.
+- Three candidate pricing formulas, one of which references "Proof of Time Saved (PoTS)" and credits "Dele Atanda."
+- Its own internal usage of the term **"Proof of Risk"** — here naming a pipeline stage that outputs a calibrated risk score, not the CFS-052 constitutional construct and not the `ProofOfRisk` invariant-envelope type.
+
+**Epistemic treatment — same boundary as above, extended to a third meaning of the term:**
+
+This document is additional **primary-source evidence for the Lehigh risk-calibration lineage** — it independently corroborates that multiple, separately-elaborated calibration efforts exist under this research programme, with a richer 5-source weighting scheme and self-disclosed statistical caveats (the author's own overfitting flag on the R²=0.951 Ridge result should be taken at face value, not discounted). It does **not** strengthen, implement, or validate the CFS-052 Proof of Risk / Proof of Risk Reduction construct, and provides **no** evidence for Consequence Horizon, H1b, or longitudinal instrumentation.
+
+There are now **three non-interchangeable uses of "Proof of Risk" in this corpus** and they must not be conflated:
+
+| Usage | Source | What it names |
+|---|---|---|
+| Constitutional vocabulary | `CFS-052_evidence-architecture-and-dual-validation.md` | "Proof of Risk Reduction" — declared constitutional vocabulary, self-described as having no implementation |
+| Invariant-envelope type | `types/invariantEnvelope.ts` | `ProofOfRisk` — an implemented, narrow per-intent relevance/evidence structure (risk vector + repair path + severity/probability/uncertainty + reversibility/blast-radius); explicitly not a prediction of occurrence |
+| Pipeline-stage label | Dhrunal Belani report | A named stage in this document's own pricing pipeline that outputs a calibrated risk score — a document-local usage, not a reference to either of the above |
+
+The report's reference to "Proof of Time Saved (PoTS)" in a new pricing-formula context is likewise **not** an extension of PoTS's canonical status (`services/venture/ventureOutcomeAccrual.ts` / the PoTS invariant) — it is this document's own proposed application of the name to a formula that has not been implemented, tested, or ratified anywhere in this codebase. Any future work drawing on this formula should treat it as new design material citing PoTS by name, not as evidence that PoTS already covers this pricing use case.
+
+**Disposition:** `PRIMARY_SOURCE_VERIFIED / PROVENANCE_STRENGTHENED` (same as above) — extended to cover a second, independent Lehigh calibration lineage. Threshold 007.2's canonical status, frozen candidate, and ARR disposition remain untouched.
+
+**Corpus note:** `Dhrunal_Belani_Final_Report_MetaMe_2.pdf` is recorded as a pending Auto Drive upload in `codexes/packs/agentiq/resources/lehigh-reit-risk-corpus/README.md` (dense-material PDF, not committed to git per the Dense Materials rule). The re-uploaded `copy_of_metame_practice_amit.py` required no new corpus entry since it is byte-identical to the file already committed there.
