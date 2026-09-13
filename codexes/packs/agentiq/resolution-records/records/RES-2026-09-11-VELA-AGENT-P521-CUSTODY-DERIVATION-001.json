@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-11",
+  "resolutionId": "RES-2026-09-11-VELA-AGENT-P521-CUSTODY-DERIVATION-001",
+  "capability": "vela-001-confidential-constitutional-execution",
+  "milestone": "Vela accelerator build-order item 1 — agent P-521 derivation (docs/vela/accelerator/constitutional-financial-services/09_CLAUDE_IMPLEMENTATION_HANDOFF_v0.2.md Phase 4)",
+  "problem": "`VelaClientAdapterOptions.requesterP521PrivateKeyHex` (`services/vela/velaClientAdapter.ts`) had no in-repo derivation — every caller (all three `scripts/vela-slice2*-live-*.ts` scripts and the Slice 2F/2G test suites) either generated a fresh random P-521 key (`createECDH('secp521r1').generateKeys()`) or hardcoded a literal, with nothing tying it deterministically to the agent's EXISTING Ethereum custody the way Vela's own `deriveP521PrivateKeyFromSigner` (`vela-common-ts/src/crypto/wallet.ts`) does for end users.",
+  "observedFailure": [
+    "The Phase 0 code inventory (`codexes/packs/agentiq/updates/2026-09-11_vela-accelerator-phase0-code-inventory.md` §2.1) confirmed by grep that exactly five files reference P-521 material, all either the Vela module itself or the research doc analyzing it — none contained an actual derivation function.",
+    "Absent a derivation, every live/ops script (`scripts/vela-slice2b-live-projection.ts`, `scripts/vela-slice2e-live-composition.ts`, `scripts/vela-slice2g-live-proof.ts`) and `scripts/vela-slice2g-associate-key.ts` had to be handed a P-521 key from outside the agent's own custody chain (a fresh `generateKeys()` call or a CLI-supplied literal) — a second key surface the agent has to separately track and re-supply on every session, exactly the shape the handoff's Phase 4 instructs against creating."
+  ],
+  "rootCauses": [
+    "No function in this repo mirrored `deriveP521PrivateKeyFromSigner`'s HKDF-based, signature-derived construction — the analysis (`docs/vela/VELA-SIGNER-TOPOLOGY-001.md` §6b) concluded a derivation was structurally unnecessary to invent from scratch (it re-derives on demand, non-persistently, from the agent's existing wallet key), but the analysis and the implementation are two different things, and only the analysis existed before this resolution.",
+    "`AgentKeyService` (the confirmed existing agent Ethereum custody surface, `services/identity/agentKeyService.ts`) exposes a raw `evmPrivateKey` hex string, not an ethers `Signer`/`Wallet` — so any derivation function needed to accept a signing capability, not assume a `Signer` object was already in hand."
+  ],
+  "resolution": [
+    "Verified Node's own `crypto.createECDH('secp521r1').setPrivateKey()` throw-on-invalid-scalar behavior interactively (zero and out-of-range 66-byte buffers throw `Private key is not valid for specified curve.`; an in-range small scalar succeeds) before relying on it as the rejection-sampling validity check — confirming the practical approach avoids hand-deriving or hardcoding the P-521 curve order.",
+    "Added `services/vela/agentP521Derivation.ts`: `deriveAgentP521KeyPair(signer)` signs a fixed challenge string + the signer's address (ethers `signMessage`, deterministic per RFC 6979 for a given key + message — confirmed, not assumed, by a determinism test), HKDF-SHA256-expands the signature bytes with this repo's OWN domain-separation salt/info constants (deliberately not Horizen's — nothing on Vela's chain/contract side re-derives or verifies the derivation method, only the registered public key), masks the top byte to its low bit (P-521's order is a 521-bit number), and hands each candidate to `createECDH('secp521r1').setPrivateKey()`, retrying with an incremented attempt counter folded into the HKDF `info` parameter on a throw.",
+    "Wired it into `services/vela/velaClientAdapter.ts` ADDITIVELY as a new exported factory, `createVelaClientAdapterFromAgentCustody(opts)` — constructs an ethers `Wallet` from the existing `requesterPrivateKeyHex`, derives the P-521 key from it, and constructs `VelaClientAdapter` normally. `VelaClientAdapterOptions` and the existing caller-supplied-`requesterP521PrivateKeyHex` construction path are completely unmodified — verified by grep that every existing call site (`scripts/vela-slice2b/2e/2g-live-*.ts`, `tests/vela-slice2f/2g-*.test.ts`) still constructs `new VelaClientAdapter({...})` directly and continues to work unchanged.",
+    "Added `tests/vela-agent-p521-derivation.test.ts` (18 tests): determinism (same key -> same derived keypair, run twice independently, plus a direct confirmation that ethers' `signMessage` is itself deterministic for a fixed key+message), cross-agent isolation (two different keys -> two unrelated keypairs, including an interleaved-calls check against accidental module-level state), rejection-sampling correctness (the masking rule tested in isolation against Node's real curve check, plus the retry loop exercised end-to-end via an injectable test-only candidate generator that forces an invalid attempt-0 candidate and proves the loop advances to attempt 1 and returns the value the real generator would have produced), key-possession-is-not-authority (a validly derived P-521 key composed with `deriveActionAuthorisation()` under `authority.state: 'NONE'` still REFUSES, and the identical possession under `'ACTIVE'` authorises — proving the P-521 key was never itself the gate either way), and no-new-persistent-store (grep-provable: no Supabase/database call, no `process.env` read, in the new module)."
+  ],
+  "rejectedApproaches": [
+    "Reimplementing `vela-common-ts`'s exact HKDF salt/info constants to produce byte-identical output to Horizen's reference derivation — rejected per the task's own instruction and confirmed by re-reading `velaTypes.ts`'s `ASSOCIATEKEY` wire contract: nothing on Vela's chain/contract side re-derives or verifies HOW a registered P-521 key was produced, only that the ASSOCIATEKEY-registered public key matches whatever private key the requester later uses for ECDH. Byte-identical output would add a dependency on `vela-common-ts` (which this repo deliberately does not have, per `velaClientAdapter.ts`'s own header) for no protocol benefit.",
+    "Hand-deriving or hardcoding the P-521 curve order constant to implement the rejection-sampling range check directly — rejected in favor of letting `crypto.createECDH('secp521r1').setPrivateKey()` perform that check natively (verified interactively to throw correctly for invalid scalars before relying on it), which is safer (no risk of a transcription error in a 521-bit constant) and matches the same 'let the platform validate' discipline `velaConfig.ts` already uses for its own attestation-mode allowlist.",
+    "Modifying `VelaClientAdapterOptions`/`VelaClientAdapter`'s constructor to accept an `AgentKeyService`-resolved signer directly (a breaking or overloaded-constructor change) — rejected in favor of a separate, additive factory function (`createVelaClientAdapterFromAgentCustody`) so every existing caller-supplied-key call site (three live-proof scripts, two test suites) needed zero changes and could not be broken by this work.",
+    "Consolidating `AgentKeyService` (v1) and `AgentKeyServiceV2` into one implementation as part of this task — flagged, not fixed: V1 is the actively-used production surface (a2a signer/address route, transfer-eth, health checks, migration/verification scripts — 16 importers) while V2 (`services/identity/agentKeyService.v2.ts`) has exactly one importer, a debug/test route (`app/api/admin/debug/universal-service-test/route.ts`), and no resolution record or update doc explains why both exist. This derivation module was built against V1's shape (a raw `evmPrivateKey` hex string, wrapped in an ethers `Wallet` by the caller) since that is the surface actually in production use, but the V1/V2 duplication itself is out of scope for this item and is reported to the operator rather than silently resolved, per CLAUDE.md's 'Extend, Don't Duplicate' — a parallel implementation of an existing capability is flagged, not unilaterally collapsed, when no prior record explains the divergence."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-11-EXISTING-CUSTODY-DERIVES-PROTOCOL-KEYS-NO-NEW-STORE-001"
+  ],
+  "canaries": [
+    "tests/vela-agent-p521-derivation.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/vela-agent-p521-derivation.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-09-11_vela-accelerator-phase0-code-inventory.md"
+    ]
+  },
+  "sourceDocs": [
+    "docs/vela/accelerator/constitutional-financial-services/09_CLAUDE_IMPLEMENTATION_HANDOFF_v0.2.md",
+    "docs/vela/VELA-SIGNER-TOPOLOGY-001.md",
+    "codexes/packs/agentiq/updates/2026-09-11_vela-accelerator-phase0-code-inventory.md"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}
