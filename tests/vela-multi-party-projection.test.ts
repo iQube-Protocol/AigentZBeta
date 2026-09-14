@@ -35,6 +35,7 @@ import {
   assertVelaMultiPartyScopeBindingMatchesContext,
   buildVelaMultiPartyProjectionRequest,
   getVelaMultiPartyProjectionDisposition,
+  getVelaMultiPartyProjectionOutcome,
   prepareVelaMultiPartyProjection,
   submitVelaMultiPartyProjection,
   type BuildVelaMultiPartyProjectionRequestParams,
@@ -484,5 +485,118 @@ describe('gates 7 & 8 — no-funds path is the default; an asset ref is optional
     expect(submitAsset).toHaveBeenCalledWith(prepared.applicationId, prepared.encryptedPayload, asset);
     expect(submitNoAsset).not.toHaveBeenCalled();
     expect(transport.assetSubmittedFor(submission.onChainRequestId)).toEqual(asset);
+  });
+});
+
+// ── Execution Failure Non-Equivalence ───────────────────────────────────────
+//
+// Discovered live against the public Vela v0.2.0 devnet (2026-09-14): a
+// fee/fuel execution failure (errorCode !== 0) decoded byte-for-byte
+// identically to a genuine guest-computed UNRESOLVED via
+// getVelaMultiPartyProjectionDisposition, until the raw errorCode was
+// inspected directly. getVelaMultiPartyProjectionOutcome is the hardened
+// entry point that makes this structurally undiscardable — see
+// CI-2026-09-14-EXECUTION-FAILURE-NON-EQUIVALENCE-001.
+
+describe('Execution Failure Non-Equivalence — getVelaMultiPartyProjectionOutcome', () => {
+  it('PENDING while the request has not yet completed', async () => {
+    const transport = new VelaTestTransport({
+      deployment: VELA_LOCAL_DEPLOYMENT,
+      registeredTeeSigner: SIGNER,
+      verdictFor: multiPartyVerdictForRecipient(REF_A),
+      pendingPolls: 3,
+    });
+    const prepared = await prepareVelaMultiPartyProjection(transport, baseParams('req-1', validScope('req-1')));
+    const submission = await submitVelaMultiPartyProjection(transport, prepared);
+
+    const outcome = await getVelaMultiPartyProjectionOutcome(transport, submission.onChainRequestId);
+    expect(outcome).toEqual({ status: 'PENDING' });
+  });
+
+  it('EXECUTION_FAILED (with the raw errorCode/errorMsg) for a request the guest never actually resolved — even one that WOULD have decoded to a genuine constitutional result', async () => {
+    const scope = validScope('req-1', [
+      { action: 'COMPUTE_WITH', party: REF_A },
+      { action: 'COMPUTE_WITH', party: REF_B },
+      { action: 'DISCLOSE_TO', party: REF_B, to: REF_A },
+    ]);
+    const transport = new VelaTestTransport({
+      deployment: VELA_LOCAL_DEPLOYMENT,
+      registeredTeeSigner: SIGNER,
+      verdictFor: multiPartyVerdictForRecipient(REF_A), // would legitimately resolve if not for the errorCode
+      errorCode: 12, // mirrors the real devnet's "insufficient fuel" failure
+    });
+    const prepared = await prepareVelaMultiPartyProjection(transport, baseParams('req-1', scope));
+    const submission = await submitVelaMultiPartyProjection(transport, prepared);
+
+    const outcome = await getVelaMultiPartyProjectionOutcome(transport, submission.onChainRequestId);
+    expect(outcome.status).toBe('EXECUTION_FAILED');
+    if (outcome.status === 'EXECUTION_FAILED') {
+      expect(outcome.errorCode).toBe(12);
+      expect(outcome.errorMsg).toBeTruthy();
+    }
+    // Structurally impossible to read a `disposition` off this outcome
+    // without first checking `status` — there is no `disposition` field on
+    // the EXECUTION_FAILED branch.
+    expect((outcome as { disposition?: unknown }).disposition).toBeUndefined();
+  });
+
+  it('RESOLVED with the genuine disposition on a real successful execution', async () => {
+    const transport = makeTransport(REF_A);
+    const prepared = await prepareVelaMultiPartyProjection(transport, baseParams('req-1', validScope('req-1')));
+    const submission = await submitVelaMultiPartyProjection(transport, prepared);
+
+    const outcome = await getVelaMultiPartyProjectionOutcome(transport, submission.onChainRequestId);
+    expect(outcome).toEqual({ status: 'RESOLVED', disposition: 'ACCEPTABLE' });
+  });
+
+  it('ACCEPTABLE/UNACCEPTABLE behaviour is completely unchanged by this hardening — the RESOLVED disposition matches the pre-existing gate 4 fixtures exactly', async () => {
+    const scope = validScope('req-1', [
+      { action: 'COMPUTE_WITH', party: REF_A },
+      { action: 'COMPUTE_WITH', party: REF_B },
+      { action: 'DISCLOSE_TO', party: REF_A, to: REF_B },
+      { action: 'DISCLOSE_TO', party: REF_B, to: REF_A },
+    ]);
+    const transport = makeTransport(REF_A);
+    const prepared = await prepareVelaMultiPartyProjection(transport, baseParams('req-1', scope));
+    const submission = await submitVelaMultiPartyProjection(transport, prepared);
+
+    const outcome = await getVelaMultiPartyProjectionOutcome(transport, submission.onChainRequestId);
+    // Joint spend (1600) exceeds either party's own 1000 spend limit — same
+    // fixture, same expected UNACCEPTABLE as gate 4's own equivalent test.
+    expect(outcome).toEqual({ status: 'RESOLVED', disposition: 'UNACCEPTABLE' });
+  });
+
+  it('getVelaMultiPartyProjectionDisposition is UNCHANGED — still collapses EXECUTION_FAILED into the string "UNRESOLVED", exactly as before this hardening existed', async () => {
+    const transport = new VelaTestTransport({
+      deployment: VELA_LOCAL_DEPLOYMENT,
+      registeredTeeSigner: SIGNER,
+      verdictFor: multiPartyVerdictForRecipient(REF_A),
+      errorCode: 12,
+    });
+    const prepared = await prepareVelaMultiPartyProjection(transport, baseParams('req-1', validScope('req-1')));
+    const submission = await submitVelaMultiPartyProjection(transport, prepared);
+
+    const disposition = await getVelaMultiPartyProjectionDisposition(transport, submission.onChainRequestId);
+    expect(disposition).toBe('UNRESOLVED');
+  });
+
+  it('no caller can bypass execution-status validation by directly feeding decoded output: EXECUTION_FAILED is a distinct branch with no disposition to "accidentally" read', async () => {
+    const transport = new VelaTestTransport({
+      deployment: VELA_LOCAL_DEPLOYMENT,
+      registeredTeeSigner: SIGNER,
+      verdictFor: multiPartyVerdictForRecipient(REF_A),
+      errorCode: 1,
+    });
+    const prepared = await prepareVelaMultiPartyProjection(transport, baseParams('req-1', validScope('req-1')));
+    const submission = await submitVelaMultiPartyProjection(transport, prepared);
+    const outcome = await getVelaMultiPartyProjectionOutcome(transport, submission.onChainRequestId);
+
+    // A caller MUST narrow on `status` before any `disposition` access
+    // typechecks — this is enforced by the TypeScript union itself, not by
+    // convention.
+    if (outcome.status === 'RESOLVED') {
+      throw new Error('expected EXECUTION_FAILED, not RESOLVED — the errorCode override was not honoured');
+    }
+    expect(outcome.status).toBe('EXECUTION_FAILED');
   });
 });

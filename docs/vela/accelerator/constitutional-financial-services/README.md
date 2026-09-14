@@ -35,7 +35,7 @@ It is intentionally split into:
 | `12_VELA_SOURCE_REGISTER_2026-09-10.md` | Compact register distinguishing team-confirmed, repository-observed and proposed behavior. |
 | `MANIFEST.json` | Machine-readable package inventory and integrity metadata. |
 | `SHA256SUMS.md` | Human-readable SHA-256 inventory for the current package. |
-| `VELA_IMPLEMENTATION_ARCHITECTURE_v1.0.md` | External-facing implementation architecture note for the Vela technical team — describes the architecture as implemented today (14 September 2026), grounded in current repo code/tests, with Mermaid diagrams. |
+| `VELA_IMPLEMENTATION_ARCHITECTURE_v1.0.md` | External-facing implementation architecture note for the Vela technical team — describes the architecture as implemented today (revision 1.1, 14 September 2026), grounded in current repo code/tests, with Mermaid diagrams. Revision 1.1 adds the public Vela v0.2.0 devnet remote-execution milestone and the Execution Failure Non-Equivalence hardening. |
 
 ## Canonical boundary
 
@@ -123,3 +123,21 @@ Consequence Projector was built this same day (TinyGo 0.39.0; SHA-256
 `085869849896aa423a5fa6c13cc5651a4446240b538e37c6a517dbd3cbdecf02`), narrowing the Production
 Testnet Deployment Intake's remaining open items to constructor/config bundle details,
 `applicationId`↔WASM-hash evidence binding, and the Base Sepolia/Horizen trust-domain question.
+
+## Implementation architecture note revised to 1.1 — public devnet milestone — 14 September 2026
+
+`VELA_IMPLEMENTATION_ARCHITECTURE_v1.0.md` revision 1.1 (same filename, per this package's filename
+policy) adds the public Vela v0.2.0 devnet remote-execution milestone: the current, unmodified
+MoneyPenny guest was deployed to and executed on `https://devnet.synsema.app/` (Synsema's public
+Vela v0.2.0 instance) through the real Authority Service upload → `submitDeployRequest` →
+`applicationId` → `ASSOCIATEKEY` → multi-party request → poll → decode lifecycle — proving remote
+interoperability, never Nitro attestation (the instance is `EMULATED`, third-party-operated, and
+resets periodically). New §3.4/§3.5 record the three proven cases (unauthorized-fails-closed,
+authorized-with-restricted-disclosure, scope-replay-rejected) and a three-row Implementation Status
+table (Local Docker / Public Devnet / Managed Nitro-Testnet). New §9.4 records a real hardening this
+run surfaced and fixed: Execution Failure Non-Equivalence — a Vela execution/fee failure must never
+be persisted as a constitutional determination; two production call paths
+(`velaUnderwritingProjection.ts`, `factorConfidentialWorkload.ts`) now throw distinctly on execution
+failure rather than silently persisting a collapsed `UNRESOLVED`. Full evidence:
+`codexes/packs/agentiq/updates/2026-09-14_vela-public-devnet-v0.2.0-milestone.md`. This revision does
+not regress or supersede any earlier package file.

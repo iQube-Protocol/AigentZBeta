@@ -1,11 +1,22 @@
 # Vela Implementation Architecture — MoneyPenny Constitutional Consequence & Settlement Kernel
 
-**Version:** 1.0
-**Date:** 14 September 2026
+**Version:** 1.1
+**Date:** 14 September 2026 (revision 1.1, same day as 1.0 — adds the public Vela v0.2.0 devnet
+remote-execution milestone; filename retained per this package's own filename policy)
 **Audience:** Horizen / Vela technical team
 **Status:** Implementation architecture note — describes the architecture **as implemented today**,
 not the full future Constitutional Risk / insurance roadmap. Where a capability is planned but not
 yet built, this document says so explicitly rather than implying it exists.
+
+**What changed in 1.1:** the current MoneyPenny guest has now been deployed to and executed on a
+REMOTELY OPERATED Vela v0.2.0 instance (the public Synsema devnet, `https://devnet.synsema.app/`) —
+not just the local Docker Compose stack §3.1 already described. This is a **remote interoperability
+milestone**: it proves the guest works through the standard Vela deploy/register/submit/poll/decode
+lifecycle against infrastructure this codebase does not control, using a real Authority Service
+upload and real on-chain `ASSOCIATEKEY`/`submitDeployRequest`/`submitRequest` calls. It is
+**explicitly not** the managed Horizen/Vela Engineering Nitro-attested testnet milestone — the public
+devnet runs an **EMULATED TEE** (`attestationMode: 'no_attestation'`), identical in trust class to
+the local stack, never Nitro-attested. See §3.4 and the Implementation Status table (§3.5).
 
 **Scope discipline:** every claim below is grounded in current repository code, tests, migrations,
 or a Vela-team-confirmed statement from the accelerator package
@@ -77,6 +88,16 @@ flowchart TB
     Vela --> Kernel
     Kernel --> MoneyPenny
     MoneyPenny --> Chain
+
+    subgraph Deployments["Vela deployment surface (§3.5)"]
+        direction LR
+        Local["Local Docker<br/>vela-starterkit<br/>EMULATED — proven"]
+        Devnet["Public Synsema devnet v0.2.0<br/>EMULATED — proven 2026-09-14"]
+        Managed["Managed Horizen/Vela Engineering<br/>testnet — Nitro-attested — NOT yet reached"]
+    end
+    Local -.-> Vela
+    Devnet -.-> Vela
+    Managed -.-> Vela
 ```
 
 ---
@@ -123,6 +144,10 @@ flowchart LR
 Each step's state is one of `not_started | in_progress | blocked | unresolved | complete`
 (`services/vela/velaUnderwritingChainProjection.ts`) — `'complete'` never implies a favorable
 outcome; a BLOCKED envelope still produces `complete` records for Select/Admit/Authorize.
+
+The `Execute` step itself has now been proven against two independent Vela deployments (local Docker
+and the public devnet, §3.4) — this causal shape does not change based on which deployment ran it;
+only the deployment-specific evidence (§9.4) differs.
 
 ---
 
@@ -187,6 +212,71 @@ downstream receipt.
 
 Nothing in this implementation treats a successful Vela request as a semantic proof of anything
 beyond "the registered environment executed this deterministic logic and returned a signed result."
+
+**Qualified for the public devnet (§3.4):** on an EMULATED-TEE deployment, a successful Vela request
+proves only **Application Execution Evidence** — that the standard Vela v0.2.0 deploy/register/
+submit/poll/decode lifecycle ran our exact guest and produced a signed state transition. It proves
+nothing about **Environment Trust Evidence** beyond "no attestation was claimed or checked" — the
+same trust class as the local Docker stack. Only a genuinely Nitro-attested deployment (not yet
+reached — §11) would add real Environment Trust Evidence on top of this.
+
+### 3.4 Public Vela v0.2.0 devnet — remote interoperability proof (new, 14 September 2026)
+
+A public, Synsema-operated instance of the Vela v0.2.0 starter kit
+(`https://devnet.synsema.app/`) — Anvil, the Vela contracts, the subgraph, the Manager, and an
+Executor with an **emulated** enclave — is reachable over the open internet and grants ephemeral
+per-caller accounts via `POST /token` (10,000 test ETH, `DEPLOYER_ROLE`, 100,000 test TST). This is
+explicitly **not** Horizen/Vela Engineering's managed environment: it is a third-party convenience
+instance for iteration, reset periodically, never durable.
+
+**What was proven, against this real remote instance, using the CURRENT unmodified guest**
+(`services/vela/wasm/projector/app/app.go`, commit `de4222fe7`, SHA-256
+`085869849896aa423a5fa6c13cc5651a4446240b538e37c6a517dbd3cbdecf02`):
+
+1. **Real Authority Service upload + `submitDeployRequest`.** The WASM artifact was uploaded via
+   `POST {AuthorityServiceURL}/deploy/upload` (multipart, contract read directly from
+   `HorizenOfficial/vela-nova`'s pinned `wallet/cmd/deployapp.go` — not guessed), returning
+   `{artifactId: "sha256:<hex>", wasmSha256: "<hex>"}` that matched the locally-computed hash
+   byte-for-byte. `submitDeployRequest` was then called on-chain with a `DeployDescriptor` referencing
+   that artifact, returning a real `applicationId` after polling `DeployRequestCompleted`.
+2. **Real `ASSOCIATEKEY` registration.** Three independent transport/test identities (Party A — the
+   devnet-granted account; Party B, Party C — freshly generated local EVM keypairs, funded from
+   Party A) each registered a P-521 communication key via a real on-chain `ASSOCIATEKEY`
+   (RequestType=3) call before any confidential request was attempted.
+3. **Multi-party namespace/`COMPUTE_WITH`/`DISCLOSE_TO`/non-transitivity/fail-closed `UNRESOLVED`,
+   exercised remotely, not merely unit-tested locally:**
+   - **Case A (invalid scope binding):** both parties' decoded disposition = `UNRESOLVED`, confirmed
+     via the raw on-chain result (`errorCode: 0`, genuinely guest-computed — not an execution
+     failure; see §9.4).
+   - **Case B (authorized joint computation, restricted disclosure):** Party A received the real
+     joint verdict (`UNACCEPTABLE`); Party B — combined but never granted `DISCLOSE_TO` — received
+     its own, decisively DIFFERENT standalone verdict (`ACCEPTABLE`). The two values were chosen to
+     differ so this is a decisive proof of restricted disclosure, not a coincidence of matching
+     verdicts.
+   - **Case C (scope replay / non-transitivity):** a previously-valid scope, replayed against a
+     genuinely new request, resolved `UNRESOLVED`/`UNRESOLVED` for both parties.
+4. **A real execution-fee finding, corrected before being reported as proof** (§9.4): the first
+   attempt at Cases A–C used the bare `minFeePerRequest()` and every case failed with
+   `errorCode 12 "insufficient fuel: required 25 wei, provided 10 wei"` — a fee shortfall that
+   decodes identically to a genuine `UNRESOLVED` unless the raw `errorCode` is inspected. Corrected by
+   raising the fee ceiling; re-run confirmed `errorCode: 0` on every case before any result was
+   trusted.
+
+**What this does NOT mean:** Nitro hardware attestation (the devnet is `NoAttestationTeeAuthenticator`
+throughout); production/managed-testnet persistence (every `applicationId` obtained is ephemeral —
+the instance resets periodically); live underwriting or live settlement; durable state.
+
+Reproducible via `scripts/vela/public-devnet-smoke.ts` (credentials read from a file outside the
+repo, never hardcoded/committed). Full evidence, redacted request/tx/application IDs, and the case-by-
+case reasoning: `codexes/packs/agentiq/updates/2026-09-14_vela-public-devnet-v0.2.0-milestone.md`.
+
+### 3.5 Implementation status
+
+| Deployment | WASM deploy | Real request path | Multi-party semantics | Hardware attestation | Persistence | Status |
+|---|---|---|---|---|---|---|
+| **Local Docker Vela v0.2.0** | Proven | Proven | Proven (unit + live local) | None (`NoAttestationTeeAuthenticator`) | None — resets on container restart | **LIVE-PROVEN** (this codebase's primary dev/proof environment) |
+| **Public Vela v0.2.0 Devnet** | Proven (real Authority Service + `submitDeployRequest`) | Proven (real `ASSOCIATEKEY` + `submitRequest` + poll + decode) | Proven remotely, Cases A/B/C (§3.4) | None (emulated, third-party-operated) | None — instance resets periodically | **REMOTE INTEROPERABILITY PROVEN** (14 Sept 2026) — never a substitute for the row below |
+| **Managed Horizen/Vela Engineering testnet** | Not yet submitted (bundle prepared — see the managed-deployment handoff doc) | Not yet attempted | Not yet attempted | Real Nitro attestation (not yet obtained) | Managed by Vela Engineering (durability model unconfirmed) | **NOT YET REACHED** — the one real remaining milestone for production-class trust |
 
 ---
 
@@ -281,8 +371,11 @@ each other, not parties within one application).
 flowchart TB
     subgraph EnvLane["Environment Trust Evidence"]
         direction TB
-        Nitro["Nitro attestation document"] --> PCR["PCR0 / TeeAuthenticator verification"]
-        PCR --> RegKey["Registered TEE signing key"]
+        Emulated["EMULATED path (local Docker + public devnet)<br/>admin fiat registers a signing key — ZERO attestation proof"]
+        Nitro["Nitro path (managed testnet — NOT yet reached)<br/>real AWS Nitro attestation document"]
+        Nitro --> PCR["PCR0 / TeeAuthenticator verification"]
+        Emulated --> RegKey["Registered TEE signing key"]
+        PCR --> RegKey
     end
 
     subgraph AppLane["Application Execution Evidence"]
@@ -293,8 +386,14 @@ flowchart TB
 
     RegKey --> Verify["Signature verification against<br/>the registered TEE key"]
     SignedUpdate --> Verify
-    Verify --> Receipt["MoneyPenny causal receipt<br/>(activity_receipts + DVN anchor)"]
+    Verify --> Receipt["MoneyPenny causal receipt<br/>(activity_receipts + DVN anchor,<br/>attestationMode always recorded explicitly)"]
 ```
+
+**The public devnet takes the EMULATED path.** A successful request there proves the signature
+verification step (Application Execution Evidence, real) but the registered key itself carries no
+attestation proof — structurally identical, in trust class, to the local Docker stack. Nothing in
+this codebase infers the Nitro path from a successful emulated execution, no matter how many cases
+pass.
 
 ---
 
@@ -320,6 +419,11 @@ flowchart TB
     Disclose -->|"grant found"| JointOut["Recipient sees joint verdict"]
     Disclose -->|"no grant"| OwnOut["Recipient sees own standalone verdict only"]
 ```
+
+**Proven remotely, decisively, 14 September 2026 (§3.4 Case B):** two parties whose numbers were
+chosen so the joint verdict and the non-disclosed party's own standalone verdict provably differ
+(`UNACCEPTABLE` vs `ACCEPTABLE`) — ruling out the possibility that a passing result was merely a
+coincidence of matching verdicts.
 
 ---
 
@@ -488,6 +592,44 @@ Every JSONB column this slice has no honest data for yet (`risk_cycle`, `informa
 `observed_outcome`, `repair_or_claim`, `burden_bearer`, `calibration_error`,
 `constitutional_conditions`) is set to an explicit empty object, never fabricated.
 
+### 9.4 Execution Failure Non-Equivalence (hardened 14 September 2026)
+
+**A Vela execution failure must never be interpreted as a constitutional determination produced by
+successful execution.** The public devnet run (§3.4) surfaced this as a real, previously-unmitigated
+architectural gap, not merely a theoretical concern: a fee/fuel execution failure
+(Vela Executor `errorCode !== 0`) decodes to the SAME coarse string `'UNRESOLVED'` a genuine
+guest-computed refusal produces, via both `getVelaMultiPartyProjectionDisposition`
+(`services/vela/velaMultiPartyProjection.ts`) and `VelaConfidentialProjectionProvider`'s single-party
+equivalent — and, before this hardening, TWO production call paths would have persisted that
+collapsed value as if the guest had genuinely computed it:
+
+- `services/vela/velaUnderwritingProjection.ts`'s `pollMultiPartyDispositionToTerminal` fed the
+  collapsed disposition straight into `provider.quoteForVerdict()` and a persisted activity receipt
+  plus `golden_cycle_records` telemetry.
+- `services/factor/factorConfidentialWorkload.ts`'s `pollToTerminal` only checked
+  `state === 'OBSERVING'` to decide whether to keep polling, and fell through to
+  `persistEvidence()` (a `factor_evidence_items` row consumed as Aegis admission evidence) on ANY
+  other terminal state, `'FAILED'` included.
+
+**The fix, additive and minimal:**
+
+- `getVelaMultiPartyProjectionOutcome` (new) returns a discriminated union —
+  `{status:'PENDING'}` | `{status:'EXECUTION_FAILED', errorCode, errorMsg}` |
+  `{status:'RESOLVED', disposition}` — making an execution failure structurally impossible to read as
+  a disposition without first narrowing the type. `getVelaMultiPartyProjectionDisposition` is
+  unchanged for existing callers that already treat the two as equivalent on purpose.
+- `ConfidentialProjectionStatus` (`types/confidentialProjection.ts`) gained optional
+  `executionErrorCode`/`executionErrorMessage` fields, populated only alongside `state: 'FAILED'`.
+- Both `pollMultiPartyDispositionToTerminal` and `factorConfidentialWorkload.ts`'s `pollToTerminal`
+  now THROW distinctly (naming the raw errorCode) on an execution failure, before any quote, receipt,
+  or telemetry call — never persisting a false constitutional determination.
+
+Candidate invariant: `CI-2026-09-14-EXECUTION-FAILURE-NON-EQUIVALENCE-001` (status `candidate` —
+not yet operator-ratified). Proven by targeted tests in `tests/vela-multi-party-projection.test.ts`,
+`tests/vela-underwriting-projection.test.ts`, `tests/factor-vela-confidential-workload.test.ts`, and
+`tests/vela-confidential-projection-provider.test.ts`; the full pre-existing Vela regression suite
+(17 files) remains green.
+
 ---
 
 ## 10. Current UI surface
@@ -521,14 +663,20 @@ Every JSONB column this slice has no honest data for yet (`risk_cycle`, `informa
 
 Kept short and honest — this list omits anything the Vela team has already answered.
 
-1. **Managed testnet deployment artifact bundle / constructor details.** Not yet drafted anywhere in
-   this repo; a genuine open question for Vela Engineering (exact constructor-parameter list /
-   trigger contract).
-2. **Canonical on-chain `applicationId ↔ WASM hash` evidence.** What fields should be recorded to
-   bind them, and whether deploy-time SHA-256 alone is sufficient/canonical — still open.
-3. **Base Sepolia vs. Horizen testnet trust-domain relationship.** Both networks are confirmed
-   available through the managed process; whether they are separate trust domains / separate TEE
-   signer registrations is still open.
+1. **Managed testnet deployment artifact bundle / constructor details.** Not yet submitted; the exact
+   handoff package (source, hashes, constructor params known/unknown, evidence-binding expectations)
+   is now prepared — see the managed-deployment handoff document referenced in the Appendix.
+2. **Canonical on-chain `applicationId ↔ WASM hash` evidence.** Empirically clearer after the public
+   devnet run (§3.4), though not fully closed: the Authority Service's own `POST /deploy/upload`
+   response independently confirmed the `wasmSha256`/`artifactId` it stored matched the
+   locally-computed hash before `submitDeployRequest` was ever called — one real, source-verified data
+   point that the upload step itself provides SOME hash confirmation. Still open: whether that
+   confirmation is treated as canonical evidence by Vela's own on-chain/subgraph records, or whether a
+   stronger binding (e.g. an on-chain event naming both the `applicationId` and the WASM hash together)
+   exists or is planned.
+3. **Base Sepolia vs. Horizen testnet trust-domain relationship.** Unchanged — both networks are
+   confirmed available through the managed process; whether they are separate trust domains /
+   separate TEE signer registrations is still open.
 4. **Practical execution/state guardrails.** WASM execution time, state size, and resource ceilings
    remain unconfirmed by the Vela team — this repo does not build production assumptions around any
    specific number.
@@ -539,12 +687,20 @@ Kept short and honest — this list omits anything the Vela team has already ans
    this early architecture. Multi-TEE recovery (removing this dependency) is planned but not
    deployed. This repo surfaces this as an explicit risk-evidence fact, not a fabricated refusal
    rule.
+7. **New, from the public devnet run (§3.4): the fuel-cost model for multi-party execution is
+   undocumented.** The public devnet's `minFeePerRequest()` reflects a single-party execution floor;
+   a multi-party request (processing more than one party's `ProjectionInputs`) genuinely required
+   more execution "fuel" than that floor covers, failing with `errorCode 12 "insufficient fuel"` until
+   the fee ceiling was raised generously. Whether a documented or queryable fuel-cost model exists
+   (proportional to party count / payload size / state size / WASM work) — so a caller can compute a
+   safe fee rather than guessing a generous flat one — is a genuine open question.
 
 **Separately, and not a Vela-team question:** the real WASM binary (`moneypenny_projector.wasm`,
 SHA-256 `085869849896aa423a5fa6c13cc5651a4446240b538e37c6a517dbd3cbdecf02`) was built this
-development cycle and is ready to accompany a Production Testnet Deployment Intake submission
-(`https://tally.so/r/xXWL1v`) once items 1–3 above are answered. Whether that form has already been
-submitted is not verifiable from this repository.
+development cycle, has now ALSO been deployed and executed on the public devnet (§3.4) — proving it
+runs through the real remote lifecycle, not merely compiles — and is ready to accompany a Production
+Testnet Deployment Intake submission (`https://tally.so/r/xXWL1v`) once items 1–3 above are answered.
+Whether that form has already been submitted is not verifiable from this repository.
 
 ---
 
@@ -557,7 +713,9 @@ DISCLOSURE_AND_RISK_ARCHITECTURE_v0.1.md`, `04_VELA_MASTERCLASS_ARCHITECTURE_DEL
 
 **Implementation:** `services/vela/velaMultiPartyProjection.ts`, `services/vela/velaPartyNamespace.ts`,
 `services/vela/wasm/projector/app/app.go`, `services/vela/agentP521Derivation.ts`,
-`services/vela/velaConfig.ts`, `services/vela/velaTypes.ts`,
+`services/vela/velaConfig.ts`, `services/vela/velaTypes.ts`, `services/vela/velaClientAdapter.ts`,
+`services/vela/velaProjectionProvider.ts`, `services/factor/factorConfidentialWorkload.ts`,
+`types/confidentialProjection.ts`,
 `services/vela/velaUnderwritingAdmissionEvidence.ts`,
 `services/vela/velaUnderwritingDisclosureAuthorization.ts`,
 `services/vela/velaUnderwritingCompositionGate.ts`, `services/vela/velaUnderwritingProjection.ts`,
@@ -567,8 +725,12 @@ DISCLOSURE_AND_RISK_ARCHITECTURE_v0.1.md`, `04_VELA_MASTERCLASS_ARCHITECTURE_DEL
 `services/financialServices/providers/underwriting/underwritingProviderTypes.ts`,
 `services/financialServices/providers/underwriting/simulatedUnderwritingProvider.ts`,
 `services/dvn/activityReceiptDvnPipeline.ts`, `app/(shell)/moneypenny/components/
-ConstitutionalRiskFlowPanel.tsx`.
+ConstitutionalRiskFlowPanel.tsx`, `scripts/vela/public-devnet-smoke.ts`.
 
 **Milestone/resolution records:** `RES-2026-09-13-VELA-PARTY-NAMESPACE-KEY-BEFORE-STATEFUL-GUEST-001`,
-`RES-2026-09-13-VELA-MULTI-PARTY-TS-WIRE-EXACT-CONSTRUCTION-001`, and the Use Case Zero build-order
-items 5–11 resolution records in `codexes/packs/agentiq/resolution-records/records/`.
+`RES-2026-09-13-VELA-MULTI-PARTY-TS-WIRE-EXACT-CONSTRUCTION-001`, the Use Case Zero build-order
+items 5–11 resolution records, `RES-2026-09-14-VELA-DEVNET-FUEL-ERRORCODE-MASKED-DISPOSITION-001`,
+and `RES-2026-09-14-VELA-EXECUTION-FAILURE-NON-EQUIVALENCE-001`, all in
+`codexes/packs/agentiq/resolution-records/records/`.
+
+**Public devnet milestone:** `codexes/packs/agentiq/updates/2026-09-14_vela-public-devnet-v0.2.0-milestone.md`.

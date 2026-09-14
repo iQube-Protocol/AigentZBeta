@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-09-14-VELA-EXECUTION-FAILURE-NON-EQUIVALENCE-001",
+  "capability": "vela-001-confidential-constitutional-execution",
+  "milestone": "Hardening the Vela adapter/decode path after the public v0.2.0 devnet run — the multi-party AND single-party poll-to-terminal paths both fail closed against an execution failure being persisted as a constitutional determination.",
+  "problem": "RES-2026-09-14-VELA-DEVNET-FUEL-ERRORCODE-MASKED-DISPOSITION-001 recorded a DIAGNOSTIC discipline (inspect the raw errorCode before trusting a decoded disposition). Following that finding through to the codebase's PRODUCTION consumers revealed the underlying architectural gap was real and unmitigated in two places: (1) services/vela/velaUnderwritingProjection.ts's pollMultiPartyDispositionToTerminal called getVelaMultiPartyProjectionDisposition, which collapses an execution failure (Vela Executor errorCode !== 0) into the SAME string 'UNRESOLVED' a genuine guest-computed refusal produces — and the underwriting projection function then fed that string straight into provider.quoteForVerdict() and persisted it in an activity receipt and Golden Cycle telemetry, indistinguishable from a real constitutional UNRESOLVED. (2) services/factor/factorConfidentialWorkload.ts's pollToTerminal loop only checked `status.state === 'OBSERVING'` to decide whether to keep polling, and fell straight through to persistEvidence() (writing a factor_evidence_items row used as Aegis admission evidence) on ANY other terminal state INCLUDING 'FAILED' — with no check at all.",
+  "observedFailure": [
+    "Neither production call path had ever been exercised with a real execution failure before the public devnet run — both were unit-tested only against errorCode: 0 and, in the single-party case, a directly-inspected getProjectionStatus/getProjectionEvidence call (tests/vela-confidential-projection-provider.test.ts's own FAILED test), never through pollToTerminal + persistEvidence together."
+  ],
+  "rootCauses": [
+    "getVelaMultiPartyProjectionDisposition's contract (add a coarse, three-valued-or-null return, collapsing EXECUTION_FAILED into 'UNRESOLVED') is correct for a caller that only needs the coarse disposition and treats both cases as fail-closed-equivalent — but it was the ONLY entry point the multi-party substrate exposed, so a caller that needed to persist evidence had no richer alternative to reach for.",
+    "factorConfidentialWorkload.ts's pollToTerminal was written to guard only against the 'stuck in OBSERVING forever' failure mode (the poll-timeout case) and never against the 'terminated as FAILED' case — a narrower guard than the function's own name/purpose implied."
+  ],
+  "resolution": [
+    "Added VelaMultiPartyProjectionOutcome (services/vela/velaMultiPartyProjection.ts) — a discriminated union ({status:'PENDING'} | {status:'EXECUTION_FAILED', errorCode, errorMsg} | {status:'RESOLVED', disposition}) and getVelaMultiPartyProjectionOutcome(), the new preferred entry point for any caller that will persist the result. getVelaMultiPartyProjectionDisposition is UNCHANGED and kept for existing callers that already treat failure/UNRESOLVED as equivalent on purpose — it now delegates to the new function internally, with identical external behaviour.",
+    "Updated velaUnderwritingProjection.ts's pollMultiPartyDispositionToTerminal to use getVelaMultiPartyProjectionOutcome and THROW distinctly (naming the raw errorCode/errorMsg) on EXECUTION_FAILED, before any quote/receipt/telemetry call — mirroring the function's own existing poll-timeout throw.",
+    "Added optional executionErrorCode/executionErrorMessage fields to ConfidentialProjectionStatus (types/confidentialProjection.ts), populated by VelaConfidentialProjectionProvider.getProjectionStatus's existing FAILED branch (services/vela/velaProjectionProvider.ts) — additive, present ONLY alongside state:'FAILED'.",
+    "Updated factorConfidentialWorkload.ts's pollToTerminal to check status.state === 'FAILED' after the existing OBSERVING loop and throw distinctly (naming the errorCode when present) BEFORE either of its two call sites (runAdmissionPacketPolicyEvaluation, resumeAdmissionPacketPolicyEvaluation) can reach persistEvidence — one shared fix protects both callers.",
+    "Updated scripts/vela/public-devnet-smoke.ts's own diagnostics to use the new outcome function (pollOutcome helper), so the tool that surfaced this defect no longer requires manual errorCode inspection to avoid being misled by it again.",
+    "Added targeted tests: 6 new cases in tests/vela-multi-party-projection.test.ts (PENDING/EXECUTION_FAILED/RESOLVED, legacy-disposition-unchanged, no-bypass-possible), 3 new cases in tests/vela-underwriting-projection.test.ts (throws with errorCode, never calls provider/receipt/telemetry on failure, genuine runs unaffected), 2 new cases in tests/factor-vela-confidential-workload.test.ts (single-party equivalent), 1 new case in tests/vela-confidential-projection-provider.test.ts (new fields populated only on FAILED)."
+  ],
+  "rejectedApproaches": [
+    "Changing getVelaMultiPartyProjectionDisposition's own return contract to surface the distinction directly (e.g. a 4th sentinel value) — rejected because existing callers/tests rely on its exact three-valued-or-null contract, and CLAUDE.md's discipline is to extend by composition, not by changing a stable contract's meaning out from under callers who chose it deliberately.",
+    "Broadening ConfidentialProjectionDisposition itself with a 4th 'EXECUTION_FAILED' value — rejected as a much larger, more invasive schema change (touches every consumer of the 3-valued disposition enum across the single- and multi-party substrates, receipts, telemetry, and the composition gate) for a distinction that is fully addressable at the poll-to-terminal layer, which is the one layer that actually decides whether to persist anything.",
+    "Silently persisting execution-failure evidence with a special marker field instead of throwing — rejected: there is no legitimate quote, receipt, or telemetry record to produce for a request the guest never actually executed; refusing to produce one at all (mirroring the existing poll-timeout throw) is the more honest, and more minimal, fix."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-14-EXECUTION-FAILURE-NON-EQUIVALENCE-001"
+  ],
+  "canaries": [
+    "tests/vela-multi-party-projection.test.ts — describe('Execution Failure Non-Equivalence — getVelaMultiPartyProjectionOutcome')",
+    "tests/vela-underwriting-projection.test.ts — describe('Execution Failure Non-Equivalence — a Vela execution failure is never persisted as a constitutional determination')",
+    "tests/factor-vela-confidential-workload.test.ts — describe('Execution Failure Non-Equivalence — a Vela execution failure is never persisted as constitutional evidence')",
+    "tests/vela-confidential-projection-provider.test.ts — 'an Executor-side failure is UNRESOLVED, never UNACCEPTABLE' (extended) and the new 'never carries executionErrorCode/executionErrorMessage' case"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "multi-cycle-repair",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/vela-multi-party-projection.test.ts",
+      "tests/vela-underwriting-projection.test.ts",
+      "tests/factor-vela-confidential-workload.test.ts",
+      "tests/vela-confidential-projection-provider.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/resolution-records/records/RES-2026-09-14-VELA-DEVNET-FUEL-ERRORCODE-MASKED-DISPOSITION-001.json",
+      "codexes/packs/agentiq/updates/2026-09-14_vela-public-devnet-v0.2.0-milestone.md"
+    ]
+  },
+  "sourceDocs": [
+    "services/vela/velaMultiPartyProjection.ts",
+    "services/vela/velaUnderwritingProjection.ts",
+    "services/vela/velaProjectionProvider.ts",
+    "services/factor/factorConfidentialWorkload.ts",
+    "types/confidentialProjection.ts"
+  ],
+  "date": "2026-09-14",
+  "projections": {
+    "targets": ["research-registry"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

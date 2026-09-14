@@ -123,7 +123,7 @@
 
 import { createHash } from 'crypto';
 import {
-  getVelaMultiPartyProjectionDisposition,
+  getVelaMultiPartyProjectionOutcome,
   prepareVelaMultiPartyProjection,
   submitVelaMultiPartyProjection,
   type BuildVelaMultiPartyProjectionRequestParams,
@@ -212,22 +212,31 @@ function commitMultiPartyPayload(payload: Uint8Array): string {
   return createHash('sha256').update('vela:multi-party-payload:').update(Buffer.from(payload)).digest('hex');
 }
 
-/** Polls `getVelaMultiPartyProjectionDisposition` until it leaves pending
- *  (`null`), bounded by `maxAttempts` — mirrors
- *  `factorConfidentialWorkload.ts`'s own `pollToTerminal` shape, redefined
- *  locally because that function is private to a different module or
- *  its own resume-vs-fresh semantics, and this loop's exit condition
- *  (`disposition !== null`) differs from that one's (`status.state !==
- *  'OBSERVING'`) — not a case CLAUDE.md's "one authoritative location"
- *  concern applies to. */
+/**
+ * Polls `getVelaMultiPartyProjectionOutcome` until it leaves pending, bounded
+ * by `maxAttempts` — mirrors `factorConfidentialWorkload.ts`'s own
+ * `pollToTerminal` shape, redefined locally because that function is private
+ * to a different module and this loop's exit condition differs slightly —
+ * not a case CLAUDE.md's "one authoritative location" concern applies to.
+ *
+ * Uses `getVelaMultiPartyProjectionOutcome`, NOT the lossy
+ * `getVelaMultiPartyProjectionDisposition`, and REFUSES to return a
+ * disposition at all when the outcome is `'EXECUTION_FAILED'` — this
+ * function feeds directly into an underwriting quote and a persisted
+ * activity receipt (via `runVelaUnderwritingProjection` below), so an
+ * execution/fee failure must never be interpreted as the guest having
+ * computed a genuine constitutional UNRESOLVED. See Execution Failure
+ * Non-Equivalence (`CI-2026-09-14-EXECUTION-FAILURE-NON-EQUIVALENCE-001`) —
+ * discovered live against the public Vela v0.2.0 devnet, 2026-09-14.
+ */
 async function pollMultiPartyDispositionToTerminal(
   transport: Pick<VelaTransport, 'fetchResult'>,
   onChainRequestId: string,
   maxAttempts: number,
 ): Promise<ConfidentialProjectionDisposition> {
   let attempts = 0;
-  let disposition = await getVelaMultiPartyProjectionDisposition(transport, onChainRequestId);
-  while (disposition === null) {
+  let outcome = await getVelaMultiPartyProjectionOutcome(transport, onChainRequestId);
+  while (outcome.status === 'PENDING') {
     attempts += 1;
     if (attempts > maxAttempts) {
       throw new Error(
@@ -235,9 +244,17 @@ async function pollMultiPartyDispositionToTerminal(
           `${maxAttempts} poll attempts — refusing to block forever.`,
       );
     }
-    disposition = await getVelaMultiPartyProjectionDisposition(transport, onChainRequestId);
+    outcome = await getVelaMultiPartyProjectionOutcome(transport, onChainRequestId);
   }
-  return disposition;
+  if (outcome.status === 'EXECUTION_FAILED') {
+    throw new Error(
+      `runVelaUnderwritingProjection: request ${onChainRequestId} failed at the Vela execution layer ` +
+        `(errorCode ${outcome.errorCode}: "${outcome.errorMsg}") — this is an execution/infrastructure ` +
+        'failure, never a constitutional UNRESOLVED determination. Refusing to quote or receipt a result ' +
+        'the guest never actually computed.',
+    );
+  }
+  return outcome.disposition;
 }
 
 /**

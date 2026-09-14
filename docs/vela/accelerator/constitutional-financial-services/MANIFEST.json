@@ -6,6 +6,7 @@
   "status": "WORKING_UNRATIFIED_PUBLICATION_AUTHORIZED",
   "revisionSummary": "Adds the Vela team-confirmed baseline, corrected attestation and execution-evidence model, updated Claude handoff and remaining office-hours questions while preserving the 9 September portfolio and compliance extensions.",
   "addendum_2026-09-14": "Adds VELA_IMPLEMENTATION_ARCHITECTURE_v1.0.md, an external-facing implementation architecture note for the Vela technical team describing build-order items 5-11 as actually implemented, grounded in current repo code/tests. Does not revise or supersede any 0.5 file; README.md's own hash/bytes were recomputed because this addition changed its package-contents table and added a dated revision note, per this same file's own historical pattern.",
+  "addendum_2026-09-14b": "VELA_IMPLEMENTATION_ARCHITECTURE_v1.0.md revised to internal revision 1.1 (same filename, per this package's filenamePolicy): adds the public Vela v0.2.0 devnet remote-execution milestone (real Authority Service upload/submitDeployRequest/ASSOCIATEKEY/multi-party request proven against https://devnet.synsema.app/, EMULATED TEE, never Nitro-attested) and the Execution Failure Non-Equivalence hardening (services/vela/velaMultiPartyProjection.ts's new getVelaMultiPartyProjectionOutcome; services/vela/velaUnderwritingProjection.ts and services/factor/factorConfidentialWorkload.ts now refuse to persist a Vela execution failure as a constitutional determination). README.md's hash/bytes were recomputed for its own new revision-note section; no 0.5 file or the 2026-09-14 addendum above is revised or superseded.",
   "schemaRevision": "0.2",
   "filenamePolicy": "Historical filenames retained where they contain later internal revisions; superseded Vela-specific handoff and question filenames replaced by dated/versioned successors.",
   "files": [
@@ -22,8 +23,8 @@
     {"file": "11_COMPLIANCE_ENFORCEMENT_AUTHORITY_MANDATE_CONTROL_v0.1.md", "sha256": "3a4a880f9ce50ddd6143b24d29011eb36875e1a2a41db335ad32b9d020cc9d16", "bytes": 16853},
     {"file": "11_VELA_TEAM_CONFIRMED_BASELINE_v0.1.md", "sha256": "3426b34f46dd1b3bcb6b830289aec66c362e6132d9dfdc9c29bcf70114244b8c", "bytes": 7913},
     {"file": "12_VELA_SOURCE_REGISTER_2026-09-10.md", "sha256": "962188e83ddc823acdab331f3fe68db7f7f394daddc3829ad52f46cfeb4461df", "bytes": 955},
-    {"file": "README.md", "sha256": "e7652e4971085a03b8e6d94ab262b113efef0e7288bde45927b1a66edc76b237", "bytes": 11561},
-    {"file": "VELA_IMPLEMENTATION_ARCHITECTURE_v1.0.md", "sha256": "56cfc7e458b205954718325bc092137c5e24a23f71d624664c19f2e7a90bd53b", "bytes": 33474}
+    {"file": "README.md", "sha256": "e807632967286968c775e414cab895c4c8b1baddc28c057458fdb3e35dff6522", "bytes": 13206},
+    {"file": "VELA_IMPLEMENTATION_ARCHITECTURE_v1.0.md", "sha256": "4b3adfe8fa530ab28b0edce6aac516f4393212b5b05fc8a445672f3f0b10d6c2", "bytes": 46343}
   ],
   "publicationAuthorization": "Operator authorized public AigentZBeta repository publication on 2026-09-09 and requested the 2026-09-10 Vela bundle commit on 2026-09-10.",
   "repositoryBaseline": "68f1bed960eb27ddae607ab3325cc2bd63a9d53e"

@@ -492,3 +492,58 @@ describe('risk telemetry hook (item 6)', () => {
     expect(resultWithFailedTelemetry.telemetryRecordId).toBeNull();
   });
 });
+
+// ── Execution Failure Non-Equivalence ───────────────────────────────────────
+//
+// Discovered live against the public Vela v0.2.0 devnet (2026-09-14): before
+// this hardening, an execution/fee failure would have decoded to
+// disposition 'UNRESOLVED' via the (now-legacy-only)
+// getVelaMultiPartyProjectionDisposition and been fed straight into a quote
+// and a persisted receipt as if the guest had genuinely computed it. See
+// CI-2026-09-14-EXECUTION-FAILURE-NON-EQUIVALENCE-001.
+
+describe('Execution Failure Non-Equivalence — a Vela execution failure is never persisted as a constitutional determination', () => {
+  it('throws distinctly (naming the raw errorCode) instead of returning disposition UNRESOLVED', async () => {
+    const failingTransport = new VelaTestTransport({
+      deployment: VELA_LOCAL_DEPLOYMENT,
+      registeredTeeSigner: SIGNER,
+      verdictFor: multiPartyVerdictForRecipient(REF_A),
+      errorCode: 12, // mirrors the real devnet's "insufficient fuel" failure
+    });
+
+    await expect(
+      runVelaUnderwritingProjection(baseCallParams({ transport: failingTransport })),
+    ).rejects.toThrow(/errorCode 12/);
+  });
+
+  it('never calls the underwriting provider, never creates a receipt, never records telemetry on execution failure', async () => {
+    const failingTransport = new VelaTestTransport({
+      deployment: VELA_LOCAL_DEPLOYMENT,
+      registeredTeeSigner: SIGNER,
+      verdictFor: multiPartyVerdictForRecipient(REF_A),
+      errorCode: 7,
+    });
+    const spyProvider: UnderwritingProvider = {
+      mode: 'SIMULATED',
+      policyVersion: 'test-provider-v1',
+      quoteForVerdict: vi.fn(async (v: any) => new SimulatedUnderwritingProvider().quoteForVerdict(v)),
+    };
+
+    await expect(
+      runVelaUnderwritingProjection(
+        baseCallParams({ transport: failingTransport, underwritingProvider: spyProvider }),
+      ),
+    ).rejects.toThrow();
+
+    expect(spyProvider.quoteForVerdict).not.toHaveBeenCalled();
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    expect(recordVelaUnderwritingRiskTelemetryMock).not.toHaveBeenCalled();
+  });
+
+  it('a genuine ACCEPTABLE/UNACCEPTABLE/UNRESOLVED run (errorCode 0) is completely unaffected by this hardening', async () => {
+    const result = await runVelaUnderwritingProjection(baseCallParams({ build: buildParams('req-1', []) }));
+    expect(result.disposition).toBe('ACCEPTABLE');
+    expect(createActivityReceiptMock).toHaveBeenCalledTimes(1);
+    expect(recordVelaUnderwritingRiskTelemetryMock).toHaveBeenCalledTimes(1);
+  });
+});

@@ -191,6 +191,19 @@ export interface ConfidentialProjectionStatus {
   state: ConfidentialProjectionObserverState;
   /** Set only once the projection has completed. */
   disposition?: ConfidentialProjectionDisposition;
+  /**
+   * Present ONLY when `state === 'FAILED'` — the raw execution-layer error
+   * code/message that caused the failure (e.g. a Vela Executor `errorCode`).
+   * NEVER present alongside a genuine `PROJECTION_*` state. Exists so a
+   * caller can distinguish "the confidential app computed UNRESOLVED" from
+   * "this request never actually executed" without re-deriving it from a
+   * lower layer — see Execution Failure Non-Equivalence
+   * (`CI-2026-09-14-EXECUTION-FAILURE-NON-EQUIVALENCE-001`): failure to
+   * execute must never be interpreted as a constitutional determination
+   * produced by successful execution.
+   */
+  executionErrorCode?: number;
+  executionErrorMessage?: string;
 }
 
 /**

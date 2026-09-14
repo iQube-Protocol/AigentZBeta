@@ -38,10 +38,11 @@ import { JsonRpcProvider, Wallet, Contract, Interface } from 'ethers';
 import { VelaClientAdapter, type VelaClientAdapterOptions } from '../../services/vela/velaClientAdapter';
 import { deriveAgentP521KeyPair } from '../../services/vela/agentP521Derivation';
 import type { VelaDeploymentDescriptor } from '../../services/vela/velaTypes';
+import type { ConfidentialProjectionDisposition } from '../../types/confidentialProjection';
 import {
   prepareVelaMultiPartyProjection,
   submitVelaMultiPartyProjection,
-  getVelaMultiPartyProjectionDisposition,
+  getVelaMultiPartyProjectionOutcome,
   VELA_MULTI_PARTY_PROJECTION_REQUEST_TYPE,
   VELA_MULTI_PARTY_OPERATION_JOINT_CONSEQUENCE_PROJECTION,
   VELA_MULTI_PARTY_OUTPUT_CLASS_JOINT_VERDICT,
@@ -117,6 +118,34 @@ async function pollUntil<T>(
     await sleep(intervalMs);
   }
   throw new Error(`pollUntil(${label}): timed out after ${maxAttempts} attempts (${(maxAttempts * intervalMs) / 1000}s)`);
+}
+
+/**
+ * Polls to a terminal RESOLVED outcome and returns the genuine disposition —
+ * throwing immediately, with the raw errorCode/errorMsg, if the outcome is
+ * EXECUTION_FAILED. Hardened after this same run's own fuel-shortfall
+ * incident (RES-2026-09-14-VELA-DEVNET-FUEL-ERRORCODE-MASKED-DISPOSITION-001):
+ * a fee/fuel failure must never be silently reported as a genuine
+ * UNRESOLVED disposition — see Execution Failure Non-Equivalence
+ * (CI-2026-09-14-EXECUTION-FAILURE-NON-EQUIVALENCE-001).
+ */
+async function pollOutcome(
+  label: string,
+  adapter: Pick<VelaClientAdapter, 'fetchResult'>,
+  onChainRequestId: string,
+): Promise<ConfidentialProjectionDisposition> {
+  const outcome = await pollUntil(label, async () => {
+    const o = await getVelaMultiPartyProjectionOutcome(adapter, onChainRequestId);
+    return o.status === 'PENDING' ? null : o;
+  });
+  if (outcome.status === 'EXECUTION_FAILED') {
+    throw new Error(
+      `${label}: request ${onChainRequestId} FAILED at the Vela execution layer ` +
+        `(errorCode ${outcome.errorCode}: "${outcome.errorMsg}") — this is an execution/fee failure, ` +
+        'never a constitutional disposition. Raise maxFeeValueWei and retry.',
+    );
+  }
+  return outcome.disposition;
 }
 
 // ── Phase 3a: upload WASM to the Authority Service (real, source-verified
@@ -448,12 +477,8 @@ async function main() {
     const encryptedPayload = await partyA.adapter.encryptForTee(plaintext);
     const onChainRequestId = await partyA.adapter.submitProcessRequest(deployResult.applicationId, encryptedPayload);
     console.log('Case A onChainRequestId:', onChainRequestId);
-    const dispositionA = await pollUntil('Case A disposition (party A)', () =>
-      getVelaMultiPartyProjectionDisposition(partyA.adapter, onChainRequestId),
-    );
-    const dispositionB = await pollUntil('Case A disposition (party B)', () =>
-      getVelaMultiPartyProjectionDisposition(partyB.adapter, onChainRequestId),
-    );
+    const dispositionA = await pollOutcome('Case A disposition (party A)', partyA.adapter, onChainRequestId);
+    const dispositionB = await pollOutcome('Case A disposition (party B)', partyB.adapter, onChainRequestId);
     console.log('Case A — party A disposition:', dispositionA, '| party B disposition:', dispositionB);
     results.caseA = { onChainRequestId, requestRef, dispositionA, dispositionB, expected: 'UNRESOLVED for both' };
   }
@@ -511,12 +536,8 @@ async function main() {
     });
     const submission = await submitVelaMultiPartyProjection(partyA.adapter, prepared);
     console.log('Case B onChainRequestId:', submission.onChainRequestId);
-    const dispositionA = await pollUntil('Case B disposition (party A)', () =>
-      getVelaMultiPartyProjectionDisposition(partyA.adapter, submission.onChainRequestId),
-    );
-    const dispositionB = await pollUntil('Case B disposition (party B)', () =>
-      getVelaMultiPartyProjectionDisposition(partyB.adapter, submission.onChainRequestId),
-    );
+    const dispositionA = await pollOutcome('Case B disposition (party A)', partyA.adapter, submission.onChainRequestId);
+    const dispositionB = await pollOutcome('Case B disposition (party B)', partyB.adapter, submission.onChainRequestId);
     console.log('Case B — party A (joint, authorized) disposition:', dispositionA);
     console.log('Case B — party B (own standalone, NOT the joint verdict) disposition:', dispositionB);
     results.caseB = {
@@ -568,12 +589,8 @@ async function main() {
     const encryptedPayload = await partyA.adapter.encryptForTee(plaintext);
     const onChainRequestId = await partyA.adapter.submitProcessRequest(deployResult.applicationId, encryptedPayload);
     console.log('Case C onChainRequestId:', onChainRequestId);
-    const dispositionA = await pollUntil('Case C disposition (party A)', () =>
-      getVelaMultiPartyProjectionDisposition(partyA.adapter, onChainRequestId),
-    );
-    const dispositionB = await pollUntil('Case C disposition (party B)', () =>
-      getVelaMultiPartyProjectionDisposition(partyB.adapter, onChainRequestId),
-    );
+    const dispositionA = await pollOutcome('Case C disposition (party A)', partyA.adapter, onChainRequestId);
+    const dispositionB = await pollOutcome('Case C disposition (party B)', partyB.adapter, onChainRequestId);
     console.log('Case C — party A disposition:', dispositionA, '| party B disposition:', dispositionB);
     results.caseC = {
       onChainRequestId,

@@ -499,6 +499,58 @@ export async function submitVelaMultiPartyProjection(
 // ── Decode (reuses the existing single-field VerdictEvent decoder) ─────────
 
 /**
+ * The full outcome of a (possibly still-pending) multi-party request,
+ * distinguishing three cases the raw `errorCode` makes observable but a bare
+ * disposition string collapses into one — discovered live against the public
+ * Vela v0.2.0 devnet (2026-09-14): a fee/fuel execution failure
+ * (`errorCode !== 0`) decodes byte-for-byte identically to a genuine
+ * guest-computed `UNRESOLVED` unless the raw execution status is inspected
+ * first. Execution Failure Non-Equivalence
+ * (`CI-2026-09-14-EXECUTION-FAILURE-NON-EQUIVALENCE-001`): failure to
+ * execute must never be interpreted as a constitutional determination
+ * produced by successful execution.
+ *
+ *  - `'PENDING'`: the request has not yet completed (mirrors the existing
+ *    disposition-null idiom below).
+ *  - `'EXECUTION_FAILED'`: the Vela Executor reported `errorCode !== 0` — a
+ *    transport/resource/fee failure, NEVER the guest's own authorization or
+ *    computation logic (which can only ever emit ACCEPTABLE/UNACCEPTABLE/
+ *    UNRESOLVED via a SUCCESSFUL execution). Carries the raw `errorCode`/
+ *    `errorMsg` so a caller can distinguish this from a genuine `UNRESOLVED`
+ *    without re-deriving it.
+ *  - `'RESOLVED'`: a genuine, guest-computed disposition.
+ */
+export type VelaMultiPartyProjectionOutcome =
+  | { status: 'PENDING' }
+  | { status: 'EXECUTION_FAILED'; errorCode: number; errorMsg: string }
+  | { status: 'RESOLVED'; disposition: ConfidentialProjectionDisposition };
+
+/**
+ * Resolves the full, undegraded outcome of a multi-party request — the
+ * preferred entry point for any caller that will use the result to build a
+ * quote, a receipt, or any other persisted evidence, because it makes an
+ * execution failure structurally impossible to mistake for a real
+ * disposition (a caller has to explicitly handle `'EXECUTION_FAILED'` to
+ * reach a `disposition` value at all — there is no field named `disposition`
+ * on that branch). `getVelaMultiPartyProjectionDisposition` (below) is kept,
+ * unchanged, for existing callers that only need the coarse three-valued
+ * (or pending-null) signal and already treat a failure and a genuine
+ * UNRESOLVED identically on purpose (e.g. a diagnostic script's own
+ * comparison against an expected disposition).
+ */
+export async function getVelaMultiPartyProjectionOutcome(
+  transport: Pick<VelaTransport, 'fetchResult'>,
+  onChainRequestId: string,
+): Promise<VelaMultiPartyProjectionOutcome> {
+  const result = await transport.fetchResult(onChainRequestId);
+  if (!result) return { status: 'PENDING' };
+  if (result.errorCode !== 0) {
+    return { status: 'EXECUTION_FAILED', errorCode: result.errorCode, errorMsg: result.errorMsg };
+  }
+  return { status: 'RESOLVED', disposition: parseConfidentialVerdict(result.decryptedUserEventJson) };
+}
+
+/**
  * Decodes the caller's OWN authorized verdict from a completed multi-party
  * request. Reuses `parseConfidentialVerdict` verbatim — the SAME one-field
  * `{"verdict": ...}` decoder the single-party path already uses — adding no
@@ -515,13 +567,20 @@ export async function submitVelaMultiPartyProjection(
  * choice about which of those two single-party contracts is "right" for a
  * caller to use; it exposes the same underlying fact (`fetchResult` returned
  * null) via the same `null`-while-pending idiom `getProjectionStatus` chose.
+ *
+ * UNCHANGED BEHAVIOUR, KEPT FOR EXISTING CALLERS: still collapses
+ * `'EXECUTION_FAILED'` into the string `'UNRESOLVED'`, exactly as it always
+ * has (fail-closed, never a false ACCEPTABLE/UNACCEPTABLE). A NEW caller that
+ * will persist the result as evidence, a quote, or a receipt MUST use
+ * `getVelaMultiPartyProjectionOutcome` instead — see that function's own
+ * doc comment and Execution Failure Non-Equivalence.
  */
 export async function getVelaMultiPartyProjectionDisposition(
   transport: Pick<VelaTransport, 'fetchResult'>,
   onChainRequestId: string,
 ): Promise<ConfidentialProjectionDisposition | null> {
-  const result = await transport.fetchResult(onChainRequestId);
-  if (!result) return null;
-  if (result.errorCode !== 0) return 'UNRESOLVED';
-  return parseConfidentialVerdict(result.decryptedUserEventJson);
+  const outcome = await getVelaMultiPartyProjectionOutcome(transport, onChainRequestId);
+  if (outcome.status === 'PENDING') return null;
+  if (outcome.status === 'EXECUTION_FAILED') return 'UNRESOLVED';
+  return outcome.disposition;
 }

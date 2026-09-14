@@ -163,8 +163,18 @@ export class VelaConfidentialProjectionProvider implements ConfidentialProjectio
     if (result.errorCode !== 0) {
       // The Executor marked the request failed. That is an execution failure,
       // not a verdict — it must not read as UNACCEPTABLE (which would look
-      // like the confidential conditions were evaluated and rejected).
-      return { requestRef, state: 'FAILED', disposition: 'UNRESOLVED' };
+      // like the confidential conditions were evaluated and rejected). The
+      // raw errorCode/errorMsg travel alongside `state: 'FAILED'` (never
+      // alongside a genuine PROJECTION_* state) so a caller that needs to
+      // distinguish this from a real guest-computed UNRESOLVED can, without
+      // re-deriving it — see Execution Failure Non-Equivalence.
+      return {
+        requestRef,
+        state: 'FAILED',
+        disposition: 'UNRESOLVED',
+        executionErrorCode: result.errorCode,
+        executionErrorMessage: result.errorMsg,
+      };
     }
     const disposition = parseConfidentialVerdict(result.decryptedUserEventJson);
     const state =

@@ -247,6 +247,65 @@ describe('cross-agent isolation — two cases under different agents never bleed
   });
 });
 
+describe('Execution Failure Non-Equivalence — a Vela execution failure is never persisted as constitutional evidence', () => {
+  // Discovered live against the public Vela v0.2.0 devnet (2026-09-14): a
+  // fee/execution failure (errorCode !== 0) decodes to the SAME
+  // disposition:'UNRESOLVED' a genuine guest computation would, unless the
+  // caller checks state==='FAILED' before persisting evidence. Before this
+  // hardening, pollToTerminal only checked `state === 'OBSERVING'` to decide
+  // whether to keep polling, and fell straight through to persistEvidence()
+  // on ANY other terminal state, FAILED included. See
+  // CI-2026-09-14-EXECUTION-FAILURE-NON-EQUIVALENCE-001.
+  it('throws distinctly (naming the raw errorCode) instead of persisting UNRESOLVED evidence', async () => {
+    const admin = makeFakeAdmin();
+    const c = await seedCase(admin, 'candidate-vela-execution-failed');
+    const provider = createFactorConfidentialProjectionProvider({
+      applicationId: 'test-app-execution-failed',
+      errorCode: 9, // mirrors a real Vela Executor-side failure
+    });
+
+    await expect(
+      runAdmissionPacketPolicyEvaluation(admin, {
+        caseId: c.case_id,
+        tenantId: 'default',
+        actorPersonaId: 'persona-operator-1',
+        requestedByAgentRef: 'aigent-factor',
+        policyVersion: 'v1',
+        journeyStageId: 'register',
+        readinessScore: 80,
+        policyThreshold: 60,
+        provider,
+      }),
+    ).rejects.toThrow(/errorCode 9/);
+
+    // No evidence fabricated for a result the confidential app never
+    // actually computed.
+    const { data: evidenceRows } = await admin.from('factor_evidence_items').select('*').eq('case_id', c.case_id);
+    expect(evidenceRows).toHaveLength(0);
+  });
+
+  it('a genuine ACCEPTABLE/UNACCEPTABLE/UNRESOLVED run (errorCode 0) is completely unaffected by this hardening', async () => {
+    const admin = makeFakeAdmin();
+    const c = await seedCase(admin, 'candidate-vela-execution-ok');
+    const provider = createFactorConfidentialProjectionProvider({ applicationId: 'test-app-execution-ok' });
+
+    const result = await runAdmissionPacketPolicyEvaluation(admin, {
+      caseId: c.case_id,
+      tenantId: 'default',
+      actorPersonaId: 'persona-operator-1',
+      requestedByAgentRef: 'aigent-factor',
+      policyVersion: 'v1',
+      journeyStageId: 'register',
+      readinessScore: 80,
+      policyThreshold: 60,
+      provider,
+    });
+    expect(result.disposition).toBe('ACCEPTABLE');
+    const { data: evidenceRows } = await admin.from('factor_evidence_items').select('*').eq('case_id', c.case_id);
+    expect(evidenceRows).toHaveLength(1);
+  });
+});
+
 describe('idempotent-resume — resuming never re-submits, and an unknown request fails honestly rather than fabricating evidence', () => {
   it('resuming an already-terminal request returns the SAME evidence without a second submission', async () => {
     const admin = makeFakeAdmin();

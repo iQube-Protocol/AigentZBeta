@@ -98,6 +98,17 @@ export interface ConfidentialAdmissionProjectionResult {
   completedAt: string;
 }
 
+/**
+ * Polls until the projection leaves OBSERVING, then REFUSES to let a caller
+ * proceed to `persistEvidence` when the terminal state is `FAILED` — an
+ * execution/infrastructure failure (a Vela Executor errorCode) is never a
+ * constitutional determination, so it must never be persisted as evidence
+ * carrying `disposition: 'UNRESOLVED'` alongside every other genuine
+ * UNRESOLVED case. Both call sites below (fresh-run and resume) share this
+ * one check, so neither can be extended later to bypass it independently.
+ * See Execution Failure Non-Equivalence
+ * (`CI-2026-09-14-EXECUTION-FAILURE-NON-EQUIVALENCE-001`).
+ */
 async function pollToTerminal(
   provider: ConfidentialProjectionProvider,
   requestRef: string,
@@ -113,6 +124,17 @@ async function pollToTerminal(
       );
     }
     status = await provider.getProjectionStatus(requestRef);
+  }
+  if (status.state === 'FAILED') {
+    const codeDetail =
+      status.executionErrorCode != null
+        ? ` (errorCode ${status.executionErrorCode}: "${status.executionErrorMessage ?? ''}")`
+        : '';
+    throw new Error(
+      `Confidential projection ${requestRef} failed at the execution layer${codeDetail} — this is an ` +
+        'execution/infrastructure failure, never a constitutional UNRESOLVED determination. Refusing to ' +
+        'persist evidence for a result the confidential app never actually computed.',
+    );
   }
 }
 

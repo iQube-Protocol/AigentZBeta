@@ -236,6 +236,26 @@ describe('Fail-closed paths', () => {
     expect(status.state).toBe('FAILED');
     expect(status.disposition).toBe('UNRESOLVED');
     expect(evidence.disposition).toBe('UNRESOLVED');
+    // The raw errorCode/message travel alongside state:'FAILED' so a caller
+    // can distinguish this from a genuine guest-computed UNRESOLVED without
+    // re-deriving it — see Execution Failure Non-Equivalence
+    // (CI-2026-09-14-EXECUTION-FAILURE-NON-EQUIVALENCE-001).
+    expect(status.executionErrorCode).toBe(7);
+    expect(status.executionErrorMessage).toBeTruthy();
+  });
+
+  it('a genuine (non-failed) PROJECTION_* status never carries executionErrorCode/executionErrorMessage', async () => {
+    const { provider } = makeProvider();
+    const { status } = await runLifecycle(provider, {
+      currentBalance: 10_000,
+      currentExposure: 2_000,
+      proposedSpend: 500,
+      privateSpendLimit: 1_000,
+      privateRiskLimit: 5_000,
+    });
+    expect(status.state).toBe('PROJECTION_ACCEPTABLE');
+    expect(status.executionErrorCode).toBeUndefined();
+    expect(status.executionErrorMessage).toBeUndefined();
   });
 
   it('malformed, unknown and absent verdicts all fail closed to UNRESOLVED', () => {

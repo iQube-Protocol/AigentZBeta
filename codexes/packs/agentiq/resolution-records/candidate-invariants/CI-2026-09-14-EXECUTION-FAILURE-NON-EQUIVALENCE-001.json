@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-14-EXECUTION-FAILURE-NON-EQUIVALENCE-001",
+  "statement": "Execution Failure Non-Equivalence: failure to execute must never be interpreted as a constitutional determination produced by successful execution. In this codebase's Vela confidential-projection substrate, any caller that will persist a projection's result as evidence, a quote, a receipt, or telemetry MUST first check the raw execution status (a Vela Executor errorCode, or the equivalent for any future confidential-compute provider) and refuse to proceed when it indicates failure — even when the failure's coarse decoded disposition happens to read identically to a genuine UNRESOLVED. A confidential app's own UNRESOLVED verdict (produced by a SUCCESSFUL execution that could not safely decide) and an execution/infrastructure failure (the app never ran at all) are two structurally distinct facts that must never be collapsed into one persisted record without at minimum a means to tell them apart, and a caller that is about to persist something MUST use that means rather than the lossy coarse-disposition-only path.",
+  "family": "constitutional",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": ["research-registry", "constitutional-computing"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "classification": "A direct extension of this codebase's existing 'an UNACCEPTABLE projection is a successful result, not an error' rule (app.go's own header, rule 2) to the SYMMETRIC failure direction: just as a real refusal must never be reported as an error, a real error must never be reported as a refusal (or as any other genuine disposition). Also a specific instance of CLAUDE.md's No-Guessing rule applied to EXECUTION STATUS rather than data values: 'this request resolved to UNRESOLVED' is a claim that must be verified against the raw execution status before it is trusted, the same way a URL or env var value must be verified before being written down as fact.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/vela-multi-party-projection.test.ts",
+      "assertion": "describe('Execution Failure Non-Equivalence — getVelaMultiPartyProjectionOutcome') proves getVelaMultiPartyProjectionOutcome returns a distinct EXECUTION_FAILED branch (carrying the raw errorCode/errorMsg, with no `disposition` field reachable without narrowing) for a request whose verdictFor callback WOULD have produced a genuine disposition were it not for a non-zero errorCode — and that the legacy getVelaMultiPartyProjectionDisposition remains byte-for-byte unchanged.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/vela-underwriting-projection.test.ts",
+      "assertion": "describe('Execution Failure Non-Equivalence — a Vela execution failure is never persisted as a constitutional determination') proves runVelaUnderwritingProjection throws (naming the raw errorCode) and never calls the underwriting provider, never creates a receipt, and never records telemetry when the transport reports an execution failure.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/factor-vela-confidential-workload.test.ts",
+      "assertion": "describe('Execution Failure Non-Equivalence — a Vela execution failure is never persisted as constitutional evidence') proves runAdmissionPacketPolicyEvaluation throws (naming the raw errorCode) and persists zero factor_evidence_items rows when the underlying transport reports an execution failure — where before this fix it would have persisted one UNRESOLVED row indistinguishable from a genuine refusal.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "vela-001-confidential-constitutional-execution / multi-party underwriting projection — services/vela/velaUnderwritingProjection.ts",
+      "defect": "pollMultiPartyDispositionToTerminal called getVelaMultiPartyProjectionDisposition, which collapses errorCode !== 0 into the string 'UNRESOLVED' — indistinguishable, at that call site, from a genuine guest-computed refusal. runVelaUnderwritingProjection then fed this into provider.quoteForVerdict() and persisted it via createActivityReceipt and recordVelaUnderwritingRiskTelemetry, all as if the guest had genuinely computed UNRESOLVED.",
+      "resolutionId": "RES-2026-09-14-VELA-EXECUTION-FAILURE-NON-EQUIVALENCE-001",
+      "evidence": ["services/vela/velaUnderwritingProjection.ts", "tests/vela-underwriting-projection.test.ts"]
+    },
+    {
+      "site": "vela-001-confidential-constitutional-execution / Factor confidential admission workload — services/factor/factorConfidentialWorkload.ts",
+      "defect": "pollToTerminal's loop condition (`status.state === 'OBSERVING'`) exited on state:'FAILED' exactly as it does on a genuine PROJECTION_* state, and BOTH call sites (runAdmissionPacketPolicyEvaluation, resumeAdmissionPacketPolicyEvaluation) fell straight through to persistEvidence(), which calls provider.getProjectionEvidence() unconditionally — persisting a factor_evidence_items row (consumed as Aegis admission evidence) with disposition:'UNRESOLVED' for a request that never actually executed.",
+      "resolutionId": "RES-2026-09-14-VELA-EXECUTION-FAILURE-NON-EQUIVALENCE-001",
+      "evidence": ["services/factor/factorConfidentialWorkload.ts", "tests/factor-vela-confidential-workload.test.ts"]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-09-14-VELA-EXECUTION-FAILURE-NON-EQUIVALENCE-001",
+    "RES-2026-09-14-VELA-DEVNET-FUEL-ERRORCODE-MASKED-DISPOSITION-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This is the FIRST recorded occurrence — status stays `candidate`; only an operator act may raise this to `ratified`/`canonical`.",
+    "Distinguish from the diagnostic-discipline candidate CI-2026-09-14-INSPECT-RAW-ERRORCODE-BEFORE-TRUSTING-A-NEW-DISPOSITION-001: that one governs how a HUMAN/AGENT diagnoses a surprising test/proof result; this one governs how PRODUCTION CODE itself must behave before persisting anything. The two compose (the diagnostic discipline is what led to discovering this architectural gap) but are not the same rule.",
+    "Does not require broadening ConfidentialProjectionDisposition to a 4th value, and does not change the single-party VelaConfidentialProjectionProvider.getProjectionEvidence()'s own existing contract (still legitimately collapses to 'UNRESOLVED' for a direct caller that wants exactly that) — the fix is entirely at the poll-to-terminal / persist-evidence boundary, which is the one place that actually decides whether something gets written down."
+  ]
+}
