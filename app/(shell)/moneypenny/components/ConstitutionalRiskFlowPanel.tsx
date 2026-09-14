@@ -33,6 +33,25 @@
  * load, so `MoneyPennyCopilotWorkspace` can fold a bounded ground-context
  * summary into the copilot — mirroring the existing Factor/Aegis
  * `activeCase` pattern exactly (one writer here, one reader there).
+ *
+ * PARTICIPANT VIEW (item 10b, additive): an optional `party` text input
+ * alongside `requestRef` — the same honest "no picker exists" pattern (a
+ * participant must already know their own party label). When filled in, the
+ * SAME route is called with `&party=<value>`, which returns a
+ * `ConstitutionalRiskFlowParticipantView`
+ * (`services/vela/velaUnderwritingPartyView.ts`) instead of the full owner
+ * state. That shape is a STRUCTURAL SUPERSET of `ConstitutionalRiskFlowState`
+ * (every participant step type is that step's own operator-view interface
+ * intersected with `{ visible: boolean }`), so every capsule below renders
+ * it via the exact same field accesses with no branching required — EXCEPT
+ * the Settlement capsule, which special-cased `settlementOccurred === null`
+ * to a fixed operator-facing message that would otherwise silently swallow
+ * the participant redaction's own fixed reason string; that one spot checks
+ * `visible` explicitly (byte-identical behavior when `visible` is absent,
+ * i.e. the operator/global view). A 403 (wrong/no binding) surfaces through
+ * the EXISTING `RiskFlowErrorNote` with the route's own generic message —
+ * never a stack trace, never route-specific detail beyond that message. When
+ * `party` is left blank, behavior is byte-for-byte unchanged.
  */
 
 "use client";
@@ -137,6 +156,7 @@ function stepState(state: ConstitutionalRiskFlowState, id: ConstitutionalRiskFlo
 export function ConstitutionalRiskFlowPanel() {
   const { setActiveRiskFlowRequestRef } = useMoneyPennyNavigation();
   const [requestRefInput, setRequestRefInput] = useState("");
+  const [partyInput, setPartyInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [state, setState] = useState<ConstitutionalRiskFlowState | null>(null);
@@ -144,26 +164,30 @@ export function ConstitutionalRiskFlowPanel() {
   const load = useCallback(async () => {
     const requestRef = requestRefInput.trim();
     if (!requestRef) return;
+    const party = partyInput.trim();
     setLoading(true);
     setError(null);
     try {
-      const res = await personaFetch(
-        `/api/moneypenny/constitutional-risk-flow?requestRef=${encodeURIComponent(requestRef)}`,
-        { cache: "no-store" },
-      );
+      const url = party
+        ? `/api/moneypenny/constitutional-risk-flow?requestRef=${encodeURIComponent(requestRef)}&party=${encodeURIComponent(party)}`
+        : `/api/moneypenny/constitutional-risk-flow?requestRef=${encodeURIComponent(requestRef)}`;
+      const res = await personaFetch(url, { cache: "no-store" });
       const json = (await res.json().catch(() => null)) as RiskFlowStateResponse | null;
       if (!res.ok || !json?.ok || !json.state) {
         throw new Error(json?.error ?? `Failed to load (${res.status})`);
       }
       setState(json.state);
-      setActiveRiskFlowRequestRef(requestRef);
+      // Owner ground-context wiring only applies to the caller's OWN chain
+      // state — a participant view is scoped to another persona's evidence
+      // and must never be folded into this caller's own ground context.
+      if (!party) setActiveRiskFlowRequestRef(requestRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setState(null);
     } finally {
       setLoading(false);
     }
-  }, [requestRefInput, setActiveRiskFlowRequestRef]);
+  }, [requestRefInput, partyInput, setActiveRiskFlowRequestRef]);
 
   return (
     <div className="space-y-4 p-4">
@@ -173,7 +197,7 @@ export function ConstitutionalRiskFlowPanel() {
           admission, disclosure authorization, frozen envelope, private Vela execution, quote, settlement,
           receipt and telemetry.
         </p>
-        <div className="flex items-center gap-2 pt-1">
+        <div className="flex flex-wrap items-center gap-2 pt-1">
           <input
             type="text"
             value={requestRefInput}
@@ -182,7 +206,17 @@ export function ConstitutionalRiskFlowPanel() {
               if (e.key === "Enter") void load();
             }}
             placeholder="requestRef"
-            className="w-full rounded border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-200 placeholder:text-slate-600 focus:border-emerald-600 focus:outline-none"
+            className="w-full min-w-[10rem] flex-1 rounded border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-200 placeholder:text-slate-600 focus:border-emerald-600 focus:outline-none"
+          />
+          <input
+            type="text"
+            value={partyInput}
+            onChange={(e) => setPartyInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void load();
+            }}
+            placeholder="party (optional — view as this party)"
+            className="w-full min-w-[14rem] flex-1 rounded border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-200 placeholder:text-slate-600 focus:border-emerald-600 focus:outline-none"
           />
           <button
             type="button"
@@ -194,6 +228,12 @@ export function ConstitutionalRiskFlowPanel() {
             {loading ? "Loading…" : "Load"}
           </button>
         </div>
+        {partyInput.trim() && (
+          <p className="text-[11px] text-slate-500">
+            Viewing as party <span className="text-slate-300">{partyInput.trim()}</span> — confidential
+            contributions not disclosed to this party render as a redacted notice rather than their real fields.
+          </p>
+        )}
         <RiskFlowErrorNote message={error} />
       </RiskFlowSection>
 
@@ -382,9 +422,18 @@ export function ConstitutionalRiskFlowPanel() {
                 badge={<RiskFlowStepChip state={state.settle.state} label={stepChipLabel(state, "settle")} />}
               >
                 <p className="text-xs text-slate-400">
-                  {state.settle.settlementOccurred === null
-                    ? "No settlement receipt exists for this request."
-                    : state.settle.reason}
+                  {/* Participant view carries an explicit `visible` field the
+                      operator/global state never has — check it FIRST so a
+                      redacted step's own fixed reason string (item 10b) is
+                      never swallowed by the settlementOccurred===null
+                      fallback below, which exists only for the honest
+                      "no evidence yet" operator-view case. Byte-identical to
+                      the pre-10b behavior when `visible` is absent. */}
+                  {"visible" in state.settle && state.settle.visible === false
+                    ? state.settle.reason
+                    : state.settle.settlementOccurred === null
+                      ? "No settlement receipt exists for this request."
+                      : state.settle.reason}
                 </p>
               </RiskFlowCapsule>
             </div>
