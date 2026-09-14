@@ -1,5 +1,16 @@
 # AigentZBeta Agent Contract (Codex-focused)
 
+## Platform Ontology — MANDATORY READING (read before writing any code or copy)
+
+**All agents MUST read `docs/platform-ontology.md` before writing any code, UI copy, or documentation.**
+
+The ontology file defines the canonical spelling and meaning of core platform terms — BlakQube,
+aigentMe, iQube, AigentZ, PSC-001, DVN, MAF, MoneyPenny, Factor, Aegis, Vela, and more. Using a
+non-canonical spelling is a bug, and resolving a canonical term's meaning from that file before
+inferring it from context is required — see the file's own "Enforcement" section. This mirrors
+the equivalent mandatory-reading rule in `CLAUDE.md`; the two files point at the SAME ontology
+file rather than each defining their own.
+
 ## Identity and hierarchy
 - Control (operator clarification, 2026-09-09) is the live execution-perimeter filter applying authority and mandate to current conditions. Valid authority and mandate do not permit execution when changed context makes the action unsafe or impermissible. Ownership and supervision support control but are not its definition.
 - Canonical product spelling: **QubeTalk**. Normalize speech-to-text variants such as “CubeTalk” or “Cube Talk” to **QubeTalk** when the operator refers to this platform capability. Apply this in prose, diagrams, specifications and user-facing labels without asking for repeated clarification. Preserve existing code identifiers and external API contracts unless a rename is explicitly required.
