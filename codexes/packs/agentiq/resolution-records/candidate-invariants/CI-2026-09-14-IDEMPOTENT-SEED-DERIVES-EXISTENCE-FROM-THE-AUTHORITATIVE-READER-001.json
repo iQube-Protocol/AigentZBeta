@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-14-IDEMPOTENT-SEED-DERIVES-EXISTENCE-FROM-THE-AUTHORITATIVE-READER-001",
+  "statement": "An idempotent, reseeding-safe operation over a multi-step causal chain (a demo seed, a backfill, any 'write it if it is not already there' script) must NEVER hand-roll its own parallel 'does this already exist' query per artifact type. It MUST derive that decision from the SAME authoritative, already-existing read-only resolver/projection service that other parts of the system already use to answer the identical question for a different purpose (authorization, redaction, display) — e.g. a chain-state projector that assembles 'what has already happened for this requestRef', or an anti-enumerating binding resolver that already answers 'does this exact (scope, label) pairing already have a recorded owner'. This keeps 'what already happened' answerable in exactly one place, makes a reseed operation naturally idempotent by construction rather than by a second, potentially-drifting existence check, and — as a corollary — a pure composition function must never be described as pure merely because the brief/spec that requested it says so: any real DB read anywhere in its call graph, however read-only, must be surfaced as an INJECTED dependency (resolved by the caller, supplied as a parameter) rather than silently nested inside the 'pure' function, so the function's own purity claim remains a verifiable, structural fact rather than an assumption inherited from an inaccurate paraphrase.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": "CI-2026-09-14-PARTY-LABEL-REQUIRES-RECORDED-PERSONA-BINDING-001",
+  "projections": {
+    "targets": ["research-registry"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "A WRITE-SIDE companion to CI-2026-09-14-PARTY-LABEL-REQUIRES-RECORDED-PERSONA-BINDING-001 (the READ-SIDE anti-enumeration discipline for that same resolver). That candidate established that resolvePartyBindingForViewer is the one authoritative answer to 'is this caller genuinely this party'; this candidate generalizes the same discipline one step further — before WRITING a new instance of anything that resolver (or its sibling, the chain-state projector) already knows how to answer 'does this exist' for, reuse that exact resolver rather than a parallel existence query. It is also a specific instance of CLAUDE.md's No-Guessing rule applied to a SPECIFICATION rather than a fact: a brief's own description of a function as 'pure' is not itself evidence of purity, and must be checked against the function's real signature/imports before code is built on that assumption.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/seed-use-case-zero-demo.test.ts",
+      "assertion": "Rerunning persistUseCaseZeroDemoChain a second time with the SAME requestRef (mocked receipt store + fake Supabase-backed party-bindings table) creates ZERO new receipts, ZERO new party bindings, and calls the mocked runVelaUnderwritingProjection exactly ONCE across both runs — proven by asserting the second run's `created` array is empty and its `skippedExisting` array names every one of the seven artifact categories, and that the Vela-submission mock's call count does not increase between run 1 and run 2. Also proves a BLOCKED envelope (Aegis admission REFUSED, not ADMITTED) still records the three pre-freeze artifacts (Factor selection, admission evidence, disclosure authorization) but never attempts a Vela submission at all.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "vela-001-confidential-constitutional-execution / Use Case Zero build-order item 11 — the first seeded end-to-end demo transaction (ArkAgent / Aigent Nakamoto / Aigent Kn0w1)",
+      "defect": "The build item's own brief described composeUnderwritingAdmissionEvidence as one of 'the REAL pure compose functions' in the chain and implied the whole seed-composition step could be built with zero I/O. Reading services/vela/velaUnderwritingAdmissionEvidence.ts in full showed this function is async, takes a live Supabase admin client as its first parameter, and performs a real read against aegis_assessments/aegis_findings before it can honestly resolve ADMITTED/REFUSED/UNRESOLVED — it cannot be pure, and treating it as such would have meant either (a) the 'pure' compose function silently required a live DB connection despite its own name/contract claiming otherwise, or (b) a shortcut fabricating an ADMITTED result the brief itself would have forbidden under CLAUDE.md's No-Guessing rule. Separately, the idempotent persistence step needed a correct 'does this artifact already exist for this requestRef' check for five different artifact categories (Factor selection, admission evidence, disclosure authorization, three party bindings, the frozen envelope/Vela submission) without inventing five separate existence queries.",
+      "resolutionId": "RES-2026-09-14-USE-CASE-ZERO-DEMO-SEED-RUNNER-001",
+      "evidence": [
+        "scripts/seedUseCaseZeroDemo.ts",
+        "tests/seed-use-case-zero-demo.test.ts",
+        "services/vela/velaUnderwritingChainProjection.ts",
+        "services/vela/velaUnderwritingPartyBinding.ts"
+      ]
+    }
+  ],
+  "derivedFrom": ["RES-2026-09-14-USE-CASE-ZERO-DEMO-SEED-RUNNER-001"],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This is the FIRST recorded occurrence of THIS candidate — status stays `candidate`; only an operator act may raise this to `ratified`/`canonical`.",
+    "Parented to CI-2026-09-14-PARTY-LABEL-REQUIRES-RECORDED-PERSONA-BINDING-001 per this build item's own instruction to justify a natural continuity: this item's persist function literally calls THAT candidate's own subject function (resolvePartyBindingForViewer) as its party-binding existence check, and calls the sibling chain-state projector (getConstitutionalRiskFlowState) for every other artifact — the same 'reuse the one authoritative resolver, never a parallel existence query' discipline, applied on the WRITE side of the exact READ-side primitive that invariant already governs.",
+    "Not yet applied to a second implementation — occurrence count is 1. The natural second occurrence to watch for is any future idempotent seed/backfill/reconciliation script over a multi-step causal chain this platform already has a read-only projector for (e.g. a future Reciprocal Artifact Exchange or QriptoCENT settlement backfill) — it should gate its writes on that chain's own existing projector rather than a new existence query per table.",
+    "The purity-of-a-brief's-claim corollary is deliberately folded into this SAME candidate rather than split into a second one — the two are one lesson (never trust a description of an existing primitive without checking it; reuse the real primitive, whatever its true shape turns out to be), observed together in the same build item."
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-09-14-USE-CASE-ZERO-DEMO-SEED-RUNNER-001",
+  "capability": "vela-001-confidential-constitutional-execution",
+  "milestone": "Use Case Zero build-order item 11 — the first real seeded end-to-end demo transaction (ArkAgent / Aigent Nakamoto / Aigent Kn0w1) proving the whole causal chain, with persona resolution injected rather than hardcoded because Supabase was down platform-wide at build time.",
+  "problem": "Supabase was down platform-wide and this worktree carried no live credentials regardless, yet the demo transaction needed to be fully built and provably correct so that resolving three real personaIds and running one script would be the ONLY remaining step once Supabase returned. The operator's own explicit instruction for this situation was that persona resolution must be an injected dependency, never hardcoded, fabricated, or guessed.",
+  "observedFailure": [
+    "Not an observed runtime defect — a milestone-scoped, additive build item. The gap was that no seed/demo script existed for the three-party Use Case Zero scenario at all, and the build item's own brief inaccurately described one of the real chain functions (composeUnderwritingAdmissionEvidence) as pure when it is not (see rootCauses)."
+  ],
+  "rootCauses": [
+    "The brief's own paraphrase called composeUnderwritingAdmissionEvidence one of 'the REAL pure compose functions' in the chain. Reading services/vela/velaUnderwritingAdmissionEvidence.ts in full shows it is async, takes a live Supabase admin client as its first parameter, and performs a genuine read against aegis_assessments/aegis_findings before it can honestly resolve ADMITTED/REFUSED/UNRESOLVED — it structurally cannot be pure.",
+    "No prior build item in this chain needed to compose ALL of Factor selection + Aegis admission + disclosure authorization + party bindings + frozen envelope in one seeded, idempotent, reseeding-safe operation — each prior item built and tested exactly one artifact/receipt type in isolation.",
+    "No prior script in this repo needed to inject BOTH a full persona triple AND an already-resolved Aegis admission-evidence object as dependencies of one pure composition function — the closest precedent (scripts/vela-slice2e-live-composition.ts) injects only cryptographic keys, not a chain of upstream constitutional evidence."
+  ],
+  "resolution": [
+    "Added scripts/seedUseCaseZeroDemo.ts: assertUseCaseZeroDemoPersonas (fail-closed persona validation), buildUseCaseZeroDemoFactorSelection + buildUseCaseZeroDemoDisclosureScope (pure, reused by both the compose function and the fixture), composeUseCaseZeroDemoChain (genuinely pure — accepts the already-resolved AegisAdmissionEvidence as an injected parameter instead of computing it internally, per the correction in this record's own rootCauses), persistUseCaseZeroDemoChain (effectful, idempotent — gates every write on getConstitutionalRiskFlowState/resolvePartyBindingForViewer, the SAME read-only resolvers this codebase already has, never a hand-rolled existence query), resolveUseCaseZeroDemoPersonaIds (query-only fio_handle/display_name resolver mirroring services/identity/resolveIframePersona.ts's own query shape), and a CLI entry point mirroring scripts/vela-slice2e-live-composition.ts's own --evm-key/--p521-key convention for constructing a real VelaTransport.",
+    "Added app/(shell)/moneypenny/components/constitutionalRiskFlow/__fixtures__/useCaseZeroDemoFixture.ts: a non-live, in-memory fixture reusing composeUseCaseZeroDemoChain's own output, the real createUnderwritingProvider().quoteForVerdict('ACCEPTABLE'), and the real redactConstitutionalRiskFlowStateForParty for all three participant views — never a hand-typed second copy of any of these.",
+    "Added app/(shell)/moneypenny/dev-fixtures/use-case-zero/ (page.tsx + UseCaseZeroDemoFixtureViewer.tsx): a dev-only route gated by a SERVER-SIDE NODE_ENV==='production' check calling Next's notFound() — the route does not exist in a production build/runtime regardless of URL, never a query-param-only gate. Built from the SAME shared riskFlowSurfaceKit.tsx primitives the protected ConstitutionalRiskFlowPanel.tsx uses; that panel itself was never modified.",
+    "Added a quick prompt ('mpy-constitutional-risk-flow') to MoneyPennyCopilotWorkspace.tsx's MONEYPENNY_QUICK_PROMPTS, phrased to match the existing constitutional-risk-flow keyword-sweep regex in app/api/codex/chat/route.ts deterministically (the same design every existing quick prompt already relies on). Exported inferSuggestedLayouts from that route (additive, no logic change) so the round-trip is proven directly by a unit test rather than only by inspection.",
+    "Verification: tests/seed-use-case-zero-demo.test.ts (12 tests: fail-closed persona injection x5, the exact A/B/C asymmetric-disclosure visibility scenario + end-to-end privacy-regression leak check x1, idempotent persistence across two runs + a BLOCKED-envelope case x2, the disclosure-scope shape x1 — 9 total describe-block tests, itemized in the test file) and tests/moneypenny-constitutional-risk-flow-quick-prompt.test.ts (3 tests) all pass. Every directly-related pre-existing suite (tests/vela-underwriting-chain-projection.test.ts, tests/vela-underwriting-composition-gate.test.ts, tests/vela-underwriting-admission-evidence.test.ts, tests/vela-underwriting-disclosure-authorization.test.ts, tests/vela-underwriting-projection.test.ts, tests/vela-underwriting-risk-telemetry.test.ts, tests/vela-multi-party-projection.test.ts, tests/vela-underwriting-party-binding.test.ts, tests/vela-underwriting-party-view.test.ts, tests/moneypenny-constitutional-risk-flow-route.test.ts, tests/moneypenny-constitutional-risk-flow-route-party.test.ts, tests/factor-selection-artifact.test.ts, tests/moneypenny-copilot-workspace.test.ts, tests/codex-chat-domain-resolution-order.test.ts) passes unmodified — 245 tests total across this directly-related set. Full repo suite: 686 test files / 11221 tests passed, 26 files / 77 tests failed — every failure verified pre-existing and unrelated (tests/threshold-public-knowledge-bridge.test.ts, tests/workspace-capabilities-authorization-2026-09-08.test.ts and others touching services/research/reciprocalExchange.ts and unrelated Threshold/Polity surfaces this build item never touched; `git status` confirms only MoneyPennyCopilotWorkspace.tsx and app/api/codex/chat/route.ts were modified, plus new files). `git diff` against base 77b7f99ee confirms zero changes to every protected file this build item named. `npx tsc --noEmit` shows no new errors in any touched file (the one pre-existing error inside app/api/codex/chat/route.ts, `domain === 'aigentMe'` at a different line, is verified present identically in the base commit). No live Supabase call, live Vela submission, or live persona resolution was attempted — Supabase is down platform-wide and no credentials exist in this worktree regardless."
+  ],
+  "rejectedApproaches": [
+    "Calling composeUnderwritingAdmissionEvidence(admin, {...}) INSIDE composeUseCaseZeroDemoChain, or fabricating an ADMITTED AegisAdmissionEvidence object by hand inside that 'pure' function so it would not need a live DB call — both rejected: the former makes the function's own name/contract dishonest (it would not be pure despite being described and tested as such); the latter would fabricate a constitutional fact (Aegis's own ratified judgment) CLAUDE.md's No-Guessing rule forbids on exactly the artifact this whole chain exists to keep independently, evidentially decided.",
+    "A single CLI signature with only the three persona flags (the brief's own illustrative example) — rejected once composeUnderwritingEnvelope's real dependency on a real VelaTransport for submitFrozenUnderwritingEnvelope was traced through: this codebase has no default production Vela deployment to construct one from silently, so --evm-key/--p521-key were added, mirroring scripts/vela-slice2e-live-composition.ts's own existing convention rather than inventing a new one or silently defaulting to a fake in-memory transport for what is meant to be a real demo submission.",
+    "Wiring the DEMO/LOCAL FIXTURE into ConstitutionalRiskFlowPanel.tsx directly via a new prop — rejected because that file is protected (build-order item 10a) and the brief explicitly offered 'a thin new dev-only variant' as the alternative; a separate, additive dev-only route keeps the protected panel at zero changes.",
+    "Gating the fixture route by a `?fixture=1` query param alone — rejected explicitly per the brief's own instruction ('never a URL param alone with no such gate'); the route is gated server-side by NODE_ENV so it cannot exist at all in production regardless of URL.",
+    "A hand-rolled per-artifact-type existence query inside persistUseCaseZeroDemoChain (five separate SELECT statements) — rejected per CLAUDE.md inv.engineering.036/037 and this item's own candidate invariant: getConstitutionalRiskFlowState and resolvePartyBindingForViewer already answer 'does this exist for this requestRef/party' authoritatively and are reused verbatim instead."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-14-IDEMPOTENT-SEED-DERIVES-EXISTENCE-FROM-THE-AUTHORITATIVE-READER-001"
+  ],
+  "canaries": [
+    "tests/seed-use-case-zero-demo.test.ts",
+    "tests/moneypenny-constitutional-risk-flow-quick-prompt.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "milestone-complete",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/seed-use-case-zero-demo.test.ts",
+      "tests/moneypenny-constitutional-risk-flow-quick-prompt.test.ts",
+      "tests/vela-underwriting-chain-projection.test.ts",
+      "tests/vela-underwriting-composition-gate.test.ts",
+      "tests/vela-underwriting-admission-evidence.test.ts",
+      "tests/vela-underwriting-disclosure-authorization.test.ts",
+      "tests/vela-underwriting-projection.test.ts",
+      "tests/vela-underwriting-risk-telemetry.test.ts",
+      "tests/vela-multi-party-projection.test.ts",
+      "tests/vela-underwriting-party-binding.test.ts",
+      "tests/vela-underwriting-party-view.test.ts",
+      "tests/moneypenny-constitutional-risk-flow-route.test.ts",
+      "tests/moneypenny-constitutional-risk-flow-route-party.test.ts",
+      "tests/factor-selection-artifact.test.ts",
+      "tests/moneypenny-copilot-workspace.test.ts",
+      "tests/codex-chat-domain-resolution-order.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-09-14_use-case-zero-demo-seed-runner.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-14_use-case-zero-demo-seed-runner.md",
+    "scripts/seedUseCaseZeroDemo.ts",
+    "app/(shell)/moneypenny/components/constitutionalRiskFlow/__fixtures__/useCaseZeroDemoFixture.ts",
+    "app/(shell)/moneypenny/dev-fixtures/use-case-zero/page.tsx",
+    "services/vela/velaUnderwritingAdmissionEvidence.ts",
+    "services/vela/velaUnderwritingCompositionGate.ts",
+    "services/vela/velaUnderwritingChainProjection.ts",
+    "services/vela/velaUnderwritingPartyBinding.ts",
+    "codexes/packs/agentiq/resolution-records/records/RES-2026-09-14-VELA-PARTY-BINDING-CONSTITUTIONAL-VIEWS-001.json"
+  ],
+  "date": "2026-09-14",
+  "projections": {
+    "targets": ["research-registry"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

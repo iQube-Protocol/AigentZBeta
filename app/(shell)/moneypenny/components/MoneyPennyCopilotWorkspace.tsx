@@ -161,6 +161,15 @@ const MONEYPENNY_QUICK_PROMPTS = [
   // working action.
   { id: 'mpy-market-research', label: 'Market research', prompt: 'Can you share some grounded, cited market research and explainers relevant to my financial situation?' },
   { id: 'mpy-learn-explain', label: 'Learn / Explain', prompt: 'Can you explain volatility, spread, slippage, liquidity, and position sizing to me?' },
+  // Use Case Zero build-order item 11 (2026-09-14) — opens the Constitutional
+  // Risk Flow panel (item 10a). The prompt text is deliberately phrased to
+  // contain the exact literal "constitutional risk flow" so the chat route's
+  // OWN keyword sweep (`LAYOUT_KEYWORDS`, app/api/codex/chat/route.ts) lights
+  // the suggested-layout chip deterministically from the operator's own
+  // message — the same design every other quick prompt here already relies
+  // on (e.g. 'mpy-risk-envelope' matches the risk-envelope keyword) — never
+  // dependent on the LLM choosing to emit a [layout:...] tag.
+  { id: 'mpy-constitutional-risk-flow', label: 'View constitutional risk flow', prompt: 'Can you show me the constitutional risk flow for an underwriting request?' },
 ];
 
 /**

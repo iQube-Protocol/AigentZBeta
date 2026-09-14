@@ -48,6 +48,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-09-14_use-case-zero-demo-seed-runner.md",
         "updates/2026-09-14_repo-weight-design-assets-metame-removal.md",
         "updates/2026-09-14_vela-managed-deployment-bundle.md",
         "updates/2026-09-14_constitutional-risk-flow-party-views.md",

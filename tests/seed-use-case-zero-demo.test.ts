@@ -1,0 +1,377 @@
+/**
+ * scripts/seedUseCaseZeroDemo.ts — Use Case Zero build-order item 11.
+ *
+ * Supabase is down platform-wide as of this build and this worktree carries
+ * no live credentials regardless — every assertion here is proven via
+ * mocked dependencies and pure computation, NEVER a live call. Placeholder
+ * personaIds used throughout (`test-persona-arkagent` etc.) are clearly-fake
+ * strings, never real personas.
+ */
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { createFakeSupabase, type FakeTables } from './_lib/fakeSupabase';
+
+// ── Mocks (module-level, before importing the module under test) ──────────
+
+interface FakeReceiptRecord {
+  id: string;
+  personaId: string;
+  activeCartridge: string;
+  actionType: string;
+  agentsInvoked: string[];
+  actionInput: Record<string, unknown> | null;
+  receiptStatus: 'local';
+  createdAt: string;
+}
+
+let receiptStore: FakeReceiptRecord[] = [];
+let receiptSeq = 0;
+
+const createActivityReceiptMock = vi.fn(async (input: any) => {
+  receiptSeq += 1;
+  const record: FakeReceiptRecord = {
+    id: `receipt-${receiptSeq}`,
+    personaId: input.personaId,
+    activeCartridge: input.activeCartridge ?? 'moneypenny',
+    actionType: input.actionType,
+    agentsInvoked: input.agentsInvoked ?? [],
+    actionInput: input.actionInput ?? null,
+    receiptStatus: 'local',
+    createdAt: new Date(1_700_000_000_000 + receiptSeq * 1000).toISOString(),
+  };
+  receiptStore.push(record);
+  return record;
+});
+
+const listActivityReceiptsForPersonaMock = vi.fn(async (personaId: string, options?: { actionTypes?: string[] }) => {
+  return receiptStore
+    .filter((r) => r.personaId === personaId && (!options?.actionTypes || options.actionTypes.includes(r.actionType)))
+    .slice()
+    .reverse(); // most-recent-first, matching the real reader's own ordering
+});
+
+vi.mock('@/services/receipts/activityReceiptService', () => ({
+  createActivityReceipt: (...args: any[]) => createActivityReceiptMock(...args),
+  listActivityReceiptsForPersona: (...args: any[]) => listActivityReceiptsForPersonaMock(...args),
+}));
+
+let fakeAdmin: { admin: unknown; tables: FakeTables } | null = null;
+const getSupabaseServerMock = vi.fn(() => fakeAdmin?.admin ?? null);
+vi.mock('@/app/api/_lib/supabaseServer', () => ({
+  getSupabaseServer: (...args: any[]) => getSupabaseServerMock(...args),
+}));
+
+const SIMULATED_ACCEPTABLE_QUOTE = {
+  riskBand: 'LOW' as const,
+  estimatedExposure: 500,
+  riskOfRepair: 'LOW' as const,
+  coverageEligible: true,
+  coverageLimit: 5_000,
+  premium: 50,
+  conditions: [] as string[],
+  confidence: 0.75,
+  providerMode: 'SIMULATED' as const,
+};
+
+const runVelaUnderwritingProjectionMock = vi.fn(async () => ({
+  onChainRequestId: 'onchain-request-1',
+  disposition: 'ACCEPTABLE' as const,
+  quote: SIMULATED_ACCEPTABLE_QUOTE,
+  receiptId: null,
+  telemetryRecordId: null,
+}));
+vi.mock('@/services/vela/velaUnderwritingProjection', () => ({
+  runVelaUnderwritingProjection: (...args: any[]) => runVelaUnderwritingProjectionMock(...args),
+}));
+
+// ── Import the module under test AFTER the mocks above ─────────────────────
+
+import {
+  USE_CASE_ZERO_DEMO_REQUEST_REF,
+  USE_CASE_ZERO_PARTY_A,
+  USE_CASE_ZERO_PARTY_B,
+  USE_CASE_ZERO_PARTY_C,
+  assertUseCaseZeroDemoPersonas,
+  buildUseCaseZeroDemoFactorSelection,
+  buildUseCaseZeroDemoDisclosureScope,
+  composeUseCaseZeroDemoChain,
+  persistUseCaseZeroDemoChain,
+  type UseCaseZeroDemoPersonas,
+} from '@/scripts/seedUseCaseZeroDemo';
+import type { AegisAdmissionEvidence } from '@/services/vela/velaUnderwritingAdmissionEvidence';
+import type { ConstitutionalRiskFlowState } from '@/services/vela/velaUnderwritingChainProjection';
+import { redactConstitutionalRiskFlowStateForParty } from '@/services/vela/velaUnderwritingPartyView';
+import type { VelaTransport } from '@/services/vela/velaTypes';
+
+const TEST_PERSONAS: UseCaseZeroDemoPersonas = {
+  arkAgentPersonaId: 'test-persona-arkagent',
+  nakamotoPersonaId: 'test-persona-nakamoto',
+  kn0w1PersonaId: 'test-persona-kn0w1',
+};
+
+function admittedAdmissionEvidence(selectionRef: string, requestRef: string, candidateAgentId: string): AegisAdmissionEvidence {
+  return {
+    admissionRef: 'admission-ref-test-1',
+    selectionRef,
+    requestRef,
+    candidateAgentId,
+    serviceId: null,
+    assessmentRef: 'aegis-assessment-test-1',
+    assessmentVersion: 'v1',
+    admissionStatus: 'ADMITTED',
+    trustSummary: { decision: 'admissible', conditions: [], rationale: 'test', criticalFailedFindingCount: 0 },
+    evidenceRefs: ['aegis-assessment-test-1'],
+    effectiveAt: new Date(0).toISOString(),
+    freshnessMs: 0,
+    aegisAgentId: 'aigent-aegis',
+    reason: 'Aegis ratified this candidate as admissible',
+  };
+}
+
+function composeAdmittedDemoChain(personas: UseCaseZeroDemoPersonas = TEST_PERSONAS) {
+  const factorSelection = buildUseCaseZeroDemoFactorSelection(personas);
+  const admissionEvidence = admittedAdmissionEvidence(
+    factorSelection.selectionRef,
+    factorSelection.requestRef,
+    factorSelection.candidateAgentId,
+  );
+  return composeUseCaseZeroDemoChain({ ...personas, admissionEvidence });
+}
+
+const NOOP_TRANSPORT: VelaTransport = {} as VelaTransport; // never actually used — runVelaUnderwritingProjection is mocked
+
+beforeEach(() => {
+  receiptStore = [];
+  receiptSeq = 0;
+  fakeAdmin = createFakeSupabase();
+  createActivityReceiptMock.mockClear();
+  listActivityReceiptsForPersonaMock.mockClear();
+  runVelaUnderwritingProjectionMock.mockClear();
+});
+
+// ── Fail-closed persona injection ──────────────────────────────────────────
+
+describe('fail-closed persona injection', () => {
+  const admissionEvidence = admittedAdmissionEvidence('sel', USE_CASE_ZERO_DEMO_REQUEST_REF, 'aigent-nakamoto');
+
+  it('throws when arkAgentPersonaId is missing', () => {
+    expect(() =>
+      composeUseCaseZeroDemoChain({ ...TEST_PERSONAS, arkAgentPersonaId: '', admissionEvidence }),
+    ).toThrow(/ArkAgent/);
+  });
+
+  it('throws when nakamotoPersonaId is missing', () => {
+    expect(() =>
+      composeUseCaseZeroDemoChain({ ...TEST_PERSONAS, nakamotoPersonaId: undefined as unknown as string, admissionEvidence }),
+    ).toThrow(/Nakamoto/);
+  });
+
+  it('throws when kn0w1PersonaId is empty/whitespace', () => {
+    expect(() => composeUseCaseZeroDemoChain({ ...TEST_PERSONAS, kn0w1PersonaId: '   ', admissionEvidence })).toThrow(/Kn0w1/);
+  });
+
+  it('throws when admissionEvidence itself is missing — never fabricates ADMITTED', () => {
+    expect(() =>
+      composeUseCaseZeroDemoChain({ ...TEST_PERSONAS, admissionEvidence: undefined as unknown as AegisAdmissionEvidence }),
+    ).toThrow(/admissionEvidence is required/);
+  });
+
+  it('assertUseCaseZeroDemoPersonas rejects a missing field directly', () => {
+    expect(() => assertUseCaseZeroDemoPersonas({ arkAgentPersonaId: 'x', nakamotoPersonaId: 'y' })).toThrow(/Kn0w1/);
+  });
+});
+
+// ── The exact A/B/C visibility scenario ────────────────────────────────────
+
+describe('the exact asymmetric A/B/C disclosure scope', () => {
+  it('produces exactly the grant counts/visibility the brief specifies', () => {
+    const composed = composeAdmittedDemoChain();
+    expect(composed.envelopeResult.outcome).toBe('FROZEN');
+
+    const state: ConstitutionalRiskFlowState = {
+      requestRef: composed.requestRef,
+      select: {
+        id: 'select', state: 'complete', reason: 'x',
+        selectionRef: composed.factorSelection.selectionRef,
+        candidateAgentId: composed.factorSelection.candidateAgentId,
+        serviceId: composed.factorSelection.serviceId,
+        counterpartyId: composed.factorSelection.counterpartyId,
+        providerMode: composed.factorSelection.providerMode,
+        selectionReason: composed.factorSelection.selectionReason,
+        receiptId: 'r-select',
+      },
+      admit: {
+        id: 'admit', state: 'complete', reason: 'x',
+        admissionRef: composed.admissionEvidence.admissionRef,
+        admissionStatus: composed.admissionEvidence.admissionStatus,
+        assessmentRef: composed.admissionEvidence.assessmentRef,
+        assessmentVersion: composed.admissionEvidence.assessmentVersion,
+        aegisAgentId: composed.admissionEvidence.aegisAgentId,
+        receiptId: 'r-admit',
+      },
+      authorize: {
+        id: 'authorize', state: 'complete', reason: 'x',
+        authorizationRef: composed.disclosureAuthorization.authorizationRef,
+        applicationId: composed.disclosureAuthorization.applicationId,
+        authorizedByAgentRef: composed.disclosureAuthorization.authorizedByAgentRef,
+        scope: composed.disclosureAuthorization.scope,
+        receiptId: 'r-authorize',
+      },
+      freeze: {
+        id: 'freeze', state: 'complete', reason: 'x',
+        envelopeRef: composed.envelopeResult.outcome === 'FROZEN' ? composed.envelopeResult.envelope.envelopeRef : null,
+        applicationId: composed.applicationId,
+        candidateAgentId: composed.factorSelection.candidateAgentId,
+        receiptId: 'r-freeze',
+      },
+      execute: {
+        id: 'execute', state: 'complete', reason: 'x',
+        onChainRequestId: 'onchain-1', disposition: 'ACCEPTABLE', providerMode: 'SIMULATED', receiptId: 'r-execute',
+      },
+      quote: { id: 'quote', state: 'complete', reason: 'x', quote: SIMULATED_ACCEPTABLE_QUOTE, receiptId: 'r-quote' },
+      settle: { id: 'settle', state: 'not_started', reason: 'no-funds path', settlementOccurred: false },
+      receipt: { id: 'receipt', state: 'complete', reason: 'x', receipts: [] },
+      telemetry: { id: 'telemetry', state: 'complete', reason: 'x', telemetryRecordId: 't-1' },
+    };
+
+    const aView = redactConstitutionalRiskFlowStateForParty(state, USE_CASE_ZERO_PARTY_A);
+    expect(aView.execute.visible).toBe(true);
+    expect(aView.quote.visible).toBe(true);
+    expect(aView.settle.visible).toBe(true);
+    expect(aView.authorize.scope?.grants).toHaveLength(3);
+
+    const bView = redactConstitutionalRiskFlowStateForParty(state, USE_CASE_ZERO_PARTY_B);
+    expect(bView.execute.visible).toBe(false);
+    expect(bView.quote.visible).toBe(false);
+    expect(bView.settle.visible).toBe(false);
+    expect(bView.authorize.scope?.grants).toHaveLength(2);
+
+    const cView = redactConstitutionalRiskFlowStateForParty(state, USE_CASE_ZERO_PARTY_C);
+    expect(cView.execute.visible).toBe(true);
+    expect(cView.quote.visible).toBe(true);
+    expect(cView.settle.visible).toBe(true);
+    expect(cView.authorize.scope?.grants).toHaveLength(1);
+
+    // ── Privacy regression, end-to-end ──
+    const serialized = JSON.stringify({ state, aView, bView, cView });
+    // No party's raw financial operands.
+    for (const raw of ['"currentExposure":0', '"proposedSpend":400', '"privateSpendLimit":1000', '"privateRiskLimit":1000']) {
+      expect(serialized).not.toContain(raw);
+    }
+    // No real personaId, no T0 identifier field name, no flow-owner/authority
+    // fields (none of which exist on this state/view shape in the first
+    // place — asserted here as an explicit regression proof, mirroring
+    // tests/vela-underwriting-party-view.test.ts's own leak-check style).
+    for (const forbidden of [
+      TEST_PERSONAS.arkAgentPersonaId,
+      TEST_PERSONAS.nakamotoPersonaId,
+      TEST_PERSONAS.kn0w1PersonaId,
+      'flowOwnerPersonaId',
+      'authorityPersonaId',
+      'authorityPrincipalId',
+      'personaId',
+    ]) {
+      expect(serialized).not.toContain(forbidden);
+    }
+    // providerMode is SIMULATED throughout; LIVE never appears (no live
+    // provider exists in this codebase).
+    expect(serialized).toContain('SIMULATED');
+    expect(serialized).not.toContain('"LIVE"');
+    // No settlement occurred (never seeded an asset).
+    expect(state.settle.settlementOccurred).toBe(false);
+    expect(serialized).not.toContain('"settlementOccurred":true');
+  });
+});
+
+// ── Idempotent persistence ──────────────────────────────────────────────────
+
+describe('persistUseCaseZeroDemoChain — idempotent', () => {
+  it('rerunning with the same requestRef never duplicates receipts/bindings and never re-submits to Vela', async () => {
+    const composed = composeAdmittedDemoChain();
+    expect(composed.envelopeResult.outcome).toBe('FROZEN');
+
+    const first = await persistUseCaseZeroDemoChain(composed, {
+      actorPersonaId: TEST_PERSONAS.arkAgentPersonaId,
+      transport: NOOP_TRANSPORT,
+    });
+
+    expect(first.created).toEqual(
+      expect.arrayContaining([
+        'factor_selection_proposed',
+        'vela_underwriting_admission_evidence_composed',
+        'vela_underwriting_disclosure_authorized',
+        `party_binding:${USE_CASE_ZERO_PARTY_A}`,
+        `party_binding:${USE_CASE_ZERO_PARTY_B}`,
+        `party_binding:${USE_CASE_ZERO_PARTY_C}`,
+        'vela_underwriting_envelope_frozen',
+      ]),
+    );
+    expect(first.skippedExisting).toHaveLength(0);
+    expect(runVelaUnderwritingProjectionMock).toHaveBeenCalledTimes(1);
+
+    // Every receipt this run created carries the SAME fixed requestRef.
+    for (const record of receiptStore) {
+      expect(record.actionInput?.requestRef).toBe(USE_CASE_ZERO_DEMO_REQUEST_REF);
+    }
+    const receiptCountAfterFirst = receiptStore.length;
+
+    const second = await persistUseCaseZeroDemoChain(composed, {
+      actorPersonaId: TEST_PERSONAS.arkAgentPersonaId,
+      transport: NOOP_TRANSPORT,
+    });
+
+    expect(second.created).toHaveLength(0);
+    expect(second.skippedExisting).toEqual(
+      expect.arrayContaining([
+        'factor_selection_proposed',
+        'vela_underwriting_admission_evidence_composed',
+        'vela_underwriting_disclosure_authorized',
+        `party_binding:${USE_CASE_ZERO_PARTY_A}`,
+        `party_binding:${USE_CASE_ZERO_PARTY_B}`,
+        `party_binding:${USE_CASE_ZERO_PARTY_C}`,
+        'vela_underwriting_envelope_frozen',
+      ]),
+    );
+    // Still exactly ONE Vela submission across both runs — never re-submitted.
+    expect(runVelaUnderwritingProjectionMock).toHaveBeenCalledTimes(1);
+    // No new receipts were written on the second, idempotent run.
+    expect(receiptStore.length).toBe(receiptCountAfterFirst);
+  });
+
+  it('a BLOCKED envelope (admission not ADMITTED) records the pre-freeze artifacts but never attempts a Vela submission', async () => {
+    const factorSelection = buildUseCaseZeroDemoFactorSelection(TEST_PERSONAS);
+    const refusedAdmission: AegisAdmissionEvidence = {
+      ...admittedAdmissionEvidence(factorSelection.selectionRef, factorSelection.requestRef, factorSelection.candidateAgentId),
+      admissionStatus: 'REFUSED',
+      reason: 'Aegis ratified this candidate as not admissible',
+    };
+    const composed = composeUseCaseZeroDemoChain({ ...TEST_PERSONAS, admissionEvidence: refusedAdmission });
+    expect(composed.envelopeResult.outcome).toBe('BLOCKED');
+
+    const result = await persistUseCaseZeroDemoChain(composed, { actorPersonaId: TEST_PERSONAS.arkAgentPersonaId });
+
+    expect(result.blocked).toMatch(/not ADMITTED/);
+    expect(result.created).toEqual(
+      expect.arrayContaining([
+        'factor_selection_proposed',
+        'vela_underwriting_admission_evidence_composed',
+        'vela_underwriting_disclosure_authorized',
+      ]),
+    );
+    expect(result.created).not.toContain('vela_underwriting_envelope_frozen');
+    expect(runVelaUnderwritingProjectionMock).not.toHaveBeenCalled();
+  });
+});
+
+// ── Disclosure scope shape sanity (verified against the real WASM rule) ────
+
+describe('buildUseCaseZeroDemoDisclosureScope', () => {
+  it('matches the brief\'s exact asymmetric grants', () => {
+    const scope = buildUseCaseZeroDemoDisclosureScope();
+    expect(scope.grants).toEqual([
+      { action: 'COMPUTE_WITH', party: USE_CASE_ZERO_PARTY_A },
+      { action: 'COMPUTE_WITH', party: USE_CASE_ZERO_PARTY_B },
+      { action: 'DISCLOSE_TO', party: USE_CASE_ZERO_PARTY_B, to: USE_CASE_ZERO_PARTY_A },
+      { action: 'DISCLOSE_TO', party: USE_CASE_ZERO_PARTY_A, to: USE_CASE_ZERO_PARTY_C },
+    ]);
+  });
+});
