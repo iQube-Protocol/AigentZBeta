@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-09-14-VELA-DEVNET-FUEL-ERRORCODE-MASKED-DISPOSITION-001",
+  "capability": "vela-001-confidential-constitutional-execution",
+  "milestone": "Public Vela v0.2.0 devnet proof of the MoneyPenny multi-party guest (codexes/packs/agentiq/updates/2026-09-14_vela-public-devnet-v0.2.0-milestone.md) — the first real remote-execution run of Cases A/B/C against a live, non-local Vela instance.",
+  "problem": "The first live run of scripts/vela/public-devnet-smoke.ts against https://devnet.synsema.app/ decoded EVERY case (A, B, and C) as UNRESOLVED, including Case B, which was constructed as a genuinely authorized joint computation and should have produced a real ACCEPTABLE/UNACCEPTABLE joint verdict for Party A. Because getVelaMultiPartyProjectionDisposition (services/vela/velaMultiPartyProjection.ts) intentionally maps ANY non-zero errorCode to 'UNRESOLVED' (an existing, correct fail-closed design choice — an execution failure must never read as a guest-computed UNACCEPTABLE/ACCEPTABLE), a real execution/fee failure and a genuine guest-computed authorization refusal are BOTH observed, from the decoded disposition alone, as the identical string 'UNRESOLVED'. This masked a real defect: the multi-party PROCESS requests were submitted with the bare minFeePerRequest() (10 wei on this devnet) as maxFeeValueWei, and the Executor rejected every one with errorCode 12 'insufficient fuel: required 25 wei, provided 10 wei' — a fee shortfall, not an authorization decision.",
+  "observedFailure": [
+    "Run 1 of the smoke script: Case A UNRESOLVED/UNRESOLVED (expected, but for the wrong reason), Case B UNRESOLVED/UNRESOLVED (WRONG — expected a real joint verdict for Party A), Case C UNRESOLVED/UNRESOLVED (expected, but for the wrong reason). No error was thrown by the script; every case appeared to 'work' by producing a plausible-looking UNRESOLVED disposition."
+  ],
+  "rootCauses": [
+    "VelaClientAdapterOptions.maxFeeValueWei was left unset for every party's adapter, so VelaClientAdapter.resolveMaxFee() fell back to the contract's own minFeePerRequest() — a value calibrated for the cheapest (single-party) execution path, not for a multi-party request that processes more than one party's ProjectionInputs.",
+    "The decoded disposition alone (ACCEPTABLE/UNACCEPTABLE/UNRESOLVED) is, BY DESIGN, insufficient to distinguish 'the guest computed UNRESOLVED' from 'the request failed before the guest's own logic could resolve anything' — this is the correct fail-closed behavior for a caller that only cares about the constitutional disposition, but it means a DEVELOPER diagnosing an unexpected result must inspect the raw VelaRequestResult.errorCode/errorMsg directly, not just the decoded disposition, or a fee-shortfall defect can be mistaken for (or masked by) a legitimate authorization-gate proof."
+  ],
+  "resolution": [
+    "Wrote a small standalone diagnostic script (services/vela/velaClientAdapter.ts's existing fetchResult(), called directly rather than through the decoding helper) against the already-completed on-chain requestIds from run 1, printing the raw errorCode/errorMsg/decryptedUserEventJson instead of only the decoded disposition.",
+    "Confirmed all three cases carried errorCode 12 'insufficient fuel: required 25 wei, provided 10 wei' — the SAME failure on every case, including the ones (A, C) that were expected to be UNRESOLVED anyway, proving even those had not yet actually exercised the guest's binding-mismatch logic.",
+    "Set maxFeeValueWei: 1_000_000n (still negligible against the devnet's 10,000 test-ETH grant) on every party's VelaClientAdapterOptions in scripts/vela/public-devnet-smoke.ts.",
+    "Re-ran the full script end-to-end (fresh deploy, fresh parties, fresh requests). All three cases now returned errorCode 0 with genuine decrypted verdicts. Case B's numbers were ALSO redesigned in the same pass so the joint verdict and Party B's own standalone verdict are mathematically guaranteed to differ (UNACCEPTABLE vs ACCEPTABLE) rather than merely both being 'ACCEPTABLE' by coincidence, which would have been unable to prove that Party B actually received its own standalone result rather than the joint one it was never disclosed."
+  ],
+  "rejectedApproaches": [
+    "Reporting Case B's result as-observed ('all three cases returned UNRESOLVED, proving fail-closed behavior throughout') — rejected as soon as raw errorCode inspection showed this was a fee failure masquerading as a disposition, not the intended proof of Case B's authorized-computation gate at all.",
+    "Fixing only the fee and re-running with the ORIGINAL Case B numbers (both parties' own standalone AND the joint verdict all landing on ACCEPTABLE) — rejected because that combine formula (aggregate must respect every contributing party's own limits, monotonic in the non-negative inputs) makes 'joint ACCEPTABLE' mathematically imply 'every combined party's own standalone is ALSO ACCEPTABLE' — so a passing result with those numbers would not have been decisive proof that Party B received its own standalone verdict rather than the joint one; the numbers were redesigned so the two values are provably different instead."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-14-INSPECT-RAW-ERRORCODE-BEFORE-TRUSTING-A-NEW-DISPOSITION-001"
+  ],
+  "canaries": [
+    "Manual: codexes/packs/agentiq/updates/2026-09-14_vela-public-devnet-v0.2.0-milestone.md records both the raw errorCode 12 finding and the final errorCode 0 confirmation for all three cases as durable evidence this was actually diagnosed, not assumed."
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "multi-cycle-repair",
+  "evidence": {
+    "commits": [],
+    "tests": [],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-09-14_vela-public-devnet-v0.2.0-milestone.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-14_vela-public-devnet-v0.2.0-milestone.md",
+    "scripts/vela/public-devnet-smoke.ts",
+    "services/vela/velaMultiPartyProjection.ts",
+    "services/vela/velaClientAdapter.ts"
+  ],
+  "date": "2026-09-14",
+  "projections": {
+    "targets": ["research-registry"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

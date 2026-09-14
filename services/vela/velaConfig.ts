@@ -50,7 +50,7 @@ export const VELA_LOCAL_DEPLOYMENT: VelaDeploymentDescriptor = {
   attestationMode: 'no_attestation',
 };
 
-export type VelaEnv = 'local' | 'early_access';
+export type VelaEnv = 'local' | 'early_access' | 'public_devnet';
 
 /** The only two spellings `VelaAttestationMode` accepts. Kept as a runtime
  *  list (not just the type) so an unrecognised env var value fails closed
@@ -109,6 +109,57 @@ function resolveEarlyAccessDeployment(): VelaDeploymentDescriptor {
 }
 
 /**
+ * Reads a required env var for the public devnet deployment, throwing a
+ * specific "missing X" error rather than defaulting to a guessed value — same
+ * discipline as `requireEnv` above, applied to the Synsema public Vela v0.2.0
+ * devnet (https://devnet.synsema.app/) instead of a Horizen early-access
+ * instance. That devnet is EMULATED TEE (`attestationMode: 'no_attestation'`
+ * always — it is never Nitro-attested, so there is no
+ * `VELA_PUBLIC_DEVNET_ATTESTATION_MODE` var to get wrong), ephemeral (an
+ * `applicationId` obtained against it will not survive the instance's
+ * periodic resets — same ephemerality discipline as
+ * `RES-2026-08-22-VELA-APPLICATION-ID-EPHEMERAL-001`), and ISSUED PER CALLER:
+ * every coordinate below (RPC/authority/subgraph URL, contract addresses) is
+ * scoped to one ephemeral token obtained from `POST https://devnet.synsema.app/token`
+ * — never hardcoded here, never committed, read from env only.
+ */
+function requirePublicDevnetEnv(varName: string): string {
+  const value = process.env[varName];
+  if (!value) {
+    throw new Error(
+      `resolveVelaDeployment('public_devnet'): missing required env var ${varName} — ` +
+        'no public-devnet coordinate may be guessed or defaulted. ' +
+        'Obtain a fresh token via POST https://devnet.synsema.app/token and set it from the response.',
+    );
+  }
+  return value;
+}
+
+function resolvePublicDevnetDeployment(): VelaDeploymentDescriptor {
+  const chainIdRaw = requirePublicDevnetEnv('VELA_PUBLIC_DEVNET_CHAIN_ID');
+  const chainId = Number(chainIdRaw);
+  if (!Number.isInteger(chainId) || chainId <= 0) {
+    throw new Error(
+      `resolveVelaDeployment('public_devnet'): VELA_PUBLIC_DEVNET_CHAIN_ID must be a positive integer, got "${chainIdRaw}".`,
+    );
+  }
+  return {
+    chainId,
+    rpcUrl: requirePublicDevnetEnv('VELA_PUBLIC_DEVNET_RPC_URL'),
+    processorEndpointAddress: requirePublicDevnetEnv('VELA_PUBLIC_DEVNET_PROCESSOR_ENDPOINT_ADDRESS'),
+    teeAuthenticatorAddress: requirePublicDevnetEnv('VELA_PUBLIC_DEVNET_TEE_AUTHENTICATOR_ADDRESS'),
+    authorityServiceUrl: requirePublicDevnetEnv('VELA_PUBLIC_DEVNET_AUTHORITY_SERVICE_URL'),
+    subgraphUrl: requirePublicDevnetEnv('VELA_PUBLIC_DEVNET_SUBGRAPH_URL'),
+    // Fixed, never read from env: the Synsema devnet's own docs state it runs
+    // "no attestation" unconditionally (docs/vela/... quotes it verbatim) —
+    // there is no attested variant of this specific public instance to
+    // mis-set via a malformed env var, unlike early_access's genuinely
+    // variable attestation mode.
+    attestationMode: 'no_attestation',
+  };
+}
+
+/**
  * Resolves a Vela deployment descriptor by named environment.
  *
  * `'local'` always returns the proven local Docker Compose coordinates —
@@ -120,11 +171,18 @@ function resolveEarlyAccessDeployment(): VelaDeploymentDescriptor {
  * or malformed — this function will not run, partially configured, against a
  * guessed endpoint. See docs/vela/VELA_EARLY_ACCESS_HANDOFF.md for what
  * Horizen provisions before these vars can be set for real.
+ *
+ * `'public_devnet'` reads every coordinate from a `VELA_PUBLIC_DEVNET_*` env
+ * var, scoped to one ephemeral token from the public Synsema Vela v0.2.0
+ * devnet (`https://devnet.synsema.app/`) — same fail-closed discipline, never
+ * a Horizen-managed or Nitro-attested deployment. See
+ * `scripts/vela/public-devnet-smoke.ts` for the acquisition + export flow.
  */
 export function resolveVelaDeployment(env: VelaEnv): VelaDeploymentDescriptor {
   if (env === 'local') return VELA_LOCAL_DEPLOYMENT;
   if (env === 'early_access') return resolveEarlyAccessDeployment();
+  if (env === 'public_devnet') return resolvePublicDevnetDeployment();
   throw new Error(
-    `resolveVelaDeployment: unrecognised env "${env}" — only "local" and "early_access" exist.`,
+    `resolveVelaDeployment: unrecognised env "${env}" — only "local", "early_access" and "public_devnet" exist.`,
   );
 }

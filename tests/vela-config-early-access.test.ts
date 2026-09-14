@@ -139,3 +139,101 @@ describe('resolveVelaDeployment', () => {
     );
   });
 });
+
+/**
+ * 'public_devnet' — the public Synsema Vela v0.2.0 devnet
+ * (https://devnet.synsema.app/), added 2026-09-14 after running the current
+ * MoneyPenny multi-party guest through its real deploy/register/submit/poll
+ * lifecycle. Same fail-closed discipline as 'early_access': every coordinate
+ * from an env var, no guessed endpoint, no silent fallback. Unlike
+ * 'early_access', attestationMode is NOT env-configurable — this specific
+ * public instance is documented (by its own devnet page) as unconditionally
+ * "no attestation", so there is no attestation-mode var to mis-set.
+ */
+const PUBLIC_DEVNET_VARS = [
+  'VELA_PUBLIC_DEVNET_CHAIN_ID',
+  'VELA_PUBLIC_DEVNET_RPC_URL',
+  'VELA_PUBLIC_DEVNET_PROCESSOR_ENDPOINT_ADDRESS',
+  'VELA_PUBLIC_DEVNET_TEE_AUTHENTICATOR_ADDRESS',
+  'VELA_PUBLIC_DEVNET_AUTHORITY_SERVICE_URL',
+  'VELA_PUBLIC_DEVNET_SUBGRAPH_URL',
+] as const;
+
+const VALID_PUBLIC_DEVNET_ENV: Record<(typeof PUBLIC_DEVNET_VARS)[number], string> = {
+  VELA_PUBLIC_DEVNET_CHAIN_ID: '31337',
+  VELA_PUBLIC_DEVNET_RPC_URL: 'https://devnet.synsema.app/EXAMPLE-TOKEN/rpc',
+  VELA_PUBLIC_DEVNET_PROCESSOR_ENDPOINT_ADDRESS: '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
+  VELA_PUBLIC_DEVNET_TEE_AUTHENTICATOR_ADDRESS: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+  VELA_PUBLIC_DEVNET_AUTHORITY_SERVICE_URL: 'https://devnet.synsema.app/EXAMPLE-TOKEN/authority',
+  VELA_PUBLIC_DEVNET_SUBGRAPH_URL: 'https://devnet.synsema.app/EXAMPLE-TOKEN/subgraph/subgraphs/name/hcce',
+};
+
+describe("resolveVelaDeployment('public_devnet')", () => {
+  const saved: Partial<Record<string, string | undefined>> = {};
+
+  beforeEach(() => {
+    for (const v of PUBLIC_DEVNET_VARS) {
+      saved[v] = process.env[v];
+      delete process.env[v];
+    }
+  });
+
+  afterEach(() => {
+    for (const v of PUBLIC_DEVNET_VARS) {
+      if (saved[v] === undefined) delete process.env[v];
+      else process.env[v] = saved[v];
+    }
+  });
+
+  it('throws a specific missing-var error when nothing is configured', () => {
+    expect(() => resolveVelaDeployment('public_devnet')).toThrow(
+      /missing required env var VELA_PUBLIC_DEVNET_CHAIN_ID/,
+    );
+  });
+
+  it('names the FIRST missing var, not a generic "not configured" message', () => {
+    for (const [key, value] of Object.entries(VALID_PUBLIC_DEVNET_ENV)) {
+      process.env[key] = value;
+    }
+    delete process.env.VELA_PUBLIC_DEVNET_AUTHORITY_SERVICE_URL;
+    expect(() => resolveVelaDeployment('public_devnet')).toThrow(
+      /missing required env var VELA_PUBLIC_DEVNET_AUTHORITY_SERVICE_URL/,
+    );
+  });
+
+  it('resolves a fully-configured public_devnet deployment from env vars, matching them exactly, always no_attestation', () => {
+    for (const [key, value] of Object.entries(VALID_PUBLIC_DEVNET_ENV)) {
+      process.env[key] = value;
+    }
+    const deployment = resolveVelaDeployment('public_devnet');
+    expect(deployment).toEqual({
+      chainId: 31337,
+      rpcUrl: VALID_PUBLIC_DEVNET_ENV.VELA_PUBLIC_DEVNET_RPC_URL,
+      processorEndpointAddress: VALID_PUBLIC_DEVNET_ENV.VELA_PUBLIC_DEVNET_PROCESSOR_ENDPOINT_ADDRESS,
+      teeAuthenticatorAddress: VALID_PUBLIC_DEVNET_ENV.VELA_PUBLIC_DEVNET_TEE_AUTHENTICATOR_ADDRESS,
+      authorityServiceUrl: VALID_PUBLIC_DEVNET_ENV.VELA_PUBLIC_DEVNET_AUTHORITY_SERVICE_URL,
+      subgraphUrl: VALID_PUBLIC_DEVNET_ENV.VELA_PUBLIC_DEVNET_SUBGRAPH_URL,
+      attestationMode: 'no_attestation',
+    });
+  });
+
+  it('rejects a non-numeric chain id rather than coercing it', () => {
+    for (const [key, value] of Object.entries(VALID_PUBLIC_DEVNET_ENV)) {
+      process.env[key] = value;
+    }
+    process.env.VELA_PUBLIC_DEVNET_CHAIN_ID = 'not-a-number';
+    expect(() => resolveVelaDeployment('public_devnet')).toThrow(
+      /VELA_PUBLIC_DEVNET_CHAIN_ID must be a positive integer/,
+    );
+  });
+
+  it('never falls back to local or early_access coordinates when unconfigured', () => {
+    let thrown = false;
+    try {
+      resolveVelaDeployment('public_devnet');
+    } catch {
+      thrown = true;
+    }
+    expect(thrown).toBe(true);
+  });
+});

@@ -172,3 +172,10 @@ test-artifacts/
 # build output, never committed; the canonical bytes live in Autonomys Auto Drive
 # once uploaded, referenced from the content row via pdfCid/pdfAssetId.
 output/pdf/
+
+# scripts/vela/public-devnet-smoke.ts's own run output — an ephemeral evidence
+# dump (applicationId, tx hashes, dispositions) from a ONE-OFF devnet run, not
+# source. The devnet itself resets periodically, so a committed result would
+# go stale immediately; the durable record lives in
+# codexes/packs/agentiq/updates/2026-09-14_vela-public-devnet-v0.2.0-milestone.md.
+scripts/vela/.public-devnet-smoke-last-result.json

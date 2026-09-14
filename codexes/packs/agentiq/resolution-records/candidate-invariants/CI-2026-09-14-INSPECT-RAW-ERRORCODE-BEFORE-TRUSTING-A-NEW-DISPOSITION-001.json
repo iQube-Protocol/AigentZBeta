@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-14-INSPECT-RAW-ERRORCODE-BEFORE-TRUSTING-A-NEW-DISPOSITION-001",
+  "statement": "Whenever a Vela confidential-projection request is run against a NEW environment, a NEW request shape, or with materially different fee/gas parameters than a previously-proven configuration, and the decoded disposition (ACCEPTABLE/UNACCEPTABLE/UNRESOLVED) is UNEXPECTED — especially a run where every case decodes to UNRESOLVED — the raw VelaRequestResult.errorCode/errorMsg MUST be inspected directly (fetchResult(), not the decoding helper) before concluding the guest's own authorization/computation logic produced that result. getVelaMultiPartyProjectionDisposition and parseConfidentialVerdict deliberately map ANY non-zero errorCode to 'UNRESOLVED' (correct: an execution failure must never read as a guest-computed verdict), which means a fee/fuel/infrastructure failure is OBSERVATIONALLY IDENTICAL, from the decoded disposition alone, to a genuine fail-closed authorization refusal. Treating an all-UNRESOLVED run as proof of fail-closed behavior without this check risks reporting an execution-fee defect as a successful constitutional-boundary proof.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": ["research-registry"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "A specific application of CLAUDE.md's No-Guessing rule to test/proof interpretation: a decoded three-valued disposition is a DELIBERATELY LOSSY projection of richer raw evidence (errorCode, errorMsg, the decrypted payload itself), and a caller diagnosing surprising results must decode at the LEAST lossy layer available before drawing a conclusion, not stop at the most convenient one. Generalizes beyond Vela to any fail-closed decoder in this codebase that collapses distinct failure classes (infra failure vs. genuine refusal) into the same observable value for good reasons at the CALLER layer — the same collapsing is a liability at the DIAGNOSIS layer.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "(none automated — this is a diagnostic-discipline invariant, not a code-level assertion; the guest's own fail-closed errorCode-to-UNRESOLVED mapping is correct and must not be weakened)",
+      "assertion": "The next time a Vela proof run against a new environment/config produces an unexpected all-UNRESOLVED (or otherwise suspicious uniform) result, the investigation record must show the raw errorCode was inspected before either (a) accepting the result as a genuine authorization proof, or (b) reporting a defect elsewhere.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "vela-001-confidential-constitutional-execution / public Vela v0.2.0 devnet proof — scripts/vela/public-devnet-smoke.ts, first live run",
+      "defect": "All three cases (A, B, C) decoded as UNRESOLVED on the first run against https://devnet.synsema.app/, including Case B (a genuinely authorized joint computation expected to produce a real joint verdict). Raw errorCode inspection revealed errorCode 12 'insufficient fuel: required 25 wei, provided 10 wei' on every case — a fee shortfall (maxFeeValueWei defaulted to the contract's single-party-calibrated minFeePerRequest()), not the guest's own authorization logic. Undetected, this would have been reported as 'fail-closed proven across all three cases' when in fact NONE of the three cases had yet exercised the guest's real disposition logic.",
+      "resolutionId": "RES-2026-09-14-VELA-DEVNET-FUEL-ERRORCODE-MASKED-DISPOSITION-001",
+      "evidence": [
+        "codexes/packs/agentiq/updates/2026-09-14_vela-public-devnet-v0.2.0-milestone.md",
+        "scripts/vela/public-devnet-smoke.ts"
+      ]
+    }
+  ],
+  "derivedFrom": ["RES-2026-09-14-VELA-DEVNET-FUEL-ERRORCODE-MASKED-DISPOSITION-001"],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This is the FIRST recorded occurrence — status stays `candidate`; only an operator act may raise this to `ratified`/`canonical`.",
+    "Distinguish from a legitimate use of the lossy decoder: a PRODUCTION caller (e.g. the underwriting composition gate) correctly treats infra failure and genuine refusal identically (both must be UNRESOLVED, never surfaced as a false ACCEPTABLE/UNACCEPTABLE) — this invariant applies to DIAGNOSIS of an unexpected test/proof result, not to production disposition-consuming code, which must keep collapsing these cases exactly as it does today."
+  ]
+}
