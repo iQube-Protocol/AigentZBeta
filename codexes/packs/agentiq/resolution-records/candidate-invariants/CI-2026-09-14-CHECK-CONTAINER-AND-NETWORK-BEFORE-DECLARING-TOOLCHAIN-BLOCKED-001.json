@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-14-CHECK-CONTAINER-AND-NETWORK-BEFORE-DECLARING-TOOLCHAIN-BLOCKED-001",
+  "statement": "Before declaring a build/artifact task BLOCKED because a local toolchain or binary is absent from the current environment, two cheaper checks must happen first, in order: (1) search the repo itself for an existing Dockerized or CI build path for that exact artifact (a Dockerfile, a pinned container image, a GitHub Actions workflow) that would make the host's own toolchain irrelevant; (2) if no such path exists and the toolchain is a small, versioned, publicly-downloadable release (a compiler, an SDK), test actual outbound network reachability directly (e.g. one `curl` to the exact release URL) rather than assuming a sandbox blocks it based on an unrelated or outdated note about network restrictions elsewhere in this codebase's own documentation. Only after BOTH checks come back negative is 'BLOCKED, run this on a machine with X installed' an honest conclusion — and even then, the exact command plus the exact pinned version (never an unpinned 'latest') must be given, so whoever unblocks it later reproduces the identical artifact this session would have produced.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": ["research-registry"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "A specific application of CLAUDE.md's own No-Guessing rule to environment-capability claims, not just data values: 'this environment cannot do X' is itself a factual claim that must be verified before being written into a document as ground truth, the same way a URL or an env var value must be. The generalizable failure mode is treating 'not currently installed' as synonymous with 'cannot be installed' or 'cannot be worked around' without testing either.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "(none automated — this is a documentation/process discipline, not a code-level invariant)",
+      "assertion": "The next time an agent writes 'BLOCKED — toolchain not installed' into any update doc or resolution record, that doc must also state (a) whether a Docker/CI path was searched for, and (b) whether outbound network reachability to the toolchain's official release source was tested — not merely that the binary is absent from `PATH` or a hardcoded default path.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "vela-001-confidential-constitutional-execution / Vela managed-deployment bundle prep — WASM binary + SHA-256 for moneypenny_projector",
+      "defect": "codexes/packs/agentiq/updates/2026-09-14_vela-managed-deployment-bundle.md's FIRST revision (same day) declared this section BLOCKED because /usr/local/tinygo/bin/tinygo did not exist, without checking for a Dockerized/CI build path in the repo (there was none, but this was never checked) and without testing whether the environment could reach TinyGo's public release directly (it could — a curl to the GitHub release URL returned 302, and TinyGo 0.39.0 downloaded and ran successfully, producing a real, verified WASM binary with SHA-256 085869849896aa423a5fa6c13cc5651a4446240b538e37c6a517dbd3cbdecf02).",
+      "resolutionId": "RES-2026-09-14-VELA-WASM-TINYGO-BUILD-UNBLOCKED-001",
+      "evidence": [
+        "codexes/packs/agentiq/updates/2026-09-14_vela-managed-deployment-bundle.md",
+        "services/vela/wasm/projector/Makefile"
+      ]
+    }
+  ],
+  "derivedFrom": ["RES-2026-09-14-VELA-WASM-TINYGO-BUILD-UNBLOCKED-001"],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This is the FIRST recorded occurrence — status stays `candidate`; only an operator act may raise this to `ratified`/`canonical`.",
+    "The prompting event was the operator's own explicit instruction: 'check whether the repo already has a Dockerized TinyGo build path or CI action before concluding TinyGo not installed here means cannot build.' This candidate generalizes that one-off instruction into a standing check for ANY future toolchain-absence claim, not just TinyGo.",
+    "Distinguish this from a genuine, confirmed blocker: after both checks, a toolchain that truly cannot be installed (e.g. requires a license, requires hardware this environment lacks, requires credentials this session was never given) is still honestly BLOCKED — this invariant does not forbid ever reporting a blocker, only forbids reporting one without having tried the two cheap checks first."
+  ]
+}

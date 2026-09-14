@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-09-14-VELA-WASM-TINYGO-BUILD-UNBLOCKED-001",
+  "capability": "vela-001-confidential-constitutional-execution",
+  "milestone": "Vela managed-deployment bundle prep — the real WASM binary + SHA-256 for the moneypenny_projector kernel, previously reported as BLOCKED in codexes/packs/agentiq/updates/2026-09-14_vela-managed-deployment-bundle.md, was produced this same day after the operator instructed checking for a Dockerized/CI TinyGo build path before accepting 'TinyGo not installed' as 'cannot build.'",
+  "problem": "An earlier revision of the deployment bundle doc (this same session, same day) declared the WASM binary + SHA-256 section BLOCKED, reasoning that /usr/local/tinygo/bin/tinygo (the Makefile's own default path) did not exist in the environment and no TinyGo toolchain was installed. This was accurate as a literal statement but incomplete as a conclusion: it did not check whether the repo already had an alternate build path (a Dockerfile, a CI workflow pinning a container image with TinyGo), and it did not test whether this environment's outbound network access — documented elsewhere in this session as generally reachable via a proxy, contradicting an unrelated older sandbox note about QubeTalk's HTTPS being blocked — could reach a public TinyGo release directly.",
+  "observedFailure": [
+    "The prior bundle doc instructed the operator to run `make production_build` 'on a machine with TinyGo installed,' i.e. treated this repo's own environment as permanently incapable of producing the artifact, rather than as merely lacking a toolchain that could potentially be installed."
+  ],
+  "rootCauses": [
+    "No check was performed for an existing Dockerized/CI build path before writing 'BLOCKED' — a repo-wide grep for `Dockerfile`/`tinygo` under `.github/workflows/` was never run in the first pass.",
+    "No attempt was made to test actual outbound network reachability before assuming the environment could not download a toolchain — the conclusion was inferred from 'the binary isn't on disk' rather than tested against 'can this environment reach the internet to fetch it.'"
+  ],
+  "resolution": [
+    "Checked for a Dockerized/CI TinyGo build path first, per the operator's explicit instruction: `find . -iname 'Dockerfile*'` under `services/vela/`, and a grep of `.github/workflows/*` for `tinygo`/`wasm` — both came back empty. `services/vela/wasm/projector/Makefile` hardcodes `TINYGO ?= /usr/local/tinygo/bin/tinygo` with no containerized alternative. Confirmed: no existing Docker/CI path exists in this repo for this build.",
+    "Tested outbound HTTPS reachability directly rather than assuming the sandbox blocks it: `curl` to a GitHub Releases URL returned HTTP 302 (a normal redirect to a CDN asset), proving the environment's proxy allows this traffic.",
+    "Downloaded TinyGo 0.39.0 (the exact version this codebase's own prior update doc, `2026-08-22_vela-001-slice-2b-confidential-projection-proven.md`, already names as the pinned version — not an arbitrary choice) directly from GitHub Releases into the session's scratchpad directory, extracted it, and ran the real, unmodified `make production_build TINYGO=<path to extracted binary>` target.",
+    "Produced a real, verified WebAssembly (WASI) binary: `moneypenny_projector.wasm`, 519,641 bytes, SHA-256 `085869849896aa423a5fa6c13cc5651a4446240b538e37c6a517dbd3cbdecf02`, confirmed by `file` as a valid WebAssembly module. Delivered the binary to the operator directly via SendUserFile (the container is ephemeral; the binary is `.gitignore`'d and was never committed, per CLAUDE.md's Dense Materials rule).",
+    "Updated `codexes/packs/agentiq/updates/2026-09-14_vela-managed-deployment-bundle.md` and the companion demo-completion checklist doc to mark this item RESOLVED with the real hash, and to fold in the operator's separately-supplied confirmed Vela Engineering guidance narrowing the remaining open questions to exactly four."
+  ],
+  "rejectedApproaches": [
+    "Leaving the prior 'BLOCKED, run on a TinyGo-equipped machine' framing unchanged after receiving the operator's instruction to check for a Docker/CI path — rejected because the operator's instruction was explicit and the check was cheap (two greps) relative to the value of either confirming the blocker or resolving it.",
+    "Assuming outbound network access was blocked (per an unrelated, older CLAUDE.md note about QubeTalk's own HTTPS calls failing in a different, non-remote sandbox context) without testing it directly for THIS environment — rejected once the system prompt's own description of this session ('a managed remote execution environment' with 'a pre-configured agent proxy') suggested the QubeTalk note might not generalize; a direct `curl` test settled it in one command rather than propagating an unverified assumption into a second document."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-14-CHECK-CONTAINER-AND-NETWORK-BEFORE-DECLARING-TOOLCHAIN-BLOCKED-001"
+  ],
+  "canaries": [
+    "Manual: the real WASM SHA-256 in codexes/packs/agentiq/updates/2026-09-14_vela-managed-deployment-bundle.md §1 is itself the durable evidence this was actually built, not merely claimed possible."
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [],
+    "tests": [],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-09-14_vela-managed-deployment-bundle.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-14_vela-managed-deployment-bundle.md",
+    "codexes/packs/agentiq/updates/2026-09-14_use-case-zero-demo-completion-checklist.md",
+    "services/vela/wasm/projector/Makefile"
+  ],
+  "date": "2026-09-14",
+  "projections": {
+    "targets": ["research-registry"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

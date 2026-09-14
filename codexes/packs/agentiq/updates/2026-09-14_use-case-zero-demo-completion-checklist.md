@@ -61,27 +61,36 @@ This persists the SAME chain the fixture already demonstrates, against real pers
 - It does not mean settlement has ever occurred — `settlementOccurred: false` throughout; this is a
   no-funds-path demonstration of the risk/coverage verdict, not an asset transfer.
 
-## 2. Managed Vela testnet-complete — NOT STARTED (blocked)
+## 2. Managed Vela testnet-complete — NOT STARTED (partially unblocked)
 
 **Definition:** the SAME chain runs against a real Vela Engineering-managed deployment (Base
 Sepolia and/or Horizen testnet), replacing the local WASM/simulated path with genuine TEE-attested
 confidential execution — a categorically different milestone, not an extension of §1.
 
-Full bundle-preparation status: `codexes/packs/agentiq/updates/2026-09-14_vela-managed-deployment-bundle.md`.
-Summary of what blocks this milestone specifically:
+**Update:** the operator supplied confirmed guidance from Vela Engineering closing most of what
+this table originally listed as open (multi-app isolated state/funds implemented, native
+ETH/ERC-20/facilitator paths implemented, new-WASM-means-new-`applicationId` confirmed, attestation
+model confirmed — see the deployment bundle doc's own "Update" section for the full statement).
+**Only four items remain genuinely open**, and the WASM row below is now RESOLVED — a real WASM
+binary was built and handed to the operator this same session, after checking for (and finding
+none) a Dockerized/CI TinyGo build path first, per the operator's own instruction, then downloading
+TinyGo 0.39.0 directly (outbound HTTPS to GitHub Releases turned out to be reachable).
 
-| Blocker | Detail | Unblocked by |
+Full bundle-preparation status: `codexes/packs/agentiq/updates/2026-09-14_vela-managed-deployment-bundle.md`.
+
+| Blocker | Detail | Status |
 |---|---|---|
-| WASM binary + SHA-256 | No TinyGo toolchain in this environment | Building `services/vela/wasm/projector/` with `make production_build` on a TinyGo-equipped machine |
-| Constructor params / trigger contract | Not yet drafted anywhere in this repo — a genuine open question for Vela Engineering | Vela's own answer to open question 20 in `08_VELA_OFFICE_HOURS_QUESTIONS_2026-09-11.md` |
-| Expected network | Base Sepolia vs. Horizen testnet — separate trust domains? | Vela's answer to open question 22 |
-| Test wallet addresses | Live Supabase query against `agent_keys` needed | Supabase being reachable again |
-| `applicationId` ↔ WASM-hash binding | Open question 5 in the same doc | Vela's answer, then a follow-on implementation item (recording the binding in this codebase's own evidence trail) |
-| Tally intake submission | `https://tally.so/r/xXWL1v` — whether already submitted is unverifiable from this repo | Operator confirmation |
+| WASM binary + SHA-256 | `moneypenny_projector.wasm`, TinyGo 0.39.0 | **RESOLVED** — SHA-256 `085869849896aa423a5fa6c13cc5651a4446240b538e37c6a517dbd3cbdecf02`, delivered to operator |
+| Constructor params / trigger contract | Not yet drafted anywhere in this repo | **Open — Vela question 1** |
+| `applicationId` ↔ WASM-hash binding | Canonical evidence-binding fields | **Open — Vela question 2** |
+| Base Sepolia vs. Horizen trust domains | Both networks confirmed in scope; separate TEE registrations? | **Open — Vela question 3** |
+| Test wallet addresses | Live Supabase query against `agent_keys` needed | Still blocked — Supabase unreachable (`Aigent Z` project shows `INACTIVE`, direct query times out, re-checked this session) — unrelated to the three Vela questions above |
+| Tally intake submission | `https://tally.so/r/xXWL1v` — whether already submitted is unverifiable from this repo | Needs operator confirmation |
 
 **Nothing in §1's completion unblocks any row in this table.** Conversely, nothing in this table
 was required to reach §1 — the two milestones are deliberately independent, per the operator's own
-framing when this work was scoped.
+framing when this work was scoped. Per the operator's explicit instruction, none of the four
+remaining open items should block further repo-side preparation.
 
 ## 3. What NOT to infer from this checklist
 
