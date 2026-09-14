@@ -53,9 +53,19 @@
       ]
     },
     {
+      "id": "col_thresholds_candidates",
+      "title": "Threshold Research Candidates",
+      "description": "Source candidate manuscripts under evidence resolution (Research Edition + Reading Edition pairs), committed verbatim as provenance for the corresponding evidence-resolution record. Not canonical.",
+      "items": [
+        "thresholds-candidates/2026-09-14_threshold-007.3-research-edition-candidate.md",
+        "thresholds-candidates/2026-09-14_threshold-007.3-reading-edition.md"
+      ]
+    },
+    {
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-09-14_threshold-007.3-evidence-resolution.md",
         "reviews/2026-09-14_invariant-intelligence-merit-to-falsify-review.md",
         "updates/2026-09-14_threshold-007-longitudinal-evidence-bundle-v1.1-addendum.md",
         "updates/2026-09-13_threshold-007-longitudinal-evidence-bundle-v1.0.md",
