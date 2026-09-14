@@ -493,7 +493,11 @@ function parseEmailDraft(text: string): { subject: string; bodyText: string; rec
   return { subject, bodyText: afterSubject.trim(), recipientHint };
 }
 
-function inferSuggestedLayouts(
+// Exported (Use Case Zero build-order item 11, 2026-09-14 — additive, no
+// logic change) so a test can prove the keyword-sweep/tag round-trip for a
+// given layout id directly, rather than only through a full chat-route
+// integration test. No existing test imports this; this is the first.
+export function inferSuggestedLayouts(
   message: string,
   assistantMessage: string,
   history?: ChatMessage[],
