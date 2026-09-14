@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-14",
+  "resolutionId": "RES-2026-09-14-REPO-WEIGHT-DESIGN-ASSETS-METAME-001",
+  "capability": "repository-hygiene",
+  "milestone": "Operator directive: repo-weight invariant breach flagged (total tracked bytes ~115.5MB against a ~103MB budget); triage, find the actual offending path(s) via git history, and either relocate/delete dense material per CLAUDE.md's Dense Materials rule or produce an itemized report for operator judgment — never raise the budget or extend the FROZEN grandfather list. Closes the unresolved risk named in RES-2026-08-23-REPO-WEIGHT-PREEXISTING-HEADROOM-001 ('identify and relocate a grandfathered or newly-oversized tracked file... as its own repository-hygiene task').",
+  "problem": "`tests/repo-weight.test.ts`'s total-tracked-bytes canary failed: the repo carried 116,395,201 bytes (111.0 MB) against the 103,000,000-byte (98 MB) MAX_TRACKED_TOTAL_BYTES budget, ~13.4 MB over.",
+  "observedFailure": [
+    "`npx vitest run tests/repo-weight.test.ts` reported 'the repo now carries 111.0 MB of tracked files, over the 98 MB budget' at branch tip 77b7f99ee.",
+    "The per-file oversize check ('no NEW tracked file exceeds 1MB') was PASSING throughout — no single new file over 1MB caused this. The overage was the aggregate of ~2,322 newly tracked files (mostly legitimate source/tests/docs added over ~1,836 commits since the budget was last frozen on 2026-08-02) plus organic growth in existing files, minus some removed files — genuine, distributed codebase growth with no single smoking-gun commit."
+  ],
+  "rootCauses": [
+    "Within that distributed growth, one identifiable, non-organic block of dense material was hiding in plain sight: `design-assets/metaMe/{sources,iQube}/**` (45 files, 19.4 MB of PNG/EPS/AI/CDR brand renders and derivative icon-size ladders). `git grep -r design-assets` across the entire repo (application code, config, tests) matched only `tests/repo-weight.test.ts` itself (the grandfather-list entries) and one prose doc recording its own history — zero import/src/fetch/require references anywhere.",
+    "This material was NOT newly added by any recent session. It originated from a 2026-09-07 Amplify BUILD-ARTIFACT-size incident (see codexes/packs/agentiq/updates/2026-09-07_amplify-build-size-cap-incident-and-handoff.md), which relocated `public/metaMe/sources/` and `public/metaMe/iQube/` (~20MB, 'verified zero code references') OUT of `public/` and into `design-assets/metaMe/` to stop those bytes from being traced into the Next.js deploy artifact. That fix was correct and effective FOR THE PROBLEM IT SOLVED (the Amplify SSR-Compute artifact-size cap, governed by `.next/standalone` weight per the separate Amplify Build-Size Budget section of CLAUDE.md) — but a relocation from one in-repo path to another in-repo path does not remove a single byte from `git ls-files`, which is what `tests/repo-weight.test.ts`'s DIFFERENT budget (repository tracked-tree weight) measures. The 2026-09-07 fix's own grandfather-list entry (6 of the 45 files) even said so explicitly at the time: 'still grandfathered debt, now at least not costing every Amplify build its size budget' — correctly scoped to the artifact-size problem, silent on the repo-weight one. The other 36 files (the per-colorway icon-size-ladder derivatives under `iQube/`) were never individually over 1MB, so they were never grandfathered or flagged by the per-file check at all, and simply rode along as untracked debt until the aggregate total-budget canary caught it here.",
+    "This is the same repository-hygiene defect flagged as an unresolved risk in RES-2026-08-23-REPO-WEIGHT-PREEXISTING-HEADROOM-001 ('the pre-existing headroom is effectively exhausted... this should be triaged as its own repository-hygiene task') — that record explicitly declined to fix it inline and asked for a dedicated pass, which this resolution is."
+  ],
+  "resolution": [
+    "Confirmed via `npx vitest run tests/repo-weight.test.ts` the exact failing measurement (116,395,201 bytes vs the 103,000,000-byte budget) before making any change.",
+    "Diffed tracked-file sizes between the commit that last froze the budget (e1240c6f0, 2026-08-02, repo at 93.25MB) and HEAD (111.0MB) via `git ls-tree -r -l` at both commits, confirming no single new file over 1MB was the cause (2,322 new files totaling 39.2MB, 111 removed files totaling 24.4MB, plus growth in existing files — organic, distributed growth) before searching for a non-organic block within that growth.",
+    "Identified `design-assets/metaMe/{sources,iQube}/**` (45 files, 19.4MB) as confirmed-zero-code-reference dead weight via a repo-wide grep for `design-assets` (zero application-code matches) and cross-referenced against the 2026-09-07 incident doc's own prior 'verified zero code references' finding for the same material.",
+    "Before removal: computed a sha256 manifest of all 45 files and copied their bytes into this session's scratchpad, so the exact original content remains verifiable/recoverable independent of git history alone.",
+    "Removed all 45 files from git tracking (`git rm -r design-assets/metaMe/iQube design-assets/metaMe/sources`) — left the small (8.7KB) `design-assets/metaMe/CONSTITUTIONAL_BRAND_ASSETS.md` registry doc untouched in place, since it is prose documentation (provenance/usage rules), not dense binary material, and CLAUDE.md's Dense Materials section explicitly allows 'a JSON or Markdown record with the CID or storage path, title, hash, provenance' to be committed.",
+    "Retired the 6 now-nonexistent GRANDFATHERED_OVERSIZE entries in `tests/repo-weight.test.ts` (the 2026-09-07 entries for the `sources/*` files), replacing them with a dated retirement comment naming what was removed, why, and where the bytes + sha256 manifest are preserved pending upload — following the file's own established retirement-comment pattern (see the 2026-08-15 `artifacts/build-info/...` retirement comment already in that file). Per CLAUDE.md's own text ('Deleting or relocating a grandfathered file needs no permission and no bookkeeping... tidying the list afterwards is welcome, not required'), this required no operator sign-off.",
+    "Did NOT touch MAX_TRACKED_TOTAL_BYTES (kept at 103,000,000) and did NOT add any new grandfathered entry.",
+    "Verified `npx vitest run tests/repo-weight.test.ts` after the change: repo weight now 96,026,077 bytes (91.6MB), comfortably under the 103,000,000-byte budget (~6.4MB of real headroom) — all four `repo weight` describe-block assertions pass, plus the pre-existing `a grandfathered entry cannot outlive the debt it describes` and `the budget is re-frozen...` assertions.",
+    "Confirmed via `git diff --stat` against the base commit (77b7f99ee) that exactly 46 files changed (45 deleted design assets + the test file edit) and via `git status --short | grep` that zero paths under services/vela/, services/factor/, services/moneypenny/, app/(shell)/moneypenny/, or app/api/moneypenny/ were touched, per the operator's explicit scope boundary (concurrent, unrelated Vela Use Case Zero work in progress on other sessions)."
+  ],
+  "rejectedApproaches": [
+    "Raising MAX_TRACKED_TOTAL_BYTES to make the failure disappear — rejected per CLAUDE.md's explicit text: 'Raising this number is not the fix.'",
+    "Adding a new GRANDFATHERED_OVERSIZE entry for any of the 45 files — rejected: the rule is 'an entry may be REMOVED... never added,' and in any case only 6 of the 45 were ever individually over the 1MB per-file threshold, so a grandfather-list entry would not even have been the mechanism that fixed the total-budget failure.",
+    "Deleting the manuscript directory `codexes/packs/polity-core/items/commentary/constitutional-internet/` (2.3MB of book chapter drafts, a genuine Dense-Materials-rule violation category per CLAUDE.md's explicit 'Manuscripts and long-form work — chapter drafts, book builds, exports' prohibition) or the `docs/qubetalk-bridge/outbox/` accumulation (0.62MB of transient bridge packets) as additional budget headroom — rejected as unnecessary once the design-assets/metaMe removal alone cleared the budget with margin, and because both require operator judgment on canonical destination (working draft -> Supabase vs. ratified/frozen -> Auto Drive) that this task's own instructions reserve for the operator rather than an agent guess. Flagged in the accompanying update doc as a secondary, non-blocking observation instead.",
+    "Actually uploading the removed files to Supabase Storage myself before deleting them from git — rejected: this session has no verified live Supabase Storage upload path (no MCP storage-upload tool, and per CLAUDE.md's 'Session Start — Verify Connector/MCP Access' rule, connector reachability must be verified, never assumed; even a reachable Supabase MCP here only exposes SQL/migration tools, not a blob-storage upload primitive). Fabricating a storage URL would violate CLAUDE.md's No-Guessing rule. Instead: original bytes + sha256 manifest preserved in the session scratchpad and named in the update doc for the operator to complete the actual upload, with the git history itself (parent commit) as a secondary recovery path in the interim."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-14-RELOCATION-WITHIN-REPO-DOES-NOT-EXIT-GIT-001"
+  ],
+  "canaries": [
+    "tests/repo-weight.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "invariant-incomplete-or-misscoped",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/repo-weight.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-09-07_amplify-build-size-cap-incident-and-handoff.md",
+      "codexes/packs/agentiq/updates/2026-07-29_brd-001-brand-asset-constitutional-restructure.md"
+    ]
+  },
+  "sourceDocs": [
+    "tests/repo-weight.test.ts",
+    "codexes/packs/agentiq/resolution-records/records/RES-2026-08-23-REPO-WEIGHT-PREEXISTING-HEADROOM-001.json",
+    "codexes/packs/agentiq/updates/2026-09-14_repo-weight-design-assets-metame-removal.md"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  },
+  "unresolvedRisks": [
+    "codexes/packs/polity-core/items/commentary/constitutional-internet/ (2.3MB, book chapter drafts) is a genuine Dense-Materials-rule violation candidate (CLAUDE.md explicitly names 'Manuscripts and long-form work — chapter drafts, book builds, exports' as never-commit material) that was NOT touched here because it did not block the budget and its canonical destination (Supabase working-draft vs. Auto Drive ratified-CID) needs operator judgment. Left for a future dedicated pass or explicit operator instruction.",
+    "docs/qubetalk-bridge/outbox/ (0.62MB across 28 files) is a growing, never-pruned accumulation of transient fire-and-forget bridge packets (CLAUDE.md's own bridge doc describes them as ephemeral relay payloads, not a permanent record) that will keep growing every session that uses the bridge. Not touched here (did not block the budget); a future session could add a retention/pruning policy.",
+    "The 45 removed design-asset files are recoverable via `git show <commit-before-this-resolution>:<path>` and via the sha256-verified copies preserved in this session's scratchpad, but neither is a durable, generally-accessible location. The actual Supabase Storage (or Auto Drive) upload + pointer-doc update per CLAUDE.md's Dense Materials table remains outstanding operator/future-agent work."
+  ]
+}

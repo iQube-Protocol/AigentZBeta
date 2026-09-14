@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-14-RELOCATION-WITHIN-REPO-DOES-NOT-EXIT-GIT-001",
+  "statement": "Moving confirmed-dead-weight material (verified zero code references) from one in-repo path to another in-repo path solves whichever budget is measured on a SUBSET of the tree (e.g. the Amplify `.next/standalone` deploy-artifact-size budget, or any deploy-artifact/build-output measurement) but does not remove a single byte from `git ls-files`, so it does NOT satisfy a DIFFERENT budget measured on the whole tracked tree (e.g. `tests/repo-weight.test.ts`'s MAX_TRACKED_TOTAL_BYTES). A fix scoped to one budget must be labelled as scoped to that budget only, and 'verified zero code references' found during that fix should be treated as a standing invitation to finish the job (remove from git entirely, or upload to Supabase/Auto Drive and leave a pointer) rather than left as grandfathered debt whose original justification (fixing the OTHER budget) has already been achieved.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  },
+  "classification": "A scope-confusion defect between two independently governed size budgets that both exist in this codebase (CLAUDE.md's 'Amplify Build-Size Budget' section governing `.next/standalone`, and its 'Dense Materials' / `tests/repo-weight.test.ts` section governing total tracked bytes) — a fix correctly scoped to one silently leaves the other's problem in place, and the intermediate state (relocated, confirmed dead, still tracked) looks resolved because it IS resolved for the budget it was written for. The general shape recurs anywhere two size/weight ceilings are measured over overlapping-but-not-identical sets (a container image vs. a source tree; a bundle vs. a monorepo package; a deploy artifact vs. the repo that produces it).",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/repo-weight.test.ts",
+      "assertion": "Total tracked bytes stay under MAX_TRACKED_TOTAL_BYTES; this candidate names the general form of why a within-repo relocation (as opposed to an actual git-rm / true externalization) does not move that number.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "design-assets/metaMe/{sources,iQube}/**",
+      "defect": "A 2026-09-07 fix moved ~20MB of confirmed-zero-code-reference brand-asset PNG/EPS/AI/CDR files from public/metaMe/ to design-assets/metaMe/ to stop them being traced into the Next.js/Amplify deploy artifact. That fix worked for the artifact-size problem. The files remained fully git-tracked at the new path, so `tests/repo-weight.test.ts`'s total-tracked-bytes budget kept counting all 19.4-20MB of them, and 6 of the 45 files were even explicitly re-grandfathered at the new path with a comment correctly scoping the fix to the artifact-size problem ('now at least not costing every Amplify build its size budget') while leaving the repo-weight debt unaddressed. Surfaced 2026-09-14 when the repo-weight budget failed for unrelated reasons and this material was found to be the single largest confirmed-safe-to-remove block.",
+      "resolutionId": "RES-2026-09-14-REPO-WEIGHT-DESIGN-ASSETS-METAME-001",
+      "evidence": [
+        "codexes/packs/agentiq/updates/2026-09-07_amplify-build-size-cap-incident-and-handoff.md",
+        "tests/repo-weight.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-09-14-REPO-WEIGHT-DESIGN-ASSETS-METAME-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This is a single occurrence so far (status stays at `candidate`, not `validated`, per AGENT_MAX_STAGE discipline — an agent may not self-promote past `validated` even with two occurrences, and this has only one). If a future session finds the same relocated-but-still-tracked pattern elsewhere, record it as a second occurrence here rather than a new candidate.",
+    "Does not authorize deleting material without first confirming zero code references AND (where the material is a real, non-derivable asset such as a design master) preserving the bytes + a hash manifest out-of-band before removal from git, per the same Dense Materials discipline this candidate extends."
+  ]
+}

@@ -101,19 +101,20 @@ const GRANDFATHERED_OVERSIZE: ReadonlySet<string> = new Set([
   'public/images/demo/agentiq-tutorial.jpg',
   'public/images/demo/penny-digital.jpg',
   'public/images/demo/qripto-chronicles.jpg',
-  // 2026-09-07: relocated out of public/metaMe/ — unreferenced by any code
-  // (verified: no import/src pointed at these paths; only
-  // public/metaMe/metaMe/metame-32.png is actually rendered), so keeping
-  // them under public/ was pure deploy-artifact weight for zero runtime
-  // benefit. Moved to design-assets/metaMe/ (outside the Next.js public/
-  // and .next/ deploy footprint) rather than deleted — still grandfathered
-  // debt, now at least not costing every Amplify build its size budget.
-  'design-assets/metaMe/sources/asset-specification-sheet.png',
-  'design-assets/metaMe/sources/iqube-copper-render-alt.png',
-  'design-assets/metaMe/sources/iqube-copper-render.png',
-  'design-assets/metaMe/sources/iqube-sand-render.png',
-  'design-assets/metaMe/sources/iqube-stone-render.png',
-  'design-assets/metaMe/sources/iqube-teal-render.png',
+  // design-assets/metaMe/sources/{asset-specification-sheet,iqube-copper-render-alt,
+  // iqube-copper-render,iqube-sand-render,iqube-stone-render,iqube-teal-render}.png,
+  // plus every design-assets/metaMe/iQube/{copper,sand,stone,teal}/iqube-*.png derivative
+  // (36 files, not previously grandfathered individually — none was ever over 1MB alone)
+  // — RETIRED 2026-09-14. The 2026-09-07 entry above already established these had zero
+  // code references (moved out of public/ to fix an unrelated Amplify build-size cap
+  // incident); that move fixed the deploy-artifact problem but never solved the repo-weight
+  // one — the bytes stayed tracked at a new path. Confirmed again before removal: `grep -r
+  // design-assets` across the repo matches only this test file and the doc recording the
+  // 2026-09-07 move, no application code. Deleted from git (repo total 111.0 MB -> ~91.6
+  // MB); original bytes + a sha256 manifest are preserved out-of-band pending upload to
+  // Supabase Storage per CLAUDE.md's Dense Materials table (Media -> Supabase Storage).
+  // Recoverable from git history at this commit's parent if needed before that upload.
+  // `CONSTITUTIONAL_BRAND_ASSETS.md` (the registry doc itself, 8.7KB prose) is untouched.
 ]);
 
 function trackedFiles(): string[] {
