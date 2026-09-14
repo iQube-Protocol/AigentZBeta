@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-09-14-VELA-PARTY-BINDING-CONSTITUTIONAL-VIEWS-001",
+  "capability": "vela-001-confidential-constitutional-execution",
+  "milestone": "Use Case Zero build-order item 10b — binds a VelaMultiPartyDisclosureScope party label to a real, authenticated persona via a new server-internal table + service, and extends the item-10a Constitutional Risk Flow route/panel to serve a non-spoofable, per-party REDACTED view of the same causal chain, gated by that binding and by the exact COMPUTE_WITH/DISCLOSE_TO grants in scope. Zero changes to velaUnderwritingChainProjection.ts, velaUnderwritingCompositionGate.ts, velaMultiPartyProjection.ts, velaPartyNamespace.ts, or activityReceiptDvnPipeline.ts.",
+  "problem": "There was no binding anywhere in this codebase between a `party` label used inside a VelaMultiPartyDisclosureScope grant (grants[].party/.to are free strings) and any real, authenticated persona — so a party's 'view' of a Constitutional Risk Flow could not be authorized non-spoofably. Any caller could claim to be 'party-a' by supplying that string, and (before this item) the route had no mechanism to check whether the caller's own persona actually corresponded to that label at all, let alone for the correct requestRef.",
+  "observedFailure": [
+    "Not an observed runtime defect — a milestone-scoped additive item, the direct continuation of item 10a's own read-only viewer. The gap was structural: item 10a's route/service only ever resolved the CALLER's own persona-scoped receipts, with no path at all for a caller to view another party's (or a shared) view of the SAME requestRef's evidence under a disclosure-scope-gated redaction."
+  ],
+  "rootCauses": [
+    "VelaMultiPartyPartyInput/VelaScopeGrant (velaMultiPartyProjection.ts) never carried a correlating persona identifier for a party label — `identities.authorityPrincipal`/`confidentialPrivacyIdentity` exist only inside the confidential-projection request-construction path and are never persisted anywhere as a durable, queryable binding from party_label to persona.",
+    "The only real (non-test) caller populating a ConfidentialProjectionIdentitySet (services/factor/factorConfidentialWorkload.ts) is single-party (authorityPrincipal := actorPersonaId) — there was no multi-party precedent anywhere in this codebase for what a durable party<->persona binding should even look like.",
+    "Item 10a's own chain-projection service and route were correctly scoped to a SINGLE persona's own self-view (the caller's own activity_receipts) — extending that to a per-party view required a NEW authorization primitive (a binding lookup) that did not previously exist, not a change to that self-view path itself."
+  ],
+  "resolution": [
+    "Added supabase/migrations/20261001001100_vela_underwriting_party_bindings.sql: vela_underwriting_party_bindings(id, request_ref, application_id, party_label, party_namespace_ref, authority_principal_id, authority_persona_id, flow_owner_persona_id, binding_type, binding_evidence_ref, bound_at), UNIQUE(request_ref, party_label) ONLY (never on authority_persona_id — the same persona may legitimately hold more than one party role on the same request), service-role-only RLS mirroring factor_cases_service_only verbatim. Never DVN-anchored, never an activity_receipts row, never a new ActivityActionType — the same server-internal escape valve factor_case_events.actor_persona_id already establishes in this codebase for storing a real personaId in a non-chain-bound table.",
+    "Added services/vela/velaUnderwritingPartyBinding.ts: recordUnderwritingPartyBinding (plain insert, fail-closed to null) and resolvePartyBindingForViewer (anti-enumeration — EVERY non-match case, whether no row exists at all or a row exists naming a different persona, resolves the exact same { authorized: false } shape; fail-closed on a query error or thrown exception too).",
+    "Added services/vela/velaUnderwritingPartyView.ts: a PURE redaction function redactConstitutionalRiskFlowStateForParty(state, partyLabel) implementing the operator's own five-gate visibility model verbatim — Select/Admit/Freeze/Receipt/Telemetry always visible; Authorize always visible with scope.grants filtered to grant.party===partyLabel || grant.to===partyLabel (total grant count never exposed); Execute/Quote/Settle visible ONLY when a DISCLOSE_TO grant names this party as `to` (COMPUTE_WITH membership alone never grants visibility); every step's `state` field is always the real state, only `reason` and substantive fields are redacted, and the redacted reason is always the SAME fixed literal string regardless of the real disposition/premium/anything else. Extends (via TypeScript intersection with { visible: boolean }), rather than parallel-redefines, velaUnderwritingChainProjection.ts's own per-step interfaces — every field on those interfaces was already nullable, verified by reading that file in full first.",
+    "Extended app/api/moneypenny/constitutional-risk-flow/route.ts with an OPTIONAL ?party= query param. Absent: byte-for-byte the original item-10a behavior (the four original route tests pass unmodified). Present: resolves the CALLER's own persona via the identity spine (never a client-supplied personaId — there is none on this route to begin with), calls resolvePartyBindingForViewer, returns a SINGLE generic 403 message for every denial case, and on authorization reads the chain state against the RESOLVED flowOwnerPersonaId (never the viewer's own persona) before redacting it for that party. flowOwnerPersonaId is used only for that internal lookup and never reaches the JSON response body.",
+    "Extended app/(shell)/moneypenny/components/ConstitutionalRiskFlowPanel.tsx with an optional `party` text input (same honest 'no picker exists' pattern as requestRef). When filled in, the same route is called with &party=<value>; the returned ConstitutionalRiskFlowParticipantView is a structural superset of ConstitutionalRiskFlowState, so every existing capsule renders it via the SAME field accesses with zero changes needed, EXCEPT the Settlement capsule, which special-cased settlementOccurred===null to a fixed operator-facing message that would otherwise have silently swallowed the participant redaction's own fixed reason string — that one spot now checks the `visible` field explicitly first, with byte-identical behavior when `visible` is absent (the operator/global view). A ground-context safety addition beyond the brief's own text: the owner ground-context write (setActiveRiskFlowRequestRef) is skipped entirely when viewing a participant view, since that state belongs to another persona's evidence and must never be folded into the viewer's own ground context.",
+    "Verification: tests/vela-underwriting-party-binding.test.ts (14 tests), tests/vela-underwriting-party-view.test.ts (14 tests), tests/moneypenny-constitutional-risk-flow-route-party.test.ts (8 tests) all pass — 36 new tests total. tests/moneypenny-constitutional-risk-flow-route.test.ts's four original tests pass UNMODIFIED (verified: no edits made to that file's assertions). tests/vela-underwriting-chain-projection.test.ts (17 tests, unmodified), tests/vela-underwriting-composition-gate.test.ts (18), tests/vela-underwriting-admission-evidence.test.ts (26), tests/vela-underwriting-disclosure-authorization.test.ts (16), tests/vela-underwriting-projection.test.ts (19), tests/vela-underwriting-risk-telemetry.test.ts (9), tests/vela-multi-party-projection.test.ts (23), tests/moneypenny-capability-navigation.test.ts (8), tests/moneypenny-copilot-workspace.test.ts (41) all pass unchanged — 218 tests total across all directly-related suites. git diff against dev@26a3cb321 confirms zero changes to services/vela/velaUnderwritingChainProjection.ts, services/vela/velaUnderwritingCompositionGate.ts, services/vela/velaMultiPartyProjection.ts, services/vela/velaPartyNamespace.ts, and services/dvn/activityReceiptDvnPipeline.ts. No live Supabase credentials are available in this worktree (same as item 10a) — the migration is authored and verified by inspection against the factor_cases_service_only precedent, but was NOT applied to any live database; the operator must run the SQL manually (provided verbatim in the accompanying update doc)."
+  ],
+  "rejectedApproaches": [
+    "Deriving a party<->persona binding transiently from the request payload at submission time instead of a durable, queryable table — rejected per the operator's own explicit ruling: 'It is a recorded constitutional binding', i.e. a persisted fact a later, independent read (a different HTTP request, days later) must be able to resolve, not something recomputed only within one request's own lifetime.",
+    "A UNIQUE(request_ref, authority_persona_id) constraint (one persona, one party, per request) — rejected explicitly per the operator's own instruction: the same persona MAY legitimately hold more than one party role in the same transaction (e.g. acting on behalf of two parties in a joint computation), and a broader-scoped uniqueness constraint would silently forbid that legitimate case. Tested explicitly (tests/vela-underwriting-party-binding.test.ts's 'two different party labels, same requestRef' case).",
+    "A distinguishing 403 error message/detail per denial reason (no binding vs. wrong persona vs. wrong requestRef) — rejected as an anti-enumeration violation: the operator's own gates require that no participant view infer hidden structure from error text; resolvePartyBindingForViewer and the route both collapse every denial case to the identical shape/message.",
+    "Granting Execute/Quote/Settle visibility to any party named in ANY grant for that party (including COMPUTE_WITH-only membership) — rejected per the operator's own explicit rule: 'DISCLOSE_TO controls whether another party's derived result is visible' and 'COMPUTE_WITH membership does NOT by itself grant Execute/Quote visibility'. Tested explicitly with a party that is a COMPUTE_WITH member but never a DISCLOSE_TO.to.",
+    "Assuming party-b (the discloser on a DISCLOSE_TO grant, never its `to`) would NOT see that grant in its own filtered Authorize view — the brief's own text flagged this as a trap and instructed verifying the actual filter output rather than assuming; the real filter (grant.party === partyLabel || grant.to === partyLabel) DOES include that grant for party-b (it is named as `party`), asserted explicitly in tests/moneypenny-constitutional-risk-flow-route-party.test.ts rather than left to intuition.",
+    "Hand-redeclaring nine new parallel per-step interfaces for the participant view — rejected per CLAUDE.md inv.engineering.036/037 (reuse, don't duplicate): every field on velaUnderwritingChainProjection.ts's own per-step interfaces was already nullable (verified by reading that file in full), so a plain TypeScript intersection with { visible: boolean } expresses the exact same contract with no hand-copying and no risk of the two shapes drifting apart on a future field addition.",
+    "Special-casing the Settlement capsule's rendering by threading a new prop through ConstitutionalRiskFlowPanel — rejected as more invasive than needed; the existing settlementOccurred===null ternary was the ONLY place in the whole panel that would have silently swallowed the redaction's own fixed reason string, so only that one line was touched, gated on the presence of the participant view's own `visible` field (absent on the operator/global view, so behavior there is byte-identical)."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-14-PARTY-LABEL-REQUIRES-RECORDED-PERSONA-BINDING-001"
+  ],
+  "canaries": [
+    "tests/vela-underwriting-party-binding.test.ts",
+    "tests/vela-underwriting-party-view.test.ts",
+    "tests/moneypenny-constitutional-risk-flow-route-party.test.ts",
+    "tests/moneypenny-constitutional-risk-flow-route.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "milestone-complete",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/vela-underwriting-party-binding.test.ts",
+      "tests/vela-underwriting-party-view.test.ts",
+      "tests/moneypenny-constitutional-risk-flow-route-party.test.ts",
+      "tests/moneypenny-constitutional-risk-flow-route.test.ts",
+      "tests/vela-underwriting-chain-projection.test.ts",
+      "tests/vela-underwriting-composition-gate.test.ts",
+      "tests/vela-underwriting-admission-evidence.test.ts",
+      "tests/vela-underwriting-disclosure-authorization.test.ts",
+      "tests/vela-underwriting-projection.test.ts",
+      "tests/vela-underwriting-risk-telemetry.test.ts",
+      "tests/vela-multi-party-projection.test.ts",
+      "tests/moneypenny-capability-navigation.test.ts",
+      "tests/moneypenny-copilot-workspace.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-09-14_constitutional-risk-flow-party-views.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-14_constitutional-risk-flow-party-views.md",
+    "supabase/migrations/20261001001100_vela_underwriting_party_bindings.sql",
+    "services/vela/velaUnderwritingPartyBinding.ts",
+    "services/vela/velaUnderwritingPartyView.ts",
+    "app/api/moneypenny/constitutional-risk-flow/route.ts",
+    "app/(shell)/moneypenny/components/ConstitutionalRiskFlowPanel.tsx",
+    "services/vela/velaUnderwritingChainProjection.ts",
+    "services/vela/velaMultiPartyProjection.ts",
+    "codexes/packs/agentiq/resolution-records/records/RES-2026-09-13-CONSTITUTIONAL-RISK-FLOW-PANEL-001.json"
+  ],
+  "date": "2026-09-14",
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

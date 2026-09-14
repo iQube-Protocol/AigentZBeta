@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-14-PARTY-LABEL-REQUIRES-RECORDED-PERSONA-BINDING-001",
+  "statement": "A client-supplied or wire-level PARTY LABEL (any string identifying one contributor's role inside a multi-party disclosure/computation scope — e.g. a VelaMultiPartyDisclosureScope grant's `party`/`to`, or any structurally analogous label) must NEVER be trusted as proof of who the caller is. Before any system grants a caller a party-scoped VIEW of that party's evidence, it MUST resolve a SERVER-RECORDED, DURABLE binding between (the exact transaction/request scope, that exact party label) and the real, authenticated persona that contributed or was authorized to control that namespace — never accept the label alone, and never accept a binding recorded under a DIFFERENT transaction/request scope even for the correct persona. That binding lookup MUST be anti-enumerating: every non-match case (no binding recorded at all, a binding recorded for a different persona) resolves the IDENTICAL denial shape/message, so a caller can never learn from the response whether the party label exists, whether it belongs to someone else, or whether it was simply scoped to a different transaction. The binding's own uniqueness constraint must be scoped to (transaction scope, party label) ONLY — never additionally unique on the persona — because the same persona may legitimately hold more than one party role within the same transaction, and a broader uniqueness constraint would silently forbid that legitimate case. Once resolved, any further redaction of that party's view must gate visibility of a SHARED DERIVED RESULT on the exact disclosure grant that names this party as the DISCLOSURE RECIPIENT specifically — mere co-computation membership (e.g. a COMPUTE_WITH-class grant) must never by itself be treated as authorization to see a computed/derived output.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": "CI-2026-09-13-CONSTITUTIONAL-CHAIN-VIEWER-READS-EACH-STEPS-OWN-EVIDENCE-001",
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "The PARTY-GRANULARITY child of CI-2026-09-13-CONSTITUTIONAL-CHAIN-VIEWER-READS-EACH-STEPS-OWN-EVIDENCE-001 (which established that a viewer must derive each STEP's own state strictly from that step's own evidence, never inferring from context) — this candidate applies the identical 'never fabricate certainty, never infer authorization from context' discipline one axis further: it governs WHO may see a given step's evidence in a multi-party setting, not merely whether a step's evidence exists. It is also the read-side counterpart of the identity-binding discipline this same build-order's earlier items established for namespace derivation (services/vela/velaPartyNamespace.ts's deriveVelaPartyNamespaceRef — 'the sender/signer address is never namespace authority') and composition (CI-2026-09-13-MONEYPENNY-COMPOSITION-GATE-BINDS-EVIDENCE-BEFORE-FREEZE-001) — all three refuse to let a cheap, client-controllable label (a signer address, a scope binding, a party label) stand in for a real, server-verified authority relationship.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/vela-underwriting-party-binding.test.ts",
+      "assertion": "resolvePartyBindingForViewer returns the IDENTICAL { authorized: false } shape whether no binding exists for (requestRef, partyLabel) at all or a binding exists naming a DIFFERENT persona — proven with an explicit Object.keys() check that the denial carries no extra distinguishing field. The two operator-mandated non-spoofability properties are proven verbatim: (1) changing partyLabel=A in the request/query does not make Persona B resolve as Party A even when a real binding for Party A -> Persona A exists on the SAME requestRef; (2) the same persona does not inherit a party binding recorded under a DIFFERENT requestRef. A third case proves the deliberately narrow UNIQUE(request_ref, party_label) constraint is not accidentally undermined by an assumption of 'one binding per persona': the SAME persona bound to two DIFFERENT party labels on the SAME requestRef (two separate rows) resolves correctly for BOTH labels, and a third, unbound label on that same requestRef still denies cleanly. Both recordUnderwritingPartyBinding and resolvePartyBindingForViewer fail closed (never throw) on a missing admin client, a query/write error, or a synchronous exception.",
+      "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/vela-underwriting-party-view.test.ts",
+      "assertion": "A party that is a COMPUTE_WITH member of a scope, but never named as the `to` of any DISCLOSE_TO grant, never sees the Execute/Quote/Settle steps' real fields (visible:false, fields null, a FIXED generic reason string that never varies with the real disposition/premium/anything else) — including the case where an UNRELATED DISCLOSE_TO grant elsewhere in the same scope names that SAME party as a `party` (discloser) but never as a `to` (recipient) for the grant this test constructs. A party correctly named as a DISCLOSE_TO.to sees the real fields verbatim, with the step's `state` field always the true underlying state (never fabricated as visible or invisible) in both cases. The Authorize step's grants filter (party===label OR to===label) is asserted with exact expected arrays for both the disclosing party and the receiving party in the same scope, including the case the party-view brief itself flagged as a trap: the discloser DOES see its own DISCLOSE_TO grant in its filtered view (it is named as `party`), which must not be assumed away.",
+      "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/moneypenny-constitutional-risk-flow-route-party.test.ts",
+      "assertion": "The full operator-specified regression scenario end-to-end through the route: party-a and party-b both COMPUTE_WITH a joint request, only party-a is DISCLOSE_TO'd the result; personaA viewing as party-a sees the real Execute/Quote/Settle fields and its own two Authorize grants; personaB viewing as party-b sees redacted Execute/Quote/Settle (real state, fixed generic reason) and its own two Authorize grants (including the DISCLOSE_TO grant it is the discloser on); a party-c with no binding at all denies with a 403 regardless of who is authenticated; the resolved flowOwnerPersonaId is read for the chain-state lookup (never the viewer's own persona) and never appears anywhere in the JSON response body; a full JSON.stringify leak check confirms neither party's redacted view ever contains the other party's real derived-result fields or any raw persona/UUID identifier.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "vela-001-confidential-constitutional-execution / Use Case Zero build-order item 10b — Vela underwriting party binding + Constitutional Risk Flow participant views",
+      "defect": "A VelaMultiPartyDisclosureScope grant's party label (velaMultiPartyProjection.ts) was a free string with no recorded binding to any real persona anywhere in this codebase — any caller supplying a party label at the route layer would, before this item, have had no gate at all distinguishing 'this caller genuinely IS that party' from 'this caller merely typed that string'.",
+      "resolutionId": "RES-2026-09-14-VELA-PARTY-BINDING-CONSTITUTIONAL-VIEWS-001",
+      "evidence": [
+        "supabase/migrations/20261001001100_vela_underwriting_party_bindings.sql",
+        "services/vela/velaUnderwritingPartyBinding.ts",
+        "services/vela/velaUnderwritingPartyView.ts",
+        "tests/vela-underwriting-party-binding.test.ts",
+        "tests/vela-underwriting-party-view.test.ts",
+        "tests/moneypenny-constitutional-risk-flow-route-party.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-09-14-VELA-PARTY-BINDING-CONSTITUTIONAL-VIEWS-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This is the FIRST recorded occurrence of THIS candidate — status stays `candidate`; only an operator act may raise this to `ratified`/`canonical`.",
+    "Parented to CI-2026-09-13-CONSTITUTIONAL-CHAIN-VIEWER-READS-EACH-STEPS-OWN-EVIDENCE-001 per the build brief's own instruction ('this one is its natural child: the same viewer/redaction discipline, applied at party granularity') — a future ratification pass should read both together, and should also cross-reference CI-2026-08-23-PER-AGENT-AUTHORITY-KEY-001 (the general 'a durable store representing a principal's current state must key on [principal, agent/role] — never the principal alone' pattern this candidate's own UNIQUE(request_ref, party_label)-not-persona design directly instantiates, as already noted in velaPartyNamespace.ts's own header) since the two candidates independently converge on the same 'never assume one identity, one role' shape from different directions.",
+    "Not yet applied to a second implementation — occurrence count is 1. The natural second occurrence to watch for is any future multi-party surface in this platform that needs to gate a shared/derived result behind a disclosure scope for a specific named party — e.g. a future Reciprocal Artifact Exchange multi-signer view, or a QriptoCENT cross-denomination settlement participant view — which should resolve a persona binding the SAME way rather than trusting a client-supplied role label."
+  ]
+}
