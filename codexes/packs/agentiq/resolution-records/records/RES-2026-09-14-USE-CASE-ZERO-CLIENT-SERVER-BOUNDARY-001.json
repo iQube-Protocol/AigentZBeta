@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-09-14-USE-CASE-ZERO-CLIENT-SERVER-BOUNDARY-001",
+  "capability": "vela-001-confidential-constitutional-execution",
+  "milestone": "Use Case Zero build-order item 11 follow-up — the dev-only demo fixture route (app/(shell)/moneypenny/dev-fixtures/use-case-zero/) failed a real `next build` with a webpack UnhandledSchemeError for `node:crypto`, discovered only by attempting an actual production build after item 11 was merged.",
+  "problem": "item 11's own verification (245 passing Vitest tests, a manual protected-file diff, and `npx tsc --noEmit`) reported the build item complete. None of those checks can detect a client/server module-boundary violation: Vitest runs in Node, where `node:crypto` and every server-only service resolve fine, and `tsc --noEmit` type-checks correctly because TypeScript has no concept of 'this file is bundled for the browser.' Only an actual `next build` (webpack) fails on this class of defect, and no prior build-order item's verification included one.",
+  "observedFailure": [
+    "`npm run build` failed with: `Module build failed: UnhandledSchemeError: Reading from \"node:crypto\" is not handled by plugins (Unhandled scheme).` Import trace: `services/identity/walletAliasService.ts` -> `services/identity/passportPrincipal.ts` -> `services/identity/didQubeResolver.ts` -> `services/aegis/aegisAssessmentService.ts` -> `services/vela/velaUnderwritingAdmissionEvidence.ts` -> `scripts/seedUseCaseZeroDemo.ts` -> `app/(shell)/moneypenny/components/constitutionalRiskFlow/__fixtures__/useCaseZeroDemoFixture.ts` -> `app/(shell)/moneypenny/dev-fixtures/use-case-zero/UseCaseZeroDemoFixtureViewer.tsx` (a `'use client'` component)."
+  ],
+  "rootCauses": [
+    "`UseCaseZeroDemoFixtureViewer.tsx` (`'use client'`) imported `buildUseCaseZeroDemoFixture` as a VALUE from `useCaseZeroDemoFixture.ts`, which itself imports `composeUseCaseZeroDemoChain` as a VALUE from `scripts/seedUseCaseZeroDemo.ts`. A JS/TS module's top-level imports execute (and are bundled) as a unit regardless of which single named export a caller actually uses — importing one pure function from a file also pulls in every OTHER top-level import in that same file. `scripts/seedUseCaseZeroDemo.ts` has, by design (per its own header, `RES-2026-09-14-USE-CASE-ZERO-DEMO-SEED-RUNNER-001`), server-only imports at module scope alongside its pure exports (`getSupabaseServer`, `composeUnderwritingAdmissionEvidence`), because the file intentionally keeps the whole chain (pure + effectful + CLI) in one place. None of those server-only imports were themselves the bug — the bug was calling any of that file's exports from a `'use client'` component at all.",
+    "No build-order item before this one added a NEW client component that imports a shared/reused compose function from a script/service module with server-only siblings in the same file — every prior UI addition either used data already fetched server-side and passed as props (the pattern `ConstitutionalRiskFlowPanel.tsx` itself follows via its API route), or had no such shared-module dependency. This is the first place in the Use Case Zero build order where 'reuse the pure function, never hand-type a second copy' (inv.engineering.036/037) collided with the Next.js App Router client/server module-boundary rule."
+  ],
+  "resolution": [
+    "Moved the fixture computation from the client component into the Server Component that already wraps it: `app/(shell)/moneypenny/dev-fixtures/use-case-zero/page.tsx` now calls `await buildUseCaseZeroDemoFixture()` itself (Server Components run in Node, so every server-only transitive import resolves normally) and passes the resulting plain, already-computed `UseCaseZeroDemoFixture` object as a prop to `UseCaseZeroDemoFixtureViewer`.",
+    "`UseCaseZeroDemoFixtureViewer.tsx` no longer imports `buildUseCaseZeroDemoFixture` (or anything else) as a VALUE from `useCaseZeroDemoFixture.ts` — only as a `type` (`import type { UseCaseZeroDemoFixture } from '...'`), which TypeScript erases entirely at compile time and contributes nothing to the webpack client bundle. The component becomes purely presentational: `fixture`/`error` are props, not client-fetched state; the `useEffect`/`buildUseCaseZeroDemoFixture().then(...)` call was removed entirely.",
+    "`scripts/seedUseCaseZeroDemo.ts` and `useCaseZeroDemoFixture.ts` were NOT modified — the fix is entirely in the two route files that were the actual boundary violation, preserving the 'one authoritative pure-compose function, reused, never duplicated' property this build item was built around.",
+    "Verified by running `next build` twice: once reproducing the original `UnhandledSchemeError: node:crypto` failure (confirming the diagnosis), once after the fix showing ZERO `node:crypto`/`UnhandledSchemeError` occurrences and the build progressing past webpack compilation entirely (it later fails at page-data-collection on an unrelated, pre-existing `supabaseUrl is required` error — this environment has no live Supabase credentials configured, a known, already-documented limitation unrelated to this fix or to anything `scripts/seedUseCaseZeroDemo.ts`/its fixture touch).",
+    "Re-ran `tests/seed-use-case-zero-demo.test.ts` (9 tests) and `tests/moneypenny-constitutional-risk-flow-quick-prompt.test.ts` (3 tests) after the fix — all 12 still pass; neither file's own logic changed."
+  ],
+  "rejectedApproaches": [
+    "Splitting `scripts/seedUseCaseZeroDemo.ts`'s pure functions into a THIRD module with zero server-only sibling imports, so the fixture could keep importing the pure functions as values directly — rejected as unnecessary surgery once the simpler, idiomatic Next.js fix (compute server-side, pass a plain prop) was available; it also would have meant a second refactor of an already-verified, already-tested file for a problem entirely contained in the two NEW route files.",
+    "Adding the literal `server-only` npm package as an import guard to `scripts/seedUseCaseZeroDemo.ts` (this codebase already uses that package elsewhere, e.g. via prose convention though not the literal package in the files grepped) to make a future accidental client import fail loudly at build time with a clear message instead of an opaque webpack scheme error — not rejected outright, but deferred as a follow-up hardening beyond this fix's scope (see candidate invariant's own notes) rather than bundled into this bug-fix commit; CLAUDE.md's Change Sizing rule counsels against folding an unrelated hardening change into a targeted fix."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-14-CLIENT-COMPONENTS-NEVER-VALUE-IMPORT-SHARED-COMPOSE-MODULES-001"
+  ],
+  "canaries": [
+    "Manual: `rm -rf .next && npm run build` on this branch, confirmed zero `node:crypto`/`UnhandledSchemeError` occurrences. No automated canary exists yet for this class of defect in this repo — see the candidate invariant's own notes for the recommended follow-up (a lightweight `next build` or webpack-bundle-analysis check in CI, since Vitest/tsc structurally cannot catch it)."
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/seed-use-case-zero-demo.test.ts",
+      "tests/moneypenny-constitutional-risk-flow-quick-prompt.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-09-14_use-case-zero-client-server-boundary-fix.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-14_use-case-zero-client-server-boundary-fix.md",
+    "app/(shell)/moneypenny/dev-fixtures/use-case-zero/page.tsx",
+    "app/(shell)/moneypenny/dev-fixtures/use-case-zero/UseCaseZeroDemoFixtureViewer.tsx",
+    "scripts/seedUseCaseZeroDemo.ts",
+    "codexes/packs/agentiq/resolution-records/records/RES-2026-09-14-USE-CASE-ZERO-DEMO-SEED-RUNNER-001.json"
+  ],
+  "date": "2026-09-14",
+  "projections": {
+    "targets": ["research-registry"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

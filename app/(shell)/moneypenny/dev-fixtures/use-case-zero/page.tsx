@@ -22,14 +22,43 @@
  * that reuses the SAME shared presentation primitives
  * (`riskFlowSurfaceKit.tsx`) the real panel uses, per CLAUDE.md's "check for
  * existing UI primitives before hand-rolling" discipline.
+ *
+ * CLIENT/SERVER BOUNDARY FIX (2026-09-14, found by `next build`, not by unit
+ * tests): `buildUseCaseZeroDemoFixture` is computed HERE, in this Server
+ * Component, and passed to the client viewer as a plain prop.
+ * `buildUseCaseZeroDemoFixture` reuses `composeUseCaseZeroDemoChain` from
+ * `scripts/seedUseCaseZeroDemo.ts` (deliberately, to avoid a second,
+ * driftable copy — see that fixture file's own header) — but that script's
+ * OTHER top-level imports (the effectful/CLI half: `getSupabaseServer`,
+ * `composeUnderwritingAdmissionEvidence`, which itself imports Aegis/DiDQube/
+ * wallet-alias services that use Node's `crypto` module) come along with it
+ * at the MODULE level, regardless of which named export is actually called.
+ * The fixture computation itself performs no I/O and is safe to run
+ * server-side (it always was — this route was never live data), but calling
+ * it from a `'use client'` component pulled that whole server-only import
+ * graph into the browser bundle, which webpack cannot resolve
+ * (`UnhandledSchemeError: Reading from "node:crypto"`). Computing it here and
+ * handing the client component only the resulting plain data object keeps
+ * the client bundle free of every server-only import, without touching
+ * `scripts/seedUseCaseZeroDemo.ts` or duplicating its logic.
  */
 
 import { notFound } from 'next/navigation';
+import { buildUseCaseZeroDemoFixture } from '../../components/constitutionalRiskFlow/__fixtures__/useCaseZeroDemoFixture';
 import { UseCaseZeroDemoFixtureViewer } from './UseCaseZeroDemoFixtureViewer';
 
-export default function UseCaseZeroDemoFixturePage() {
+export default async function UseCaseZeroDemoFixturePage() {
   if (process.env.NODE_ENV === 'production') {
     notFound();
   }
-  return <UseCaseZeroDemoFixtureViewer />;
+
+  let fixture = null;
+  let error: string | null = null;
+  try {
+    fixture = await buildUseCaseZeroDemoFixture();
+  } catch (err) {
+    error = err instanceof Error ? err.message : String(err);
+  }
+
+  return <UseCaseZeroDemoFixtureViewer fixture={fixture} error={error} />;
 }

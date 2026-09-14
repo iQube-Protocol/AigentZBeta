@@ -13,13 +13,19 @@
  * Every render carries an unmistakable amber "DEMO / LOCAL FIXTURE" banner
  * — this data is never live, never persisted, and never fetched from any
  * route.
+ *
+ * PURELY PRESENTATIONAL (2026-09-14 fix — see `page.tsx`'s own header for
+ * why): this component receives the already-computed `fixture` as a plain
+ * prop from the Server Component that renders it. It imports
+ * `useCaseZeroDemoFixture.ts` ONLY as a `type` (erased at compile time, so
+ * it adds nothing to the client bundle) — it never imports or calls
+ * `buildUseCaseZeroDemoFixture` itself, which is what previously pulled
+ * `scripts/seedUseCaseZeroDemo.ts`'s server-only import graph (Supabase,
+ * Aegis, DiDQube, `node:crypto`) into the browser bundle.
  */
 
-import { useEffect, useState } from 'react';
-import {
-  buildUseCaseZeroDemoFixture,
-  type UseCaseZeroDemoFixture,
-} from '../../components/constitutionalRiskFlow/__fixtures__/useCaseZeroDemoFixture';
+import { useState } from 'react';
+import type { UseCaseZeroDemoFixture } from '../../components/constitutionalRiskFlow/__fixtures__/useCaseZeroDemoFixture';
 import type {
   ConstitutionalRiskFlowState,
   ConstitutionalRiskFlowStepId,
@@ -51,16 +57,13 @@ function renderableState(
   return view === 'operator' ? fixture.state : fixture.participantViews[view];
 }
 
-export function UseCaseZeroDemoFixtureViewer() {
-  const [fixture, setFixture] = useState<UseCaseZeroDemoFixture | null>(null);
-  const [view, setView] = useState<ViewKey>('operator');
-  const [error, setError] = useState<string | null>(null);
+interface UseCaseZeroDemoFixtureViewerProps {
+  fixture: UseCaseZeroDemoFixture | null;
+  error: string | null;
+}
 
-  useEffect(() => {
-    buildUseCaseZeroDemoFixture()
-      .then(setFixture)
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)));
-  }, []);
+export function UseCaseZeroDemoFixtureViewer({ fixture, error }: UseCaseZeroDemoFixtureViewerProps) {
+  const [view, setView] = useState<ViewKey>('operator');
 
   return (
     <div className="min-h-full space-y-4 bg-slate-950 p-4">
@@ -95,7 +98,7 @@ export function UseCaseZeroDemoFixtureViewer() {
       </RiskFlowSection>
 
       {error && <p className="text-xs text-rose-300">Fixture build failed: {error}</p>}
-      {!fixture && !error && <p className="text-xs text-slate-500">Building fixture…</p>}
+      {!fixture && !error && <p className="text-xs text-slate-500">Fixture unavailable.</p>}
 
       {fixture && (
         <div className="space-y-2">
