@@ -340,6 +340,100 @@ system has already established.
 
 ---
 
+## MoneyPenny, Factor, Aegis, Vela — Financial Services Runtime roles
+
+Four terms naming distinct roles in the Financial Services Runtime / Vela accelerator work
+(`docs/vela/accelerator/constitutional-financial-services/`), shipped as Use Case Zero build-order
+items 5-10b in `services/vela/`, `services/factor/`, `services/moneypenny/`, `services/aegis/`.
+Each is a role boundary, not a synonym for another.
+
+**Canonical boundary** (verbatim from `docs/vela/accelerator/constitutional-financial-services/
+README.md`'s own "Canonical boundary" section — the authoritative one-line role for each):
+
+> metaMe = constitutional/control plane
+> MoneyPenny = Financial Services Runtime and coordination/orchestration plane
+> Factor = economic discovery, party/service assembly and network expansion
+> Aegis = independent trust/admission membrane
+> iQubes + QubeTalk = selective disclosure and sovereign information-sharing plane
+> Vela = verified confidential deterministic execution substrate
+
+### MoneyPenny
+
+**Canonical spelling: MoneyPenny** (capital M, capital P, one word) — never "Money Penny", "moneypenny".
+
+**Definition:** The Financial Services Runtime — a constitutional coordination and disclosure
+runtime for financial services, not merely a financial assistant or transaction router. It
+coordinates parties, agents, services, information rights, disclosure scope, authority/mandate,
+risk apportionment, confidential computation, settlement, and causal receipts. It holds the SOLE
+authority to admit a `factor_cases` row (`admitted | conditionally_admitted | rejected` —
+`services/moneypenny/admissionAuthority.ts`) and may never admit a candidate Aegis has not found
+admissible.
+
+### Factor
+
+**Canonical spelling: Factor** (capital F) as the role/agent name.
+
+**Definition:** The economic coordination / candidate-discovery and network-expansion layer.
+Factor discovers and proposes candidate agents/services/counterparties, assembles candidate
+transaction/service graphs, and constructs deterministic selection artifacts. Factor may recommend
+but must NEVER confer constitutional authority, decide admission, or bypass Aegis assessment
+(`services/factor/factorSelectionArtifact.ts`'s own six invariants). Factor also owns the
+case-scoped candidate-intake/activation pipeline (`services/factor/factorCaseService.ts`) and a
+SEPARATE "Use Case Zero" agent-onboarding readiness state machine — see the "Use Case Zero"
+disambiguation below.
+
+### Aegis
+
+**Canonical spelling: Aegis** (capital A) — a proper name, not an acronym.
+
+**Definition:** The independent trust/admission membrane. Aegis assesses agent/service provenance,
+evidence quality, reliability and risk-of-repair, and produces a versioned, immutable assessment
+(`draft -> evidence_locked -> running -> review_required -> ratified | failed`,
+`services/aegis/aegisAssessmentService.ts`). **Aegis can assess and recommend; it cannot admit** —
+it never writes `factor_cases.state` and never calls MoneyPenny's admission authority. Aegis
+refuses to assess a candidate that is also the requester (no self-assessment). Aegis is
+independent from Marketa's own, separate admission-assessment pipeline
+(`services/marketa/admissionAssessmentRunner.ts`) — the two are NOT the same system.
+
+**Two distinct "admission" concepts — do not conflate:**
+1. *Aegis admission* — the `AegisAdmissionStatus` (`ADMITTED | REFUSED | UNRESOLVED`) an Aegis
+   assessment produces for one Vela underwriting request
+   (`services/vela/velaUnderwritingAdmissionEvidence.ts`).
+2. *MoneyPenny admission* — the case-scoped `factor_cases` state transition
+   (`services/moneypenny/admissionAuthority.ts`).
+
+MoneyPenny admission REQUIRES a ratified Aegis assessment, but the two are different decisions
+recorded in different evidence.
+
+### Vela
+
+**Canonical spelling: Vela** (capital V).
+
+**Definition:** The verified confidential deterministic execution substrate — Horizen's
+Confidential Computing Environment, integrated via `services/vela/*`. Vela executes deterministic
+WASM logic over private inputs/state with TEE-attested execution; it does not decide constitutional
+authority and does not prove application logic/policy is correct. It must receive external facts
+as part of a frozen input envelope (the guest has no network access). The first Vela application is
+the narrow **MoneyPenny Constitutional Consequence & Settlement Kernel** — never metaMe itself.
+
+### "Use Case Zero" — two unrelated systems share this name (do not conflate)
+
+This codebase has TWO systems both called "Use Case Zero" — a documented, deliberate naming
+collision (full background: `services/factor/factorSelectionArtifact.ts` and
+`services/vela/velaUnderwritingChainProjection.ts` file headers).
+
+| System | Scope | Canonical surface name |
+|---|---|---|
+| Agent-onboarding readiness state machine (`services/factor/useCaseZeroOrchestrator.ts`, `useCaseZeroReadinessProjection.ts`, `useUseCaseZeroReadiness.ts`) | Long-lived, case-scoped (`factor_cases`) bootstrap: agentShell → didqubeContainer → ownerWallet → settlementWallet → passport → delegationAuthority → pulsePnl → aegisAssessment → moneypennyAdmission → bankrBinding → velaReadiness → runtimeActivation → governedOperationRehearsal | Kept as `UseCaseZero*` symbols/UI — this IS the canonical "Use Case Zero" |
+| Multi-party confidential underwriting demo (`docs/vela/accelerator/constitutional-financial-services/05_ACCELERATOR_USE_CASE_ZERO_SPEC_v0.1.md`; build-order items 5-10b in `services/vela/velaUnderwriting*.ts`) | Request-scoped: Party A/B private state → joint-compute → confidential risk verdict → underwriting quote → Factor selection → Aegis admission → disclosure authorization → frozen envelope → Vela execution → settlement → risk telemetry | Named **"Constitutional Risk Flow"** in code/UI — deliberately NEVER "Use Case Zero" anything, per operator's explicit naming instruction |
+
+**Usage rule:** when writing new copy about the Vela underwriting chain / build-order items 5-10b,
+use "Constitutional Risk Flow" — never "Use Case Zero". An unqualified "Use Case Zero" should be
+read as the agent-onboarding readiness system unless the surrounding context is unambiguously the
+Vela accelerator spec doc itself.
+
+---
+
 ## Enforcement
 
 All agents (Claude Code, Codex, Lovable, any future agent) must:
@@ -350,4 +444,4 @@ All agents (Claude Code, Codex, Lovable, any future agent) must:
 5. **Resolve a canonical term from this file before inferring its meaning from context.** Where a
    term is absent, surface it as unresolved rather than reconstructing it confidently.
 
-Last updated: 2026-08-15
+Last updated: 2026-09-14
