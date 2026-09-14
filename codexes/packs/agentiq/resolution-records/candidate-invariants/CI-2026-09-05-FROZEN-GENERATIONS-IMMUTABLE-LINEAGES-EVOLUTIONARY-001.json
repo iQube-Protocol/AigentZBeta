@@ -1,7 +1,17 @@
 {
   "schemaVersion": "candidate-invariant/v2.0",
+  "family": "constitutional",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": ["irl"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
   "classification": null,
   "ratifiedSource": null,
+  "supersededBy": null,
   "notes": [
     "Generalizes the operator's EXP-P1/Crystal-vP2 ruling into a Crystal-wide (not EXP-P1-specific) rule about freeze acts: a freeze ratifies WHAT a generation contains (immutable, forever) and, SEPARATELY, an execution designation naming what PURPOSE it is authorized for right now (a confirmatory result, or a narrower internal/pilot execution). These are two different governance questions and must never be collapsed into one boolean readiness gate.",
     "Operator's own framing for why this generalizes beyond EXP-P1 (verbatim, relayed 2026-09-05): 'That is a much better model for IRL generally. Science shouldn't require us to perfect the experimental substrate before we're allowed to experiment with it. It requires us to preserve exactly what we experimented with, learn from it, and make subsequent changes explicit and reproducible.'",

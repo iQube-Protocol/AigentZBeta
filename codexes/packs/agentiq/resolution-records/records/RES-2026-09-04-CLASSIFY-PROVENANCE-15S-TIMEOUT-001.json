@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-09-04-CLASSIFY-PROVENANCE-15S-TIMEOUT-001",
+  "capability": "exp-p1-track2-programme-state-composition",
+  "milestone": "EXP-P1 / Track 2 — Classify Provenance, the first occurrence of the classify-provenance N+1 shape. Recorded retroactively (2026-09-14) to satisfy this schema's requirement that every candidate-invariant occurrence cite a real, existing resolutionId — CI-2026-09-05-BATCH-PER-ITEM-SUBSTRATE-READS-BY-GROUPING-KEY-001's first occurrence named only a bare commit hash, which the validator (services/invariants/resolutionRecords.ts) correctly rejects as insufficient.",
+  "problem": "The 'Run until you need me' feature (added 2026-09-03) made triageUnclassifiedProvenance call suggestClassification/resolveEvidenceSourceRef once PER unclassified invariant inside loadTrack2ProgrammeState's hot path, which runs on every Track 2 read. With 53 unclassified invariants live at investigation time, this meant 53+ sequential Supabase round-trips per read, causing a 15-second 'programme state composition' timeout.",
+  "observedFailure": [
+    "The Research Copilot showed 'Classify Provenance — 53/58' with a working deep link at one point, then reverted to a timeout/degraded state on a later refresh — the symptom the operator reported before the root cause was traced."
+  ],
+  "rootCauses": [
+    "resolveEvidenceSourceRef's read was scoped by each record's source-document signature (a grouping key), not the record's own identity — the 53 records collapsed onto a small number of distinct signatures, so 53 sequential reads were almost entirely redundant, but nothing batched them."
+  ],
+  "resolution": [
+    "services/research/provenanceCohortPreparation.ts's batchResolveEvidenceSourceRefs now batches this into ONE discovery_evidence query across every invariant, preserving the same deterministic no-evidence/incomplete-lineage/repo-internal-citation triage output per record — verified against a live count (58 successor-scoped promoted invariants, 53 unclassified at investigation time).",
+    "components/composer/IRLResearchCopilotTab.tsx: the Copilot's remedy text already pointed at GET .../provenance-cohort; the cohort action was wired directly into the Copilot so clicking through worked end-to-end, not just the batched read."
+  ],
+  "rejectedApproaches": [],
+  "candidateInvariants": [
+    "CI-2026-09-05-BATCH-PER-ITEM-SUBSTRATE-READS-BY-GROUPING-KEY-001"
+  ],
+  "canaries": [
+    "tests/provenance-cohort-preparation.test.ts",
+    "tests/provenance-cohort-preparation-concurrency.test.ts",
+    "tests/provenance-cohort-route.test.ts",
+    "tests/provenance-cohort-ui.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "multi-cycle-repair",
+  "evidence": {
+    "commits": ["2135362985afabc11a38114fa5076b65c9e4b1ce"],
+    "tests": [
+      "tests/provenance-cohort-preparation.test.ts",
+      "tests/provenance-cohort-preparation-concurrency.test.ts",
+      "tests/provenance-cohort-route.test.ts",
+      "tests/provenance-cohort-ui.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [],
+  "date": "2026-09-04",
+  "projections": {
+    "targets": ["research-registry"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

@@ -1,7 +1,17 @@
 {
   "schemaVersion": "candidate-invariant/v2.0",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": ["research-registry"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
   "classification": null,
   "ratifiedSource": null,
+  "supersededBy": null,
   "notes": [
     "This is the general shape behind three independent occurrences in the same file family within two days: a loop over N items (candidates, statements, evidence refs) calls an expensive per-item substrate-search function (findDuplicates, resolveEvidenceSourceRef) that itself performs a fresh table scan on every call. Because each item's read is scoped by some GROUPING KEY the item carries (namespace, domain, source ref) rather than the item's own identity, the N reads are almost always redundant — most items in a real batch share a small number of distinct keys, so N reads collapse to (distinct key count) reads with zero change in behaviour.",
     "The fix pattern, proven three times now (provenanceCohortPreparation.ts's batchResolveEvidenceSourceRefs, commit 213536298; populationReconciliation.ts's batchFindExactStatementMatches, RES-2026-09-04-TRACK2-COMPOSITION-COST-001; researchProgrammeOrchestrator.ts's buildReviewAndPromoteQueue, RES-2026-09-05-TRACK2-REVIEW-QUEUE-DUPLICATE-N+1-001): (1) compute the DISTINCT set of grouping keys across the batch, (2) fetch each key's pool ONCE, concurrently (Promise.all keyed by the distinct set, not the item array), (3) run the SAME per-item scoring/matching logic in-process against the pre-fetched pool for that item's key. The scoring function itself should be split into a pure pool-scoring half (no I/O) and a single-item convenience wrapper that fetches-then-scores, so existing single-item callers are completely unaffected (see findDuplicates/findDuplicatesInPool).",
@@ -26,13 +36,15 @@
   "scope": "cross-capability",
   "status": "candidate",
   "derivedFrom": [
+    "RES-2026-09-04-CLASSIFY-PROVENANCE-15S-TIMEOUT-001",
+    "RES-2026-09-04-TRACK2-COMPOSITION-COST-001",
     "RES-2026-09-05-TRACK2-REVIEW-QUEUE-DUPLICATE-N+1-001"
   ],
   "occurrences": [
     {
       "site": "services/research/provenanceCohortPreparation.ts — batchResolveEvidenceSourceRefs",
       "defect": "One resolveEvidenceSourceRef read per unclassified record, sequentially, where records share a small number of distinct source refs — the original classify-provenance 15s-timeout fix.",
-      "resolutionId": null,
+      "resolutionId": "RES-2026-09-04-CLASSIFY-PROVENANCE-15S-TIMEOUT-001",
       "evidence": [
         "commit 213536298"
       ]
