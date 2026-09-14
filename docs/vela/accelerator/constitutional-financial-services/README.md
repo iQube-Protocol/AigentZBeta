@@ -35,6 +35,7 @@ It is intentionally split into:
 | `12_VELA_SOURCE_REGISTER_2026-09-10.md` | Compact register distinguishing team-confirmed, repository-observed and proposed behavior. |
 | `MANIFEST.json` | Machine-readable package inventory and integrity metadata. |
 | `SHA256SUMS.md` | Human-readable SHA-256 inventory for the current package. |
+| `VELA_IMPLEMENTATION_ARCHITECTURE_v1.0.md` | External-facing implementation architecture note for the Vela technical team — describes the architecture as implemented today (14 September 2026), grounded in current repo code/tests, with Mermaid diagrams. |
 
 ## Canonical boundary
 
@@ -109,3 +110,16 @@ Direct Vela-team responses materially sharpen the implementation model:
 The implementation must therefore separate Environment Trust Evidence from Application Execution Evidence, bind every consequential receipt to `applicationId ↔ WASM SHA-256 ↔ MoneyPenny kernel version ↔ invariant/policy version`, and preserve the distinction between Vela per-application isolation and MoneyPenny's own intra-application party isolation.
 
 This correction extends the 9 September portfolio, compliance and repository-reconciliation work. It does not regress or replace those materials, claim that the proposed implementation is deployed, or promote candidate invariants into canonical status.
+
+## Implementation architecture note added — 14 September 2026
+
+`VELA_IMPLEMENTATION_ARCHITECTURE_v1.0.md` is a new, external-facing artifact for the Vela
+technical team, describing what has actually been implemented against this package's architecture
+(build-order items 5–11: Factor selection, Aegis admission, disclosure authorization, the
+MoneyPenny composition gate, the frozen multi-party envelope, Vela confidential execution, the
+underwriting quote, causal receipts and DVN anchoring, and Golden Cycle telemetry) — not the
+broader future roadmap. It also records that a real WASM binary for the MoneyPenny Confidential
+Consequence Projector was built this same day (TinyGo 0.39.0; SHA-256
+`085869849896aa423a5fa6c13cc5651a4446240b538e37c6a517dbd3cbdecf02`), narrowing the Production
+Testnet Deployment Intake's remaining open items to constructor/config bundle details,
+`applicationId`↔WASM-hash evidence binding, and the Base Sepolia/Horizen trust-domain question.

@@ -432,6 +432,25 @@ use "Constitutional Risk Flow" — never "Use Case Zero". An unqualified "Use Ca
 read as the agent-onboarding readiness system unless the surrounding context is unambiguously the
 Vela accelerator spec doc itself.
 
+### semi-anonymous
+
+**Canonical spelling: semi-anonymous** (lowercase, hyphenated) — never "semi anonymous",
+"Semi-Anonymous" as a proper noun, or "pseudo-anonymous".
+
+**Definition:** the metaMe lexicon's term for **strong transaction-scoped pseudonymization** —
+never a claim of unlinkable anonymity. A semi-anonymous identifier (e.g. a Vela party-namespace
+ref, `services/vela/velaPartyNamespace.ts`'s `deriveVelaPartyNamespaceRef`) is a deterministic,
+one-way commitment scoped to one application/request context; it protects against casual
+correlation but is not designed to resist a determined re-identification effort, and any
+re-identification path must itself be governed (authority/mandate, never inferred).
+
+**Usage rule:** never describe a semi-anonymous identifier as "anonymous" (overstates the
+guarantee) or as merely "hashed" (understates the scoping/commitment design). Content
+confidentiality is not metadata invisibility; pseudonymization is not absolute anonymity — both
+distinctions must be preserved in any copy using this term
+(`docs/vela/accelerator/constitutional-financial-services/03_MONEYPENNY_DISCLOSURE_AND_RISK_ARCHITECTURE_v0.1.md`
+§4, `04_VELA_MASTERCLASS_ARCHITECTURE_DELTA_v0.2.md`).
+
 ---
 
 ## Enforcement
