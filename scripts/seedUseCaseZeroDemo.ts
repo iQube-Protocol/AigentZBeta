@@ -150,7 +150,7 @@ export const USE_CASE_ZERO_PARTY_B = 'party-b'; // Aigent Nakamoto
 export const USE_CASE_ZERO_PARTY_C = 'party-c'; // Aigent Kn0w1
 
 /** See this file's header, design decision 4. */
-const DEMO_AUTHORIZING_AGENT_REF = 'aigent-moneypenny';
+export const DEMO_AUTHORIZING_AGENT_REF = 'aigent-moneypenny';
 /** Candidate slug for the execution/strategy role — design decision 3. */
 const DEMO_CANDIDATE_AGENT_SLUG = 'nakamoto';
 const DEMO_FACTOR_AGENT_ID = 'aigent-factor';
@@ -578,22 +578,92 @@ function cliArg(name: string): string | undefined {
 }
 
 /**
- * `tsx scripts/seedUseCaseZeroDemo.ts --arkagent=<id> --nakamoto=<id> --kn0w1=<id> [--app=<applicationId>] [--evm-key=<hex> --p521-key=<hex>] [--vela-env=local|early_access]`
+ * `tsx scripts/seedUseCaseZeroDemo.ts --arkagent=<id> --nakamoto=<id> --kn0w1=<id> [--app=<applicationId>] [--evm-key=<hex>] [--vela-env=local|early_access]`
  *
  * The brief's own illustrative CLI signature named only the three persona
- * flags. `--evm-key`/`--p521-key`/`--vela-env` were added because
+ * flags. `--vela-env` (and the optional `--evm-key` override, see
+ * `resolveDemoVelaTransport` below) were added because
  * `submitFrozenUnderwritingEnvelope`'s real signature requires a
  * `VelaTransport`, and this codebase has no default production Vela
  * deployment to construct one from silently (`services/vela/velaConfig.ts`'s
- * own header: no production/testnet deployment is configured anywhere) —
- * so, mirroring the EXACT CLI convention `scripts/vela-slice2e-live-composition.ts`
- * already established for a live Vela script's key arguments (rather than
- * inventing a new one, or silently defaulting to a fake in-memory transport
- * for what is meant to be a real demo submission), those two keys are
- * required whenever the envelope actually needs to freeze+submit. When the
- * envelope resolves BLOCKED (Aegis has not yet ratified Nakamoto admissible),
- * no transport is needed at all and these flags may be omitted.
+ * own header: no production/testnet deployment is configured anywhere). When
+ * the envelope resolves BLOCKED (Aegis has not yet ratified the candidate
+ * admissible), no transport is resolved at all and these flags are unused.
+ *
+ * NO `--p521-key` ARGUMENT — REMOVED (2026-09-15, operator ruling: "keys are
+ * substrate primitives, not UX concepts"): a P-521 key is never accepted
+ * directly from the command line anymore. It is always derived internally,
+ * deterministically, from whichever EVM signer resolves (see
+ * `resolveDemoVelaTransport`), via the real, existing
+ * `deriveAgentP521KeyPair` (`services/vela/agentP521Derivation.ts`) — the
+ * same derivation already proven in `scripts/vela/public-devnet-smoke.ts`.
+ * This removes one secret CLI argument unconditionally, in both the default
+ * (MoneyPenny custody) and the `--evm-key` override path — never a second,
+ * independently-suppliable P-521 secret store.
  */
+
+/**
+ * Resolves the single EVM requester signer this demo submits to Vela under,
+ * and derives its P-521 communication key internally — never accepting a
+ * raw P-521 key as an argument (`services/vela/agentP521Derivation.ts`'s own
+ * doctrine: do not create a second long-lived P-521 secret store).
+ *
+ * Default: MoneyPenny's OWN existing custodied wallet — the `agent_keys` row
+ * for `DEMO_AUTHORIZING_AGENT_REF` ('aigent-moneypenny'), the SAME wallet she
+ * already signs Register/Verify/Claim/Pulse with
+ * (`services/horizen/registrableAgents.ts`'s own custody doctrine: "the
+ * registered agent's own custodied wallet IS runtimeAgentId's agent_keys
+ * row"). MoneyPenny is already this chain's own requester/composition-gate
+ * identity (`DEMO_AUTHORIZING_AGENT_REF`, above) — never any of the three
+ * UC0 participant personas' own keys.
+ *
+ * `--evm-key` remains as an OPTIONAL override — useful for pointing this
+ * script at a throwaway devnet test wallet instead of MoneyPenny's real
+ * custody (the same override shape `scripts/vela/public-devnet-smoke.ts` and
+ * `scripts/vela-slice2e-live-composition.ts` already use for their own,
+ * separate purposes) — never a raw P-521 key either way.
+ *
+ * The resolved EVM private key and the derived P-521 private key exist ONLY
+ * inside this function's own local `evmPrivateKeyHex`/`wallet`/
+ * `p521PrivateKeyHex` variables — never logged, never returned, never placed
+ * on any object this script prints (operator instruction, 2026-09-15: "Do
+ * not log, print, persist, or expose the derived private key").
+ */
+export async function resolveDemoVelaTransport(): Promise<VelaTransport | undefined> {
+  const [{ VelaClientAdapter }, { resolveVelaDeployment }, { deriveAgentP521KeyPair }, { Wallet }] = await Promise.all([
+    import('@/services/vela/velaClientAdapter'),
+    import('@/services/vela/velaConfig'),
+    import('@/services/vela/agentP521Derivation'),
+    import('ethers'),
+  ]);
+
+  const evmKeyOverride = cliArg('evm-key');
+  let evmPrivateKeyHex: string | undefined = evmKeyOverride;
+  if (!evmPrivateKeyHex) {
+    const { AgentKeyService } = await import('@/services/identity/agentKeyService');
+    const keys = await new AgentKeyService().getAgentKeys(DEMO_AUTHORIZING_AGENT_REF);
+    evmPrivateKeyHex = keys?.evmPrivateKey ?? undefined;
+  }
+  if (!evmPrivateKeyHex) {
+    console.error(
+      'seedUseCaseZeroDemo: the envelope resolved FROZEN but no EVM requester signer could be resolved — ' +
+        `no custodied key on record for "${DEMO_AUTHORIZING_AGENT_REF}" and no --evm-key override was supplied. ` +
+        'Nothing was persisted.',
+    );
+    return undefined;
+  }
+
+  const wallet = new Wallet(evmPrivateKeyHex);
+  const { privateKeyHex: p521PrivateKeyHex } = await deriveAgentP521KeyPair(wallet);
+
+  const velaEnv = (cliArg('vela-env') as 'local' | 'early_access' | undefined) ?? 'local';
+  return new VelaClientAdapter({
+    deployment: resolveVelaDeployment(velaEnv),
+    requesterPrivateKeyHex: wallet.privateKey,
+    requesterP521PrivateKeyHex: p521PrivateKeyHex,
+  });
+}
+
 async function main(): Promise<void> {
   const personas: Partial<UseCaseZeroDemoPersonas> = {
     arkAgentPersonaId: cliArg('arkagent'),
@@ -625,28 +695,11 @@ async function main(): Promise<void> {
 
   let transport: VelaTransport | undefined;
   if (composed.envelopeResult.outcome === 'FROZEN') {
-    const evmKey = cliArg('evm-key');
-    const p521Key = cliArg('p521-key');
-    if (!evmKey || !p521Key) {
-      console.error(
-        'seedUseCaseZeroDemo: the envelope resolved FROZEN (Aegis has ratified this candidate ADMITTED) but ' +
-          '--evm-key/--p521-key were not supplied — cannot submit to Vela without a real transport. Nothing ' +
-          'was persisted.',
-      );
+    transport = await resolveDemoVelaTransport();
+    if (!transport) {
       process.exitCode = 1;
       return;
     }
-    // Constructed lazily so a BLOCKED run never needs these modules at all.
-    const [{ VelaClientAdapter }, { resolveVelaDeployment }] = await Promise.all([
-      import('@/services/vela/velaClientAdapter'),
-      import('@/services/vela/velaConfig'),
-    ]);
-    const velaEnv = (cliArg('vela-env') as 'local' | 'early_access' | undefined) ?? 'local';
-    transport = new VelaClientAdapter({
-      deployment: resolveVelaDeployment(velaEnv),
-      requesterPrivateKeyHex: evmKey,
-      requesterP521PrivateKeyHex: p521Key,
-    });
   }
 
   const result = await persistUseCaseZeroDemoChain(composed, {

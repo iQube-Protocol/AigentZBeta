@@ -83,6 +83,37 @@ vi.mock('@/services/vela/velaUnderwritingProjection', () => ({
   runVelaUnderwritingProjection: (...args: any[]) => runVelaUnderwritingProjectionMock(...args),
 }));
 
+// ── Mocks for resolveDemoVelaTransport's internal P-521 derivation ─────────
+//
+// `@/services/vela/agentP521Derivation` and `ethers` are deliberately NOT
+// mocked below — the whole point of these tests is to prove the REAL
+// deterministic derivation (services/vela/agentP521Derivation.ts) runs
+// end-to-end from a real ethers.Wallet, exactly as
+// scripts/vela/public-devnet-smoke.ts already proves elsewhere. Only the
+// network-facing/credential-reading edges (AgentKeyService, VelaClientAdapter,
+// resolveVelaDeployment) are faked.
+
+const getAgentKeysMock = vi.fn(async (_agentId: string) => null as { evmPrivateKey?: string } | null);
+vi.mock('@/services/identity/agentKeyService', () => ({
+  AgentKeyService: vi.fn().mockImplementation(() => ({
+    getAgentKeys: (...args: any[]) => getAgentKeysMock(...(args as [string])),
+  })),
+}));
+
+const velaClientAdapterConstructorMock = vi.fn();
+class FakeVelaClientAdapter {
+  constructor(opts: unknown) {
+    velaClientAdapterConstructorMock(opts);
+  }
+}
+vi.mock('@/services/vela/velaClientAdapter', () => ({
+  VelaClientAdapter: FakeVelaClientAdapter,
+}));
+
+vi.mock('@/services/vela/velaConfig', () => ({
+  resolveVelaDeployment: vi.fn((env: string) => ({ env })),
+}));
+
 // ── Import the module under test AFTER the mocks above ─────────────────────
 
 import {
@@ -90,11 +121,13 @@ import {
   USE_CASE_ZERO_PARTY_A,
   USE_CASE_ZERO_PARTY_B,
   USE_CASE_ZERO_PARTY_C,
+  DEMO_AUTHORIZING_AGENT_REF,
   assertUseCaseZeroDemoPersonas,
   buildUseCaseZeroDemoFactorSelection,
   buildUseCaseZeroDemoDisclosureScope,
   composeUseCaseZeroDemoChain,
   persistUseCaseZeroDemoChain,
+  resolveDemoVelaTransport,
   type UseCaseZeroDemoPersonas,
 } from '@/scripts/seedUseCaseZeroDemo';
 import type { AegisAdmissionEvidence } from '@/services/vela/velaUnderwritingAdmissionEvidence';
@@ -146,6 +179,9 @@ beforeEach(() => {
   createActivityReceiptMock.mockClear();
   listActivityReceiptsForPersonaMock.mockClear();
   runVelaUnderwritingProjectionMock.mockClear();
+  getAgentKeysMock.mockReset();
+  getAgentKeysMock.mockResolvedValue(null);
+  velaClientAdapterConstructorMock.mockClear();
 });
 
 // ── Fail-closed persona injection ──────────────────────────────────────────
@@ -373,5 +409,107 @@ describe('buildUseCaseZeroDemoDisclosureScope', () => {
       { action: 'DISCLOSE_TO', party: USE_CASE_ZERO_PARTY_B, to: USE_CASE_ZERO_PARTY_A },
       { action: 'DISCLOSE_TO', party: USE_CASE_ZERO_PARTY_A, to: USE_CASE_ZERO_PARTY_C },
     ]);
+  });
+});
+
+// ── resolveDemoVelaTransport — internal P-521 derivation, no raw --p521-key ─
+//
+// 2026-09-15 operator ruling: "keys are substrate primitives, not UX
+// concepts" — --p521-key was removed from the CLI surface entirely; P-521 is
+// always derived internally from a single EVM requester signer (MoneyPenny's
+// own custodied key by default, or a CLI --evm-key override for a throwaway
+// devnet wallet). These tests prove: (1) a transport can be constructed from
+// an EVM signer alone; (2) the derivation is deterministic; (3) neither the
+// EVM key nor the derived P-521 key ever appears in console output.
+
+describe('resolveDemoVelaTransport — internal P-521 derivation, no raw --p521-key', () => {
+  const TEST_EVM_KEY = `0x${'1234567890abcdef'.repeat(4)}`;
+  const originalArgv = process.argv;
+
+  beforeEach(() => {
+    process.argv = originalArgv.slice();
+  });
+
+  afterEach(() => {
+    process.argv = originalArgv;
+  });
+
+  it('constructs a transport from an --evm-key override alone, deriving P-521 internally (no --p521-key exists)', async () => {
+    process.argv = [...originalArgv, `--evm-key=${TEST_EVM_KEY}`];
+
+    const transport = await resolveDemoVelaTransport();
+
+    expect(transport).toBeDefined();
+    expect(velaClientAdapterConstructorMock).toHaveBeenCalledTimes(1);
+    const opts = velaClientAdapterConstructorMock.mock.calls[0][0] as {
+      requesterPrivateKeyHex: string;
+      requesterP521PrivateKeyHex: string;
+    };
+    expect(opts.requesterPrivateKeyHex.toLowerCase()).toBe(TEST_EVM_KEY.toLowerCase());
+    expect(typeof opts.requesterP521PrivateKeyHex).toBe('string');
+    expect(opts.requesterP521PrivateKeyHex.length).toBeGreaterThan(0);
+    // The CLI override took precedence — MoneyPenny's custodied key was never consulted.
+    expect(getAgentKeysMock).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the MoneyPenny custodied key via AgentKeyService when no --evm-key override is given', async () => {
+    getAgentKeysMock.mockResolvedValue({ evmPrivateKey: TEST_EVM_KEY });
+
+    const transport = await resolveDemoVelaTransport();
+
+    expect(transport).toBeDefined();
+    expect(getAgentKeysMock).toHaveBeenCalledWith(DEMO_AUTHORIZING_AGENT_REF);
+    const opts = velaClientAdapterConstructorMock.mock.calls[0][0] as { requesterPrivateKeyHex: string };
+    expect(opts.requesterPrivateKeyHex.toLowerCase()).toBe(TEST_EVM_KEY.toLowerCase());
+  });
+
+  it('derives the same P-521 key deterministically for the same EVM signer across independent calls', async () => {
+    process.argv = [...originalArgv, `--evm-key=${TEST_EVM_KEY}`];
+
+    await resolveDemoVelaTransport();
+    const first = velaClientAdapterConstructorMock.mock.calls[0][0] as { requesterP521PrivateKeyHex: string };
+
+    velaClientAdapterConstructorMock.mockClear();
+    await resolveDemoVelaTransport();
+    const second = velaClientAdapterConstructorMock.mock.calls[0][0] as { requesterP521PrivateKeyHex: string };
+
+    expect(second.requesterP521PrivateKeyHex).toBe(first.requesterP521PrivateKeyHex);
+  });
+
+  it('returns undefined and reports a clear error, without fabricating a transport, when no signer resolves', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const transport = await resolveDemoVelaTransport();
+
+    expect(transport).toBeUndefined();
+    expect(velaClientAdapterConstructorMock).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(String(errorSpy.mock.calls[0][0])).toMatch(/no EVM requester signer could be resolved/);
+
+    errorSpy.mockRestore();
+  });
+
+  it('never logs, prints, or otherwise exposes the EVM or derived P-521 private key material', async () => {
+    process.argv = [...originalArgv, `--evm-key=${TEST_EVM_KEY}`];
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const transport = await resolveDemoVelaTransport();
+    expect(transport).toBeDefined();
+    const opts = velaClientAdapterConstructorMock.mock.calls[0][0] as { requesterP521PrivateKeyHex: string };
+
+    const allOutput = [...logSpy.mock.calls, ...errorSpy.mock.calls, ...warnSpy.mock.calls]
+      .flat()
+      .map((v) => (typeof v === 'string' ? v : JSON.stringify(v)))
+      .join('\n');
+
+    expect(allOutput).not.toContain(TEST_EVM_KEY.toLowerCase());
+    expect(allOutput).not.toContain(TEST_EVM_KEY.replace(/^0x/, ''));
+    expect(allOutput).not.toContain(opts.requesterP521PrivateKeyHex);
+
+    logSpy.mockRestore();
+    errorSpy.mockRestore();
+    warnSpy.mockRestore();
   });
 });
