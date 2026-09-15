@@ -40,11 +40,18 @@ jobs:
       # (observed live: run 34989988060 failed with "requires go version
       # 1.25 through 1.27, got go1.24"). A newer go toolchain building an
       # older go.mod's `go 1.24.0` directive is forward-compatible, so this
-      # does not conflict with the module's own pin.
+      # does not conflict with the module's own pin. Explicitly pinned to
+      # the 1.25.x line (never a bare '1.25' that could float onto a
+      # different minor at setup-go's own discretion); cache disabled — the
+      # repo root carries no go.sum for actions/setup-go's cache key to
+      # hash against, and leaving cache:true (the default) only produced a
+      # "Dependencies file is not found... Supported file pattern: go.sum"
+      # warning with no actual caching benefit.
       - name: Setup Go (satisfies TinyGo 0.42.0's own go1.25-1.27 requirement)
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version: '1.25.x'
+          cache: false
 
       - name: Install TinyGo ${{ env.TINYGO_VERSION }} (pinned, Linux amd64 .deb)
         run: |
