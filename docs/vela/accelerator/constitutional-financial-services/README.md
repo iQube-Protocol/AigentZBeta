@@ -36,6 +36,7 @@ It is intentionally split into:
 | `MANIFEST.json` | Machine-readable package inventory and integrity metadata. |
 | `SHA256SUMS.md` | Human-readable SHA-256 inventory for the current package. |
 | `VELA_IMPLEMENTATION_ARCHITECTURE_v1.0.md` | External-facing implementation architecture note for the Vela technical team — describes the architecture as implemented today (revision 1.1, 14 September 2026), grounded in current repo code/tests, with Mermaid diagrams. Revision 1.1 adds the public Vela v0.2.0 devnet remote-execution milestone and the Execution Failure Non-Equivalence hardening. |
+| `DELIVERABLE_1_SUBMISSION_INDEX.md` | The single external-facing entry point for Deliverable 1 — links the demo video and one-pager (both pending, operator-supplied) alongside the architecture artifact, the public devnet milestone evidence, the repository/commit reference, WASM provenance, and the managed-deployment handoff, all of which already exist in this package. |
 
 ## Canonical boundary
 
@@ -141,3 +142,13 @@ be persisted as a constitutional determination; two production call paths
 failure rather than silently persisting a collapsed `UNRESOLVED`. Full evidence:
 `codexes/packs/agentiq/updates/2026-09-14_vela-public-devnet-v0.2.0-milestone.md`. This revision does
 not regress or supersede any earlier package file.
+
+## Deliverable 1 submission index added — 15 September 2026
+
+`DELIVERABLE_1_SUBMISSION_INDEX.md` is the single external-facing entry point for this milestone's
+Deliverable 1 submission — it links, in one place, the demo video and one-pager (both marked
+pending; this repository cannot produce either), the architecture artifact, the public devnet
+milestone evidence, a repository/commit reference (`6665d3044`), WASM provenance, and the
+managed-deployment handoff bundle. Per the operator's own 2026-09-15 direction, the Vela
+implementation layer is now frozen at commit `6665d3044` unless Vela Engineering's answers to the
+handoff bundle's question block require an adjustment.
