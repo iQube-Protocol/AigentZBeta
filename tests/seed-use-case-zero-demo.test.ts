@@ -10,6 +10,21 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { createFakeSupabase, type FakeTables } from './_lib/fakeSupabase';
 
+// ── Fixture recipient addresses (2026-09-16, Vela masterclass — real
+// recipient-binding repair) ─────────────────────────────────────────────────
+//
+// Two distinct, well-formed-but-obviously-synthetic EVM addresses standing in
+// for ArkAgent's persona wallet and Aigent Nakamoto's custodied agent wallet.
+// Declared before any vi.mock(...) factory below references them — vi.mock
+// factories run at module-evaluation time in source order, so these MUST be
+// defined above their first use.
+const TEST_ARKAGENT_RECIPIENT_ADDRESS = '0xA0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0';
+const TEST_NAKAMOTO_RECIPIENT_ADDRESS = '0xB0B0B0B0B0B0B0B0B0B0B0B0B0B0B0B0B0B0B0B0';
+const TEST_RESOLVED_RECIPIENTS = {
+  arkAgentRecipientAddress: TEST_ARKAGENT_RECIPIENT_ADDRESS,
+  nakamotoRecipientAddress: TEST_NAKAMOTO_RECIPIENT_ADDRESS,
+};
+
 // ── Mocks (module-level, before importing the module under test) ──────────
 
 interface FakeReceiptRecord {
@@ -94,10 +109,35 @@ vi.mock('@/services/vela/velaUnderwritingProjection', () => ({
 // resolveVelaDeployment) are faked.
 
 const getAgentKeysMock = vi.fn(async (_agentId: string) => null as { evmPrivateKey?: string } | null);
+// Default: Nakamoto's canonical custodied address — "safe to expose" per
+// AgentKeyService's own doc comment, never a private key. Distinct from
+// TEST_ARKAGENT_RECIPIENT_ADDRESS below so the two-distinct-recipients
+// invariant holds by default for every EXISTING test.
+const getAgentAddressesMock = vi.fn(
+  async (agentId: string) => ({ agentId, evmAddress: TEST_NAKAMOTO_RECIPIENT_ADDRESS }) as { agentId: string; evmAddress?: string } | null,
+);
 vi.mock('@/services/identity/agentKeyService', () => ({
   AgentKeyService: vi.fn().mockImplementation(() => ({
     getAgentKeys: (...args: any[]) => getAgentKeysMock(...(args as [string])),
+    getAgentAddresses: (...args: any[]) => getAgentAddressesMock(...(args as [string])),
   })),
+}));
+
+// ── Mock for ArkAgent's persona-wallet resolution (2026-09-16, Vela
+// masterclass — real recipient-binding repair) ─────────────────────────────
+//
+// Defaults to SIGNER_CONFIGURED with TEST_ARKAGENT_RECIPIENT_ADDRESS so
+// every EXISTING test continues to exercise exactly what it did before this
+// resolution step existed. Individual tests override this to prove the
+// fail-closed contract.
+const classifyPersonaWalletCapabilityMock = vi.fn(async (_personaId: string) => ({
+  capability: 'SIGNER_CONFIGURED' as const,
+  address: TEST_ARKAGENT_RECIPIENT_ADDRESS as string | null,
+  detail: 'test double: signer configured',
+  remediation: null as string | null,
+}));
+vi.mock('@/services/identity/personaAddressResolver', () => ({
+  classifyPersonaWalletCapability: (...args: any[]) => classifyPersonaWalletCapabilityMock(...(args as [string])),
 }));
 
 const velaClientAdapterConstructorMock = vi.fn();
@@ -168,8 +208,10 @@ import {
   composeUseCaseZeroDemoChain,
   persistUseCaseZeroDemoChain,
   resolveDemoVelaTransport,
+  resolveUseCaseZeroDemoRecipientAddresses,
   main as runUseCaseZeroDemoSeedCli,
   type UseCaseZeroDemoPersonas,
+  type UseCaseZeroDemoResolvedRecipients,
 } from '@/scripts/seedUseCaseZeroDemo';
 import type { AegisAdmissionEvidence } from '@/services/vela/velaUnderwritingAdmissionEvidence';
 import type { ConstitutionalRiskFlowState } from '@/services/vela/velaUnderwritingChainProjection';
@@ -208,7 +250,7 @@ function composeAdmittedDemoChain(personas: UseCaseZeroDemoPersonas = TEST_PERSO
     factorSelection.requestRef,
     factorSelection.candidateAgentId,
   );
-  return composeUseCaseZeroDemoChain({ ...personas, admissionEvidence });
+  return composeUseCaseZeroDemoChain({ ...personas, admissionEvidence, resolvedRecipients: TEST_RESOLVED_RECIPIENTS });
 }
 
 const NOOP_TRANSPORT: VelaTransport = {} as VelaTransport; // never actually used — runVelaUnderwritingProjection is mocked
@@ -222,6 +264,17 @@ beforeEach(() => {
   runVelaUnderwritingProjectionMock.mockClear();
   getAgentKeysMock.mockReset();
   getAgentKeysMock.mockResolvedValue(null);
+  getAgentAddressesMock.mockReset();
+  getAgentAddressesMock.mockImplementation(
+    async (agentId: string) => ({ agentId, evmAddress: TEST_NAKAMOTO_RECIPIENT_ADDRESS }),
+  );
+  classifyPersonaWalletCapabilityMock.mockReset();
+  classifyPersonaWalletCapabilityMock.mockImplementation(async (_personaId: string) => ({
+    capability: 'SIGNER_CONFIGURED' as const,
+    address: TEST_ARKAGENT_RECIPIENT_ADDRESS as string | null,
+    detail: 'test double: signer configured',
+    remediation: null as string | null,
+  }));
   velaClientAdapterConstructorMock.mockClear();
   fetchMock.mockClear();
   fetchMock.mockImplementation(async () => ({
@@ -444,7 +497,7 @@ describe('persistUseCaseZeroDemoChain — idempotent', () => {
       admissionStatus: 'REFUSED',
       reason: 'Aegis ratified this candidate as not admissible',
     };
-    const composed = composeUseCaseZeroDemoChain({ ...TEST_PERSONAS, admissionEvidence: refusedAdmission });
+    const composed = composeUseCaseZeroDemoChain({ ...TEST_PERSONAS, admissionEvidence: refusedAdmission, resolvedRecipients: TEST_RESOLVED_RECIPIENTS });
     expect(composed.envelopeResult.outcome).toBe('BLOCKED');
 
     const result = await persistUseCaseZeroDemoChain(composed, { actorPersonaId: TEST_PERSONAS.arkAgentPersonaId });
@@ -1133,6 +1186,211 @@ describe('main() — recipient provisioning preflight (2026-09-16, Vela mastercl
   });
 });
 
+// ── resolveUseCaseZeroDemoRecipientAddresses / composeUseCaseZeroDemoChain —
+// real recipient-binding repair (2026-09-16, Vela masterclass — UC0 final
+// blocker) ───────────────────────────────────────────────────────────────
+//
+// Prior to this repair, the two Vela UserEvent recipients were bound to
+// `demoRecipientAddress(1)`/`demoRecipientAddress(2)` — placeholder
+// addresses (`0x000...0001`/`0x000...0002`) with no real key material behind
+// them, which per VELA-SIGNER-TOPOLOGY-001 §6b could never actually decrypt
+// the event they'd receive. These tests prove: (1) the resolver binds
+// ArkAgent's and Aigent Nakamoto's REAL canonical wallets, never a
+// placeholder; (2) a caller cannot compose a consequential request without
+// resolved recipients, or with a malformed/duplicated pair; (3) a bad
+// binding fails closed BEFORE signer resolution, persistence, or submission
+// — in both --preflight and consequential runs.
+
+const LEGACY_PLACEHOLDER_RECIPIENT_1 = '0x' + '0'.repeat(39) + '1'; // was demoRecipientAddress(1)
+const LEGACY_PLACEHOLDER_RECIPIENT_2 = '0x' + '0'.repeat(39) + '2'; // was demoRecipientAddress(2)
+
+describe('resolveUseCaseZeroDemoRecipientAddresses — canonical wallet binding, never a placeholder', () => {
+  it('resolves ArkAgent via classifyPersonaWalletCapability and Nakamoto via AgentKeyService.getAgentAddresses, distinct addresses', async () => {
+    const resolved = await resolveUseCaseZeroDemoRecipientAddresses(TEST_PERSONAS);
+
+    expect(resolved.arkAgentRecipientAddress).toBe(TEST_ARKAGENT_RECIPIENT_ADDRESS);
+    expect(resolved.nakamotoRecipientAddress).toBe(TEST_NAKAMOTO_RECIPIENT_ADDRESS);
+    expect(classifyPersonaWalletCapabilityMock).toHaveBeenCalledWith(TEST_PERSONAS.arkAgentPersonaId);
+    // Nakamoto is resolved via the REGISTRABLE_AGENTS runtimeAgentId, never the raw personaId.
+    expect(getAgentAddressesMock).toHaveBeenCalledWith('aigent-nakamoto');
+    // Never a private key — only the address-only lookup is used for recipient resolution.
+    expect(getAgentKeysMock).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when ArkAgent\'s persona wallet is not SIGNER_CONFIGURED, naming ArkAgent, without resolving Nakamoto', async () => {
+    classifyPersonaWalletCapabilityMock.mockImplementationOnce(async () => ({
+      capability: 'ABSENT' as const,
+      address: null,
+      detail: 'no evm_key on this persona',
+      remediation: 'provision ArkAgent a signer',
+    }));
+
+    await expect(resolveUseCaseZeroDemoRecipientAddresses(TEST_PERSONAS)).rejects.toThrow(/ArkAgent/);
+    // Short-circuits before ever reaching Nakamoto's resolution.
+    expect(getAgentAddressesMock).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when Aigent Nakamoto has no well-formed custodied address on record', async () => {
+    getAgentAddressesMock.mockImplementationOnce(async (agentId: string) => ({ agentId, evmAddress: undefined }));
+
+    await expect(resolveUseCaseZeroDemoRecipientAddresses(TEST_PERSONAS)).rejects.toThrow(/Nakamoto/);
+  });
+
+  it('fails closed when the resolved ArkAgent and Nakamoto addresses are IDENTICAL, refusing to let one signer stand in for both parties', async () => {
+    getAgentAddressesMock.mockImplementationOnce(async (agentId: string) => ({
+      agentId,
+      evmAddress: TEST_ARKAGENT_RECIPIENT_ADDRESS,
+    }));
+
+    await expect(resolveUseCaseZeroDemoRecipientAddresses(TEST_PERSONAS)).rejects.toThrow(/IDENTICAL/);
+  });
+});
+
+describe('composeUseCaseZeroDemoChain — resolvedRecipients is required, defense-in-depth against placeholders', () => {
+  it('throws when resolvedRecipients is omitted entirely — never silently falls back to a placeholder', () => {
+    expect(() =>
+      composeUseCaseZeroDemoChain({
+        ...TEST_PERSONAS,
+        admissionEvidence: admittedAdmissionEvidence('sel-1', USE_CASE_ZERO_DEMO_REQUEST_REF, 'aigent-nakamoto'),
+      } as any),
+    ).toThrow(/resolvedRecipients\.arkAgentRecipientAddress/);
+  });
+
+  it('throws when the two resolved recipient addresses are identical, even if a caller bypasses the resolver', () => {
+    expect(() =>
+      composeUseCaseZeroDemoChain({
+        ...TEST_PERSONAS,
+        admissionEvidence: admittedAdmissionEvidence('sel-1', USE_CASE_ZERO_DEMO_REQUEST_REF, 'aigent-nakamoto'),
+        resolvedRecipients: {
+          arkAgentRecipientAddress: TEST_ARKAGENT_RECIPIENT_ADDRESS,
+          nakamotoRecipientAddress: TEST_ARKAGENT_RECIPIENT_ADDRESS,
+        },
+      }),
+    ).toThrow(/IDENTICAL/);
+  });
+
+  it('the legacy placeholder addresses (0x000...0001 / 0x000...0002) are no longer produced anywhere in this module — the export is gone', async () => {
+    const mod = await import('@/scripts/seedUseCaseZeroDemo');
+    expect((mod as Record<string, unknown>).demoRecipientAddress).toBeUndefined();
+  });
+
+  it('threads the resolved (non-placeholder) recipient addresses straight into composed.velaParties', () => {
+    const composed = composeAdmittedDemoChain(TEST_PERSONAS);
+
+    expect(composed.velaParties).toHaveLength(2);
+    expect(composed.velaParties[0].recipientAddress).toBe(TEST_ARKAGENT_RECIPIENT_ADDRESS);
+    expect(composed.velaParties[1].recipientAddress).toBe(TEST_NAKAMOTO_RECIPIENT_ADDRESS);
+    expect(composed.velaParties.map((p) => p.recipientAddress)).not.toContain(LEGACY_PLACEHOLDER_RECIPIENT_1);
+    expect(composed.velaParties.map((p) => p.recipientAddress)).not.toContain(LEGACY_PLACEHOLDER_RECIPIENT_2);
+  });
+});
+
+describe('main() — recipient binding end-to-end: canonical addresses submitted, bad bindings fail closed (2026-09-16 recipient-binding repair)', () => {
+  const originalArgv = process.argv;
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+  let logSpy: ReturnType<typeof vi.spyOn>;
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    process.argv = [
+      ...originalArgv,
+      `--arkagent=${TEST_PERSONAS.arkAgentPersonaId}`,
+      `--nakamoto=${TEST_PERSONAS.nakamotoPersonaId}`,
+      `--kn0w1=${TEST_PERSONAS.kn0w1PersonaId}`,
+      '--evm-key=0x' + '33'.repeat(32),
+    ];
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    seedAdmittedAegisAssessmentForNakamoto();
+    const { mkdtempSync } = await import('fs');
+    const { tmpdir } = await import('os');
+    const { join } = await import('path');
+    tmpDir = mkdtempSync(join(tmpdir(), 'seed-uc0-recipient-binding-'));
+  });
+
+  afterEach(async () => {
+    process.argv = originalArgv;
+    errorSpy.mockRestore();
+    logSpy.mockRestore();
+    const { rmSync } = await import('fs');
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('a consequential FROZEN run submits the CANONICAL resolved recipient addresses to Vela, never the legacy placeholders', async () => {
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(runVelaUnderwritingProjectionMock).toHaveBeenCalledTimes(1);
+    const [callArgs] = runVelaUnderwritingProjectionMock.mock.calls[0];
+    const submittedAddresses = (callArgs.build.parties as Array<{ recipientAddress: string }>).map((p) => p.recipientAddress);
+    expect(submittedAddresses).toEqual([TEST_ARKAGENT_RECIPIENT_ADDRESS, TEST_NAKAMOTO_RECIPIENT_ADDRESS]);
+    expect(submittedAddresses).not.toContain(LEGACY_PLACEHOLDER_RECIPIENT_1);
+    expect(submittedAddresses).not.toContain(LEGACY_PLACEHOLDER_RECIPIENT_2);
+  });
+
+  it('ArkAgent not SIGNER_CONFIGURED fails closed before signer resolution, persistence, or submission', async () => {
+    classifyPersonaWalletCapabilityMock.mockImplementationOnce(async () => ({
+      capability: 'ADDRESS_ONLY' as const,
+      address: null,
+      detail: 'address on record but no encrypted signer envelope',
+      remediation: 'provision a signer for this persona',
+    }));
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(getAgentKeysMock).not.toHaveBeenCalled();
+    expect(velaClientAdapterConstructorMock).not.toHaveBeenCalled();
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    expect(runVelaUnderwritingProjectionMock).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(String(errorSpy.mock.calls[0][0])).toMatch(/ArkAgent/);
+  });
+
+  it('a duplicate/ambiguous recipient binding (both parties resolve to the same address) fails closed before persistence or submission', async () => {
+    getAgentAddressesMock.mockImplementationOnce(async (agentId: string) => ({
+      agentId,
+      evmAddress: TEST_ARKAGENT_RECIPIENT_ADDRESS,
+    }));
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    expect(runVelaUnderwritingProjectionMock).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(String(errorSpy.mock.calls[0][0])).toMatch(/IDENTICAL/);
+  });
+
+  it('a bad recipient binding fails closed even under --preflight, before any preflight report is printed — preflight stays strictly zero-effect', async () => {
+    classifyPersonaWalletCapabilityMock.mockImplementationOnce(async () => ({
+      capability: 'MALFORMED' as const,
+      address: null,
+      detail: 'evm_address is not a well-formed 0x address',
+      remediation: 'repair the persona\'s evm_address',
+    }));
+    process.argv.push('--preflight', '--app=42');
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(getAgentKeysMock).not.toHaveBeenCalled();
+    expect(velaClientAdapterConstructorMock).not.toHaveBeenCalled();
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    expect(runVelaUnderwritingProjectionMock).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(String(errorSpy.mock.calls[0][0])).toMatch(/ArkAgent/);
+    // No BLOCKED/FROZEN preflight report was ever printed — the resolution
+    // failure aborts before the envelope is even composed.
+    const allLogs = logSpy.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(allLogs).not.toMatch(/FROZEN|BLOCKED/);
+  });
+});
+
 // ── main() — --preflight/--dry-run: genuine zero-effect guarantee ──────────
 //
 // 2026-09-16 correction: the earlier claim that a bare, no-flag invocation
@@ -1255,7 +1513,7 @@ describe('persistUseCaseZeroDemoChain — fail-closed applicationId consistency'
     // Explicit applicationId to make the intent unambiguous, rather than relying on the shared default.
     const factorSelection = buildUseCaseZeroDemoFactorSelection(TEST_PERSONAS, '42');
     const admissionEvidence = admittedAdmissionEvidence(factorSelection.selectionRef, factorSelection.requestRef, factorSelection.candidateAgentId);
-    const composed = composeUseCaseZeroDemoChain({ ...TEST_PERSONAS, admissionEvidence, applicationId: '42' });
+    const composed = composeUseCaseZeroDemoChain({ ...TEST_PERSONAS, admissionEvidence, applicationId: '42', resolvedRecipients: TEST_RESOLVED_RECIPIENTS });
     void composedFirst;
 
     const first = await persistUseCaseZeroDemoChain(composed, { actorPersonaId: TEST_PERSONAS.arkAgentPersonaId, transport: NOOP_TRANSPORT });
@@ -1271,7 +1529,7 @@ describe('persistUseCaseZeroDemoChain — fail-closed applicationId consistency'
   it('different-applicationId rerun for the SAME requestRef refuses before any write, zero additional receipts', async () => {
     const factorSelectionA = buildUseCaseZeroDemoFactorSelection(TEST_PERSONAS, '42');
     const admissionEvidenceA = admittedAdmissionEvidence(factorSelectionA.selectionRef, factorSelectionA.requestRef, factorSelectionA.candidateAgentId);
-    const composedA = composeUseCaseZeroDemoChain({ ...TEST_PERSONAS, admissionEvidence: admissionEvidenceA, applicationId: '42' });
+    const composedA = composeUseCaseZeroDemoChain({ ...TEST_PERSONAS, admissionEvidence: admissionEvidenceA, applicationId: '42', resolvedRecipients: TEST_RESOLVED_RECIPIENTS });
     await persistUseCaseZeroDemoChain(composedA, { actorPersonaId: TEST_PERSONAS.arkAgentPersonaId, transport: NOOP_TRANSPORT });
     const callsAfterFirstRun = createActivityReceiptMock.mock.calls.length;
     expect(callsAfterFirstRun).toBeGreaterThan(0);
@@ -1279,7 +1537,7 @@ describe('persistUseCaseZeroDemoChain — fail-closed applicationId consistency'
     // SAME requestRef (fixed, by design), DIFFERENT applicationId.
     const factorSelectionB = buildUseCaseZeroDemoFactorSelection(TEST_PERSONAS, '99');
     const admissionEvidenceB = admittedAdmissionEvidence(factorSelectionB.selectionRef, factorSelectionB.requestRef, factorSelectionB.candidateAgentId);
-    const composedB = composeUseCaseZeroDemoChain({ ...TEST_PERSONAS, admissionEvidence: admissionEvidenceB, applicationId: '99' });
+    const composedB = composeUseCaseZeroDemoChain({ ...TEST_PERSONAS, admissionEvidence: admissionEvidenceB, applicationId: '99', resolvedRecipients: TEST_RESOLVED_RECIPIENTS });
 
     await expect(
       persistUseCaseZeroDemoChain(composedB, { actorPersonaId: TEST_PERSONAS.arkAgentPersonaId, transport: NOOP_TRANSPORT }),
@@ -1298,7 +1556,7 @@ describe('persistUseCaseZeroDemoChain — fail-closed applicationId consistency'
       admissionStatus: 'REFUSED',
       reason: 'not admissible',
     };
-    const composedA = composeUseCaseZeroDemoChain({ ...TEST_PERSONAS, admissionEvidence: refusedAdmissionA, applicationId: '42' });
+    const composedA = composeUseCaseZeroDemoChain({ ...TEST_PERSONAS, admissionEvidence: refusedAdmissionA, applicationId: '42', resolvedRecipients: TEST_RESOLVED_RECIPIENTS });
     const firstResult = await persistUseCaseZeroDemoChain(composedA, { actorPersonaId: TEST_PERSONAS.arkAgentPersonaId });
     expect(firstResult.blocked).toBeDefined();
     const callsAfterFirstRun = createActivityReceiptMock.mock.calls.length;
@@ -1309,7 +1567,7 @@ describe('persistUseCaseZeroDemoChain — fail-closed applicationId consistency'
       admissionStatus: 'REFUSED',
       reason: 'not admissible',
     };
-    const composedB = composeUseCaseZeroDemoChain({ ...TEST_PERSONAS, admissionEvidence: refusedAdmissionB, applicationId: '99' });
+    const composedB = composeUseCaseZeroDemoChain({ ...TEST_PERSONAS, admissionEvidence: refusedAdmissionB, applicationId: '99', resolvedRecipients: TEST_RESOLVED_RECIPIENTS });
 
     await expect(
       persistUseCaseZeroDemoChain(composedB, { actorPersonaId: TEST_PERSONAS.arkAgentPersonaId }),

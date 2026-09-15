@@ -54,6 +54,19 @@ export const FIXTURE_ARKAGENT_PERSONA_ID = 'fixture-persona-arkagent';
 export const FIXTURE_NAKAMOTO_PERSONA_ID = 'fixture-persona-nakamoto';
 export const FIXTURE_KN0W1_PERSONA_ID = 'fixture-persona-kn0w1';
 
+/**
+ * Clearly-fake recipient addresses — 2026-09-16, following the real seed
+ * script's own move away from placeholder addresses
+ * (`scripts/seedUseCaseZeroDemo.ts`'s `resolveUseCaseZeroDemoRecipientAddresses`).
+ * This fixture never submits to Vela (see this file's header — NON-LIVE
+ * DATA), so it has no live wallet to resolve; these two DISTINCT,
+ * well-formed-but-obviously-synthetic addresses satisfy
+ * `composeUseCaseZeroDemoChain`'s now-required `resolvedRecipients` field
+ * without claiming to be real custodied wallets.
+ */
+export const FIXTURE_ARKAGENT_RECIPIENT_ADDRESS = '0xF13F1CE00000000000000000000000000000A1';
+export const FIXTURE_NAKAMOTO_RECIPIENT_ADDRESS = '0xF13F1CE00000000000000000000000000000B2';
+
 const FIXTURE_ASSESSMENT_REF = 'fixture-aegis-assessment-nakamoto-001';
 const FIXTURE_ADMISSION_REF = 'fixture-aegis-admission-nakamoto-001';
 
@@ -131,6 +144,10 @@ export async function buildUseCaseZeroDemoFixture(): Promise<UseCaseZeroDemoFixt
     nakamotoPersonaId: FIXTURE_NAKAMOTO_PERSONA_ID,
     kn0w1PersonaId: FIXTURE_KN0W1_PERSONA_ID,
     admissionEvidence,
+    resolvedRecipients: {
+      arkAgentRecipientAddress: FIXTURE_ARKAGENT_RECIPIENT_ADDRESS,
+      nakamotoRecipientAddress: FIXTURE_NAKAMOTO_RECIPIENT_ADDRESS,
+    },
   });
 
   if (composed.envelopeResult.outcome !== 'FROZEN') {

@@ -166,10 +166,7 @@ const DEFAULT_ACTIVE_CARTRIDGE = 'moneypenny';
  *  for both -> ACCEPTABLE. Verified against the real Go rule, not guessed. */
 const DEMO_PARTY_INPUTS = { currentExposure: 0, proposedSpend: 400, privateSpendLimit: 1000, privateRiskLimit: 1000 };
 
-const HEX_ADDRESS_PREFIX = '0x';
-function demoRecipientAddress(index: number): string {
-  return HEX_ADDRESS_PREFIX + index.toString(16).padStart(40, '0');
-}
+const HEX_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 
 // ── Fail-closed persona injection ───────────────────────────────────────────
 
@@ -198,6 +195,104 @@ export function assertUseCaseZeroDemoPersonas(personas: Partial<UseCaseZeroDemoP
       );
     }
   }
+}
+
+// ── Real Vela UserEvent recipient resolution (2026-09-16, Vela masterclass) ──
+
+/**
+ * The two REAL, on-chain recipient addresses the frozen envelope's Vela
+ * request will address its two encrypted UserEvents to — party-a (ArkAgent)
+ * and party-b (Nakamoto); see composeUseCaseZeroDemoChain's own header on
+ * why Kn0w1/party-c receives no UserEvent at all. Each address here MUST be
+ * the SAME identity that will later derive the matching P-521 key
+ * (`services/vela/agentP521Derivation.ts`) to decrypt that party's own
+ * event — never a placeholder, never invented.
+ */
+export interface UseCaseZeroDemoResolvedRecipients {
+  arkAgentRecipientAddress: string;
+  nakamotoRecipientAddress: string;
+}
+
+/**
+ * Resolves the two REAL recipient addresses from EXISTING authoritative
+ * records — read-only (no signer/private-key resolution; see this file's
+ * own `resolveDemoVelaTransport` for the one place a private key is ever
+ * touched, which this function never approaches):
+ *
+ *  - ArkAgent (party-a) — the human portfolio-principal persona (this file's
+ *    header, design decision 2), NOT a registered agent. Her canonical
+ *    recipient address is her OWN persona wallet, resolved via
+ *    `classifyPersonaWalletCapability` (services/identity/personaAddressResolver.ts)
+ *    — the same classifier the Register/Verify/Claim ceremonies already use
+ *    to decide whether a persona's wallet can actually produce a signature.
+ *    REQUIRING `capability === 'SIGNER_CONFIGURED'` (not merely an address
+ *    on file) is not incidental caution: Vela's own P-521 comms key is
+ *    DERIVED from the EVM signer (`VELA-SIGNER-TOPOLOGY-001.md` §6b — the
+ *    holder signs a fixed challenge string), so an address with no key
+ *    material behind it could never actually decrypt the UserEvent it
+ *    would receive, exactly like the placeholder addresses this replaces.
+ *  - Nakamoto (party-b) — the registered candidate agent
+ *    (`DEMO_CANDIDATE_AGENT_SLUG`). Her canonical recipient address is her
+ *    OWN `agent_keys` custodied wallet
+ *    (`REGISTRABLE_AGENTS.nakamoto.runtimeAgentId`), resolved via
+ *    `AgentKeyService.getAgentAddresses` — the address-only, "safe to
+ *    expose" method (see that service's own doc comment); this function
+ *    NEVER calls `getAgentKeys` (which would decrypt her private key).
+ *
+ * Fails closed (throws, naming exactly what is missing and what to do about
+ * it) rather than manufacturing a wallet, falling back to a placeholder, or
+ * silently reusing one address for both parties — including when the two
+ * resolved addresses would be identical, which would mean a single signer
+ * could decrypt what are supposed to be two independent parties' events.
+ */
+export async function resolveUseCaseZeroDemoRecipientAddresses(
+  personas: UseCaseZeroDemoPersonas,
+): Promise<UseCaseZeroDemoResolvedRecipients> {
+  assertUseCaseZeroDemoPersonas(personas);
+
+  const { classifyPersonaWalletCapability } = await import('@/services/identity/personaAddressResolver');
+  const arkAgentCapability = await classifyPersonaWalletCapability(personas.arkAgentPersonaId);
+  if (arkAgentCapability.capability !== 'SIGNER_CONFIGURED' || !arkAgentCapability.address) {
+    throw new Error(
+      `resolveUseCaseZeroDemoRecipientAddresses: ArkAgent's persona wallet (personaId=${personas.arkAgentPersonaId}) ` +
+        `is not SIGNER_CONFIGURED (capability=${arkAgentCapability.capability}: ${arkAgentCapability.detail}) — ` +
+        'refusing to bind a placeholder or non-signing address as a Vela UserEvent recipient, since it could ' +
+        `never actually decrypt the event it would receive. ${arkAgentCapability.remediation ?? 'Investigate the persona wallet record before retrying.'}`,
+    );
+  }
+
+  const { resolveRegistrableAgent } = await import('@/services/horizen/registrableAgents');
+  const nakamotoAgentConfig = resolveRegistrableAgent(DEMO_CANDIDATE_AGENT_SLUG);
+  if (!nakamotoAgentConfig) {
+    throw new Error(
+      `resolveUseCaseZeroDemoRecipientAddresses: no REGISTRABLE_AGENTS entry for slug "${DEMO_CANDIDATE_AGENT_SLUG}" ` +
+        '— cannot resolve Aigent Nakamoto\'s canonical recipient address. Add (or correct) the REGISTRABLE_AGENTS ' +
+        'entry before retrying; never invent a fallback address here.',
+    );
+  }
+  const { AgentKeyService } = await import('@/services/identity/agentKeyService');
+  const nakamotoAddresses = await new AgentKeyService().getAgentAddresses(nakamotoAgentConfig.runtimeAgentId);
+  if (!nakamotoAddresses?.evmAddress || !HEX_ADDRESS_RE.test(nakamotoAddresses.evmAddress)) {
+    throw new Error(
+      'resolveUseCaseZeroDemoRecipientAddresses: no well-formed custodied EVM address on record for ' +
+        `"${nakamotoAgentConfig.runtimeAgentId}" (agent_keys) — provision Aigent Nakamoto's agent wallet ` +
+        '(the SAME wallet Register/Verify/Claim/Pulse already sign with) before retrying. Never invent a ' +
+        'fallback address here.',
+    );
+  }
+
+  if (arkAgentCapability.address.toLowerCase() === nakamotoAddresses.evmAddress.toLowerCase()) {
+    throw new Error(
+      'resolveUseCaseZeroDemoRecipientAddresses: ArkAgent\'s and Aigent Nakamoto\'s resolved recipient addresses ' +
+        'are IDENTICAL — refusing to silently let one signer stand in for both UC0 parties. Investigate the ' +
+        'persona/agent-key records (one of them likely points at a shared or misconfigured wallet) before retrying.',
+    );
+  }
+
+  return {
+    arkAgentRecipientAddress: arkAgentCapability.address,
+    nakamotoRecipientAddress: nakamotoAddresses.evmAddress,
+  };
 }
 
 // ── Pure artifact construction ──────────────────────────────────────────────
@@ -273,6 +368,14 @@ export interface ComposeUseCaseZeroDemoChainParams extends UseCaseZeroDemoPerson
    * caller can never accidentally submit it to Vela.
    */
   applicationId?: string;
+  /**
+   * The REAL Vela UserEvent recipient addresses for party-a/party-b, already
+   * resolved by calling `resolveUseCaseZeroDemoRecipientAddresses` (that
+   * call cannot happen inside this pure function, same reasoning as
+   * `admissionEvidence` above). Required; never a placeholder/synthetic
+   * address is constructed inside this function.
+   */
+  resolvedRecipients: UseCaseZeroDemoResolvedRecipients;
 }
 
 export interface UseCaseZeroDemoComposedChain {
@@ -308,6 +411,33 @@ export function composeUseCaseZeroDemoChain(
       'composeUseCaseZeroDemoChain: admissionEvidence is required — resolve it via ' +
         'composeUnderwritingAdmissionEvidence(admin, { factorSelection }) against a live Supabase client ' +
         'before composing the demo chain. Never fabricated as ADMITTED here.',
+    );
+  }
+  // Defense-in-depth (2026-09-16, Vela masterclass) — the SAME final gate
+  // the applicationId check below is, never silently bypassed even though
+  // resolveUseCaseZeroDemoRecipientAddresses already enforces both of these:
+  // a caller that defeats that function's own type contract (e.g. hand-built
+  // params, or a future second call site) still cannot compose a request
+  // that binds a malformed or duplicated recipient address.
+  const { arkAgentRecipientAddress, nakamotoRecipientAddress } = params.resolvedRecipients ?? {};
+  if (!arkAgentRecipientAddress || !HEX_ADDRESS_RE.test(arkAgentRecipientAddress)) {
+    throw new Error(
+      'composeUseCaseZeroDemoChain: resolvedRecipients.arkAgentRecipientAddress is missing or not a well-formed ' +
+        'EVM address — resolve it via resolveUseCaseZeroDemoRecipientAddresses(personas) before composing the ' +
+        'demo chain. Never a placeholder address.',
+    );
+  }
+  if (!nakamotoRecipientAddress || !HEX_ADDRESS_RE.test(nakamotoRecipientAddress)) {
+    throw new Error(
+      'composeUseCaseZeroDemoChain: resolvedRecipients.nakamotoRecipientAddress is missing or not a well-formed ' +
+        'EVM address — resolve it via resolveUseCaseZeroDemoRecipientAddresses(personas) before composing the ' +
+        'demo chain. Never a placeholder address.',
+    );
+  }
+  if (arkAgentRecipientAddress.toLowerCase() === nakamotoRecipientAddress.toLowerCase()) {
+    throw new Error(
+      'composeUseCaseZeroDemoChain: resolvedRecipients.arkAgentRecipientAddress and .nakamotoRecipientAddress ' +
+        'are IDENTICAL — refusing to compose a request that would let one signer decrypt both parties\' events.',
     );
   }
 
@@ -356,12 +486,12 @@ export function composeUseCaseZeroDemoChain(
   const velaParties: VelaMultiPartyPartyInput[] = [
     {
       identities: { authorityPrincipal: params.arkAgentPersonaId, confidentialPrivacyIdentity: params.arkAgentPersonaId },
-      recipientAddress: demoRecipientAddress(1),
+      recipientAddress: arkAgentRecipientAddress,
       inputs: DEMO_PARTY_INPUTS,
     },
     {
       identities: { authorityPrincipal: params.nakamotoPersonaId, confidentialPrivacyIdentity: params.nakamotoPersonaId },
-      recipientAddress: demoRecipientAddress(2),
+      recipientAddress: nakamotoRecipientAddress,
       inputs: DEMO_PARTY_INPUTS,
     },
   ];
@@ -1074,7 +1204,24 @@ export async function main(): Promise<void> {
   const factorSelection = buildUseCaseZeroDemoFactorSelection(personas, applicationId);
   const admissionEvidence = await composeUnderwritingAdmissionEvidence(admin, { factorSelection });
 
-  const composed = composeUseCaseZeroDemoChain({ ...personas, admissionEvidence, applicationId });
+  // REAL RECIPIENT RESOLUTION (2026-09-16, Vela masterclass) — read-only
+  // (no signer/private-key resolution; see resolveUseCaseZeroDemoRecipientAddresses's
+  // own doc comment). Resolved BEFORE composing, for BOTH --preflight and a
+  // consequential run alike, exactly like admissionEvidence above — a
+  // preflight that could not tell a real recipient-resolution failure from a
+  // BLOCKED/FROZEN envelope would not be useful.
+  let resolvedRecipients: UseCaseZeroDemoResolvedRecipients;
+  try {
+    resolvedRecipients = await resolveUseCaseZeroDemoRecipientAddresses(personas);
+  } catch (err) {
+    console.error(
+      `seedUseCaseZeroDemo: ${err instanceof Error ? err.message : String(err)} Nothing was persisted.`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  const composed = composeUseCaseZeroDemoChain({ ...personas, admissionEvidence, applicationId, resolvedRecipients });
 
   // GENUINE --preflight/--dry-run — returns here, BEFORE the FROZEN branch
   // below (which is the only code path that can resolve a signer) and
