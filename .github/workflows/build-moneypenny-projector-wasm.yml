@@ -45,11 +45,17 @@ jobs:
           curl -fsSL -o /tmp/tinygo.deb \
             "https://github.com/tinygo-org/tinygo/releases/download/v${TINYGO_VERSION}/tinygo_${TINYGO_VERSION}_amd64.deb"
           sudo dpkg -i /tmp/tinygo.deb
-          /usr/local/tinygo/bin/tinygo version
+          # The .deb's own install path varies by package build — never
+          # hardcoded. Resolve the installed binary from PATH (dpkg registers
+          # it via update-alternatives/symlink) instead.
+          TINYGO_BIN="$(command -v tinygo)"
+          test -n "$TINYGO_BIN"
+          "$TINYGO_BIN" version
+          echo "TINYGO_BIN=${TINYGO_BIN}" >> "$GITHUB_ENV"
 
       - name: Build production WASM (make production_build — repo's own -opt=s -no-debug -target=wasi flags)
         working-directory: ${{ env.WASM_DIR }}
-        run: make production_build
+        run: make production_build TINYGO="$TINYGO_BIN"
 
       - name: Compute and record SHA-256
         working-directory: ${{ env.WASM_DIR }}/production_build
