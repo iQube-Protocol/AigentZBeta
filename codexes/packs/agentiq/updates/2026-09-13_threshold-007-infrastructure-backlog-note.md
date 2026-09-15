@@ -31,6 +31,65 @@ Their being in a public bucket resolved today's evidence-availability problem bu
 
 **Do not block the Evidence Agent on this.** Registration is infrastructure; evidence resolution proceeds now against the Storage-hosted artifacts as-is.
 
+## 3. QubeTalk Locker Bridge — Aletheon ↔ Claude artifact/action handoff with constitutional receipts
+
+**Status:** Captured 2026-09-15, per operator (Aletheon-side) direction. **Not implemented. Not scheduled ahead of the Trusted Intelligence / Threshold work.** The operator was explicit: "I would not stop the Trusted Intelligence work to implement it now" — this is a near-term infrastructure item, not a request to build anything.
+
+### The problem this solves
+
+Aletheon and Claude (this session, operating with GitHub/repo-native write access) currently have no neutral, asynchronous handoff surface. Work either happens inside one agent's own session, or is manually relayed by the human operator pasting content between sessions (as happened with the Merit-to-Falsify review and the Threshold 007.3 candidate files earlier in this session). That works but doesn't scale past one agent pair, and it conflates "artifact was handed over" with "action was authorized and performed."
+
+### The proposed bridge (operator's own framing, preserved verbatim in substance)
+
+> Aletheon → QubeTalk packet → Locker → Claude / MCP → GitHub → receipt back to Locker
+
+The **Locker becomes the neutral handoff surface** — Aletheon and Claude do not pretend to communicate directly. Each handoff is a small **constitutional work packet** containing: the artifact(s), intended destination/path, requested action, authority/delegation, provenance/hash, publication status, and an expected completion receipt.
+
+### Operating model
+
+1. Aletheon creates/refines strategy, papers, prompts, specs, evidence packages.
+2. Aletheon pushes the approved artifact packet into the Locker via QubeTalk/MCP.
+3. Claude reads the packet through the same MCP bridge.
+4. Claude performs repo-native actions using its own GitHub access.
+5. Claude returns commit/PR/hash/status as a receipt into the Locker.
+6. Aletheon inspects the receipt and continues from actual repository state.
+
+### Governing design invariant (paramount, must survive any implementation)
+
+> **Artifact handoff is not execution authority.**
+
+A packet can say "candidate for publication to `docs/...`," but the receiving agent must still hold the appropriate delegated authority before performing any GitHub write — packet delivery is transport, not permission. The return receipt must distinguish, at minimum, **received / acted / committed / merged / published**, so transport success is never confused with execution success. This composes directly with this repo's own existing invariants — the Aegis "assess but cannot admit" separation-of-powers pattern (`services/aegis/aegisAssessmentService.ts`) and the Factor `authorityChain.ts` delegation/revocation model are the closest existing implementations of exactly this discipline, and should be the reference pattern if this is ever built rather than a fresh design.
+
+### Candidate packet schema (operator-supplied, preserved as given)
+
+```
+packet_id
+sender_persona
+recipient_persona
+artifact_refs
+artifact_hashes
+intent
+requested_action
+target_repo
+target_branch
+target_paths
+authority_scope
+status
+execution_receipts
+created_at
+expires_at
+```
+
+### Why this belongs in the backlog, not the evidence record
+
+This is architecture/infrastructure, not research evidence — same reasoning as items 1 and 2 above. It must not be read as an existing capability, a validated design, or evidence bearing on Threshold 007/007.3's scientific claims. It is an operating-model proposal for how future artifact handoffs between Aletheon and Claude (and, per the operator's own note, potentially any authorized agent, not just this pair) should work.
+
+### Prerequisite, per the operator's own sequencing
+
+"Once the Threshold/metaMe MCP is visible to me in a session again, we can implement and test the first end-to-end packet using one low-risk document publication — before trusting it with canonical research artifacts." I.e.: (1) Aletheon's own MCP visibility is a precondition this session cannot resolve from the Claude side; (2) the first real test should be a low-risk, non-canonical document, not a Threshold research artifact; (3) canonical-artifact use is explicitly deferred until the low-risk test succeeds.
+
+`research_backlog_items` row: `threshold-qubetalk-locker-bridge`.
+
 ## Status summary
 
 | Concern | Status |
