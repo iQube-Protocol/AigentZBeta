@@ -34,10 +34,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Go (matches services/vela/wasm/projector/go.mod)
+      # NOT go-version-file: services/vela/wasm/projector/go.mod pins go
+      # 1.24.0/toolchain go1.24.7 for the APP itself, but TinyGo 0.42.0
+      # requires the go TOOLCHAIN that invokes it to be 1.25 through 1.27
+      # (observed live: run 34989988060 failed with "requires go version
+      # 1.25 through 1.27, got go1.24"). A newer go toolchain building an
+      # older go.mod's `go 1.24.0` directive is forward-compatible, so this
+      # does not conflict with the module's own pin.
+      - name: Setup Go (satisfies TinyGo 0.42.0's own go1.25-1.27 requirement)
         uses: actions/setup-go@v5
         with:
-          go-version-file: ${{ env.WASM_DIR }}/go.mod
+          go-version: '1.25'
 
       - name: Install TinyGo ${{ env.TINYGO_VERSION }} (pinned, Linux amd64 .deb)
         run: |
