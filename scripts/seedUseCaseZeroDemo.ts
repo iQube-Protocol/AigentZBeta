@@ -1177,6 +1177,30 @@ async function resolveUseCaseZeroDemoPersonasFromCli(): Promise<
 }
 
 /**
+ * ArkAgent's persona-wallet envelope, read the SAME way (and via the SAME
+ * two fields) `GET /api/wallet/principal/envelope` already reads it —
+ * `personas.evm_key.{address, encryptedPrivateKey}` — never a hand-invented
+ * second shape. Ciphertext only: the encrypted envelope is inert without the
+ * wallet password, which this function never sees or requires.
+ */
+async function resolvePersonaEncryptedEnvelope(
+  admin: NonNullable<ReturnType<typeof getSupabaseServer>>,
+  personaId: string,
+): Promise<{ boundAddress: string; encryptedEnvelope: unknown } | { error: string }> {
+  const { data, error } = await admin.from('personas').select('evm_key').eq('id', personaId).maybeSingle();
+  if (error) {
+    return { error: `the persona wallet envelope could not be read (${error.message}).` };
+  }
+  const env = (data?.evm_key ?? null) as { address?: unknown; encryptedPrivateKey?: unknown } | null;
+  const boundAddress = typeof env?.address === 'string' ? env.address : null;
+  const encryptedEnvelope = env?.encryptedPrivateKey ?? null;
+  if (!encryptedEnvelope || !boundAddress) {
+    return { error: 'no encrypted principal wallet envelope is on file for this persona.' };
+  }
+  return { boundAddress, encryptedEnvelope };
+}
+
+/**
  * `--provision-recipients` — explicit, narrowly-scoped ASSOCIATEKEY
  * provisioning for the two canonical UC0 Vela recipients (ArkAgent, Aigent
  * Nakamoto) on the selected `ProcessorEndpoint`. Composes/persists NOTHING
@@ -1190,26 +1214,32 @@ async function resolveUseCaseZeroDemoPersonasFromCli(): Promise<
  * who the two recipients are. Signers (needed here, unlike everywhere else in
  * this file, because SUBMITTING an ASSOCIATEKEY request requires a private
  * key that controls the recipient address) are resolved through EXISTING
- * trusted channels only, per this task's own instruction ("Use .env.local/
- * AgentKeyService through existing trusted code only"):
+ * trusted channels only — never a new decryption/derivation path:
  *
  *  - Aigent Nakamoto — `AgentKeyService.getAgentKeys(runtimeAgentId)`, the
  *    SAME custodied-wallet decryption path `resolveDemoVelaTransport` already
  *    uses for MoneyPenny's own signer. No operator input needed.
- *  - ArkAgent — her persona wallet is PASSWORD-encrypted client-side
- *    (`services/wallet/keyService.ts`'s `decryptPrivateKey`); there is no
- *    non-interactive, server-side decryption path for it anywhere in this
- *    repo (confirmed: `AgentKeyService`'s server-secret-based decryption only
- *    ever covers `agent_keys` rows, never `personas.evm_key`). So her signer
- *    is read from `UC0_ARKAGENT_EVM_PRIVATE_KEY_HEX` in `.env.local` — an
- *    ENVIRONMENT VARIABLE, never a CLI argument (argv secrets are exactly
- *    what this task forbids) — and this function fails closed with a precise
- *    message naming that variable when it is unset, rather than inventing a
- *    decryption path or silently falling back to any other key.
+ *  - ArkAgent — her persona wallet's `personas.evm_key` envelope is
+ *    decrypted IN MEMORY using the repo's own existing wallet cryptography
+ *    (`services/wallet/keyService.ts`'s `decryptPrivateKey` — AES-256-GCM,
+ *    PBKDF2 password key derivation; the SAME primitive
+ *    `provisionPrincipalWalletClient.ts` and the control-proof ceremony
+ *    already use). The wallet PASSWORD (never the private key) is read from
+ *    `UC0_ARKAGENT_WALLET_PASSWORD` — a silent environment variable, never a
+ *    CLI argument — and used only to call `decryptPrivateKey`; it is never
+ *    logged, returned, or included in any error message. `decryptPrivateKey`
+ *    itself never includes the password or key material in its own thrown
+ *    errors (confirmed from its source: "Incorrect password or corrupted key
+ *    data" is its only failure message), so this function's own error
+ *    surfacing never needs to redact anything beyond that.
  *
  * Every resolved signer's OWN address is re-checked against the canonical
- * recipient address before any submission — a mismatch (stale env var, wrong
- * key) fails closed for that recipient without submitting anything.
+ * recipient address before any submission — a stale/incorrect envelope
+ * binding (the wallet's recorded `evm_key.address` disagreeing with the
+ * live-resolved recipient address) fails closed for that recipient without
+ * submitting anything. A WRONG PASSWORD never reaches this comparison at
+ * all: AES-256-GCM is authenticated, so `decryptPrivateKey` itself throws
+ * before any key is derived.
  */
 async function provisionUseCaseZeroDemoRecipients(): Promise<void> {
   const velaEnv = (cliArg('vela-env') as VelaEnv | undefined) ?? 'local';
@@ -1281,24 +1311,40 @@ async function provisionUseCaseZeroDemoRecipients(): Promise<void> {
     return;
   }
 
+  const admin = getSupabaseServer()!; // non-null: resolveUseCaseZeroDemoPersonasFromCli already verified reachability
   type ResolvedSigner = { privateKeyHex: string } | { error: string };
   const recipients: Array<{ label: string; address: string; resolveSigner: () => Promise<ResolvedSigner> }> = [
     {
       label: 'ArkAgent',
       address: resolvedRecipients.arkAgentRecipientAddress,
       resolveSigner: async () => {
-        const key = process.env.UC0_ARKAGENT_EVM_PRIVATE_KEY_HEX;
-        if (!key) {
+        const password = process.env.UC0_ARKAGENT_WALLET_PASSWORD;
+        if (!password) {
           return {
             error:
-              "ArkAgent's persona wallet is password-encrypted client-side — there is no non-interactive, " +
-              'server-side signer-resolution path for it in this repo (unlike an AgentKeyService-custodied agent ' +
-              'wallet). Set UC0_ARKAGENT_EVM_PRIVATE_KEY_HEX in .env.local to the private key that controls ' +
-              `${redactAddressForDisplay(resolvedRecipients.arkAgentRecipientAddress)} before retrying. Never pass ` +
-              'it via a CLI argument.',
+              "ArkAgent's persona wallet is encrypted at rest and requires her wallet password to unlock in " +
+              'memory — set UC0_ARKAGENT_WALLET_PASSWORD (e.g. via a silent shell prompt into that environment ' +
+              'variable, never typed into a CLI argument, logged, or committed anywhere) before retrying.',
           };
         }
-        return { privateKeyHex: key };
+        const envelope = await resolvePersonaEncryptedEnvelope(admin, personaResolution.personas.arkAgentPersonaId);
+        if ('error' in envelope) {
+          return { error: envelope.error };
+        }
+        const { decryptPrivateKey } = await import('@/services/wallet/keyService');
+        let decryptedHex: string;
+        try {
+          decryptedHex = await decryptPrivateKey(
+            envelope.encryptedEnvelope as Parameters<typeof decryptPrivateKey>[0],
+            password,
+          );
+        } catch (err) {
+          // decryptPrivateKey's own thrown message never includes the
+          // password or any key material (see this function's own header) —
+          // safe to surface directly.
+          return { error: err instanceof Error ? err.message : 'wallet unlock failed.' };
+        }
+        return { privateKeyHex: decryptedHex.startsWith('0x') ? decryptedHex : `0x${decryptedHex}` };
       },
     },
     {

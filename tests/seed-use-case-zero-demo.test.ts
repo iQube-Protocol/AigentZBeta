@@ -1731,6 +1731,8 @@ describe('main() --provision-recipients — ASSOCIATEKEY provisioning, never UC0
 
   const PROVISION_ARKAGENT_PRIVATE_KEY = '0x' + '11'.repeat(32);
   const PROVISION_NAKAMOTO_PRIVATE_KEY = '0x' + '22'.repeat(32);
+  const ARKAGENT_WALLET_PASSWORD = 'correct-test-password-Xy9!';
+  const ARKAGENT_WRONG_PASSWORD = 'wrong-test-password-Zz0!';
 
   beforeEach(async () => {
     const { Wallet } = await import('ethers');
@@ -1760,7 +1762,37 @@ describe('main() --provision-recipients — ASSOCIATEKEY provisioning, never UC0
     getAgentAddressesMock.mockImplementation(async (agentId: string) => ({ agentId, evmAddress: nakamotoWallet.address }));
     getAgentKeysMock.mockReset();
     getAgentKeysMock.mockImplementation(async (_agentId: string) => ({ evmPrivateKey: PROVISION_NAKAMOTO_PRIVATE_KEY }));
-    process.env.UC0_ARKAGENT_EVM_PRIVATE_KEY_HEX = PROVISION_ARKAGENT_PRIVATE_KEY;
+
+    // A REAL encrypted envelope (services/wallet/keyService.ts's own
+    // AES-256-GCM/PBKDF2 primitive — never a test-only stand-in), seeded on
+    // the fake personas row exactly the way `personas.evm_key` stores it and
+    // `GET /api/wallet/principal/envelope` reads it — proving this suite
+    // exercises the SAME encrypted-wallet unlock path production uses, not a
+    // mocked shortcut.
+    // keyService.ts's own server-side getRandomBytes() fallback expects
+    // `global.crypto.randomBytes` (Node's CommonJS `crypto` module shape);
+    // modern Node's actual global `crypto` is the Web Crypto API object,
+    // which has no `randomBytes` — only `getRandomValues`. Production never
+    // hits this branch (encryptPrivateKey/generateEvmKeyPair only ever run
+    // client-side, in a real browser, per this file's own header), so this
+    // is a test-only shim, not a production fix, and it ADDS a method
+    // rather than overriding any native one.
+    if (typeof (globalThis.crypto as unknown as { randomBytes?: unknown }).randomBytes !== 'function') {
+      (globalThis.crypto as unknown as { randomBytes: (n: number) => Uint8Array }).randomBytes = (n: number) =>
+        globalThis.crypto.getRandomValues(new Uint8Array(n));
+    }
+    const { encryptPrivateKey } = await import('@/services/wallet/keyService');
+    const encryptedPrivateKey = await encryptPrivateKey(
+      PROVISION_ARKAGENT_PRIVATE_KEY.replace(/^0x/, ''),
+      ARKAGENT_WALLET_PASSWORD,
+    );
+    fakeAdmin!.tables.personas = [
+      {
+        id: TEST_PERSONAS.arkAgentPersonaId,
+        evm_key: { address: arkAgentWallet.address, encryptedPrivateKey },
+      },
+    ];
+    process.env.UC0_ARKAGENT_WALLET_PASSWORD = ARKAGENT_WALLET_PASSWORD;
 
     const { mkdtempSync } = await import('fs');
     const { tmpdir } = await import('os');
@@ -1772,12 +1804,12 @@ describe('main() --provision-recipients — ASSOCIATEKEY provisioning, never UC0
     process.argv = originalArgv;
     errorSpy.mockRestore();
     logSpy.mockRestore();
-    delete process.env.UC0_ARKAGENT_EVM_PRIVATE_KEY_HEX;
+    delete process.env.UC0_ARKAGENT_WALLET_PASSWORD;
     const { rmSync } = await import('fs');
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('two MISSING associations cause exactly two ASSOCIATEKEY submissions, one per recipient, and both verify VERIFIED afterward', async () => {
+  it('two MISSING associations cause exactly two ASSOCIATEKEY submissions (ArkAgent correctly unlocked via her password, Nakamoto via AgentKeyService), and both verify VERIFIED afterward', async () => {
     checkRecipientAssociationMock
       .mockImplementationOnce(async (_appId, addr) => ({
         recipientAddress: addr, associationStatus: 'MISSING' as const, associationDetail: 'x', eventSeedStatus: 'UNVERIFIABLE' as const, eventSeedDetail: 'x',
@@ -1827,11 +1859,41 @@ describe('main() --provision-recipients — ASSOCIATEKEY provisioning, never UC0
     expect(allLogs).toMatch(/Nakamoto.*ALREADY VERIFIED/);
   });
 
-  it('a signer/address mismatch fails closed before any submission (Nakamoto already VERIFIED, isolating the ArkAgent mismatch)', async () => {
+  it('WRONG password fails closed for ArkAgent (AES-GCM auth failure) without submitting anything for her, and never derives a signer from it', async () => {
+    process.env.UC0_ARKAGENT_WALLET_PASSWORD = ARKAGENT_WRONG_PASSWORD;
+    checkRecipientAssociationMock
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'MISSING' as const, associationDetail: 'x', eventSeedStatus: 'UNVERIFIABLE' as const, eventSeedDetail: 'x' })) // ArkAgent, before
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'VERIFIED' as const, associationDetail: 'x', eventSeedStatus: 'VERIFIED' as const, eventSeedDetail: 'x' })); // Nakamoto, before (already verified, isolates ArkAgent)
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(submitVelaAssociateKeyRequestMock).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalled();
+    expect(errorSpy.mock.calls.map((c) => String(c[0])).join('\n')).toMatch(/Incorrect password or corrupted key data/);
+  });
+
+  it('ABSENT password (UC0_ARKAGENT_WALLET_PASSWORD unset) fails closed for that recipient without submitting anything, and never touches the encrypted envelope', async () => {
+    delete process.env.UC0_ARKAGENT_WALLET_PASSWORD;
+    checkRecipientAssociationMock
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'MISSING' as const, associationDetail: 'x', eventSeedStatus: 'UNVERIFIABLE' as const, eventSeedDetail: 'x' })) // ArkAgent, before
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'VERIFIED' as const, associationDetail: 'x', eventSeedStatus: 'VERIFIED' as const, eventSeedDetail: 'x' })); // Nakamoto, before
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(submitVelaAssociateKeyRequestMock).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalled();
+    expect(errorSpy.mock.calls.map((c) => String(c[0])).join('\n')).toMatch(/UC0_ARKAGENT_WALLET_PASSWORD/);
+  });
+
+  it('a signer/address mismatch (correct password, but a stale/incorrect canonical-address binding) fails closed before any submission', async () => {
     // ArkAgent's resolved recipient address does NOT match the address her
-    // env-var-supplied signer actually controls. Nakamoto is ALREADY
-    // VERIFIED so this test isolates the mismatch's own effect rather than
-    // also asserting about an unrelated, independently-succeeding recipient.
+    // password correctly unlocks. Nakamoto is ALREADY VERIFIED so this test
+    // isolates the mismatch's own effect rather than also asserting about
+    // an unrelated, independently-succeeding recipient.
     classifyPersonaWalletCapabilityMock.mockImplementation(async () => ({
       capability: 'SIGNER_CONFIGURED' as const,
       address: '0x9999999999999999999999999999999999999a',
@@ -1849,21 +1911,6 @@ describe('main() --provision-recipients — ASSOCIATEKEY provisioning, never UC0
     expect(submitVelaAssociateKeyRequestMock).not.toHaveBeenCalled();
     expect(errorSpy).toHaveBeenCalled();
     expect(errorSpy.mock.calls.map((c) => String(c[0])).join('\n')).toMatch(/does NOT match its canonical recipient address/);
-  });
-
-  it('absent private-key authority (no UC0_ARKAGENT_EVM_PRIVATE_KEY_HEX) fails closed for that recipient without submitting anything', async () => {
-    delete process.env.UC0_ARKAGENT_EVM_PRIVATE_KEY_HEX;
-    checkRecipientAssociationMock
-      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'MISSING' as const, associationDetail: 'x', eventSeedStatus: 'UNVERIFIABLE' as const, eventSeedDetail: 'x' })) // ArkAgent, before
-      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'VERIFIED' as const, associationDetail: 'x', eventSeedStatus: 'VERIFIED' as const, eventSeedDetail: 'x' })); // Nakamoto, before
-    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
-    process.argv.push(`--deployment-receipt=${path}`);
-
-    await runUseCaseZeroDemoSeedCli();
-
-    expect(submitVelaAssociateKeyRequestMock).not.toHaveBeenCalled();
-    expect(errorSpy).toHaveBeenCalled();
-    expect(errorSpy.mock.calls.map((c) => String(c[0])).join('\n')).toMatch(/UC0_ARKAGENT_EVM_PRIVATE_KEY_HEX/);
   });
 
   it('a failed ASSOCIATEKEY submission for one recipient never triggers UC0 composition, persistence, or underwriting submission', async () => {
@@ -1897,7 +1944,7 @@ describe('main() --provision-recipients — ASSOCIATEKEY provisioning, never UC0
     expect(velaClientAdapterConstructorMock).not.toHaveBeenCalled();
   });
 
-  it('never exposes a private key or an unredacted recipient address in console output, success or failure', async () => {
+  it('never exposes a private key, wallet password, or an unredacted recipient address in console output on a fully successful run', async () => {
     checkRecipientAssociationMock
       .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'MISSING' as const, associationDetail: 'x', eventSeedStatus: 'UNVERIFIABLE' as const, eventSeedDetail: 'x' }))
       .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'VERIFIED' as const, associationDetail: 'x', eventSeedStatus: 'ABSENT' as const, eventSeedDetail: 'x' }))
@@ -1913,6 +1960,26 @@ describe('main() --provision-recipients — ASSOCIATEKEY provisioning, never UC0
     expect(allOutput).not.toContain(PROVISION_NAKAMOTO_PRIVATE_KEY.replace(/^0x/, ''));
     expect(allOutput).not.toContain(arkAgentWallet.address);
     expect(allOutput).not.toContain(nakamotoWallet.address);
+    expect(allOutput).not.toContain(ARKAGENT_WALLET_PASSWORD);
+  });
+
+  it('never exposes the wallet password (correct OR wrong) or any ciphertext in the WRONG-password error path either', async () => {
+    process.env.UC0_ARKAGENT_WALLET_PASSWORD = ARKAGENT_WRONG_PASSWORD;
+    checkRecipientAssociationMock
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'MISSING' as const, associationDetail: 'x', eventSeedStatus: 'UNVERIFIABLE' as const, eventSeedDetail: 'x' }))
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'VERIFIED' as const, associationDetail: 'x', eventSeedStatus: 'VERIFIED' as const, eventSeedDetail: 'x' }));
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    const allOutput = [...errorSpy.mock.calls, ...logSpy.mock.calls].map((c) => String(c[0])).join('\n');
+    expect(allOutput).not.toContain(ARKAGENT_WRONG_PASSWORD);
+    expect(allOutput).not.toContain(ARKAGENT_WALLET_PASSWORD);
+    expect(allOutput).not.toContain(PROVISION_ARKAGENT_PRIVATE_KEY.replace(/^0x/, ''));
+    const seededEnvelope = (fakeAdmin!.tables.personas[0].evm_key as { encryptedPrivateKey: { ciphertext: string } })
+      .encryptedPrivateKey.ciphertext;
+    expect(allOutput).not.toContain(seededEnvelope);
   });
 
   it('requires --deployment-receipt — refuses (zero submissions) without one', async () => {
