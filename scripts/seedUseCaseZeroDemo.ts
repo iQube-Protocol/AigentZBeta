@@ -1240,6 +1240,24 @@ async function resolvePersonaEncryptedEnvelope(
  * submitting anything. A WRONG PASSWORD never reaches this comparison at
  * all: AES-256-GCM is authenticated, so `decryptPrivateKey` itself throws
  * before any key is derived.
+ *
+ * PUBLIC-DEVNET TEST-ETH TOP-UP (2026-09-16, UC0 final blocker) — a matched
+ * signer with insufficient balance is topped up ONLY when `--vela-env=
+ * public_devnet` and `VELA_PUBLIC_DEVNET_TOKEN_FILE` resolve a funding
+ * account (`env.VELA_SECP_KEY` from the SAME token file
+ * `resolveDemoVelaDeployment` already reads via the shared
+ * `services/vela/velaPublicDevnetTokenFile.ts` parser — never a second
+ * parser, never a second exposure of that key). The top-up itself
+ * (`services/vela/velaRecipientProvisioningPreflight.ts`'s
+ * `estimateVelaAssociateKeyFundingRequirement` + `fundVelaAccountIfNeeded`)
+ * reads the recipient's own current balance and transfers ONLY the
+ * shortfall against a balance-independent requirement estimate (a real
+ * `minFeePerRequest()`/`getFeeData()` read plus a documented, bounded gas
+ * assumption — never `eth_estimateGas` against the underfunded recipient
+ * itself, which is exactly what tripped INSUFFICIENT_FUNDS live). Runs
+ * AFTER the signer/address match (never funds an unmatched signer) and
+ * BEFORE submission; an already-sufficiently-funded recipient triggers zero
+ * transfers.
  */
 async function provisionUseCaseZeroDemoRecipients(): Promise<void> {
   const velaEnv = (cliArg('vela-env') as VelaEnv | undefined) ?? 'local';
@@ -1311,6 +1329,35 @@ async function provisionUseCaseZeroDemoRecipients(): Promise<void> {
     return;
   }
 
+  // PUBLIC-DEVNET TEST-ETH FUNDING CAPABILITY (2026-09-16, UC0 final blocker)
+  // — resolved via the SAME shared token-file parser
+  // (services/vela/velaPublicDevnetTokenFile.ts) `resolveDemoVelaDeployment`
+  // above already uses, never a second parser. `env.VELA_SECP_KEY` is the
+  // SAME "devnet-granted account" private key
+  // scripts/vela/public-devnet-smoke.ts's own `fundAccount` already funds
+  // fresh test parties from — read here, never logged, never persisted, and
+  // used ONLY to send a plain native-token transfer (fundVelaAccountIfNeeded
+  // below). `local`/`early_access`, or public_devnet without a token file,
+  // simply have no funding capability — recipients there proceed straight to
+  // submission exactly as before this change (this repair is public-devnet-only).
+  let funderPrivateKeyHex: string | null = null;
+  if (velaEnv === 'public_devnet' && process.env.VELA_PUBLIC_DEVNET_TOKEN_FILE) {
+    try {
+      const { readDevnetTokenFilePathFromEnv, loadDevnetTokenResponse } = await import(
+        '@/services/vela/velaPublicDevnetTokenFile'
+      );
+      const tokenResp = loadDevnetTokenResponse(readDevnetTokenFilePathFromEnv());
+      funderPrivateKeyHex = tokenResp.env.VELA_SECP_KEY ?? null;
+    } catch (err) {
+      console.error(
+        'seedUseCaseZeroDemo --provision-recipients: could not read the public-devnet funding account from ' +
+          `VELA_PUBLIC_DEVNET_TOKEN_FILE: ${err instanceof Error ? err.message : String(err)} — recipients with ` +
+          'insufficient balance will fail closed rather than being auto-funded.',
+      );
+      funderPrivateKeyHex = null;
+    }
+  }
+
   const admin = getSupabaseServer()!; // non-null: resolveUseCaseZeroDemoPersonasFromCli already verified reachability
   type ResolvedSigner = { privateKeyHex: string } | { error: string };
   const recipients: Array<{ label: string; address: string; resolveSigner: () => Promise<ResolvedSigner> }> = [
@@ -1366,9 +1413,12 @@ async function provisionUseCaseZeroDemoRecipients(): Promise<void> {
     },
   ];
 
-  const { createVelaClientRecipientRegistryReader, submitVelaAssociateKeyRequest } = await import(
-    '@/services/vela/velaRecipientProvisioningPreflight'
-  );
+  const {
+    createVelaClientRecipientRegistryReader,
+    submitVelaAssociateKeyRequest,
+    estimateVelaAssociateKeyFundingRequirement,
+    fundVelaAccountIfNeeded,
+  } = await import('@/services/vela/velaRecipientProvisioningPreflight');
   const { deriveAgentP521KeyPair } = await import('@/services/vela/agentP521Derivation');
   const { Wallet } = await import('ethers');
   const reader = createVelaClientRecipientRegistryReader(deployment);
@@ -1401,6 +1451,33 @@ async function provisionUseCaseZeroDemoRecipients(): Promise<void> {
       );
       process.exitCode = 1;
       continue;
+    }
+
+    // PUBLIC-DEVNET TEST-ETH TOP-UP — only when a funding capability was
+    // resolved above (public_devnet + token file). Reads the recipient's
+    // CURRENT balance and transfers ONLY the shortfall; a recipient already
+    // holding enough causes zero transactions. Runs AFTER the signer/address
+    // match above (never funds a wrong/unmatched signer) and BEFORE
+    // submission (so the funding receipt is confirmed first).
+    if (funderPrivateKeyHex) {
+      try {
+        const requirement = await estimateVelaAssociateKeyFundingRequirement(deployment);
+        const funding = await fundVelaAccountIfNeeded(deployment, funderPrivateKeyHex, recipient.address, requirement.requiredWei);
+        if (funding.funded) {
+          console.log(
+            `${recipient.label} (${redactAddressForDisplay(recipient.address)}): funded ${funding.amountWei} wei ` +
+              `(tx ${funding.txHash}).`,
+          );
+        }
+      } catch (err) {
+        console.error(
+          `seedUseCaseZeroDemo --provision-recipients: public-devnet funding failed for ${recipient.label} ` +
+            `(${redactAddressForDisplay(recipient.address)}): ${err instanceof Error ? err.message : String(err)} ` +
+            'Nothing was submitted for this recipient.',
+        );
+        process.exitCode = 1;
+        continue;
+      }
     }
 
     const { publicKeyHex } = await deriveAgentP521KeyPair(wallet);

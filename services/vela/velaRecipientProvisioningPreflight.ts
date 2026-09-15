@@ -352,6 +352,19 @@ export interface VelaAssociateKeySubmissionResult {
   errorCode: number;
 }
 
+/**
+ * The ASSOCIATEKEY request's `value` (Vela protocol fee, paid as `msg.value`
+ * on `submitRequest`) — a real on-chain read (`minFeePerRequest()`, view-only,
+ * balance-independent), floored the SAME way this module's submission and its
+ * funding-requirement estimate below both need it to agree on. Factored out
+ * so neither drifts from the other (inv.engineering.036/037) — this was
+ * previously inlined only in `submitVelaAssociateKeyRequest`.
+ */
+async function resolveVelaAssociateKeyValueWei(processor: Contract): Promise<bigint> {
+  const minFee: bigint = await processor.minFeePerRequest();
+  return minFee > 1_000_000n ? minFee : 1_000_000n;
+}
+
 export async function submitVelaAssociateKeyRequest(
   deployment: Pick<VelaDeploymentDescriptor, 'rpcUrl' | 'processorEndpointAddress'>,
   applicationId: string,
@@ -372,8 +385,7 @@ export async function submitVelaAssociateKeyRequest(
   const processor = new Contract(deployment.processorEndpointAddress, RECIPIENT_REGISTRY_ABI, wallet);
   const iface = new Interface(RECIPIENT_REGISTRY_ABI);
 
-  const minFee: bigint = await processor.minFeePerRequest();
-  const maxFee = minFee > 1_000_000n ? minFee : 1_000_000n;
+  const maxFee = await resolveVelaAssociateKeyValueWei(processor);
 
   const tx = await processor.submitRequest(
     PROTOCOL_VERSION,
@@ -425,4 +437,122 @@ export async function submitVelaAssociateKeyRequest(
     await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
   }
   throw new Error(`submitVelaAssociateKeyRequest: timed out waiting for RequestCompleted on request ${requestId}.`);
+}
+
+// ── Public-devnet test-ETH top-up (2026-09-16, UC0 final blocker) ──────────
+//
+// `submitVelaAssociateKeyRequest`'s own `processor.submitRequest(...)` call
+// lets ethers auto-populate `gasLimit` via `eth_estimateGas`, which the
+// public Synsema devnet's node rejects with INSUFFICIENT_FUNDS the instant
+// the signer's balance cannot cover `value` (the ASSOCIATEKEY fee) PLUS gas
+// — before the real submission is ever attempted, and regardless of how
+// small `value` is. A funding step therefore cannot itself call
+// `eth_estimateGas` against the UNDERFUNDED recipient account (the exact
+// same trip would recur); the two reads below are both balance-INDEPENDENT
+// (`minFeePerRequest()` is `view`; `getFeeData()` is a network-wide price
+// read, not scoped to any account) specifically so estimating funds needed
+// never itself requires funds.
+//
+// `VELA_ASSOCIATEKEY_GAS_LIMIT_ESTIMATE_UNITS` is a DELIBERATE, DOCUMENTED,
+// BOUNDED ASSUMPTION — not a live per-call estimate — for the same reason
+// `services/vela/velaFuelAccounting.ts`'s own `DEVNET_OBSERVED_FUEL_PRICE_WEI_PER_UNIT`
+// is: this repo's established pattern for a devnet quantity a live,
+// balance-dependent RPC call cannot safely supply. A single `submitRequest`
+// call carrying a 133-byte payload is a small, simple contract call (one
+// `SSTORE`-class write plus two event emissions); 200,000 gas units is
+// generously conservative for that shape on an EVM-compatible chain.
+const VELA_ASSOCIATEKEY_GAS_LIMIT_ESTIMATE_UNITS = 200_000n;
+
+export interface VelaAssociateKeyFundingRequirement {
+  /** The ASSOCIATEKEY request's own `value` (Vela protocol fee). */
+  valueWei: bigint;
+  /** The bounded, documented gas-limit ASSUMPTION above — never a live estimate. */
+  gasLimitUnits: bigint;
+  /** A real, live, balance-independent network gas-price read. */
+  gasPriceWei: bigint;
+  gasCostWei: bigint;
+  headroomMultiplier: number;
+  /** `(valueWei + gasCostWei) * headroomMultiplier`, rounded up — the target
+   *  total balance a recipient needs before submitting. */
+  requiredWei: bigint;
+}
+
+/**
+ * Balance-independent (never touches the recipient's own account) estimate
+ * of the total native-token balance a recipient needs on hand before
+ * `submitVelaAssociateKeyRequest` can succeed. Pure reads only.
+ */
+export async function estimateVelaAssociateKeyFundingRequirement(
+  deployment: Pick<VelaDeploymentDescriptor, 'rpcUrl' | 'processorEndpointAddress'>,
+  headroomMultiplier = 2,
+): Promise<VelaAssociateKeyFundingRequirement> {
+  if (headroomMultiplier < 1) {
+    throw new Error(
+      `estimateVelaAssociateKeyFundingRequirement: headroomMultiplier must be >= 1 (got ${headroomMultiplier}).`,
+    );
+  }
+  const provider = new JsonRpcProvider(deployment.rpcUrl);
+  const processor = new Contract(deployment.processorEndpointAddress, RECIPIENT_REGISTRY_ABI, provider);
+  const valueWei = await resolveVelaAssociateKeyValueWei(processor);
+  const feeData = await provider.getFeeData();
+  const gasPriceWei = feeData.gasPrice ?? feeData.maxFeePerGas ?? 0n;
+  if (gasPriceWei <= 0n) {
+    throw new Error(
+      'estimateVelaAssociateKeyFundingRequirement: the RPC returned no positive gas price (gasPrice/maxFeePerGas) ' +
+        '— cannot estimate a funding requirement without one.',
+    );
+  }
+  const gasCostWei = VELA_ASSOCIATEKEY_GAS_LIMIT_ESTIMATE_UNITS * gasPriceWei;
+  const base = valueWei + gasCostWei;
+  // Integer headroom application without floating-point wei arithmetic — same
+  // technique as computeVelaFeeReservation (services/vela/velaFuelAccounting.ts).
+  const scaledMultiplier = BigInt(Math.round(headroomMultiplier * 1000));
+  const requiredWei = (base * scaledMultiplier + 999n) / 1000n;
+  return {
+    valueWei,
+    gasLimitUnits: VELA_ASSOCIATEKEY_GAS_LIMIT_ESTIMATE_UNITS,
+    gasPriceWei,
+    gasCostWei,
+    headroomMultiplier,
+    requiredWei,
+  };
+}
+
+export interface VelaFundingResult {
+  /** False when the recipient's existing balance already met `requiredWei` — no transaction was sent. */
+  funded: boolean;
+  txHash: string | null;
+  /** The shortfall actually transferred, in wei. `0n` when `funded` is false. */
+  amountWei: bigint;
+}
+
+/**
+ * Reads the recipient's CURRENT balance and transfers ONLY the shortfall
+ * (never a flat top-up amount) from the funder's own wallet — idempotent: a
+ * recipient already holding `requiredWei` or more triggers zero transactions.
+ * Waits for a successful funding receipt (a reverted/failed funding transfer
+ * throws, never silently treated as funded) before returning.
+ */
+export async function fundVelaAccountIfNeeded(
+  deployment: Pick<VelaDeploymentDescriptor, 'rpcUrl'>,
+  funderPrivateKeyHex: string,
+  toAddress: string,
+  requiredWei: bigint,
+): Promise<VelaFundingResult> {
+  const provider = new JsonRpcProvider(deployment.rpcUrl);
+  const currentBalanceWei: bigint = await provider.getBalance(toAddress);
+  if (currentBalanceWei >= requiredWei) {
+    return { funded: false, txHash: null, amountWei: 0n };
+  }
+  const shortfallWei = requiredWei - currentBalanceWei;
+  const funder = new Wallet(funderPrivateKeyHex, provider);
+  const tx = await funder.sendTransaction({ to: toAddress, value: shortfallWei });
+  const receipt = await tx.wait();
+  if (!receipt || receipt.status !== 1) {
+    throw new Error(
+      `fundVelaAccountIfNeeded: the funding transfer to ${toAddress} (tx ${tx.hash}) did not succeed ` +
+        `(status=${receipt?.status ?? 'unknown'}).`,
+    );
+  }
+  return { funded: true, txHash: tx.hash, amountWei: shortfallWei };
 }

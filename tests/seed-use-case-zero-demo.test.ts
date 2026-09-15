@@ -198,11 +198,36 @@ const submitVelaAssociateKeyRequestMock = vi.fn(
     errorCode: 0,
   }),
 );
+// Public-devnet test-ETH top-up (2026-09-16, UC0 final blocker) — defaults
+// to "already sufficiently funded" (funded: false) so no EXISTING test
+// (which never sets --vela-env=public_devnet + VELA_PUBLIC_DEVNET_TOKEN_FILE,
+// so the funding capability resolves to null and this mock is never even
+// reached) is affected. The dedicated funding describe block below overrides
+// both per test.
+const estimateVelaAssociateKeyFundingRequirementMock = vi.fn(async (_deployment: unknown, _headroomMultiplier?: number) => ({
+  valueWei: 1_000_000n,
+  gasLimitUnits: 200_000n,
+  gasPriceWei: 1n,
+  gasCostWei: 200_000n,
+  headroomMultiplier: 2,
+  requiredWei: 2_400_000n,
+}));
+const fundVelaAccountIfNeededMock = vi.fn(
+  async (_deployment: unknown, _funderPrivateKeyHex: string, _toAddress: string, _requiredWei: bigint) => ({
+    funded: false as boolean,
+    txHash: null as string | null,
+    amountWei: 0n,
+  }),
+);
 vi.mock('@/services/vela/velaRecipientProvisioningPreflight', () => ({
   checkVelaRecipientProvisioning: (...args: any[]) => checkVelaRecipientProvisioningMock(...(args as [unknown, string, string[]])),
   createVelaClientRecipientRegistryReader: (...args: any[]) => createVelaClientRecipientRegistryReaderMock(...(args as [unknown])),
   submitVelaAssociateKeyRequest: (...args: any[]) =>
     submitVelaAssociateKeyRequestMock(...(args as [unknown, string, string, string])),
+  estimateVelaAssociateKeyFundingRequirement: (...args: any[]) =>
+    estimateVelaAssociateKeyFundingRequirementMock(...(args as [unknown, number?])),
+  fundVelaAccountIfNeeded: (...args: any[]) =>
+    fundVelaAccountIfNeededMock(...(args as [unknown, string, string, bigint])),
 }));
 
 // ── fetch mock for probeVelaRpcReachable's bounded reachability preflight ──
@@ -335,7 +360,19 @@ beforeEach(() => {
       errorCode: 0,
     }),
   );
-  delete process.env.UC0_ARKAGENT_EVM_PRIVATE_KEY_HEX;
+  estimateVelaAssociateKeyFundingRequirementMock.mockClear();
+  estimateVelaAssociateKeyFundingRequirementMock.mockImplementation(async () => ({
+    valueWei: 1_000_000n,
+    gasLimitUnits: 200_000n,
+    gasPriceWei: 1n,
+    gasCostWei: 200_000n,
+    headroomMultiplier: 2,
+    requiredWei: 2_400_000n,
+  }));
+  fundVelaAccountIfNeededMock.mockClear();
+  fundVelaAccountIfNeededMock.mockImplementation(async () => ({ funded: false, txHash: null, amountWei: 0n }));
+  delete process.env.UC0_ARKAGENT_WALLET_PASSWORD;
+  delete process.env.VELA_PUBLIC_DEVNET_TOKEN_FILE;
 });
 
 afterEach(() => {
@@ -1988,5 +2025,220 @@ describe('main() --provision-recipients — ASSOCIATEKEY provisioning, never UC0
     expect(submitVelaAssociateKeyRequestMock).not.toHaveBeenCalled();
     expect(errorSpy).toHaveBeenCalled();
     expect(errorSpy.mock.calls.map((c) => String(c[0])).join('\n')).toMatch(/--deployment-receipt=<path> is required/);
+  });
+});
+
+// ── main() --provision-recipients — public-devnet test-ETH top-up (2026-09-16,
+// UC0 final blocker) ─────────────────────────────────────────────────────────
+//
+// Funding is attempted ONLY when --vela-env=public_devnet AND
+// VELA_PUBLIC_DEVNET_TOKEN_FILE resolve a funding account — the SAME shared
+// token-file parser (services/vela/velaPublicDevnetTokenFile.ts) every other
+// public-devnet path in this repo already uses, reused here via a REAL temp
+// JSON file (never mocked — pure file I/O, no network), matching the
+// convention the "resolveDemoVelaTransport — public-devnet token-file seam"
+// suite above already established.
+
+describe('main() --provision-recipients — public-devnet test-ETH top-up', () => {
+  const originalArgv = process.argv;
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+  let logSpy: ReturnType<typeof vi.spyOn>;
+  let tmpDir: string;
+  let arkAgentWallet: { address: string; privateKey: string };
+  let nakamotoWallet: { address: string; privateKey: string };
+  let tokenFilePath: string;
+
+  const PROVISION_ARKAGENT_PRIVATE_KEY = '0x' + '33'.repeat(32);
+  const PROVISION_NAKAMOTO_PRIVATE_KEY = '0x' + '44'.repeat(32);
+  const ARKAGENT_WALLET_PASSWORD = 'another-correct-test-password-Ab1!';
+  const FUNDER_PRIVATE_KEY_HEX = '0x' + '55'.repeat(32);
+
+  beforeEach(async () => {
+    const { Wallet } = await import('ethers');
+    arkAgentWallet = new Wallet(PROVISION_ARKAGENT_PRIVATE_KEY);
+    nakamotoWallet = new Wallet(PROVISION_NAKAMOTO_PRIVATE_KEY);
+
+    const { mkdtempSync } = await import('fs');
+    const { tmpdir } = await import('os');
+    const { join } = await import('path');
+    tmpDir = mkdtempSync(join(tmpdir(), 'seed-uc0-funding-'));
+
+    process.argv = [
+      ...originalArgv,
+      '--provision-recipients',
+      '--vela-env=public_devnet',
+      `--arkagent=${TEST_PERSONAS.arkAgentPersonaId}`,
+      `--nakamoto=${TEST_PERSONAS.nakamotoPersonaId}`,
+      `--kn0w1=${TEST_PERSONAS.kn0w1PersonaId}`,
+    ];
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    classifyPersonaWalletCapabilityMock.mockReset();
+    classifyPersonaWalletCapabilityMock.mockImplementation(async () => ({
+      capability: 'SIGNER_CONFIGURED' as const,
+      address: arkAgentWallet.address,
+      detail: 'test double: signer configured',
+      remediation: null,
+    }));
+    getAgentAddressesMock.mockReset();
+    getAgentAddressesMock.mockImplementation(async (agentId: string) => ({ agentId, evmAddress: nakamotoWallet.address }));
+    getAgentKeysMock.mockReset();
+    getAgentKeysMock.mockImplementation(async (_agentId: string) => ({ evmPrivateKey: PROVISION_NAKAMOTO_PRIVATE_KEY }));
+
+    if (typeof (globalThis.crypto as unknown as { randomBytes?: unknown }).randomBytes !== 'function') {
+      (globalThis.crypto as unknown as { randomBytes: (n: number) => Uint8Array }).randomBytes = (n: number) =>
+        globalThis.crypto.getRandomValues(new Uint8Array(n));
+    }
+    const { encryptPrivateKey } = await import('@/services/wallet/keyService');
+    const encryptedPrivateKey = await encryptPrivateKey(
+      PROVISION_ARKAGENT_PRIVATE_KEY.replace(/^0x/, ''),
+      ARKAGENT_WALLET_PASSWORD,
+    );
+    fakeAdmin!.tables.personas = [
+      { id: TEST_PERSONAS.arkAgentPersonaId, evm_key: { address: arkAgentWallet.address, encryptedPrivateKey } },
+    ];
+    process.env.UC0_ARKAGENT_WALLET_PASSWORD = ARKAGENT_WALLET_PASSWORD;
+
+    // A REAL temp token-response file — the SAME shape/parser every other
+    // public-devnet path in this repo reads, including the funder's own
+    // `env.VELA_SECP_KEY` (the "devnet-granted account"
+    // scripts/vela/public-devnet-smoke.ts's own fundAccount already funds
+    // fresh test parties from).
+    const { writeFileSync } = await import('fs');
+    tokenFilePath = join(tmpDir, 'token.json');
+    writeFileSync(
+      tokenFilePath,
+      JSON.stringify({
+        token: 'devnet-secret-token',
+        host: 'devnet.synsema.app',
+        address: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        env: {
+          VELA_RPC_URL: 'https://token-file-rpc.synsema.app',
+          VELA_PROCESSOR: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+          VELA_TEE_AUTHENTICATOR: '0xcccccccccccccccccccccccccccccccccccccccc',
+          VELA_AUTHORITY_URL: 'https://token-file-authority.synsema.app',
+          VELA_SECP_KEY: FUNDER_PRIVATE_KEY_HEX,
+        },
+      }),
+      'utf8',
+    );
+    process.env.VELA_PUBLIC_DEVNET_TOKEN_FILE = tokenFilePath;
+  });
+
+  afterEach(async () => {
+    process.argv = originalArgv;
+    errorSpy.mockRestore();
+    logSpy.mockRestore();
+    delete process.env.UC0_ARKAGENT_WALLET_PASSWORD;
+    delete process.env.VELA_PUBLIC_DEVNET_TOKEN_FILE;
+    const { rmSync } = await import('fs');
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('both underfunded recipients are topped up (funder key read from the token file) before ASSOCIATEKEY is submitted', async () => {
+    checkRecipientAssociationMock
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'MISSING' as const, associationDetail: 'x', eventSeedStatus: 'UNVERIFIABLE' as const, eventSeedDetail: 'x' })) // ArkAgent, before
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'VERIFIED' as const, associationDetail: 'x', eventSeedStatus: 'ABSENT' as const, eventSeedDetail: 'x' })) // ArkAgent, after
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'MISSING' as const, associationDetail: 'x', eventSeedStatus: 'UNVERIFIABLE' as const, eventSeedDetail: 'x' })) // Nakamoto, before
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'VERIFIED' as const, associationDetail: 'x', eventSeedStatus: 'ABSENT' as const, eventSeedDetail: 'x' })); // Nakamoto, after
+    fundVelaAccountIfNeededMock.mockImplementation(async (_deployment, _funderKey, toAddress: string, requiredWei: bigint) => ({
+      funded: true,
+      txHash: `0xfunded-${toAddress.slice(2, 8)}`,
+      amountWei: requiredWei,
+    }));
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(fundVelaAccountIfNeededMock).toHaveBeenCalledTimes(2);
+    const [arkFundCall, nakamotoFundCall] = fundVelaAccountIfNeededMock.mock.calls;
+    // The SAME funder key read from the token file's env.VELA_SECP_KEY for both.
+    expect(arkFundCall[1]).toBe(FUNDER_PRIVATE_KEY_HEX);
+    expect(nakamotoFundCall[1]).toBe(FUNDER_PRIVATE_KEY_HEX);
+    expect(arkFundCall[2]).toBe(arkAgentWallet.address);
+    expect(nakamotoFundCall[2]).toBe(nakamotoWallet.address);
+    expect(submitVelaAssociateKeyRequestMock).toHaveBeenCalledTimes(2);
+    const allLogs = logSpy.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(allLogs).toMatch(/ArkAgent.*funded/);
+    expect(allLogs).toMatch(/Nakamoto.*funded/);
+  });
+
+  it('a sufficiently-funded recipient causes no top-up transaction, but submission still proceeds', async () => {
+    checkRecipientAssociationMock
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'MISSING' as const, associationDetail: 'x', eventSeedStatus: 'UNVERIFIABLE' as const, eventSeedDetail: 'x' })) // ArkAgent, before
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'VERIFIED' as const, associationDetail: 'x', eventSeedStatus: 'ABSENT' as const, eventSeedDetail: 'x' })) // ArkAgent, after
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'VERIFIED' as const, associationDetail: 'x', eventSeedStatus: 'VERIFIED' as const, eventSeedDetail: 'x' })); // Nakamoto, before (already verified, isolates ArkAgent)
+    // fundVelaAccountIfNeededMock defaults to { funded: false } — already sufficient.
+
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(fundVelaAccountIfNeededMock).toHaveBeenCalledTimes(1);
+    expect(submitVelaAssociateKeyRequestMock).toHaveBeenCalledTimes(1);
+    const allLogs = logSpy.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(allLogs).not.toMatch(/funded \d/);
+  });
+
+  it('failed funding blocks ASSOCIATEKEY submission for that recipient, without touching UC0 composition/persistence', async () => {
+    checkRecipientAssociationMock
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'MISSING' as const, associationDetail: 'x', eventSeedStatus: 'UNVERIFIABLE' as const, eventSeedDetail: 'x' })) // ArkAgent, before
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'VERIFIED' as const, associationDetail: 'x', eventSeedStatus: 'VERIFIED' as const, eventSeedDetail: 'x' })); // Nakamoto, before (already verified, isolates ArkAgent)
+    fundVelaAccountIfNeededMock.mockRejectedValueOnce(
+      new Error('fundVelaAccountIfNeeded: the funding transfer to 0xabc (tx 0xdead) did not succeed (status=0).'),
+    );
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(submitVelaAssociateKeyRequestMock).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalled();
+    expect(errorSpy.mock.calls.map((c) => String(c[0])).join('\n')).toMatch(/funding failed/);
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    expect(runVelaUnderwritingProjectionMock).not.toHaveBeenCalled();
+  });
+
+  it('already-associated recipients trigger neither a funding estimate, a funding transfer, nor a submission', async () => {
+    checkRecipientAssociationMock.mockImplementation(async (_appId, addr) => ({
+      recipientAddress: addr, associationStatus: 'VERIFIED' as const, associationDetail: 'already there', eventSeedStatus: 'VERIFIED' as const, eventSeedDetail: 'x',
+    }));
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(estimateVelaAssociateKeyFundingRequirementMock).not.toHaveBeenCalled();
+    expect(fundVelaAccountIfNeededMock).not.toHaveBeenCalled();
+    expect(submitVelaAssociateKeyRequestMock).not.toHaveBeenCalled();
+  });
+
+  it('a wallet-unlock/address mismatch causes no funding attempt for that recipient', async () => {
+    // ArkAgent's canonical recipient address does not match what her
+    // password actually unlocks.
+    classifyPersonaWalletCapabilityMock.mockImplementation(async () => ({
+      capability: 'SIGNER_CONFIGURED' as const,
+      address: '0x8888888888888888888888888888888888888b',
+      detail: 'test double: signer configured',
+      remediation: null,
+    }));
+    checkRecipientAssociationMock
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'MISSING' as const, associationDetail: 'x', eventSeedStatus: 'UNVERIFIABLE' as const, eventSeedDetail: 'x' })) // ArkAgent, before
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'VERIFIED' as const, associationDetail: 'x', eventSeedStatus: 'VERIFIED' as const, eventSeedDetail: 'x' })); // Nakamoto, before (already verified, isolates ArkAgent)
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(fundVelaAccountIfNeededMock).not.toHaveBeenCalled();
+    expect(submitVelaAssociateKeyRequestMock).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalled();
+    expect(errorSpy.mock.calls.map((c) => String(c[0])).join('\n')).toMatch(/does NOT match its canonical recipient address/);
   });
 });
