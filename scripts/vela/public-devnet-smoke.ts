@@ -52,45 +52,19 @@ import {
   type VelaMultiPartyProjectionRequest,
 } from '../../services/vela/velaMultiPartyProjection';
 import { deriveVelaPartyNamespaceRef } from '../../services/vela/velaPartyNamespace';
+import {
+  readDevnetTokenFilePathFromEnv,
+  loadDevnetTokenResponse,
+  deploymentFromDevnetTokenResponse,
+} from '../../services/vela/velaPublicDevnetTokenFile';
 
 // ── Config loading (never hardcode a Synsema URL/token/key) ────────────────
-
-interface DevnetTokenResponse {
-  token: string;
-  host: string;
-  address: string;
-  env: Record<string, string>;
-}
-
-function loadTokenResponse(): DevnetTokenResponse {
-  const path = process.env.VELA_PUBLIC_DEVNET_TOKEN_FILE;
-  if (!path) {
-    throw new Error(
-      'VELA_PUBLIC_DEVNET_TOKEN_FILE is required — point it at the JSON saved from ' +
-        'POST https://devnet.synsema.app/token. This script never mints a token itself ' +
-        'so the raw response never appears in process args or a second location.',
-    );
-  }
-  return JSON.parse(readFileSync(path, 'utf8')) as DevnetTokenResponse;
-}
-
-function deploymentFromTokenResponse(t: DevnetTokenResponse): VelaDeploymentDescriptor {
-  const env = t.env;
-  const need = (k: string): string => {
-    const v = env[k];
-    if (!v) throw new Error(`token response env.${k} missing`);
-    return v;
-  };
-  return {
-    chainId: 31337,
-    rpcUrl: need('VELA_RPC_URL'),
-    processorEndpointAddress: need('VELA_PROCESSOR'),
-    teeAuthenticatorAddress: need('VELA_TEE_AUTHENTICATOR'),
-    authorityServiceUrl: need('VELA_AUTHORITY_URL'),
-    subgraphUrl: env.VELA_SUBGRAPH_URL ?? '',
-    attestationMode: 'no_attestation',
-  };
-}
+//
+// VELA_PUBLIC_DEVNET_TOKEN_FILE -> DevnetTokenResponse -> VelaDeploymentDescriptor
+// now lives in services/vela/velaPublicDevnetTokenFile.ts (2026-09-16
+// extraction) — this script no longer carries its own copy of that mapping;
+// scripts/seedUseCaseZeroDemo.ts reuses the SAME shared resolver rather than
+// a second hand-typed one (inv.engineering.036/037).
 
 const WASM_PATH =
   process.env.VELA_GUEST_WASM_PATH ??
@@ -383,8 +357,8 @@ async function buildPartyRig(
 
 async function main() {
   const startedAt = new Date().toISOString();
-  const tokenResp = loadTokenResponse();
-  const deployment = deploymentFromTokenResponse(tokenResp);
+  const tokenResp = loadDevnetTokenResponse(readDevnetTokenFilePathFromEnv());
+  const deployment = deploymentFromDevnetTokenResponse(tokenResp);
   const deployerKeyHex = tokenResp.env.VELA_SECP_KEY;
   if (!deployerKeyHex) throw new Error('token response env.VELA_SECP_KEY missing');
 

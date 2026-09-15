@@ -828,3 +828,270 @@ describe('main() — --app applicationId handling before any Vela submission', (
     expect(frozenReceipt?.[0].actionInput.applicationId).toBe('42');
   });
 });
+
+// ── main() — --preflight/--dry-run: genuine zero-effect guarantee ──────────
+//
+// 2026-09-16 correction: the earlier claim that a bare, no-flag invocation
+// is "read-only" was FALSE (it depends entirely on live Aegis state). These
+// tests prove --preflight/--dry-run is the ONLY invocation that guarantees
+// zero Supabase writes, zero receipts, zero Vela submission, and zero
+// signer/private-key resolution, for BOTH the BLOCKED and FROZEN envelope
+// outcomes — even when every input that WOULD otherwise lead to a real
+// submission (a real numeric --app, a resolvable --evm-key) is supplied.
+
+describe('main() — --preflight/--dry-run zero-effect guarantee', () => {
+  const originalArgv = process.argv;
+  let logSpy: ReturnType<typeof vi.spyOn>;
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    process.argv = [
+      ...originalArgv,
+      `--arkagent=${TEST_PERSONAS.arkAgentPersonaId}`,
+      `--nakamoto=${TEST_PERSONAS.nakamotoPersonaId}`,
+      `--kn0w1=${TEST_PERSONAS.kn0w1PersonaId}`,
+    ];
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    process.argv = originalArgv;
+    logSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
+
+  it('BLOCKED outcome + --preflight: zero writes, zero receipts, zero signer resolution', async () => {
+    process.argv.push('--preflight');
+    // No Aegis assessment seeded — admission resolves UNRESOLVED -> BLOCKED.
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    expect(velaClientAdapterConstructorMock).not.toHaveBeenCalled();
+    expect(getAgentKeysMock).not.toHaveBeenCalled();
+    expect(runVelaUnderwritingProjectionMock).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
+    const output = logSpy.mock.calls.flat().join('\n');
+    expect(output).toMatch(/BLOCKED/);
+  });
+
+  it('FROZEN outcome + --preflight: zero writes, zero receipts, zero Vela submission, zero signer resolution — even with a real --app and --evm-key supplied', async () => {
+    process.argv.push('--preflight', '--app=42', '--evm-key=0x' + '55'.repeat(32));
+    seedAdmittedAegisAssessmentForNakamoto();
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    expect(velaClientAdapterConstructorMock).not.toHaveBeenCalled();
+    expect(getAgentKeysMock).not.toHaveBeenCalled();
+    expect(runVelaUnderwritingProjectionMock).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
+    const output = logSpy.mock.calls.flat().join('\n');
+    expect(output).toMatch(/FROZEN/);
+    expect(output).toMatch(/zero Supabase writes/);
+  });
+
+  it('FROZEN outcome + --preflight with a non-numeric applicationId: still zero effect, reports it would need --app', async () => {
+    process.argv.push('--preflight');
+    seedAdmittedAegisAssessmentForNakamoto();
+    // No --app supplied -> applicationId stays the non-numeric demo placeholder.
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    expect(velaClientAdapterConstructorMock).not.toHaveBeenCalled();
+    const output = logSpy.mock.calls.flat().join('\n');
+    expect(output).toMatch(/NOT a real, numeric Vela applicationId/);
+  });
+
+  it('--dry-run is a genuine alias for --preflight (BLOCKED case)', async () => {
+    process.argv.push('--dry-run');
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    expect(velaClientAdapterConstructorMock).not.toHaveBeenCalled();
+  });
+
+  it('without --preflight, the SAME FROZEN inputs DO write and submit — proving preflight is the actual gate, not an environment artifact', async () => {
+    process.argv.push('--app=42', '--evm-key=0x' + '55'.repeat(32));
+    seedAdmittedAegisAssessmentForNakamoto();
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(createActivityReceiptMock).toHaveBeenCalled();
+    expect(velaClientAdapterConstructorMock).toHaveBeenCalledTimes(1);
+    expect(runVelaUnderwritingProjectionMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ── persistUseCaseZeroDemoChain — fail-closed applicationId consistency ────
+//
+// 2026-09-16 correction: a prior run's evidence for the SAME fixed
+// requestRef, recorded under a DIFFERENT applicationId, must never be
+// silently reattached to by a new run — this used to be an unguarded gap
+// (idempotency was keyed on requestRef alone). The check reads the SAME
+// `existing` state persistUseCaseZeroDemoChain already fetches (no second
+// query) and runs before ANY write in the function.
+
+describe('persistUseCaseZeroDemoChain — fail-closed applicationId consistency', () => {
+  it('same-applicationId rerun remains idempotent (no false mismatch)', async () => {
+    const composedFirst = composeAdmittedDemoChain(TEST_PERSONAS);
+    // Explicit applicationId to make the intent unambiguous, rather than relying on the shared default.
+    const factorSelection = buildUseCaseZeroDemoFactorSelection(TEST_PERSONAS, '42');
+    const admissionEvidence = admittedAdmissionEvidence(factorSelection.selectionRef, factorSelection.requestRef, factorSelection.candidateAgentId);
+    const composed = composeUseCaseZeroDemoChain({ ...TEST_PERSONAS, admissionEvidence, applicationId: '42' });
+    void composedFirst;
+
+    const first = await persistUseCaseZeroDemoChain(composed, { actorPersonaId: TEST_PERSONAS.arkAgentPersonaId, transport: NOOP_TRANSPORT });
+    expect(first.created).toContain('vela_underwriting_envelope_frozen');
+    createActivityReceiptMock.mockClear();
+
+    // Rerun with the SAME applicationId — must skip everything, never throw.
+    const rerun = await persistUseCaseZeroDemoChain(composed, { actorPersonaId: TEST_PERSONAS.arkAgentPersonaId, transport: NOOP_TRANSPORT });
+    expect(rerun.skippedExisting).toEqual(expect.arrayContaining(['vela_underwriting_envelope_frozen']));
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+  });
+
+  it('different-applicationId rerun for the SAME requestRef refuses before any write, zero additional receipts', async () => {
+    const factorSelectionA = buildUseCaseZeroDemoFactorSelection(TEST_PERSONAS, '42');
+    const admissionEvidenceA = admittedAdmissionEvidence(factorSelectionA.selectionRef, factorSelectionA.requestRef, factorSelectionA.candidateAgentId);
+    const composedA = composeUseCaseZeroDemoChain({ ...TEST_PERSONAS, admissionEvidence: admissionEvidenceA, applicationId: '42' });
+    await persistUseCaseZeroDemoChain(composedA, { actorPersonaId: TEST_PERSONAS.arkAgentPersonaId, transport: NOOP_TRANSPORT });
+    const callsAfterFirstRun = createActivityReceiptMock.mock.calls.length;
+    expect(callsAfterFirstRun).toBeGreaterThan(0);
+
+    // SAME requestRef (fixed, by design), DIFFERENT applicationId.
+    const factorSelectionB = buildUseCaseZeroDemoFactorSelection(TEST_PERSONAS, '99');
+    const admissionEvidenceB = admittedAdmissionEvidence(factorSelectionB.selectionRef, factorSelectionB.requestRef, factorSelectionB.candidateAgentId);
+    const composedB = composeUseCaseZeroDemoChain({ ...TEST_PERSONAS, admissionEvidence: admissionEvidenceB, applicationId: '99' });
+
+    await expect(
+      persistUseCaseZeroDemoChain(composedB, { actorPersonaId: TEST_PERSONAS.arkAgentPersonaId, transport: NOOP_TRANSPORT }),
+    ).rejects.toThrow(/DIFFERENT applicationId/);
+
+    // Zero additional writes attempted during the refused run.
+    expect(createActivityReceiptMock.mock.calls.length).toBe(callsAfterFirstRun);
+    expect(velaClientAdapterConstructorMock).not.toHaveBeenCalled();
+  });
+
+  it('a mismatch detected via the authorize step alone (envelope not yet frozen) also refuses', async () => {
+    const factorSelectionA = buildUseCaseZeroDemoFactorSelection(TEST_PERSONAS, '42');
+    // REFUSED admission -> BLOCKED envelope -> only pre-freeze artifacts (including disclosure authorization) are written.
+    const refusedAdmissionA: AegisAdmissionEvidence = {
+      ...admittedAdmissionEvidence(factorSelectionA.selectionRef, factorSelectionA.requestRef, factorSelectionA.candidateAgentId),
+      admissionStatus: 'REFUSED',
+      reason: 'not admissible',
+    };
+    const composedA = composeUseCaseZeroDemoChain({ ...TEST_PERSONAS, admissionEvidence: refusedAdmissionA, applicationId: '42' });
+    const firstResult = await persistUseCaseZeroDemoChain(composedA, { actorPersonaId: TEST_PERSONAS.arkAgentPersonaId });
+    expect(firstResult.blocked).toBeDefined();
+    const callsAfterFirstRun = createActivityReceiptMock.mock.calls.length;
+
+    const factorSelectionB = buildUseCaseZeroDemoFactorSelection(TEST_PERSONAS, '99');
+    const refusedAdmissionB: AegisAdmissionEvidence = {
+      ...admittedAdmissionEvidence(factorSelectionB.selectionRef, factorSelectionB.requestRef, factorSelectionB.candidateAgentId),
+      admissionStatus: 'REFUSED',
+      reason: 'not admissible',
+    };
+    const composedB = composeUseCaseZeroDemoChain({ ...TEST_PERSONAS, admissionEvidence: refusedAdmissionB, applicationId: '99' });
+
+    await expect(
+      persistUseCaseZeroDemoChain(composedB, { actorPersonaId: TEST_PERSONAS.arkAgentPersonaId }),
+    ).rejects.toThrow(/DIFFERENT applicationId/);
+    expect(createActivityReceiptMock.mock.calls.length).toBe(callsAfterFirstRun);
+  });
+});
+
+// ── resolveDemoVelaTransport — public-devnet token-file seam ───────────────
+//
+// 2026-09-16 seam closure: VELA_PUBLIC_DEVNET_TOKEN_FILE now resolves into
+// the deployment resolveDemoVelaTransport actually uses for --vela-env=
+// public_devnet, via the SAME shared resolver scripts/vela/public-devnet-
+// smoke.ts uses (services/vela/velaPublicDevnetTokenFile.ts) — never a
+// second, duplicated mapping. velaConfig's own resolveVelaDeployment mock
+// deliberately returns a DIFFERENT rpcUrl than the token file, so a passing
+// assertion here proves the token-file path was actually taken, not a
+// coincidental match.
+
+describe('resolveDemoVelaTransport — public-devnet token-file seam', () => {
+  const originalArgv = process.argv;
+  const originalTokenFileEnv = process.env.VELA_PUBLIC_DEVNET_TOKEN_FILE;
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    process.argv = [...originalArgv, '--vela-env=public_devnet', '--evm-key=0x' + '66'.repeat(32)];
+    const { mkdtempSync } = await import('fs');
+    const { tmpdir } = await import('os');
+    const { join } = await import('path');
+    tmpDir = mkdtempSync(join(tmpdir(), 'vela-seed-token-'));
+  });
+
+  afterEach(async () => {
+    process.argv = originalArgv;
+    if (originalTokenFileEnv === undefined) delete process.env.VELA_PUBLIC_DEVNET_TOKEN_FILE;
+    else process.env.VELA_PUBLIC_DEVNET_TOKEN_FILE = originalTokenFileEnv;
+    const { rmSync } = await import('fs');
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('resolves the deployment from the token file when VELA_PUBLIC_DEVNET_TOKEN_FILE is set, not from resolveVelaDeployment', async () => {
+    const { writeFileSync } = await import('fs');
+    const { join } = await import('path');
+    const path = join(tmpDir, 'token.json');
+    const TOKEN_FILE_RPC_URL = 'https://token-file-rpc.synsema.app';
+    writeFileSync(
+      path,
+      JSON.stringify({
+        token: 'devnet-secret-token',
+        host: 'devnet.synsema.app',
+        address: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        env: {
+          VELA_RPC_URL: TOKEN_FILE_RPC_URL,
+          VELA_PROCESSOR: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+          VELA_TEE_AUTHENTICATOR: '0xcccccccccccccccccccccccccccccccccccccccc',
+          VELA_AUTHORITY_URL: 'https://token-file-authority.synsema.app',
+        },
+      }),
+      'utf8',
+    );
+    process.env.VELA_PUBLIC_DEVNET_TOKEN_FILE = path;
+
+    const transport = await resolveDemoVelaTransport();
+
+    expect(transport).toBeDefined();
+    // resolveVelaDeployment is mocked to return { env, rpcUrl: TEST_RPC_URL }
+    // ('http://localhost:8545') — the fetch call below must NOT target that,
+    // proving the token-file path (a DIFFERENT rpcUrl) was actually used.
+    expect(fetchMock).toHaveBeenCalledWith(TOKEN_FILE_RPC_URL, expect.anything());
+    const opts = velaClientAdapterConstructorMock.mock.calls[0][0] as { deployment: { rpcUrl: string } };
+    expect(opts.deployment.rpcUrl).toBe(TOKEN_FILE_RPC_URL);
+  });
+
+  it('falls back to resolveVelaDeployment when VELA_PUBLIC_DEVNET_TOKEN_FILE is unset', async () => {
+    delete process.env.VELA_PUBLIC_DEVNET_TOKEN_FILE;
+
+    const transport = await resolveDemoVelaTransport();
+
+    expect(transport).toBeDefined();
+    expect(fetchMock).toHaveBeenCalledWith(TEST_RPC_URL, expect.anything());
+  });
+
+  it('fails closed (zero transport construction) when the token file is malformed', async () => {
+    const { writeFileSync } = await import('fs');
+    const { join } = await import('path');
+    const path = join(tmpDir, 'broken.json');
+    writeFileSync(path, 'not json at all', 'utf8');
+    process.env.VELA_PUBLIC_DEVNET_TOKEN_FILE = path;
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const transport = await resolveDemoVelaTransport();
+
+    expect(transport).toBeUndefined();
+    expect(velaClientAdapterConstructorMock).not.toHaveBeenCalled();
+    expect(String(errorSpy.mock.calls[0][0])).toMatch(/not valid JSON/);
+
+    errorSpy.mockRestore();
+  });
+});

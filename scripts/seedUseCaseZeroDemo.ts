@@ -129,7 +129,7 @@ import {
   type VelaMultiPartyPartyInput,
 } from '@/services/vela/velaMultiPartyProjection';
 import { getConstitutionalRiskFlowState } from '@/services/vela/velaUnderwritingChainProjection';
-import type { VelaTransport } from '@/services/vela/velaTypes';
+import type { VelaTransport, VelaDeploymentDescriptor } from '@/services/vela/velaTypes';
 import type { VelaEnv } from '@/services/vela/velaConfig';
 
 // ── Fixed demo identifiers ──────────────────────────────────────────────────
@@ -428,6 +428,31 @@ export async function persistUseCaseZeroDemoChain(
     requestRef: composed.requestRef,
   });
 
+  // FAIL-CLOSED APPLICATION-ID CONSISTENCY (2026-09-16) — checked BEFORE any
+  // write below. A public-devnet applicationId is explicitly ephemeral (see
+  // "REAL VELA APPLICATIONID" in this file's CLI doc comment); if this
+  // process's own fixed USE_CASE_ZERO_DEMO_REQUEST_REF already has artifacts
+  // recorded under a DIFFERENT applicationId than this run resolved, that is
+  // not a normal idempotent rerun — it is either a stale/reset devnet
+  // deployment or a caller error, and attaching new evidence to the same
+  // requestRef under a different applicationId would silently corrupt the
+  // one-requestRef-one-applicationId invariant this chain assumes throughout
+  // (party namespace refs, the frozen envelope's own applicationId, the
+  // on-chain submission). `authorize`/`freeze` are the only two steps that
+  // carry applicationId (see ConstitutionalRiskFlowState's own field
+  // definitions) — check both since either alone is sufficient evidence of a
+  // real prior run.
+  const existingApplicationId = existing.freeze.applicationId ?? existing.authorize.applicationId;
+  if (existingApplicationId !== null && existingApplicationId !== composed.applicationId) {
+    throw new Error(
+      `persistUseCaseZeroDemoChain: requestRef "${composed.requestRef}" already has artifacts recorded under ` +
+        `a DIFFERENT applicationId ("${existingApplicationId}") than this run resolved ("${composed.applicationId}") ` +
+        '— refusing to write anything or submit to Vela. Nothing was persisted. If the underlying Vela deployment ' +
+        'was reset or replaced, use a different requestRef for the new deployment rather than reattaching ' +
+        'mismatched evidence to this fixed demo requestRef.',
+    );
+  }
+
   if (existing.select.state === 'complete') {
     skippedExisting.push('factor_selection_proposed');
   } else {
@@ -597,8 +622,38 @@ function cliArg(name: string): string | undefined {
   return found ? found.slice(prefix.length) : undefined;
 }
 
+/** Boolean CLI switch — `--name` (bare) or `--name=true`. Distinct from
+ *  `cliArg`, which only recognises the `--name=value` form. */
+function hasFlag(name: string): boolean {
+  return process.argv.includes(`--${name}`) || cliArg(name) === 'true';
+}
+
 /**
- * `tsx scripts/seedUseCaseZeroDemo.ts --arkagent=<id> --nakamoto=<id> --kn0w1=<id> [--app=<applicationId>] [--evm-key=<hex>] [--vela-env=local|early_access|public_devnet]`
+ * `tsx scripts/seedUseCaseZeroDemo.ts [--preflight|--dry-run] --arkagent=<id> --nakamoto=<id> --kn0w1=<id> [--app=<applicationId>] [--evm-key=<hex>] [--vela-env=local|early_access|public_devnet]`
+ *
+ * THE BARE, NO-ARGUMENT INVOCATION IS **NOT** GUARANTEED READ-ONLY (correcting
+ * a false claim made about this script in an earlier session report,
+ * 2026-09-16) — running it with no flags at all still resolves personas AND
+ * Aegis admission evidence against live Supabase, and if that admission
+ * evidence happens to already be ADMITTED for the demo candidate, it WILL
+ * write activity receipts and, given a resolvable EVM signer, submit to
+ * Vela. Whether a bare run writes anything depends entirely on the live
+ * state of Aegis's ratification for this candidate at the moment it runs —
+ * it is never something this script's own arguments alone determine. The
+ * ONLY invocation this script guarantees zero effect for, unconditionally
+ * and regardless of BLOCKED/FROZEN outcome, is `--preflight` (or its alias
+ * `--dry-run`, identical behavior — both recognised so either habit works).
+ *
+ * `--preflight`/`--dry-run` — composes the chain exactly as a normal run
+ * would (reading Supabase for personas + Aegis admission evidence, since a
+ * preflight that could not tell BLOCKED from FROZEN would not be useful),
+ * reports what WOULD happen, and returns BEFORE ever calling
+ * `resolveDemoVelaTransport()` (so: zero signer/private-key resolution, zero
+ * AgentKeyService call) or `persistUseCaseZeroDemoChain()` (so: zero
+ * Supabase writes, zero activity receipts, zero Vela submission) — for a
+ * BLOCKED outcome exactly as much as a FROZEN one. See the `preflight` guard
+ * in `main()` below, placed before the FROZEN branch's transport resolution
+ * so no code path between it and program exit can write or submit anything.
  *
  * Persona flags are OPTIONAL overrides, not requirements — any omitted one is
  * resolved via `resolveUseCaseZeroDemoPersonaIds()` (real Supabase lookup;
@@ -625,6 +680,16 @@ function cliArg(name: string): string | undefined {
  * how to obtain a deployment + real applicationId against it). An
  * unrecognised value fails closed inside `resolveVelaDeployment` itself
  * (reused, not reimplemented here).
+ *
+ * `--vela-env=public_devnet` ALSO honours `VELA_PUBLIC_DEVNET_TOKEN_FILE`
+ * (2026-09-16 seam closure) — if set, this script resolves its deployment
+ * from that same raw `POST https://devnet.synsema.app/token` response file
+ * `scripts/vela/public-devnet-smoke.ts` consumes, via the shared
+ * `services/vela/velaPublicDevnetTokenFile.ts` resolver (never a second,
+ * hand-typed mapping). Without it, `--vela-env=public_devnet` falls back to
+ * `resolveVelaDeployment`'s own individual `VELA_PUBLIC_DEVNET_*` env vars
+ * exactly as before — both paths remain valid, independent ways to reach the
+ * same environment.
  *
  * REAL VELA APPLICATIONID, NEVER THE DEMO PLACEHOLDER — traced end-to-end
  * (2026-09-16) through `velaUnderwritingCompositionGate.ts`'s own
@@ -737,7 +802,36 @@ export async function resolveDemoVelaTransport(): Promise<VelaTransport | undefi
   ]);
 
   const velaEnv = (cliArg('vela-env') as VelaEnv | undefined) ?? 'local';
-  const deployment = resolveVelaDeployment(velaEnv);
+
+  // PUBLIC-DEVNET TOKEN-FILE SEAM (2026-09-16 closure) — `resolveVelaDeployment
+  // ('public_devnet')` (services/vela/velaConfig.ts) reads its coordinates
+  // from individual VELA_PUBLIC_DEVNET_* env vars; VELA_PUBLIC_DEVNET_TOKEN_FILE
+  // (the raw POST https://devnet.synsema.app/token response
+  // scripts/vela/public-devnet-smoke.ts already consumes) was never wired
+  // into that path at all — a caller who set only the token-file env var got
+  // velaConfig.ts's own "missing VELA_PUBLIC_DEVNET_RPC_URL" error, even
+  // though the token file already carries the equivalent coordinates under
+  // different key names. Closed here by preferring the SHARED resolver
+  // (services/vela/velaPublicDevnetTokenFile.ts — the same mapping
+  // public-devnet-smoke.ts uses, extracted rather than duplicated) whenever
+  // the token-file env var is set; falls through to the existing
+  // resolveVelaDeployment(velaEnv) path (unchanged) otherwise, including for
+  // every other --vela-env value.
+  let deployment: VelaDeploymentDescriptor;
+  if (velaEnv === 'public_devnet' && process.env.VELA_PUBLIC_DEVNET_TOKEN_FILE) {
+    try {
+      const { resolvePublicDevnetDeploymentFromTokenFile } = await import('@/services/vela/velaPublicDevnetTokenFile');
+      deployment = resolvePublicDevnetDeploymentFromTokenFile();
+    } catch (err) {
+      console.error(
+        'seedUseCaseZeroDemo: could not resolve the public-devnet deployment from VELA_PUBLIC_DEVNET_TOKEN_FILE: ' +
+          `${err instanceof Error ? err.message : String(err)}. Nothing was persisted.`,
+      );
+      return undefined;
+    }
+  } else {
+    deployment = resolveVelaDeployment(velaEnv);
+  }
 
   // FAIL FAST on an unreachable RPC — before touching AgentKeyService/
   // Supabase for a signer, and long before any persistence (see this
@@ -789,6 +883,7 @@ function isSubmittableApplicationId(applicationId: string): boolean {
 }
 
 export async function main(): Promise<void> {
+  const preflight = hasFlag('preflight') || hasFlag('dry-run');
   const explicit: Partial<UseCaseZeroDemoPersonas> = {
     arkAgentPersonaId: cliArg('arkagent'),
     nakamotoPersonaId: cliArg('nakamoto'),
@@ -839,6 +934,30 @@ export async function main(): Promise<void> {
   const admissionEvidence = await composeUnderwritingAdmissionEvidence(admin, { factorSelection });
 
   const composed = composeUseCaseZeroDemoChain({ ...personas, admissionEvidence, applicationId });
+
+  // GENUINE --preflight/--dry-run — returns here, BEFORE the FROZEN branch
+  // below (which is the only code path that can resolve a signer) and
+  // BEFORE persistUseCaseZeroDemoChain (the only code path that can write
+  // or submit to Vela) are ever reached, for EITHER outcome. See this
+  // function's own CLI doc comment above for why the bare, no-flag
+  // invocation does NOT carry this same guarantee.
+  if (preflight) {
+    console.log(`Use Case Zero demo preflight (requestRef=${composed.requestRef}):`);
+    console.log(`  envelope would resolve: ${composed.envelopeResult.outcome}`);
+    if (composed.envelopeResult.outcome === 'BLOCKED') {
+      console.log(`  reason: ${composed.envelopeResult.blockedReason}`);
+    } else {
+      console.log(
+        `  applicationId="${composed.applicationId}" is ` +
+          `${isSubmittableApplicationId(composed.applicationId) ? 'a valid, submittable Vela applicationId' : 'NOT a real, numeric Vela applicationId — a real --app=<id> would be required to submit'}`,
+      );
+    }
+    console.log(
+      '  --preflight/--dry-run set: zero Supabase writes, zero receipts, zero Vela submission, and zero ' +
+        'signer/private-key resolution were performed.',
+    );
+    return;
+  }
 
   let transport: VelaTransport | undefined;
   if (composed.envelopeResult.outcome === 'FROZEN') {
