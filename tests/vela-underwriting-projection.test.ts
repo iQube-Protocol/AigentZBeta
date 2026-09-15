@@ -599,3 +599,82 @@ describe('Execution Failure Non-Equivalence — a Vela execution failure is neve
     expect(recordVelaUnderwritingRiskTelemetryMock).not.toHaveBeenCalled();
   });
 });
+
+describe('Missing Evidence Non-Equivalence resolved via authorization context — requestingPartyNamespaceRef (4th pass, Horizen constitutional correction)', () => {
+  it('an authorized, expected party (named in requestingPartyNamespaceRef AND a real input party of the request) whose event never decrypts -> PROTOCOL_ERROR-class throw, never quotes/receipts/telemetry-records an UNRESOLVED that was never computed', async () => {
+    const neverDecryptsTransport = new VelaTestTransport({
+      deployment: VELA_LOCAL_DEPLOYMENT,
+      registeredTeeSigner: SIGNER,
+      verdictFor: () => null,
+      status: 0,
+      errorCode: 0,
+      userEventCount: 2, // events genuinely exist (for the other party) — just none decrypt for REF_A
+    });
+    const spyProvider: UnderwritingProvider = {
+      mode: 'SIMULATED',
+      policyVersion: 'test-provider-v1',
+      quoteForVerdict: vi.fn(async (v: any) => new SimulatedUnderwritingProvider().quoteForVerdict(v)),
+    };
+
+    await expect(
+      runVelaUnderwritingProjection(
+        baseCallParams({
+          transport: neverDecryptsTransport,
+          underwritingProvider: spyProvider,
+          requestingPartyNamespaceRef: REF_A,
+        }),
+      ),
+    ).rejects.toThrow(/evidence is missing or malformed/);
+
+    expect(spyProvider.quoteForVerdict).not.toHaveBeenCalled();
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    expect(recordVelaUnderwritingRiskTelemetryMock).not.toHaveBeenCalled();
+  });
+
+  it('the SAME never-decrypts transport, WITHOUT requestingPartyNamespaceRef, resolves as ordinary exclusion — 3rd-pass default behaviour is preserved exactly', async () => {
+    const neverDecryptsTransport = new VelaTestTransport({
+      deployment: VELA_LOCAL_DEPLOYMENT,
+      registeredTeeSigner: SIGNER,
+      verdictFor: () => null,
+      status: 0,
+      errorCode: 0,
+      userEventCount: 2,
+    });
+
+    const result = await runVelaUnderwritingProjection(
+      baseCallParams({ transport: neverDecryptsTransport, requestingPartyNamespaceRef: undefined }),
+    );
+    expect(result.disposition).toBe('UNRESOLVED');
+    expect(createActivityReceiptMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('a requestingPartyNamespaceRef that is NOT actually an input party of this request resolves as ordinary exclusion, not PROTOCOL_ERROR — the check is against the request\'s OWN binding, never trusted blindly', async () => {
+    const outsiderRef = deriveVelaPartyNamespaceRef(APP_ID, {
+      authorityPrincipal: 'principal-outsider',
+      confidentialPrivacyIdentity: 'privacy-outsider',
+    });
+    const neverDecryptsTransport = new VelaTestTransport({
+      deployment: VELA_LOCAL_DEPLOYMENT,
+      registeredTeeSigner: SIGNER,
+      verdictFor: () => null,
+      status: 0,
+      errorCode: 0,
+      userEventCount: 2,
+    });
+
+    const result = await runVelaUnderwritingProjection(
+      baseCallParams({ transport: neverDecryptsTransport, requestingPartyNamespaceRef: outsiderRef }),
+    );
+    expect(result.disposition).toBe('UNRESOLVED');
+    expect(createActivityReceiptMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('a genuine successful decrypt for the requesting party is UNCHANGED by supplying requestingPartyNamespaceRef', async () => {
+    const result = await runVelaUnderwritingProjection(
+      baseCallParams({ build: buildParams('req-1', []), requestingPartyNamespaceRef: REF_A }),
+    );
+    // Own-standalone verdict for this fixture is ACCEPTABLE (see partyInputs()).
+    expect(result.disposition).toBe('ACCEPTABLE');
+    expect(createActivityReceiptMock).toHaveBeenCalledTimes(1);
+  });
+});

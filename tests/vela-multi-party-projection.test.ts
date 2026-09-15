@@ -36,6 +36,7 @@ import {
   buildVelaMultiPartyProjectionRequest,
   getVelaMultiPartyProjectionDisposition,
   getVelaMultiPartyProjectionOutcome,
+  isVelaMultiPartyExpectedRecipient,
   prepareVelaMultiPartyProjection,
   submitVelaMultiPartyProjection,
   type BuildVelaMultiPartyProjectionRequestParams,
@@ -618,7 +619,7 @@ describe('Execution Failure Non-Equivalence — getVelaMultiPartyProjectionOutco
     expect(outcome).toEqual({ status: 'RESOLVED', disposition: 'UNACCEPTABLE', applicationFees: '0' });
   });
 
-  it('getVelaMultiPartyProjectionDisposition is UNCHANGED — still collapses EXECUTION_FAILED into the string "UNRESOLVED", exactly as before this hardening existed', async () => {
+  it('getVelaMultiPartyProjectionDisposition throws distinctly on EXECUTION_FAILED (4th pass, Horizen constitutional correction) — it must NEVER report execution failure as any disposition, including UNRESOLVED: execution failure means no application output exists', async () => {
     const transport = new VelaTestTransport({
       deployment: VELA_LOCAL_DEPLOYMENT,
       registeredTeeSigner: SIGNER,
@@ -628,8 +629,9 @@ describe('Execution Failure Non-Equivalence — getVelaMultiPartyProjectionOutco
     const prepared = await prepareVelaMultiPartyProjection(transport, baseParams('req-1', validScope('req-1')));
     const submission = await submitVelaMultiPartyProjection(transport, prepared);
 
-    const disposition = await getVelaMultiPartyProjectionDisposition(transport, submission.onChainRequestId);
-    expect(disposition).toBe('UNRESOLVED');
+    await expect(
+      getVelaMultiPartyProjectionDisposition(transport, submission.onChainRequestId),
+    ).rejects.toThrow(/execution layer/i);
   });
 
   it('no caller can bypass execution-status validation by directly feeding decoded output: EXECUTION_FAILED is a distinct branch with no disposition to "accidentally" read', async () => {
@@ -840,7 +842,7 @@ describe('Execution Failure Non-Equivalence — getVelaMultiPartyProjectionOutco
     if (outcome.status === 'RESOLVED') expect(outcome.disposition).toBe('UNRESOLVED');
   });
 
-  it('getVelaMultiPartyProjectionDisposition throws distinctly on PROTOCOL_ERROR — 3rd pass correction: it must NEVER be collapsed to the string "UNRESOLVED", unlike EXECUTION_FAILED', async () => {
+  it('getVelaMultiPartyProjectionDisposition throws distinctly on PROTOCOL_ERROR — it must NEVER be collapsed to the string "UNRESOLVED"', async () => {
     const transport = new VelaTestTransport({
       deployment: VELA_LOCAL_DEPLOYMENT,
       registeredTeeSigner: SIGNER,
@@ -857,7 +859,7 @@ describe('Execution Failure Non-Equivalence — getVelaMultiPartyProjectionOutco
     ).rejects.toThrow(/evidence is missing or malformed/);
   });
 
-  it('getVelaMultiPartyProjectionDisposition still collapses EXECUTION_FAILED into the string "UNRESOLVED" — unaffected by the PROTOCOL_ERROR correction above', async () => {
+  it('getVelaMultiPartyProjectionDisposition throws distinctly on EXECUTION_FAILED too, with a DIFFERENT message than PROTOCOL_ERROR (4th pass) — neither failure class returns a disposition, and a caller can tell them apart', async () => {
     const transport = new VelaTestTransport({
       deployment: VELA_LOCAL_DEPLOYMENT,
       registeredTeeSigner: SIGNER,
@@ -867,7 +869,161 @@ describe('Execution Failure Non-Equivalence — getVelaMultiPartyProjectionOutco
     const prepared = await prepareVelaMultiPartyProjection(transport, baseParams('req-1', validScope('req-1')));
     const submission = await submitVelaMultiPartyProjection(transport, prepared);
 
-    const disposition = await getVelaMultiPartyProjectionDisposition(transport, submission.onChainRequestId);
-    expect(disposition).toBe('UNRESOLVED');
+    await expect(
+      getVelaMultiPartyProjectionDisposition(transport, submission.onChainRequestId),
+    ).rejects.toThrow(/execution layer/i);
+    await expect(
+      getVelaMultiPartyProjectionDisposition(transport, submission.onChainRequestId),
+    ).rejects.not.toThrow(/evidence is missing or malformed/);
+  });
+
+  it('getVelaMultiPartyProjectionDisposition NEVER resolves to a ConfidentialProjectionDisposition value for either failure class — PENDING still returns null, and PROTOCOL_ERROR/EXECUTION_FAILED both throw rather than return', async () => {
+    const pendingTransport = new VelaTestTransport({
+      deployment: VELA_LOCAL_DEPLOYMENT,
+      registeredTeeSigner: SIGNER,
+      verdictFor: multiPartyVerdictForRecipient(REF_A),
+      pendingPolls: 1,
+    });
+    const preparedPending = await prepareVelaMultiPartyProjection(pendingTransport, baseParams('req-1', validScope('req-1')));
+    const submissionPending = await submitVelaMultiPartyProjection(pendingTransport, preparedPending);
+    // Still pending: returns null, not a disposition and not a throw.
+    expect(await getVelaMultiPartyProjectionDisposition(pendingTransport, submissionPending.onChainRequestId)).toBeNull();
+
+    const executionFailedTransport = new VelaTestTransport({
+      deployment: VELA_LOCAL_DEPLOYMENT,
+      registeredTeeSigner: SIGNER,
+      verdictFor: multiPartyVerdictForRecipient(REF_A),
+      errorCode: 7,
+    });
+    const preparedFailed = await prepareVelaMultiPartyProjection(executionFailedTransport, baseParams('req-1', validScope('req-1')));
+    const submissionFailed = await submitVelaMultiPartyProjection(executionFailedTransport, preparedFailed);
+    await expect(
+      getVelaMultiPartyProjectionDisposition(executionFailedTransport, submissionFailed.onChainRequestId),
+    ).rejects.toThrow();
+
+    const protocolErrorTransport = new VelaTestTransport({
+      deployment: VELA_LOCAL_DEPLOYMENT,
+      registeredTeeSigner: SIGNER,
+      verdictFor: () => null,
+      status: 0,
+      errorCode: 0,
+      userEventCount: 0,
+    });
+    const preparedProtoErr = await prepareVelaMultiPartyProjection(protocolErrorTransport, baseParams('req-1', validScope('req-1')));
+    const submissionProtoErr = await submitVelaMultiPartyProjection(protocolErrorTransport, preparedProtoErr);
+    await expect(
+      getVelaMultiPartyProjectionDisposition(protocolErrorTransport, submissionProtoErr.onChainRequestId),
+    ).rejects.toThrow();
   });
 });
+
+// ── AEAD ambiguity resolved via authorization context (4th pass, Horizen
+// constitutional correction) ────────────────────────────────────────────────
+
+describe('isVelaMultiPartyExpectedRecipient — derived ONLY from the request\'s own frozen party binding', () => {
+  it('true for a ref that IS one of the request\'s input parties', async () => {
+    const prepared = await prepareVelaMultiPartyProjection(makeTransport(REF_A), baseParams('req-1', validScope('req-1')));
+    expect(isVelaMultiPartyExpectedRecipient(REF_A, prepared.request)).toBe(true);
+    expect(isVelaMultiPartyExpectedRecipient(REF_B, prepared.request)).toBe(true);
+  });
+
+  it('false for a ref that is NOT one of the request\'s input parties, even if named in a DISCLOSE_TO grant\'s "to" field', async () => {
+    const outsiderRef = deriveVelaPartyNamespaceRef(APP_ID, {
+      authorityPrincipal: 'principal-outsider',
+      confidentialPrivacyIdentity: 'privacy-outsider',
+    });
+    const scope = validScope('req-1', [{ action: 'DISCLOSE_TO', party: REF_A, to: outsiderRef }]);
+    const prepared = await prepareVelaMultiPartyProjection(makeTransport(REF_A), baseParams('req-1', scope));
+    // app.go's buildMultiPartyEvents emits one event per key in req.Inputs
+    // ONLY — a DISCLOSE_TO grant's `to` never adds a new recipient outside
+    // the input parties, it only changes which value an EXISTING party gets.
+    expect(isVelaMultiPartyExpectedRecipient(outsiderRef, prepared.request)).toBe(false);
+  });
+});
+
+describe('getVelaMultiPartyProjectionOutcome — authorized-expected decrypt failure vs. unauthorized exclusion (4th pass)', () => {
+  it('viewerIsExpectedRecipient=true + nothing decrypted -> PROTOCOL_ERROR, never ordinary exclusion', async () => {
+    // Models an authorized, expected party (per the request's own binding)
+    // whose event fails to decrypt for any reason (AEAD auth failure or
+    // otherwise) — ciphertext-only inspection cannot tell this apart from
+    // ordinary exclusion, but authorization context can and must.
+    const transport = new VelaTestTransport({
+      deployment: VELA_LOCAL_DEPLOYMENT,
+      registeredTeeSigner: SIGNER,
+      verdictFor: () => null,
+      status: 0,
+      errorCode: 0,
+      userEventCount: 2, // events exist (for the other party), just not decryptable for us
+    });
+    const prepared = await prepareVelaMultiPartyProjection(transport, baseParams('req-1', validScope('req-1')));
+    const submission = await submitVelaMultiPartyProjection(transport, prepared);
+    const viewerIsExpected = isVelaMultiPartyExpectedRecipient(REF_A, prepared.request);
+    expect(viewerIsExpected).toBe(true);
+
+    const outcome = await getVelaMultiPartyProjectionOutcome(transport, submission.onChainRequestId, viewerIsExpected);
+    expect(outcome.status).toBe('PROTOCOL_ERROR');
+    if (outcome.status === 'PROTOCOL_ERROR') {
+      expect(outcome.reason).toMatch(/named party.*expected to receive/i);
+    }
+  });
+
+  it('viewerIsExpectedRecipient=false (or omitted) + nothing decrypted -> ordinary RESOLVED/UNRESOLVED exclusion, UNCHANGED', async () => {
+    const transport = new VelaTestTransport({
+      deployment: VELA_LOCAL_DEPLOYMENT,
+      registeredTeeSigner: SIGNER,
+      verdictFor: () => null,
+      status: 0,
+      errorCode: 0,
+      userEventCount: 2,
+    });
+    const prepared = await prepareVelaMultiPartyProjection(transport, baseParams('req-1', validScope('req-1')));
+    const submission = await submitVelaMultiPartyProjection(transport, prepared);
+
+    // Explicit false (a genuine outsider who is not a party at all).
+    const outcomeFalse = await getVelaMultiPartyProjectionOutcome(transport, submission.onChainRequestId, false);
+    expect(outcomeFalse.status).toBe('RESOLVED');
+    if (outcomeFalse.status === 'RESOLVED') expect(outcomeFalse.disposition).toBe('UNRESOLVED');
+
+    // Omitted entirely (no authorization context available to the caller) —
+    // the 3rd-pass default, preserved exactly.
+    const submission2 = await submitVelaMultiPartyProjection(transport, prepared);
+    const outcomeOmitted = await getVelaMultiPartyProjectionOutcome(transport, submission2.onChainRequestId);
+    expect(outcomeOmitted.status).toBe('RESOLVED');
+    if (outcomeOmitted.status === 'RESOLVED') expect(outcomeOmitted.disposition).toBe('UNRESOLVED');
+  });
+
+  it('viewerIsExpectedRecipient=true does NOT override a genuine successful decrypt — an authorized party who DID receive a valid event still resolves normally', async () => {
+    const transport = makeTransport(REF_A);
+    const prepared = await prepareVelaMultiPartyProjection(transport, baseParams('req-1', validScope('req-1')));
+    const submission = await submitVelaMultiPartyProjection(transport, prepared);
+    const viewerIsExpected = isVelaMultiPartyExpectedRecipient(REF_A, prepared.request);
+    expect(viewerIsExpected).toBe(true);
+
+    const outcome = await getVelaMultiPartyProjectionOutcome(transport, submission.onChainRequestId, viewerIsExpected);
+    // Fixture's own standalone verdict for a single party's inputs is
+    // ACCEPTABLE (see partyInputs()/evaluateSingleParty()) — a real decrypt
+    // succeeded, so this must stay RESOLVED regardless of the expected flag.
+    expect(outcome.status).toBe('RESOLVED');
+  });
+
+  it('viewerIsExpectedRecipient=true does NOT suppress the malformed-envelope PROTOCOL_ERROR — both signals agree, the more specific structural one still applies', async () => {
+    const transport = new VelaTestTransport({
+      deployment: VELA_LOCAL_DEPLOYMENT,
+      registeredTeeSigner: SIGNER,
+      verdictFor: () => null,
+      status: 0,
+      errorCode: 0,
+      userEventCount: 1,
+      malformedUserEventCount: 1,
+    });
+    const prepared = await prepareVelaMultiPartyProjection(transport, baseParams('req-1', validScope('req-1')));
+    const submission = await submitVelaMultiPartyProjection(transport, prepared);
+
+    const outcome = await getVelaMultiPartyProjectionOutcome(transport, submission.onChainRequestId, true);
+    expect(outcome.status).toBe('PROTOCOL_ERROR');
+    if (outcome.status === 'PROTOCOL_ERROR') {
+      expect(outcome.reason).toMatch(/structurally malformed ciphertext envelope/i);
+    }
+  });
+});
+

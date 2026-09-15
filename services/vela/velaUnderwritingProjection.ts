@@ -124,6 +124,7 @@
 import { createHash } from 'crypto';
 import {
   getVelaMultiPartyProjectionOutcome,
+  isVelaMultiPartyExpectedRecipient,
   prepareVelaMultiPartyProjection,
   submitVelaMultiPartyProjection,
   type BuildVelaMultiPartyProjectionRequestParams,
@@ -171,9 +172,19 @@ export interface RunVelaUnderwritingProjectionParams {
   actorPersonaId: string;
   /** The agent driving this workload (e.g. 'aigent-factor'). */
   requestedByAgentRef: string;
-  /** Caller's own derived namespace ref, for receipt READABILITY only —
-   *  never used to alter behaviour (the disposition is already scoped by the
-   *  transport itself, not by this value). Optional. */
+  /**
+   * Caller's own derived namespace ref. Bound onto the receipt for
+   * readability, AND (2026-09-16, 4th pass — Horizen constitutional
+   * correction) used to resolve the AEAD decrypt-ambiguity sub-case: when
+   * supplied, this function checks whether the ref names one of the
+   * request's OWN input parties (`isVelaMultiPartyExpectedRecipient`) and, if
+   * so, an undecryptable event for this caller becomes PROTOCOL_ERROR instead
+   * of ordinary exclusion. The disposition VALUE itself remains scoped by the
+   * transport alone, unchanged — this value only affects which FAILURE CLASS
+   * an undecryptable result resolves to, never which disposition a
+   * successful decrypt produces. Optional; omitting it preserves the prior
+   * (ordinary-exclusion-by-default) behaviour exactly.
+   */
   requestingPartyNamespaceRef?: string;
   activeCartridge?: string;
 }
@@ -250,9 +261,18 @@ async function pollMultiPartyDispositionToTerminal(
   transport: Pick<VelaTransport, 'fetchResult'>,
   onChainRequestId: string,
   maxAttempts: number,
+  /**
+   * Derived from `isVelaMultiPartyExpectedRecipient(requestingPartyNamespaceRef,
+   * prepared.request)` at the call site below (2026-09-16, 4th pass) — lets
+   * `getVelaMultiPartyProjectionOutcome` resolve the AEAD ambiguity using this
+   * request's own frozen party binding rather than ciphertext inspection.
+   * `undefined` when the caller supplied no `requestingPartyNamespaceRef`,
+   * preserving the prior (ordinary-exclusion-by-default) behaviour exactly.
+   */
+  viewerIsExpectedRecipient: boolean | undefined,
 ): Promise<VelaUnderwritingCompletionEvidence> {
   let attempts = 0;
-  let outcome = await getVelaMultiPartyProjectionOutcome(transport, onChainRequestId);
+  let outcome = await getVelaMultiPartyProjectionOutcome(transport, onChainRequestId, viewerIsExpectedRecipient);
   while (outcome.status === 'PENDING') {
     attempts += 1;
     if (attempts > maxAttempts) {
@@ -261,7 +281,7 @@ async function pollMultiPartyDispositionToTerminal(
           `${maxAttempts} poll attempts — refusing to block forever.`,
       );
     }
-    outcome = await getVelaMultiPartyProjectionOutcome(transport, onChainRequestId);
+    outcome = await getVelaMultiPartyProjectionOutcome(transport, onChainRequestId, viewerIsExpectedRecipient);
   }
   if (outcome.status === 'EXECUTION_FAILED') {
     throw new Error(
@@ -412,10 +432,23 @@ export async function runVelaUnderwritingProjection(
   //    time this resolves. Throws before this line returns if the request
   //    failed at the execution layer (status !== 0) — see
   //    pollMultiPartyDispositionToTerminal's own doc comment.
+  //
+  //    2026-09-16 (4th pass): when the caller supplied its own namespace ref,
+  //    resolve whether THIS caller was a named party of the request being
+  //    polled (using the request's own frozen inputs — never ciphertext
+  //    inspection) so a genuinely-expected-but-undecryptable event resolves
+  //    to PROTOCOL_ERROR rather than the ordinary exclusion path.
+  //    `requestingPartyNamespaceRef` remains optional and unvalidated against
+  //    `params.transport`'s actual decrypting identity beyond this binding
+  //    check — the caller is responsible for supplying its own true ref.
+  const viewerIsExpectedRecipient = params.requestingPartyNamespaceRef
+    ? isVelaMultiPartyExpectedRecipient(params.requestingPartyNamespaceRef, prepared.request)
+    : undefined;
   const completionEvidence = await pollMultiPartyDispositionToTerminal(
     params.transport,
     submission.onChainRequestId,
     params.maxPollAttempts ?? DEFAULT_MAX_POLL_ATTEMPTS,
+    viewerIsExpectedRecipient,
   );
   const disposition = completionEvidence.disposition;
 

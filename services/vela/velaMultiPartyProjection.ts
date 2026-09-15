@@ -523,10 +523,9 @@ export async function submitVelaMultiPartyProjection(
  *    named `verdict: "UNRESOLVED"`), and the ordinary not-a-recipient case
  *    (other parties' events exist, but decrypting none of them succeeds for
  *    THIS caller — the legitimate `VELA-PRIVACY-BOUNDARY-001` exclusion).
- *  - `'PROTOCOL_ERROR'` (2026-09-16, 2nd + 3rd pass): a SUCCESSFUL completion
- *    (`status === 0`) that nonetheless cannot honestly resolve to any of the
- *    above. Three distinguishable sub-cases, each proven against actually
- *    available wire metadata (never inferred from decrypt failure alone):
+ *  - `'PROTOCOL_ERROR'` (2026-09-16, 2nd/3rd/4th pass): a SUCCESSFUL
+ *    completion (`status === 0`) that nonetheless cannot honestly resolve to
+ *    any of the above. Four distinguishable sub-cases:
  *      (i)   NO `UserEvent` exists for this request AT ALL (`userEventCount
  *            === 0`) — the guest always emits at least one on every
  *            non-malfunction `ProcessRequest` path, so zero is never
@@ -541,22 +540,33 @@ export async function submitVelaMultiPartyProjection(
  *            `VelaMalformedCiphertextEnvelopeError` (velaClientAdapter.ts).
  *      (iii) An event decrypted successfully for THIS caller, but its content
  *            does not parse as a valid verdict payload.
+ *      (iv)  4th pass (Horizen constitutional correction): the CALLER
+ *            supplies `viewerIsExpectedRecipient: true` — derived from the
+ *            request's OWN frozen party binding (`isVelaMultiPartyExpectedRecipient`,
+ *            below), never inferred — and nothing decrypted for this caller.
+ *            `app.go`'s `buildMultiPartyEvents` proves every party named in
+ *            `MultiPartyProjectionRequest.Inputs` receives exactly one
+ *            `UserEvent`, addressed at their own `RecipientAddress`, on every
+ *            successful completion — so a viewer this codebase itself knows
+ *            was a party to the request, but for whom nothing decrypts, is
+ *            proof of broken evidence, not ordinary exclusion. THIS resolves,
+ *            using authorization context this module already has (never new
+ *            ciphertext inspection), the residual ambiguity sub-case (ii) and
+ *            (iii) above could not: an AES-GCM authentication failure (wrong
+ *            key or tampered ciphertext) remains cryptographically
+ *            indistinguishable from ordinary exclusion by ciphertext alone —
+ *            that fact about AEAD is unchanged and unchangeable — but the
+ *            REQUEST's own party binding tells us, independently of the
+ *            ciphertext, whether this viewer was ever supposed to receive
+ *            anything at all. When `viewerIsExpectedRecipient` is omitted (the
+ *            default), this sub-case is NOT reached and behaviour is
+ *            unchanged from the 3rd pass — see `getVelaMultiPartyProjectionOutcome`'s
+ *            own parameter doc.
  *    Distinct from `'RESOLVED'`'s own `'UNRESOLVED'` disposition on purpose:
- *    `UNRESOLVED` is the guest's own deliberate, evidenced epistemic answer;
- *    `PROTOCOL_ERROR` means the evidence itself is missing or broken — a
+ *    `UNRESOLVED` is the guest's own deliberate, evidenced epistemic answer —
+ *    valid ONLY as an explicit event from a successfully completed request —
+ *    and `PROTOCOL_ERROR` means the evidence itself is missing or broken — a
  *    caller MUST NOT persist either as if it were the other.
- *    PROVEN, NOT REACHABLE, for "an authorized event that fails to decrypt
- *    via an ordinary AES-GCM authentication failure" (wrong key OR tampered
- *    ciphertext) — AEAD's own security definition makes those two causes
- *    produce the IDENTICAL failure by design (this is precisely what makes
- *    GCM resistant to chosen-ciphertext attacks), and the Vela wire format
- *    deliberately carries no additional recipient metadata to disambiguate
- *    them (`UserEvent.eventSubType` is left zero specifically so the
- *    on-chain indexed topic reveals nothing — app.go's own comment). That
- *    residual case remains the ordinary, legitimate `VELA-PRIVACY-BOUNDARY-001`
- *    exclusion and stays `'RESOLVED'`; documented as a proven, disclosed
- *    (not merely assumed) limitation in
- *    `codexes/packs/agentiq/updates/2026-09-16_vela-v0.2.0-execution-fuel-deployment-facts.md`.
  */
 export type VelaMultiPartyProjectionOutcome =
   | { status: 'PENDING' }
@@ -583,21 +593,62 @@ function isWellFormedVerdictJson(json: string): boolean {
 }
 
 /**
+ * True when `viewerNamespaceRef` names a party the REQUEST ITSELF says was
+ * submitted, using ONLY the frozen party binding already built by
+ * `buildVelaMultiPartyProjectionRequest` — never ciphertext inspection, never
+ * a live query, never a trust-me flag (2026-09-16, 4th pass — Horizen
+ * constitutional correction).
+ *
+ * Proven, not assumed: `app.go`'s own `buildMultiPartyEvents` builds its
+ * result map by iterating `req.Inputs` and emits exactly one `PlainEvent`
+ * per key in that map (`results := make(map[string]string, len(inputs))`;
+ * `for ref, contribution := range inputs { results[ref] = ... }`) — a
+ * DISCLOSE_TO/COMPUTE_WITH grant changes WHICH VALUE a party receives, never
+ * WHETHER they receive an event at all. So "this ref names one of the
+ * request's own input parties" is both necessary and sufficient for "the
+ * guest was going to address an event to this party on every successful
+ * completion" — no grant inspection is needed for this specific question.
+ *
+ * `viewerNamespaceRef` is the SAME opaque, one-way `deriveVelaPartyNamespaceRef`
+ * output already used as the map key and already surfaced in receipts
+ * (`partyNamespaceRefs`, `velaUnderwritingProjection.ts`) — never a raw
+ * identity, recipientAddress, or any other T0-adjacent value.
+ */
+export function isVelaMultiPartyExpectedRecipient(
+  viewerNamespaceRef: string,
+  request: Pick<VelaMultiPartyProjectionRequest, 'inputs'>,
+): boolean {
+  return Object.prototype.hasOwnProperty.call(request.inputs, viewerNamespaceRef);
+}
+
+/**
  * Resolves the full, undegraded outcome of a multi-party request — the
  * preferred entry point for any caller that will use the result to build a
  * quote, a receipt, or any other persisted evidence, because it makes an
  * execution failure structurally impossible to mistake for a real
  * disposition (a caller has to explicitly handle `'EXECUTION_FAILED'` to
  * reach a `disposition` value at all — there is no field named `disposition`
- * on that branch). `getVelaMultiPartyProjectionDisposition` (below) is kept,
- * unchanged, for existing callers that only need the coarse three-valued
- * (or pending-null) signal and already treat a failure and a genuine
- * UNRESOLVED identically on purpose (e.g. a diagnostic script's own
- * comparison against an expected disposition).
+ * on that branch). `getVelaMultiPartyProjectionDisposition` (below) is kept
+ * as a narrower, pending-or-throw-or-disposition entry point for a caller
+ * that genuinely never needs the raw errorCode/reason — it now THROWS
+ * distinctly for both `'EXECUTION_FAILED'` and `'PROTOCOL_ERROR'` rather than
+ * collapsing either into a disposition string (2026-09-16, 4th pass — see
+ * that function's own doc comment for why the EXECUTION_FAILED collapse was
+ * itself a defect, not merely a legitimate coarse simplification).
+ *
+ * `viewerIsExpectedRecipient` (2026-09-16, 4th pass, OPTIONAL): pass
+ * `isVelaMultiPartyExpectedRecipient(viewerNamespaceRef, request)` (above)
+ * when the caller has the frozen request in scope, so this function can
+ * resolve the AEAD ambiguity sub-case using AUTHORIZATION CONTEXT rather than
+ * ciphertext inspection — see the outcome type's own doc comment, sub-case
+ * (iv). Omit it (the default) to keep this function's behaviour identical to
+ * the 3rd pass: nothing decrypting for a viewer with unknown expected-status
+ * remains the ordinary, legitimate exclusion case.
  */
 export async function getVelaMultiPartyProjectionOutcome(
   transport: Pick<VelaTransport, 'fetchResult'>,
   onChainRequestId: string,
+  viewerIsExpectedRecipient?: boolean,
 ): Promise<VelaMultiPartyProjectionOutcome> {
   const result = await transport.fetchResult(onChainRequestId);
   if (!result) return { status: 'PENDING' };
@@ -657,6 +708,28 @@ export async function getVelaMultiPartyProjectionOutcome(
       applicationFees: result.applicationFees,
     };
   }
+  // 4th pass (Horizen constitutional correction): the CALLER told us this
+  // viewer is a named party of the request itself (proven via
+  // isVelaMultiPartyExpectedRecipient, never inferred here), and STILL
+  // nothing decrypted for them. app.go's own buildMultiPartyEvents proves
+  // every party in the request's Inputs map receives exactly one UserEvent on
+  // every successful completion — so this is proof of broken evidence for an
+  // AUTHORIZED, EXPECTED recipient, never ordinary privacy exclusion. This is
+  // the one case an ordinary AES-GCM authentication failure becomes decidable
+  // by resolving the ambiguity from authorization context, not the
+  // ciphertext, which remains — and always will remain — unable to
+  // distinguish "wrong key" from "tampered ciphertext" on its own.
+  if (result.decryptedUserEventJson === null && viewerIsExpectedRecipient === true) {
+    return {
+      status: 'PROTOCOL_ERROR',
+      reason:
+        `viewer is a named party of requestId=${result.requestId} (per the request's own frozen party ` +
+        'binding) and so was expected to receive a UserEvent on this successful completion, but no ' +
+        'event decrypted successfully for them — this is missing/broken evidence, never ordinary ' +
+        'privacy exclusion, and never a genuine UNRESOLVED disposition.',
+      applicationFees: result.applicationFees,
+    };
+  }
   // An event decrypted successfully for us, but its content does not parse as
   // a valid verdict payload — malformed evidence, never a genuine disposition
   // (including never a genuine UNRESOLVED, which requires a well-formed
@@ -699,31 +772,29 @@ export async function getVelaMultiPartyProjectionOutcome(
  * caller to use; it exposes the same underlying fact (`fetchResult` returned
  * null) via the same `null`-while-pending idiom `getProjectionStatus` chose.
  *
- * UNCHANGED BEHAVIOUR, KEPT FOR EXISTING CALLERS: still collapses
- * `'EXECUTION_FAILED'` into the string `'UNRESOLVED'`, exactly as it always
- * has (fail-closed, never a false ACCEPTABLE/UNACCEPTABLE) — an execution
- * failure at least proves the guest never ran, which a caller that only
- * wants the coarse three-valued-or-null signal may legitimately treat as
- * equivalent to a conservative refusal.
- *
- * `'PROTOCOL_ERROR'` is DELIBERATELY NOT collapsed the same way (2026-09-16,
- * 3rd pass — UC0 final closeout correction). Missing or malformed EVIDENCE on
- * an otherwise-successful completion is not "the guest never ran" — it means
- * this function cannot honestly say what the guest decided at all, and
- * returning the string `'UNRESOLVED'` for it would be indistinguishable, to
- * every caller of this coarse API, from a real guest-evidenced refusal. That
- * is exactly the conflation Missing Evidence Non-Equivalence
- * (`CI-2026-09-16-MISSING-EVIDENCE-NON-EQUIVALENCE-001`) exists to forbid, and
- * this legacy entry point is not exempt from it merely because it predates
- * the distinction. This function THROWS instead, naming the reason, rather
- * than silently widening its return type with a value that reads identically
- * to a real disposition — a caller must handle the throw explicitly (exactly
- * as it already must for a `PENDING` request reaching `getProjectionEvidence`'s
- * sibling contract) rather than receive a fabricated conservative answer.
- * ANY caller that will persist a result as evidence, a quote, or a receipt
- * MUST use `getVelaMultiPartyProjectionOutcome` instead and handle
- * `'PROTOCOL_ERROR'` as its own explicit branch — see that function's own doc
- * comment.
+ * NEITHER FAILURE CLASS EVER COLLAPSES TO A DISPOSITION VALUE (2026-09-16,
+ * 4th pass — Horizen constitutional correction, absolute rule). Horizen's own
+ * rule for the deployed v0.2.0 ABI: execution failure means no application
+ * output exists; it must never become `UNRESOLVED`; `UNRESOLVED` is valid
+ * ONLY as an explicit event from a SUCCESSFULLY COMPLETED request. The 3rd
+ * pass correctly stopped collapsing `'PROTOCOL_ERROR'` this way but left
+ * `'EXECUTION_FAILED'`'s own collapse in place on the theory that "the guest
+ * never ran" was a defensible reason to treat it as equivalent to a
+ * conservative refusal — Horizen's rule forecloses that theory entirely: an
+ * execution failure is not merely "conservatively equivalent" to UNRESOLVED,
+ * it is a DIFFERENT KIND OF FACT (no output exists at all) that must never be
+ * represented using the same vocabulary a real disposition uses. BOTH
+ * `'EXECUTION_FAILED'` and `'PROTOCOL_ERROR'` now THROW, with DIFFERENT
+ * messages so a caller can tell them apart, rather than either one silently
+ * widening this function's return type with a value that reads identically
+ * to a real disposition. A caller must handle the throw explicitly (exactly
+ * as it already must for `getProjectionEvidence`'s sibling single-party
+ * contract on a still-pending request) rather than receive a fabricated
+ * conservative answer for either failure class. ANY caller that will persist
+ * a result as evidence, a quote, or a receipt MUST use
+ * `getVelaMultiPartyProjectionOutcome` instead and handle `'EXECUTION_FAILED'`
+ * and `'PROTOCOL_ERROR'` as their own explicit branches — see that function's
+ * own doc comment.
  */
 export async function getVelaMultiPartyProjectionDisposition(
   transport: Pick<VelaTransport, 'fetchResult'>,
@@ -731,7 +802,14 @@ export async function getVelaMultiPartyProjectionDisposition(
 ): Promise<ConfidentialProjectionDisposition | null> {
   const outcome = await getVelaMultiPartyProjectionOutcome(transport, onChainRequestId);
   if (outcome.status === 'PENDING') return null;
-  if (outcome.status === 'EXECUTION_FAILED') return 'UNRESOLVED';
+  if (outcome.status === 'EXECUTION_FAILED') {
+    throw new Error(
+      `getVelaMultiPartyProjectionDisposition: request ${onChainRequestId} FAILED at the Vela ` +
+        `execution layer (errorCode ${outcome.errorCode}: "${outcome.errorMsg}") — execution failure ` +
+        'means no application output exists; it must never be reported as a disposition, including ' +
+        'UNRESOLVED. Use getVelaMultiPartyProjectionOutcome instead if you need to persist this result.',
+    );
+  }
   if (outcome.status === 'PROTOCOL_ERROR') {
     throw new Error(
       `getVelaMultiPartyProjectionDisposition: request ${onChainRequestId} completed successfully but ` +
