@@ -54,6 +54,15 @@ export interface VelaTestTransportOptions {
    * genuinely-missing-event protocol-error case (2026-09-16, 2nd pass).
    */
   userEventCount?: number;
+  /**
+   * Count of UserEvent logs whose ciphertext envelope was structurally
+   * malformed (too short for ANY recipient) — defaults to `0`. Set
+   * explicitly, with `verdictFor` returning `null`, to model the
+   * malformed-evidence protocol-error case distinct from ordinary exclusion
+   * (2026-09-16, 3rd pass). See `VelaRequestResult.malformedUserEventCount`'s
+   * own doc comment.
+   */
+  malformedUserEventCount?: number;
   /** Number of polls that return null before the result appears. Models async observation. */
   pendingPolls?: number;
 }
@@ -156,6 +165,7 @@ export class VelaTestTransport implements VelaTransport {
       submittedPayload: submission.payload,
       decryptedUserEventJson: this.opts.verdictFor(submission.plaintext),
       userEventCount: this.opts.userEventCount ?? 1,
+      malformedUserEventCount: this.opts.malformedUserEventCount ?? 0,
       errorCode: this.opts.errorCode ?? 0,
       errorMsg: this.opts.errorCode ? 'executor marked request failed' : '',
     };

@@ -86,13 +86,53 @@ export function velaEncrypt(
   return Buffer.concat([nonce, ct, cipher.getAuthTag()]);
 }
 
+/**
+ * Thrown ONLY for a ciphertext envelope that is structurally too short to be
+ * a valid `nonce ‖ ciphertext ‖ tag` encoding for ANY recipient (2026-09-16,
+ * 3rd pass — UC0 final closeout). This is the ONE decrypt-failure class this
+ * module can prove is never a legitimate "not addressed to me" outcome: a
+ * correctly encrypted envelope (`velaEncrypt`, or the Go guest's own
+ * equivalent) is ALWAYS >= 28 bytes regardless of which recipient key it was
+ * sealed to, so a shorter buffer is proof of wire/storage corruption, not
+ * evidence of exclusion. Deliberately a distinct, instanceof-checkable error
+ * type — never a string-matched message — so callers can distinguish this
+ * from an AES-GCM authentication failure without parsing error text.
+ *
+ * AES-GCM authentication failure (wrong key OR tampered ciphertext) is NOT
+ * given an equivalent distinguishable type: AEAD's own security definition
+ * makes "decrypted under the wrong key" and "decrypted under the right key
+ * but the ciphertext was tampered with" produce the IDENTICAL authentication
+ * failure by design (this is precisely what makes GCM resistant to
+ * chosen-ciphertext attacks) — there is no additional metadata this module,
+ * or the Vela wire format it decodes (`UserEvent`'s `eventSubType` is left
+ * zero specifically so the on-chain indexed topic reveals nothing about the
+ * intended recipient — see `services/vela/wasm/projector/app/app.go`'s own
+ * comment), can consult to tell those two apart. That residual case remains
+ * the ordinary, legitimate "not addressed to me" exclusion
+ * (VELA-PRIVACY-BOUNDARY-001) and is NOT reclassified by this change — only
+ * the structurally-provable malformed-envelope subclass is.
+ */
+export class VelaMalformedCiphertextEnvelopeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'VelaMalformedCiphertextEnvelopeError';
+  }
+}
+
 export function velaDecrypt(
   envelope: Uint8Array,
   privateKeyHex: string,
   peerPublicKeyHex: string,
 ): Uint8Array {
   const buf = Buffer.from(envelope);
-  if (buf.length < 12 + 16) throw new Error('velaDecrypt: envelope too short');
+  if (buf.length < 12 + 16) {
+    // Length only — never the envelope bytes themselves (no ciphertext leak).
+    throw new VelaMalformedCiphertextEnvelopeError(
+      `velaDecrypt: envelope too short to be a valid ciphertext for any recipient (${buf.length} bytes, ` +
+        'need >= 28: 12-byte nonce + 16-byte GCM tag) — this is a wire/storage defect, never evidence ' +
+        'that this key is simply not the intended recipient.',
+    );
+  }
   const key = deriveAesKey(privateKeyHex, peerPublicKeyHex);
   const nonce = buf.subarray(0, 12);
   const tag = buf.subarray(buf.length - 16);
@@ -346,6 +386,14 @@ export class VelaClientAdapter implements VelaTransport {
     // "events exist, but none decrypt for me" (the legitimate not-a-
     // recipient case, per VELA-PRIVACY-BOUNDARY-001 below).
     const userEventCount = userEvents.length;
+    // Count of UserEvent logs (among those actually inspected before a
+    // matching decrypt, if any — see the field's own doc comment in
+    // velaTypes.ts) whose ciphertext envelope was structurally too short to
+    // be valid for ANY recipient — 2026-09-16 (3rd pass). Distinct from the
+    // ordinary "auth-tag failure = not addressed to me" case, which stays
+    // silent exactly as before: AEAD makes that failure indistinguishable
+    // from tampering by design, so it is never reclassified here.
+    let malformedUserEventCount = 0;
     for (const log of userEvents) {
       const encrypted = this.processor.interface.parseLog(log)!.args.encryptedData as string;
       try {
@@ -357,9 +405,15 @@ export class VelaClientAdapter implements VelaTransport {
           ),
         ).toString('utf8');
         break;
-      } catch {
-        // Not addressed to us. Per VELA-PRIVACY-BOUNDARY-001 a non-recipient
-        // simply fails to decrypt; that is expected, not an error.
+      } catch (err) {
+        if (err instanceof VelaMalformedCiphertextEnvelopeError) {
+          malformedUserEventCount += 1;
+          continue;
+        }
+        // Not addressed to us (AES-GCM authentication failure). Per
+        // VELA-PRIVACY-BOUNDARY-001 a non-recipient simply fails to decrypt;
+        // that is expected, not an error. Never logged/rethrown with any
+        // ciphertext, plaintext, or key material.
       }
     }
 
@@ -379,6 +433,7 @@ export class VelaClientAdapter implements VelaTransport {
       ),
       decryptedUserEventJson,
       userEventCount,
+      malformedUserEventCount,
       errorCode,
       errorMsg,
     };

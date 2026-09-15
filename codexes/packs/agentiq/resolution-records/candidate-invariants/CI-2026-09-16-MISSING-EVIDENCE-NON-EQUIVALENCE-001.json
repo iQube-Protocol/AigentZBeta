@@ -1,7 +1,7 @@
 {
   "schemaVersion": "candidate-invariant/v2.0",
   "candidateId": "CI-2026-09-16-MISSING-EVIDENCE-NON-EQUIVALENCE-001",
-  "statement": "Missing Evidence Non-Equivalence: a SUCCESSFUL completion (Vela RequestCompleted.status === 0, errorCode === 0) that nonetheless produces no honest evidence for the caller — either zero on-chain output events exist for the request at all, or an event decrypted successfully but its content is not a well-formed disposition payload — must never be interpreted or persisted as if it were a genuine, evidenced disposition (including a genuine UNRESOLVED). A caller that will persist a confidential-projection result as evidence, a quote, a receipt, or telemetry MUST distinguish 'the guest evaluated and evidenced an explicit UNRESOLVED' from 'the expected evidence itself is missing or broken', and must refuse to proceed on the latter rather than silently substitute the conservative disposition value for it. This is distinct from, and additional to, CI-2026-09-14-EXECUTION-FAILURE-NON-EQUIVALENCE-001, which governs the orthogonal status!==0/errorCode!==0 failure class — that invariant proved incomplete on its own because a SUCCESSFUL completion can still carry broken or absent evidence, a case its own gate does not reach.",
+  "statement": "Missing Evidence Non-Equivalence: a SUCCESSFUL completion (Vela RequestCompleted.status === 0, errorCode === 0) that nonetheless produces no honest evidence for the caller — zero on-chain output events exist for the request at all, an event decrypted successfully but its content is not a well-formed disposition payload, or a candidate event's ciphertext envelope was structurally malformed (too short to be valid for ANY recipient, hence provably never a legitimate exclusion) — must never be interpreted or persisted as if it were a genuine, evidenced disposition (including a genuine UNRESOLVED). This applies at EVERY layer that can produce or forward a disposition value, not only the primary decode function: a coarse/legacy entry point MUST NOT re-collapse the distinction its own callers rely on the finer function to preserve (a 2026-09-16 same-day correction to this invariant's own first implementation found exactly this regression one call deeper). A caller that will persist a confidential-projection result as evidence, a quote, a receipt, or telemetry MUST distinguish 'the guest evaluated and evidenced an explicit UNRESOLVED' from 'the expected evidence itself is missing or broken', and must refuse to proceed on the latter (by throwing or an equally explicit distinct failure, never a silently substituted conservative disposition value) at EVERY layer a caller might reach it through. This is distinct from, and additional to, CI-2026-09-14-EXECUTION-FAILURE-NON-EQUIVALENCE-001, which governs the orthogonal status!==0/errorCode!==0 failure class — that invariant proved incomplete on its own because a SUCCESSFUL completion can still carry broken or absent evidence, a case its own gate does not reach. Distinguishing missing/malformed evidence from ordinary privacy exclusion MUST use only wire metadata that is PROVABLY decidable (e.g. a ciphertext envelope's own structural length, which is independent of which key it was sealed to) — never inferred merely from a decryption failure, since an AEAD authentication failure is, by the cryptosystem's own security design, indistinguishable between 'wrong recipient' and 'tampered ciphertext for the right recipient'; that residual case stays the ordinary privacy exclusion until the wire protocol itself carries a disambiguating signal.",
   "family": "constitutional",
   "governingPrinciple": false,
   "parentCandidateId": "CI-2026-09-14-EXECUTION-FAILURE-NON-EQUIVALENCE-001",
@@ -27,12 +27,27 @@
     },
     {
       "path": "tests/vela-multi-party-projection.test.ts",
-      "assertion": "'getVelaMultiPartyProjectionDisposition collapses PROTOCOL_ERROR into the fail-closed string \"UNRESOLVED\", exactly like EXECUTION_FAILED' proves the legacy coarse entry point remains fail-closed for existing callers.",
+      "assertion": "'getVelaMultiPartyProjectionDisposition throws distinctly on PROTOCOL_ERROR — 3rd pass correction: it must NEVER be collapsed to the string \"UNRESOLVED\", unlike EXECUTION_FAILED' proves the legacy coarse entry point no longer re-introduces the conflation this invariant exists to prevent.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/vela-multi-party-projection.test.ts",
+      "assertion": "'getVelaMultiPartyProjectionDisposition still collapses EXECUTION_FAILED into the string \"UNRESOLVED\" — unaffected by the PROTOCOL_ERROR correction above' proves the orthogonal EXECUTION_FAILED collapse (a defensible, different case — the guest never ran) is untouched by the PROTOCOL_ERROR correction.",
       "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/vela-multi-party-projection.test.ts",
+      "assertion": "'PROTOCOL_ERROR (2026-09-16, 3rd pass): a structurally malformed ciphertext envelope among the events this caller inspected is proven never a legitimate \"not addressed to me\" outcome, distinct from ordinary exclusion' and 'ordinary not-addressed-to-me exclusion is UNCHANGED...' together prove the structural-malformation subclass is now distinguished using already-available metadata, while the genuinely undecidable AEAD-auth-failure subclass is provably left unchanged.",
+      "verifiedFailingBeforeFix": true
     },
     {
       "path": "tests/vela-underwriting-projection.test.ts",
       "assertion": "'PROTOCOL_ERROR (2026-09-16, 2nd pass): a successful completion with zero UserEvent logs at all throws distinctly, never quotes/receipts/telemetry-records an UNRESOLVED that was never actually computed' proves runVelaUnderwritingProjection refuses to persist anything for this case.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/vela-malformed-ciphertext-envelope.test.ts",
+      "assertion": "Full file proves VelaMalformedCiphertextEnvelopeError is instanceof-distinguishable from an ordinary AES-GCM authentication failure at the exact minimum valid-envelope-length boundary (28 bytes), and that its error message never contains the envelope bytes, plaintext, or key material — the structural repair rests on a provably safe signal, not a leaky one.",
       "verifiedFailingBeforeFix": true
     }
   ],
@@ -40,6 +55,12 @@
     {
       "site": "vela-001-confidential-constitutional-execution / multi-party projection decode — services/vela/velaMultiPartyProjection.ts",
       "defect": "getVelaMultiPartyProjectionOutcome treated every status===0/errorCode===0 completion as RESOLVED and passed decryptedUserEventJson straight to parseConfidentialVerdict — which collapses BOTH a legitimate not-a-recipient exclusion (events exist elsewhere, none decrypt for me) AND a genuinely missing/malformed-evidence case to the identical 'UNRESOLVED' disposition, with no way for a caller to tell them apart.",
+      "resolutionId": "RES-2026-09-16-VELA-MISSING-EVENT-PROTOCOL-ERROR-NON-EQUIVALENCE-001",
+      "evidence": ["services/vela/velaMultiPartyProjection.ts", "tests/vela-multi-party-projection.test.ts"]
+    },
+    {
+      "site": "vela-001-confidential-constitutional-execution / legacy coarse entry point — services/vela/velaMultiPartyProjection.ts's getVelaMultiPartyProjectionDisposition",
+      "defect": "SAME-DAY RECURRENCE, one call deeper: the resolution's OWN first implementation (2nd pass) collapsed the new PROTOCOL_ERROR outcome into the string 'UNRESOLVED' inside the legacy coarse function — re-introducing, at that call site, exactly the conflation the outcome-level fix was built to prevent. A coarse caller of getVelaMultiPartyProjectionDisposition would still receive 'UNRESOLVED' for missing/malformed evidence, indistinguishable from a genuine guest-evidenced refusal. Caught on operator review before any production caller existed (grep confirmed zero production callers at the time), corrected same day (3rd pass) to throw distinctly instead.",
       "resolutionId": "RES-2026-09-16-VELA-MISSING-EVENT-PROTOCOL-ERROR-NON-EQUIVALENCE-001",
       "evidence": ["services/vela/velaMultiPartyProjection.ts", "tests/vela-multi-party-projection.test.ts"]
     }
@@ -51,8 +72,8 @@
   "ratifiedSource": null,
   "supersededBy": null,
   "notes": [
-    "This is the FIRST recorded occurrence — status stays `candidate`; only an operator act may raise this to `ratified`/`canonical`.",
-    "Explicitly does NOT cover 'an authorized event that fails to decrypt for a reason other than not-being-the-recipient' — that remains indistinguishable from ordinary VELA-PRIVACY-BOUNDARY-001 exclusion at the fetchResult layer, since no scope/authorization information reaches that call. Disclosed as a known limitation, not silently left unaddressed.",
-    "Composes with, and does not replace, CI-2026-09-14-EXECUTION-FAILURE-NON-EQUIVALENCE-001: a caller must check BOTH the status/errorCode gate AND the evidence-presence/well-formedness gate before trusting a disposition — getVelaMultiPartyProjectionOutcome enforces both, in that order, in one function."
+    "Status stays `candidate`; only an operator act may raise this to `ratified`/`canonical`. Two occurrences recorded on the SAME DAY (2026-09-16) at two different call depths of the same underlying invariant — see `occurrences` above — which is itself evidence for why this invariant needed recording: a caller relying on this distinction must check it at EVERY layer, not just the primary decode function.",
+    "STILL not repairable, and PROVEN (not merely asserted) unrepairable without a wire-format change: an authorized event that fails to decrypt via an ordinary AES-GCM AUTHENTICATION failure (as opposed to the newly-distinguished structural too-short-envelope failure) remains indistinguishable from ordinary VELA-PRIVACY-BOUNDARY-001 exclusion — this is a property of AEAD's own security design (chosen-ciphertext resistance), not a gap in this module's effort. The 3rd pass DID close the structural-malformation subclass (an under-length envelope, which can never be valid for any recipient) using already-available metadata (the decrypt error's own structural class) without any protocol change — see `services/vela/velaClientAdapter.ts`'s `VelaMalformedCiphertextEnvelopeError`.",
+    "Composes with, and does not replace, CI-2026-09-14-EXECUTION-FAILURE-NON-EQUIVALENCE-001: a caller must check BOTH the status/errorCode gate AND the evidence-presence/well-formedness gate before trusting a disposition — getVelaMultiPartyProjectionOutcome enforces both, in that order, in one function. Unlike CI-2026-09-14's own EXECUTION_FAILED case, PROTOCOL_ERROR is NOT given the same fail-closed 'UNRESOLVED' collapse at the legacy coarse entry point — see the statement's own reasoning for why those two cases are not equivalent (an execution failure at least proves the guest never ran)."
   ]
 }

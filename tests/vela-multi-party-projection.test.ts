@@ -793,7 +793,54 @@ describe('Execution Failure Non-Equivalence — getVelaMultiPartyProjectionOutco
     }
   });
 
-  it('getVelaMultiPartyProjectionDisposition collapses PROTOCOL_ERROR into the fail-closed string "UNRESOLVED", exactly like EXECUTION_FAILED', async () => {
+  it('PROTOCOL_ERROR (2026-09-16, 3rd pass): a structurally malformed ciphertext envelope among the events this caller inspected is proven never a legitimate "not addressed to me" outcome, distinct from ordinary exclusion', async () => {
+    // A correctly encrypted envelope is always long enough for ANY recipient
+    // key — a malformed (too-short) one is proof of corruption, never
+    // evidence that this key simply isn't the intended recipient. Models the
+    // decrypt loop having inspected one candidate event, found it
+    // structurally malformed, and found nothing decryptable for this caller.
+    const transport = new VelaTestTransport({
+      deployment: VELA_LOCAL_DEPLOYMENT,
+      registeredTeeSigner: SIGNER,
+      verdictFor: () => null,
+      status: 0,
+      errorCode: 0,
+      userEventCount: 1,
+      malformedUserEventCount: 1,
+    });
+    const prepared = await prepareVelaMultiPartyProjection(transport, baseParams('req-1', validScope('req-1')));
+    const submission = await submitVelaMultiPartyProjection(transport, prepared);
+
+    const outcome = await getVelaMultiPartyProjectionOutcome(transport, submission.onChainRequestId);
+    expect(outcome.status).toBe('PROTOCOL_ERROR');
+    if (outcome.status === 'PROTOCOL_ERROR') {
+      expect(outcome.reason).toMatch(/structurally malformed ciphertext envelope/i);
+      // requestId is public chain data (safe to include); only the COUNTS
+      // and requestId appear — never ciphertext bytes or key material, which
+      // this reason string never has access to in the first place.
+      expect(outcome.reason).toMatch(/^1 of 1 UserEvent\(s\) for requestId=0x[0-9a-f]+ had a structurally/i);
+    }
+  });
+
+  it('ordinary not-addressed-to-me exclusion is UNCHANGED: no malformed envelopes among the candidates inspected stays RESOLVED/UNRESOLVED, never PROTOCOL_ERROR', async () => {
+    const transport = new VelaTestTransport({
+      deployment: VELA_LOCAL_DEPLOYMENT,
+      registeredTeeSigner: SIGNER,
+      verdictFor: () => null,
+      status: 0,
+      errorCode: 0,
+      userEventCount: 3,
+      malformedUserEventCount: 0,
+    });
+    const prepared = await prepareVelaMultiPartyProjection(transport, baseParams('req-1', validScope('req-1')));
+    const submission = await submitVelaMultiPartyProjection(transport, prepared);
+
+    const outcome = await getVelaMultiPartyProjectionOutcome(transport, submission.onChainRequestId);
+    expect(outcome.status).toBe('RESOLVED');
+    if (outcome.status === 'RESOLVED') expect(outcome.disposition).toBe('UNRESOLVED');
+  });
+
+  it('getVelaMultiPartyProjectionDisposition throws distinctly on PROTOCOL_ERROR — 3rd pass correction: it must NEVER be collapsed to the string "UNRESOLVED", unlike EXECUTION_FAILED', async () => {
     const transport = new VelaTestTransport({
       deployment: VELA_LOCAL_DEPLOYMENT,
       registeredTeeSigner: SIGNER,
@@ -801,6 +848,21 @@ describe('Execution Failure Non-Equivalence — getVelaMultiPartyProjectionOutco
       status: 0,
       errorCode: 0,
       userEventCount: 0,
+    });
+    const prepared = await prepareVelaMultiPartyProjection(transport, baseParams('req-1', validScope('req-1')));
+    const submission = await submitVelaMultiPartyProjection(transport, prepared);
+
+    await expect(
+      getVelaMultiPartyProjectionDisposition(transport, submission.onChainRequestId),
+    ).rejects.toThrow(/evidence is missing or malformed/);
+  });
+
+  it('getVelaMultiPartyProjectionDisposition still collapses EXECUTION_FAILED into the string "UNRESOLVED" — unaffected by the PROTOCOL_ERROR correction above', async () => {
+    const transport = new VelaTestTransport({
+      deployment: VELA_LOCAL_DEPLOYMENT,
+      registeredTeeSigner: SIGNER,
+      verdictFor: multiPartyVerdictForRecipient(REF_A),
+      errorCode: 12,
     });
     const prepared = await prepareVelaMultiPartyProjection(transport, baseParams('req-1', validScope('req-1')));
     const submission = await submitVelaMultiPartyProjection(transport, prepared);

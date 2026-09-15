@@ -198,6 +198,25 @@ export interface VelaRequestResult {
    * `getVelaMultiPartyProjectionOutcome` for where this is used.
    */
   userEventCount: number;
+  /**
+   * Count of `UserEvent` logs, among those actually inspected during
+   * `fetchResult`'s decrypt attempt, whose ciphertext envelope was
+   * structurally too short to be valid for ANY recipient — 2026-09-16 (3rd
+   * pass). This is the ONE decrypt-failure class provably never a
+   * legitimate "not addressed to me" outcome (a correctly encrypted
+   * envelope is always >= 28 bytes regardless of recipient), so a decode
+   * layer that sees `decryptedUserEventJson === null` AND
+   * `malformedUserEventCount > 0` knows at least one candidate event is
+   * corrupted evidence, not ordinary exclusion. Scanning stops at the first
+   * successful decrypt (mirroring `decryptedUserEventJson`'s own contract),
+   * so this count only reflects events actually inspected before a match,
+   * if any. An ordinary AES-GCM authentication failure (wrong key or
+   * tampered ciphertext — cryptographically indistinguishable from each
+   * other by AEAD's own security design) is NEVER counted here; it remains
+   * silent, exactly as before. See
+   * `services/vela/velaClientAdapter.ts`'s `VelaMalformedCiphertextEnvelopeError`.
+   */
+  malformedUserEventCount: number;
   /** Non-zero when the Executor marked the request failed (errorCode/errorMsg on the update payload). */
   errorCode: number;
   errorMsg: string;
