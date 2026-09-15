@@ -174,12 +174,35 @@ const checkVelaRecipientProvisioningMock = vi.fn(async (_reader: unknown, _appli
   })),
   privacyLimitation: null as string | null,
 }));
-const createVelaClientRecipientRegistryReaderMock = vi.fn((_deployment: unknown) => ({
-  checkRecipientAssociation: vi.fn(),
+// Shared per-recipient association-check double (2026-09-16, UC0 final live
+// blocker — --provision-recipients) — `provisionUseCaseZeroDemoRecipients`
+// calls `reader.checkRecipientAssociation` DIRECTLY (never through
+// `checkVelaRecipientProvisioning`), so this is the seam its own tests
+// control. Defaults to MISSING; individual tests override per-call via
+// `mockImplementationOnce` chains to model the before/after check sequence.
+const checkRecipientAssociationMock = vi.fn(async (_applicationId: string, recipientAddress: string) => ({
+  recipientAddress,
+  associationStatus: 'MISSING' as const,
+  associationDetail: 'test double: missing',
+  eventSeedStatus: 'UNVERIFIABLE' as const,
+  eventSeedDetail: 'test double',
 }));
+const createVelaClientRecipientRegistryReaderMock = vi.fn((_deployment: unknown) => ({
+  checkRecipientAssociation: (...args: any[]) => checkRecipientAssociationMock(...(args as [string, string])),
+}));
+const submitVelaAssociateKeyRequestMock = vi.fn(
+  async (_deployment: unknown, _applicationId: string, _requesterPrivateKeyHex: string, _p521PublicKeyHex: string) => ({
+    recipientAddress: '0x0000000000000000000000000000000000dEaD',
+    requestId: '0xtest-request-id',
+    status: 0,
+    errorCode: 0,
+  }),
+);
 vi.mock('@/services/vela/velaRecipientProvisioningPreflight', () => ({
   checkVelaRecipientProvisioning: (...args: any[]) => checkVelaRecipientProvisioningMock(...(args as [unknown, string, string[]])),
   createVelaClientRecipientRegistryReader: (...args: any[]) => createVelaClientRecipientRegistryReaderMock(...(args as [unknown])),
+  submitVelaAssociateKeyRequest: (...args: any[]) =>
+    submitVelaAssociateKeyRequestMock(...(args as [unknown, string, string, string])),
 }));
 
 // ── fetch mock for probeVelaRpcReachable's bounded reachability preflight ──
@@ -295,6 +318,24 @@ beforeEach(() => {
     privacyLimitation: null,
   }));
   createVelaClientRecipientRegistryReaderMock.mockClear();
+  checkRecipientAssociationMock.mockReset();
+  checkRecipientAssociationMock.mockImplementation(async (_applicationId: string, recipientAddress: string) => ({
+    recipientAddress,
+    associationStatus: 'MISSING' as const,
+    associationDetail: 'test double: missing',
+    eventSeedStatus: 'UNVERIFIABLE' as const,
+    eventSeedDetail: 'test double',
+  }));
+  submitVelaAssociateKeyRequestMock.mockClear();
+  submitVelaAssociateKeyRequestMock.mockImplementation(
+    async (_deployment, _applicationId, _requesterPrivateKeyHex, _p521PublicKeyHex) => ({
+      recipientAddress: '0x0000000000000000000000000000000000dEaD',
+      requestId: '0xtest-request-id',
+      status: 0,
+      errorCode: 0,
+    }),
+  );
+  delete process.env.UC0_ARKAGENT_EVM_PRIVATE_KEY_HEX;
 });
 
 afterEach(() => {
@@ -1665,5 +1706,220 @@ describe('resolveDemoVelaTransport — public-devnet token-file seam', () => {
     expect(String(errorSpy.mock.calls[0][0])).toMatch(/not valid JSON/);
 
     errorSpy.mockRestore();
+  });
+});
+
+// ── main() --provision-recipients — ASSOCIATEKEY provisioning (2026-09-16,
+// UC0 final live blocker) ───────────────────────────────────────────────────
+//
+// Composes/persists NOTHING — no composeUseCaseZeroDemoChain,
+// persistUseCaseZeroDemoChain, activity receipt, or underwriting submission
+// call anywhere in provisionUseCaseZeroDemoRecipients. These tests prove:
+// the two intended submissions happen only for MISSING associations, zero
+// submissions for already-VERIFIED recipients, a signer/address mismatch
+// fails closed before any submission, a failed association never lets UC0
+// start, and no secret material (private keys, unredacted addresses) ever
+// reaches console output.
+
+describe('main() --provision-recipients — ASSOCIATEKEY provisioning, never UC0 composition/persistence', () => {
+  const originalArgv = process.argv;
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+  let logSpy: ReturnType<typeof vi.spyOn>;
+  let tmpDir: string;
+  let arkAgentWallet: { address: string; privateKey: string };
+  let nakamotoWallet: { address: string; privateKey: string };
+
+  const PROVISION_ARKAGENT_PRIVATE_KEY = '0x' + '11'.repeat(32);
+  const PROVISION_NAKAMOTO_PRIVATE_KEY = '0x' + '22'.repeat(32);
+
+  beforeEach(async () => {
+    const { Wallet } = await import('ethers');
+    arkAgentWallet = new Wallet(PROVISION_ARKAGENT_PRIVATE_KEY);
+    nakamotoWallet = new Wallet(PROVISION_NAKAMOTO_PRIVATE_KEY);
+
+    process.argv = [
+      ...originalArgv,
+      '--provision-recipients',
+      `--arkagent=${TEST_PERSONAS.arkAgentPersonaId}`,
+      `--nakamoto=${TEST_PERSONAS.nakamotoPersonaId}`,
+      `--kn0w1=${TEST_PERSONAS.kn0w1PersonaId}`,
+    ];
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    // Real signer/real recipient address for BOTH parties by default — most
+    // tests below only need to override the association-check sequence.
+    classifyPersonaWalletCapabilityMock.mockReset();
+    classifyPersonaWalletCapabilityMock.mockImplementation(async () => ({
+      capability: 'SIGNER_CONFIGURED' as const,
+      address: arkAgentWallet.address,
+      detail: 'test double: signer configured',
+      remediation: null,
+    }));
+    getAgentAddressesMock.mockReset();
+    getAgentAddressesMock.mockImplementation(async (agentId: string) => ({ agentId, evmAddress: nakamotoWallet.address }));
+    getAgentKeysMock.mockReset();
+    getAgentKeysMock.mockImplementation(async (_agentId: string) => ({ evmPrivateKey: PROVISION_NAKAMOTO_PRIVATE_KEY }));
+    process.env.UC0_ARKAGENT_EVM_PRIVATE_KEY_HEX = PROVISION_ARKAGENT_PRIVATE_KEY;
+
+    const { mkdtempSync } = await import('fs');
+    const { tmpdir } = await import('os');
+    const { join } = await import('path');
+    tmpDir = mkdtempSync(join(tmpdir(), 'seed-uc0-provision-'));
+  });
+
+  afterEach(async () => {
+    process.argv = originalArgv;
+    errorSpy.mockRestore();
+    logSpy.mockRestore();
+    delete process.env.UC0_ARKAGENT_EVM_PRIVATE_KEY_HEX;
+    const { rmSync } = await import('fs');
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('two MISSING associations cause exactly two ASSOCIATEKEY submissions, one per recipient, and both verify VERIFIED afterward', async () => {
+    checkRecipientAssociationMock
+      .mockImplementationOnce(async (_appId, addr) => ({
+        recipientAddress: addr, associationStatus: 'MISSING' as const, associationDetail: 'x', eventSeedStatus: 'UNVERIFIABLE' as const, eventSeedDetail: 'x',
+      })) // ArkAgent, before
+      .mockImplementationOnce(async (_appId, addr) => ({
+        recipientAddress: addr, associationStatus: 'VERIFIED' as const, associationDetail: 'x', eventSeedStatus: 'ABSENT' as const, eventSeedDetail: 'x',
+      })) // ArkAgent, after
+      .mockImplementationOnce(async (_appId, addr) => ({
+        recipientAddress: addr, associationStatus: 'MISSING' as const, associationDetail: 'x', eventSeedStatus: 'UNVERIFIABLE' as const, eventSeedDetail: 'x',
+      })) // Nakamoto, before
+      .mockImplementationOnce(async (_appId, addr) => ({
+        recipientAddress: addr, associationStatus: 'VERIFIED' as const, associationDetail: 'x', eventSeedStatus: 'ABSENT' as const, eventSeedDetail: 'x',
+      })); // Nakamoto, after
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(submitVelaAssociateKeyRequestMock).toHaveBeenCalledTimes(2);
+    const [arkCall, nakamotoCall] = submitVelaAssociateKeyRequestMock.mock.calls;
+    expect(arkCall[1]).toBe('42');
+    expect(arkCall[2]).toBe(PROVISION_ARKAGENT_PRIVATE_KEY);
+    expect(nakamotoCall[2]).toBe(PROVISION_NAKAMOTO_PRIVATE_KEY);
+    const allLogs = logSpy.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(allLogs).toMatch(/ArkAgent.*ASSOCIATEKEY VERIFIED/);
+    expect(allLogs).toMatch(/Nakamoto.*ASSOCIATEKEY VERIFIED/);
+  });
+
+  it('already-VERIFIED recipients cause ZERO submissions and zero signer resolution', async () => {
+    checkRecipientAssociationMock.mockImplementation(async (_appId, addr) => ({
+      recipientAddress: addr, associationStatus: 'VERIFIED' as const, associationDetail: 'already there', eventSeedStatus: 'VERIFIED' as const, eventSeedDetail: 'x',
+    }));
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(submitVelaAssociateKeyRequestMock).not.toHaveBeenCalled();
+    // Zero signer resolution — the ArkAgent env-var override is set in
+    // beforeEach, but nothing here reads it; getAgentKeysMock likewise never
+    // needed to run for an already-VERIFIED recipient.
+    expect(getAgentKeysMock).not.toHaveBeenCalled();
+    const allLogs = logSpy.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(allLogs).toMatch(/ArkAgent.*ALREADY VERIFIED/);
+    expect(allLogs).toMatch(/Nakamoto.*ALREADY VERIFIED/);
+  });
+
+  it('a signer/address mismatch fails closed before any submission (Nakamoto already VERIFIED, isolating the ArkAgent mismatch)', async () => {
+    // ArkAgent's resolved recipient address does NOT match the address her
+    // env-var-supplied signer actually controls. Nakamoto is ALREADY
+    // VERIFIED so this test isolates the mismatch's own effect rather than
+    // also asserting about an unrelated, independently-succeeding recipient.
+    classifyPersonaWalletCapabilityMock.mockImplementation(async () => ({
+      capability: 'SIGNER_CONFIGURED' as const,
+      address: '0x9999999999999999999999999999999999999a',
+      detail: 'test double: signer configured',
+      remediation: null,
+    }));
+    checkRecipientAssociationMock
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'MISSING' as const, associationDetail: 'x', eventSeedStatus: 'UNVERIFIABLE' as const, eventSeedDetail: 'x' })) // ArkAgent, before
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'VERIFIED' as const, associationDetail: 'x', eventSeedStatus: 'VERIFIED' as const, eventSeedDetail: 'x' })); // Nakamoto, before
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(submitVelaAssociateKeyRequestMock).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalled();
+    expect(errorSpy.mock.calls.map((c) => String(c[0])).join('\n')).toMatch(/does NOT match its canonical recipient address/);
+  });
+
+  it('absent private-key authority (no UC0_ARKAGENT_EVM_PRIVATE_KEY_HEX) fails closed for that recipient without submitting anything', async () => {
+    delete process.env.UC0_ARKAGENT_EVM_PRIVATE_KEY_HEX;
+    checkRecipientAssociationMock
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'MISSING' as const, associationDetail: 'x', eventSeedStatus: 'UNVERIFIABLE' as const, eventSeedDetail: 'x' })) // ArkAgent, before
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'VERIFIED' as const, associationDetail: 'x', eventSeedStatus: 'VERIFIED' as const, eventSeedDetail: 'x' })); // Nakamoto, before
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(submitVelaAssociateKeyRequestMock).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalled();
+    expect(errorSpy.mock.calls.map((c) => String(c[0])).join('\n')).toMatch(/UC0_ARKAGENT_EVM_PRIVATE_KEY_HEX/);
+  });
+
+  it('a failed ASSOCIATEKEY submission for one recipient never triggers UC0 composition, persistence, or underwriting submission', async () => {
+    submitVelaAssociateKeyRequestMock.mockRejectedValueOnce(
+      new Error('submitVelaAssociateKeyRequest: ASSOCIATEKEY request 0xabc completed with status=1, errorCode=9'),
+    );
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(errorSpy).toHaveBeenCalled();
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    expect(runVelaUnderwritingProjectionMock).not.toHaveBeenCalled();
+    expect(velaClientAdapterConstructorMock).not.toHaveBeenCalled();
+  });
+
+  it('a fully successful provisioning run STILL never calls persistUseCaseZeroDemoChain or underwriting submission', async () => {
+    checkRecipientAssociationMock
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'MISSING' as const, associationDetail: 'x', eventSeedStatus: 'UNVERIFIABLE' as const, eventSeedDetail: 'x' }))
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'VERIFIED' as const, associationDetail: 'x', eventSeedStatus: 'ABSENT' as const, eventSeedDetail: 'x' }))
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'MISSING' as const, associationDetail: 'x', eventSeedStatus: 'UNVERIFIABLE' as const, eventSeedDetail: 'x' }))
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'VERIFIED' as const, associationDetail: 'x', eventSeedStatus: 'ABSENT' as const, eventSeedDetail: 'x' }));
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    expect(runVelaUnderwritingProjectionMock).not.toHaveBeenCalled();
+    expect(velaClientAdapterConstructorMock).not.toHaveBeenCalled();
+  });
+
+  it('never exposes a private key or an unredacted recipient address in console output, success or failure', async () => {
+    checkRecipientAssociationMock
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'MISSING' as const, associationDetail: 'x', eventSeedStatus: 'UNVERIFIABLE' as const, eventSeedDetail: 'x' }))
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'VERIFIED' as const, associationDetail: 'x', eventSeedStatus: 'ABSENT' as const, eventSeedDetail: 'x' }))
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'MISSING' as const, associationDetail: 'x', eventSeedStatus: 'UNVERIFIABLE' as const, eventSeedDetail: 'x' }))
+      .mockImplementationOnce(async (_appId, addr) => ({ recipientAddress: addr, associationStatus: 'VERIFIED' as const, associationDetail: 'x', eventSeedStatus: 'ABSENT' as const, eventSeedDetail: 'x' }));
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    const allOutput = [...errorSpy.mock.calls, ...logSpy.mock.calls].map((c) => String(c[0])).join('\n');
+    expect(allOutput).not.toContain(PROVISION_ARKAGENT_PRIVATE_KEY.replace(/^0x/, ''));
+    expect(allOutput).not.toContain(PROVISION_NAKAMOTO_PRIVATE_KEY.replace(/^0x/, ''));
+    expect(allOutput).not.toContain(arkAgentWallet.address);
+    expect(allOutput).not.toContain(nakamotoWallet.address);
+  });
+
+  it('requires --deployment-receipt — refuses (zero submissions) without one', async () => {
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(submitVelaAssociateKeyRequestMock).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalled();
+    expect(errorSpy.mock.calls.map((c) => String(c[0])).join('\n')).toMatch(/--deployment-receipt=<path> is required/);
   });
 });

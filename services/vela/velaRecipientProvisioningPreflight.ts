@@ -63,19 +63,27 @@
  * `createVelaClientRecipientRegistryReader`).
  */
 
-import { Contract, Interface, JsonRpcProvider } from 'ethers';
+import { Contract, Interface, JsonRpcProvider, Wallet } from 'ethers';
 import { VELA_REQUEST_TYPE, type VelaDeploymentDescriptor } from './velaTypes';
 
 const HEX_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 
+/** `ProcessorEndpoint.PROTOCOL_VERSION` — 0 at v0.2.0 (same constant
+ *  `velaClientAdapter.ts`'s own `PROTOCOL_VERSION` pins; not re-exported from
+ *  there to avoid a read-only module depending on the write-path transport). */
+const PROTOCOL_VERSION = 0;
+
 /**
- * Pinned v0.2.0 `ProcessorEndpoint` ABI surface this check needs — a strict
+ * Pinned v0.2.0 `ProcessorEndpoint` ABI surface this module needs — a strict
  * SUBSET of `VelaClientAdapter`'s own `PROCESSOR_ABI` (never a second,
- * independently-drifting copy of the write-path methods this module never
- * calls). Read-only: nothing here is ever invoked as a state-changing call.
+ * independently-drifting copy). `minFeePerRequest` is read-only; the
+ * remaining three are exactly what both the read-only association check
+ * ABOVE and `submitVelaAssociateKeyRequest` BELOW need — no other
+ * `ProcessorEndpoint` method is ever called from this file.
  */
 const RECIPIENT_REGISTRY_ABI = [
   'function submitRequest(uint8 protocolVersion, uint64 applicationId, uint8 requestType, bytes payload, address tokenAddress, uint256 assetAmount, uint256 maxFeeValue) payable returns (bytes32)',
+  'function minFeePerRequest() view returns (uint256)',
   'event RequestSubmitted(uint64 indexed applicationId, bytes32 indexed requestId, address indexed sender, address facilitator)',
   'event RequestCompleted(uint64 indexed applicationId, bytes32 indexed requestId, uint256 applicationFees, uint8 status, uint8 errorCode, string errorMessage)',
 ];
@@ -314,4 +322,107 @@ export function createVelaClientRecipientRegistryReader(
       };
     },
   };
+}
+
+// ── ASSOCIATEKEY submission (2026-09-16, UC0 final live blocker) ───────────
+//
+// The bootstrap/provisioning half of this module's own check above — submit
+// ONE ASSOCIATEKEY request (RequestType=3) registering a 133-byte
+// uncompressed P-521 public key against the caller's own EVM address
+// (`requesterPrivateKeyHex`'s signer IS `msg.sender`, which is exactly the
+// `sender` field `createVelaClientRecipientRegistryReader` above filters
+// `RequestSubmitted` logs by), then waits for the authoritative
+// `RequestCompleted` and requires `status === 0 && errorCode === 0` — never
+// treating a pending or failed completion as success.
+//
+// Reuses, rather than reimplements, everything this needs: the SAME pinned
+// `RECIPIENT_REGISTRY_ABI` and `VELA_REQUEST_TYPE.ASSOCIATEKEY` the read-only
+// check above already uses (no second, drifting ABI/opcode copy), and the
+// SAME on-chain wire shape `scripts/vela-slice2g-associate-key.ts` and
+// `scripts/vela/public-devnet-smoke.ts`'s own `associateKey()` already prove
+// live — this is that shape's one canonical, importable implementation, not
+// a third hand-copy of it. Callers derive the P-521 keypair via the existing
+// `deriveAgentP521KeyPair` (`services/vela/agentP521Derivation.ts`) — this
+// function never derives, generates, or otherwise touches P-521 key material
+// itself, only the already-derived public key's bytes.
+export interface VelaAssociateKeySubmissionResult {
+  recipientAddress: string;
+  requestId: string;
+  status: number;
+  errorCode: number;
+}
+
+export async function submitVelaAssociateKeyRequest(
+  deployment: Pick<VelaDeploymentDescriptor, 'rpcUrl' | 'processorEndpointAddress'>,
+  applicationId: string,
+  requesterPrivateKeyHex: string,
+  p521PublicKeyHex: string,
+  opts: { maxPollAttempts?: number; pollIntervalMs?: number } = {},
+): Promise<VelaAssociateKeySubmissionResult> {
+  const payload = Buffer.from(p521PublicKeyHex.replace(/^0x/, ''), 'hex');
+  if (payload.length !== ASSOCIATEKEY_PAYLOAD_LEN_KEY_ONLY) {
+    throw new Error(
+      `submitVelaAssociateKeyRequest: expected a ${ASSOCIATEKEY_PAYLOAD_LEN_KEY_ONLY}-byte P-521 public key, got ` +
+        `${payload.length} bytes — refusing to submit a malformed ASSOCIATEKEY payload.`,
+    );
+  }
+
+  const provider = new JsonRpcProvider(deployment.rpcUrl);
+  const wallet = new Wallet(requesterPrivateKeyHex, provider);
+  const processor = new Contract(deployment.processorEndpointAddress, RECIPIENT_REGISTRY_ABI, wallet);
+  const iface = new Interface(RECIPIENT_REGISTRY_ABI);
+
+  const minFee: bigint = await processor.minFeePerRequest();
+  const maxFee = minFee > 1_000_000n ? minFee : 1_000_000n;
+
+  const tx = await processor.submitRequest(
+    PROTOCOL_VERSION,
+    BigInt(applicationId),
+    VELA_REQUEST_TYPE.ASSOCIATEKEY,
+    payload,
+    '0x0000000000000000000000000000000000000000',
+    0n,
+    maxFee,
+    { value: maxFee },
+  );
+  const receipt = await tx.wait();
+  if (!receipt) {
+    throw new Error('submitVelaAssociateKeyRequest: submitRequest returned no receipt.');
+  }
+
+  let requestId: string | null = null;
+  for (const log of receipt.logs) {
+    try {
+      const parsed = iface.parseLog(log);
+      if (parsed?.name === 'RequestSubmitted') requestId = parsed.args.requestId as string;
+    } catch {
+      /* not ours */
+    }
+  }
+  if (!requestId) {
+    throw new Error('submitVelaAssociateKeyRequest: no RequestSubmitted event found in the submission receipt.');
+  }
+
+  const maxPollAttempts = opts.maxPollAttempts ?? 30;
+  const pollIntervalMs = opts.pollIntervalMs ?? 3000;
+  for (let attempt = 0; attempt < maxPollAttempts; attempt++) {
+    const completed = await processor.queryFilter(
+      processor.filters.RequestCompleted(BigInt(applicationId), requestId),
+      receipt.blockNumber,
+    );
+    if (completed.length > 0) {
+      const parsed = processor.interface.parseLog(completed[0])!;
+      const status = Number(parsed.args.status);
+      const errorCode = Number(parsed.args.errorCode);
+      if (status !== 0 || errorCode !== 0) {
+        throw new Error(
+          `submitVelaAssociateKeyRequest: ASSOCIATEKEY request ${requestId} completed with status=${status}, ` +
+            `errorCode=${errorCode}, errorMessage="${String(parsed.args.errorMessage ?? '')}" — never treated as success.`,
+        );
+      }
+      return { recipientAddress: wallet.address, requestId, status, errorCode };
+    }
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+  }
+  throw new Error(`submitVelaAssociateKeyRequest: timed out waiting for RequestCompleted on request ${requestId}.`);
 }

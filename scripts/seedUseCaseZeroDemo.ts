@@ -1124,28 +1124,33 @@ function isSubmittableApplicationId(applicationId: string): boolean {
   return /^\d+$/.test(applicationId);
 }
 
-export async function main(): Promise<void> {
-  const preflight = hasFlag('preflight') || hasFlag('dry-run');
+/**
+ * Shared CLI persona resolution — factored out (2026-09-16, UC0 final live
+ * blocker) so `--provision-recipients` (which needs the SAME two canonical
+ * recipients as a normal run, but nothing else about a normal run) reuses
+ * this exactly rather than hand-copying it. Explicit --arkagent/--nakamoto/
+ * --kn0w1 values are OVERRIDES; any omitted one is resolved through the real,
+ * existing `resolveUseCaseZeroDemoPersonaIds()` (never hardcoded, never
+ * guessed). Only queries Supabase when at least one persona is actually
+ * missing.
+ */
+async function resolveUseCaseZeroDemoPersonasFromCli(): Promise<
+  { personas: UseCaseZeroDemoPersonas } | { error: string }
+> {
+  const admin = getSupabaseServer();
+  if (!admin) {
+    return {
+      error:
+        'Supabase is not reachable from this environment — cannot resolve personas or Aegis admission evidence. ' +
+        'Nothing was attempted.',
+    };
+  }
+
   const explicit: Partial<UseCaseZeroDemoPersonas> = {
     arkAgentPersonaId: cliArg('arkagent'),
     nakamotoPersonaId: cliArg('nakamoto'),
     kn0w1PersonaId: cliArg('kn0w1'),
   };
-
-  const admin = getSupabaseServer();
-  if (!admin) {
-    console.error(
-      'seedUseCaseZeroDemo: Supabase is not reachable from this environment — cannot resolve Aegis ' +
-        'admission evidence or persist anything. Nothing was attempted.',
-    );
-    process.exitCode = 1;
-    return;
-  }
-
-  // Explicit --arkagent/--nakamoto/--kn0w1 values are OVERRIDES; any omitted
-  // one is resolved through the real, existing resolveUseCaseZeroDemoPersonaIds()
-  // (never hardcoded, never guessed). Only queries Supabase when at least one
-  // persona is actually missing.
   const needsResolution = !explicit.arkAgentPersonaId || !explicit.nakamotoPersonaId || !explicit.kn0w1PersonaId;
   const auto = needsResolution
     ? await resolveUseCaseZeroDemoPersonaIds()
@@ -1162,14 +1167,241 @@ export async function main(): Promise<void> {
   if (!resolved.nakamotoPersonaId) unresolvedLabels.push('Aigent Nakamoto (--nakamoto=<id>, or personas.fio_handle="nakamoto@aigent")');
   if (!resolved.kn0w1PersonaId) unresolvedLabels.push('Aigent Kn0w1 (--kn0w1=<id>, or personas.fio_handle="kn0w1@aigent")');
   if (unresolvedLabels.length > 0) {
-    console.error(
-      'seedUseCaseZeroDemo: could not resolve the following persona(s) — refusing to proceed, nothing was ' +
+    return {
+      error:
+        'could not resolve the following persona(s) — refusing to proceed, nothing was ' +
         `persisted:\n${unresolvedLabels.map((l) => `  - ${l}`).join('\n')}`,
+    };
+  }
+  return { personas: resolved as UseCaseZeroDemoPersonas };
+}
+
+/**
+ * `--provision-recipients` — explicit, narrowly-scoped ASSOCIATEKEY
+ * provisioning for the two canonical UC0 Vela recipients (ArkAgent, Aigent
+ * Nakamoto) on the selected `ProcessorEndpoint`. Composes/persists NOTHING
+ * and never submits an underwriting request (no `composeUseCaseZeroDemoChain`
+ * or `persistUseCaseZeroDemoChain` call anywhere in this function) — it
+ * performs ONLY the idempotent check-then-submit ASSOCIATEKEY step for each
+ * recipient, then exits.
+ *
+ * Recipients are resolved via the SAME `resolveUseCaseZeroDemoRecipientAddresses`
+ * introduced in b86388d3e — never a second, independently-drifting notion of
+ * who the two recipients are. Signers (needed here, unlike everywhere else in
+ * this file, because SUBMITTING an ASSOCIATEKEY request requires a private
+ * key that controls the recipient address) are resolved through EXISTING
+ * trusted channels only, per this task's own instruction ("Use .env.local/
+ * AgentKeyService through existing trusted code only"):
+ *
+ *  - Aigent Nakamoto — `AgentKeyService.getAgentKeys(runtimeAgentId)`, the
+ *    SAME custodied-wallet decryption path `resolveDemoVelaTransport` already
+ *    uses for MoneyPenny's own signer. No operator input needed.
+ *  - ArkAgent — her persona wallet is PASSWORD-encrypted client-side
+ *    (`services/wallet/keyService.ts`'s `decryptPrivateKey`); there is no
+ *    non-interactive, server-side decryption path for it anywhere in this
+ *    repo (confirmed: `AgentKeyService`'s server-secret-based decryption only
+ *    ever covers `agent_keys` rows, never `personas.evm_key`). So her signer
+ *    is read from `UC0_ARKAGENT_EVM_PRIVATE_KEY_HEX` in `.env.local` — an
+ *    ENVIRONMENT VARIABLE, never a CLI argument (argv secrets are exactly
+ *    what this task forbids) — and this function fails closed with a precise
+ *    message naming that variable when it is unset, rather than inventing a
+ *    decryption path or silently falling back to any other key.
+ *
+ * Every resolved signer's OWN address is re-checked against the canonical
+ * recipient address before any submission — a mismatch (stale env var, wrong
+ * key) fails closed for that recipient without submitting anything.
+ */
+async function provisionUseCaseZeroDemoRecipients(): Promise<void> {
+  const velaEnv = (cliArg('vela-env') as VelaEnv | undefined) ?? 'local';
+
+  const receiptPath = cliArg('deployment-receipt');
+  if (!receiptPath) {
+    console.error(
+      'seedUseCaseZeroDemo --provision-recipients: --deployment-receipt=<path> is required — recipient ' +
+        'provisioning always targets a specific, verified applicationId, never the non-numeric demo placeholder. ' +
+        'Nothing was submitted.',
     );
     process.exitCode = 1;
     return;
   }
-  const personas = resolved as UseCaseZeroDemoPersonas;
+  let applicationId: string;
+  try {
+    const { readFileSync } = await import('fs');
+    const { verifyVelaApplicationDeploymentReceipt } = await import(
+      '@/services/vela/velaApplicationDeploymentReceipt'
+    );
+    const raw = JSON.parse(readFileSync(receiptPath, 'utf8'));
+    applicationId = verifyVelaApplicationDeploymentReceipt(raw).applicationId;
+  } catch (err) {
+    console.error(
+      `seedUseCaseZeroDemo --provision-recipients: --deployment-receipt at "${receiptPath}" failed verification: ` +
+        `${err instanceof Error ? err.message : String(err)}. Nothing was submitted.`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  const personaResolution = await resolveUseCaseZeroDemoPersonasFromCli();
+  if ('error' in personaResolution) {
+    console.error(`seedUseCaseZeroDemo --provision-recipients: ${personaResolution.error}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  let resolvedRecipients: UseCaseZeroDemoResolvedRecipients;
+  try {
+    resolvedRecipients = await resolveUseCaseZeroDemoRecipientAddresses(personaResolution.personas);
+  } catch (err) {
+    console.error(
+      `seedUseCaseZeroDemo --provision-recipients: ${err instanceof Error ? err.message : String(err)} ` +
+        'Nothing was submitted.',
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  let deployment: VelaDeploymentDescriptor;
+  try {
+    deployment = await resolveDemoVelaDeployment(velaEnv);
+  } catch (err) {
+    console.error(
+      'seedUseCaseZeroDemo --provision-recipients: could not resolve the Vela deployment: ' +
+        `${err instanceof Error ? err.message : String(err)}. Nothing was submitted.`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+  const reachability = await probeVelaRpcReachable(deployment.rpcUrl);
+  if (!reachability.ok) {
+    console.error(
+      `seedUseCaseZeroDemo --provision-recipients: the Vela RPC at ${deployment.rpcUrl} (--vela-env=${velaEnv}) ` +
+        `is not reachable (${reachability.detail}). Nothing was submitted.`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  type ResolvedSigner = { privateKeyHex: string } | { error: string };
+  const recipients: Array<{ label: string; address: string; resolveSigner: () => Promise<ResolvedSigner> }> = [
+    {
+      label: 'ArkAgent',
+      address: resolvedRecipients.arkAgentRecipientAddress,
+      resolveSigner: async () => {
+        const key = process.env.UC0_ARKAGENT_EVM_PRIVATE_KEY_HEX;
+        if (!key) {
+          return {
+            error:
+              "ArkAgent's persona wallet is password-encrypted client-side — there is no non-interactive, " +
+              'server-side signer-resolution path for it in this repo (unlike an AgentKeyService-custodied agent ' +
+              'wallet). Set UC0_ARKAGENT_EVM_PRIVATE_KEY_HEX in .env.local to the private key that controls ' +
+              `${redactAddressForDisplay(resolvedRecipients.arkAgentRecipientAddress)} before retrying. Never pass ` +
+              'it via a CLI argument.',
+          };
+        }
+        return { privateKeyHex: key };
+      },
+    },
+    {
+      label: 'Aigent Nakamoto',
+      address: resolvedRecipients.nakamotoRecipientAddress,
+      resolveSigner: async () => {
+        const { resolveRegistrableAgent } = await import('@/services/horizen/registrableAgents');
+        const config = resolveRegistrableAgent(DEMO_CANDIDATE_AGENT_SLUG);
+        if (!config) {
+          return { error: `no REGISTRABLE_AGENTS entry for slug "${DEMO_CANDIDATE_AGENT_SLUG}".` };
+        }
+        const { AgentKeyService } = await import('@/services/identity/agentKeyService');
+        const keys = await new AgentKeyService().getAgentKeys(config.runtimeAgentId);
+        if (!keys?.evmPrivateKey) {
+          return { error: `no custodied EVM private key on record for "${config.runtimeAgentId}" (agent_keys).` };
+        }
+        return { privateKeyHex: keys.evmPrivateKey };
+      },
+    },
+  ];
+
+  const { createVelaClientRecipientRegistryReader, submitVelaAssociateKeyRequest } = await import(
+    '@/services/vela/velaRecipientProvisioningPreflight'
+  );
+  const { deriveAgentP521KeyPair } = await import('@/services/vela/agentP521Derivation');
+  const { Wallet } = await import('ethers');
+  const reader = createVelaClientRecipientRegistryReader(deployment);
+
+  for (const recipient of recipients) {
+    const before = await reader.checkRecipientAssociation(applicationId, recipient.address);
+    if (before.associationStatus === 'VERIFIED') {
+      console.log(`${recipient.label} (${redactAddressForDisplay(recipient.address)}): ALREADY VERIFIED — nothing to do.`);
+      continue;
+    }
+
+    const signer = await recipient.resolveSigner();
+    if ('error' in signer) {
+      console.error(
+        `seedUseCaseZeroDemo --provision-recipients: cannot provision ${recipient.label} ` +
+          `(${redactAddressForDisplay(recipient.address)}): ${signer.error} Nothing was submitted for this recipient.`,
+      );
+      process.exitCode = 1;
+      continue;
+    }
+
+    const wallet = new Wallet(signer.privateKeyHex);
+    if (wallet.address.toLowerCase() !== recipient.address.toLowerCase()) {
+      console.error(
+        `seedUseCaseZeroDemo --provision-recipients: the resolved signer for ${recipient.label} ` +
+          `(${redactAddressForDisplay(wallet.address)}) does NOT match its canonical recipient address ` +
+          `(${redactAddressForDisplay(recipient.address)}) — refusing to submit ASSOCIATEKEY under a mismatched ` +
+          'identity. Investigate the signer override / wallet-binding drift before retrying. Nothing was ' +
+          'submitted for this recipient.',
+      );
+      process.exitCode = 1;
+      continue;
+    }
+
+    const { publicKeyHex } = await deriveAgentP521KeyPair(wallet);
+    console.log(`${recipient.label} (${redactAddressForDisplay(recipient.address)}): submitting ASSOCIATEKEY...`);
+    try {
+      await submitVelaAssociateKeyRequest(deployment, applicationId, signer.privateKeyHex, publicKeyHex);
+    } catch (err) {
+      console.error(
+        `seedUseCaseZeroDemo --provision-recipients: ASSOCIATEKEY submission failed for ${recipient.label} ` +
+          `(${redactAddressForDisplay(recipient.address)}): ${err instanceof Error ? err.message : String(err)}`,
+      );
+      process.exitCode = 1;
+      continue;
+    }
+
+    const after = await reader.checkRecipientAssociation(applicationId, recipient.address);
+    if (after.associationStatus !== 'VERIFIED') {
+      console.error(
+        `seedUseCaseZeroDemo --provision-recipients: ASSOCIATEKEY for ${recipient.label} ` +
+          `(${redactAddressForDisplay(recipient.address)}) completed on-chain but re-querying the registry did ` +
+          `NOT return VERIFIED (${after.associationStatus}: ${after.associationDetail}) — treated as unresolved, ` +
+          'never as success.',
+      );
+      process.exitCode = 1;
+      continue;
+    }
+    console.log(`${recipient.label} (${redactAddressForDisplay(recipient.address)}): ASSOCIATEKEY VERIFIED.`);
+  }
+}
+
+export async function main(): Promise<void> {
+  if (hasFlag('provision-recipients')) {
+    await provisionUseCaseZeroDemoRecipients();
+    return;
+  }
+
+  const preflight = hasFlag('preflight') || hasFlag('dry-run');
+  const personaResolution = await resolveUseCaseZeroDemoPersonasFromCli();
+  if ('error' in personaResolution) {
+    console.error(`seedUseCaseZeroDemo: ${personaResolution.error}`);
+    process.exitCode = 1;
+    return;
+  }
+  const personas = personaResolution.personas;
+  // Non-null: resolveUseCaseZeroDemoPersonasFromCli only returns `personas`
+  // (never `error`) after its own getSupabaseServer() check already passed.
+  const admin = getSupabaseServer()!;
 
   // DEPLOYMENT-RECEIPT VERIFICATION (2026-09-16, Vela/Horizen v0.2.0
   // feedback) — resolved BEFORE composing, so a verified receipt's
