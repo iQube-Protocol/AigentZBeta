@@ -809,44 +809,95 @@ async function probeVelaRpcReachable(
   }
 }
 
-export async function resolveDemoVelaTransport(): Promise<VelaTransport | undefined> {
-  const [{ VelaClientAdapter }, { resolveVelaDeployment }, { deriveAgentP521KeyPair }, { Wallet }] = await Promise.all([
+/**
+ * Deployment resolution ONLY — the SAME public-devnet-token-file-vs-
+ * resolveVelaDeployment branching `resolveDemoVelaTransport` (below) already
+ * needed, extracted so the recipient-provisioning preflight (which also
+ * needs a deployment, but must run BEFORE any signer is resolved) can reuse
+ * it verbatim rather than hand-typing a second copy that could drift. Never
+ * touches the network itself (that is `probeVelaRpcReachable`'s job); throws
+ * only on a genuinely malformed/missing coordinate source, mirroring
+ * `resolveVelaDeployment`'s own fail-closed contract.
+ */
+async function resolveDemoVelaDeployment(velaEnv: VelaEnv): Promise<VelaDeploymentDescriptor> {
+  const { resolveVelaDeployment } = await import('@/services/vela/velaConfig');
+  if (velaEnv === 'public_devnet' && process.env.VELA_PUBLIC_DEVNET_TOKEN_FILE) {
+    const { resolvePublicDevnetDeploymentFromTokenFile } = await import('@/services/vela/velaPublicDevnetTokenFile');
+    return resolvePublicDevnetDeploymentFromTokenFile();
+  }
+  return resolveVelaDeployment(velaEnv);
+}
+
+/**
+ * Recipient provisioning preflight (2026-09-16, Vela masterclass) — resolves
+ * the deployment, probes RPC reachability, and (if reachable) checks every
+ * recipient's ASSOCIATEKEY/event-seed readiness via
+ * `services/vela/velaRecipientProvisioningPreflight.ts`. Read-only; never
+ * resolves or touches a signer/private key. Shared by BOTH the `--preflight`
+ * report (informational — preflight never blocks) and
+ * `resolveDemoVelaTransport` (the REAL, un-bypassable gate for a
+ * consequential FROZEN run — see that function's own doc comment).
+ *
+ * Vacuously reports `ready: true` with an empty `recipients` list, and skips
+ * deployment resolution/RPC entirely, when `recipientAddresses` is empty.
+ */
+async function checkUseCaseZeroDemoRecipientProvisioning(
+  velaEnv: VelaEnv,
+  applicationId: string,
+  recipientAddresses: string[],
+): Promise<
+  | { reachable: true; result: import('@/services/vela/velaRecipientProvisioningPreflight').VelaRecipientProvisioningPreflightResult }
+  | { reachable: false; detail: string }
+> {
+  if (recipientAddresses.length === 0) {
+    return { reachable: true, result: { ready: true, recipients: [], privacyLimitation: null } };
+  }
+  const deployment = await resolveDemoVelaDeployment(velaEnv);
+  const reachability = await probeVelaRpcReachable(deployment.rpcUrl);
+  if (!reachability.ok) {
+    return { reachable: false, detail: reachability.detail };
+  }
+  const { checkVelaRecipientProvisioning, createVelaClientRecipientRegistryReader } = await import(
+    '@/services/vela/velaRecipientProvisioningPreflight'
+  );
+  const reader = createVelaClientRecipientRegistryReader(deployment);
+  const result = await checkVelaRecipientProvisioning(reader, applicationId, recipientAddresses);
+  return { reachable: true, result };
+}
+
+/** First 6 + last 4 hex chars only — never the full address in a printed
+ *  line (the structured evidence object still carries the full, public
+ *  address; this is belt-and-suspenders redaction for console/log output
+ *  specifically, per this file's own operator instruction to record only
+ *  redacted readiness evidence). */
+function redactAddressForDisplay(address: string): string {
+  if (address.length <= 12) return address;
+  return `${address.slice(0, 8)}…${address.slice(-4)}`;
+}
+
+export async function resolveDemoVelaTransport(
+  opts: { recipientAddresses?: string[]; applicationId?: string } = {},
+): Promise<VelaTransport | undefined> {
+  const recipientAddresses = opts.recipientAddresses ?? [];
+  const [{ VelaClientAdapter }, { deriveAgentP521KeyPair }, { Wallet }] = await Promise.all([
     import('@/services/vela/velaClientAdapter'),
-    import('@/services/vela/velaConfig'),
     import('@/services/vela/agentP521Derivation'),
     import('ethers'),
   ]);
 
   const velaEnv = (cliArg('vela-env') as VelaEnv | undefined) ?? 'local';
 
-  // PUBLIC-DEVNET TOKEN-FILE SEAM (2026-09-16 closure) — `resolveVelaDeployment
-  // ('public_devnet')` (services/vela/velaConfig.ts) reads its coordinates
-  // from individual VELA_PUBLIC_DEVNET_* env vars; VELA_PUBLIC_DEVNET_TOKEN_FILE
-  // (the raw POST https://devnet.synsema.app/token response
-  // scripts/vela/public-devnet-smoke.ts already consumes) was never wired
-  // into that path at all — a caller who set only the token-file env var got
-  // velaConfig.ts's own "missing VELA_PUBLIC_DEVNET_RPC_URL" error, even
-  // though the token file already carries the equivalent coordinates under
-  // different key names. Closed here by preferring the SHARED resolver
-  // (services/vela/velaPublicDevnetTokenFile.ts — the same mapping
-  // public-devnet-smoke.ts uses, extracted rather than duplicated) whenever
-  // the token-file env var is set; falls through to the existing
-  // resolveVelaDeployment(velaEnv) path (unchanged) otherwise, including for
-  // every other --vela-env value.
+  // PUBLIC-DEVNET TOKEN-FILE SEAM (2026-09-16 closure) — see
+  // resolveDemoVelaDeployment's own doc comment.
   let deployment: VelaDeploymentDescriptor;
-  if (velaEnv === 'public_devnet' && process.env.VELA_PUBLIC_DEVNET_TOKEN_FILE) {
-    try {
-      const { resolvePublicDevnetDeploymentFromTokenFile } = await import('@/services/vela/velaPublicDevnetTokenFile');
-      deployment = resolvePublicDevnetDeploymentFromTokenFile();
-    } catch (err) {
-      console.error(
-        'seedUseCaseZeroDemo: could not resolve the public-devnet deployment from VELA_PUBLIC_DEVNET_TOKEN_FILE: ' +
-          `${err instanceof Error ? err.message : String(err)}. Nothing was persisted.`,
-      );
-      return undefined;
-    }
-  } else {
-    deployment = resolveVelaDeployment(velaEnv);
+  try {
+    deployment = await resolveDemoVelaDeployment(velaEnv);
+  } catch (err) {
+    console.error(
+      'seedUseCaseZeroDemo: could not resolve the Vela deployment: ' +
+        `${err instanceof Error ? err.message : String(err)}. Nothing was persisted.`,
+    );
+    return undefined;
   }
 
   // FAIL FAST on an unreachable RPC — before touching AgentKeyService/
@@ -863,6 +914,51 @@ export async function resolveDemoVelaTransport(): Promise<VelaTransport | undefi
         'https://devnet.synsema.app/token) and export the resulting VELA_PUBLIC_DEVNET_* env vars.',
     );
     return undefined;
+  }
+
+  // RECIPIENT PROVISIONING PREFLIGHT (2026-09-16, Vela masterclass) — before
+  // ANY signer/private-key resolution, verify every recipient this FROZEN
+  // envelope will emit a UserEvent to already holds an active ASSOCIATEKEY
+  // registration on THIS deployment. Read-only (provider-only — no wallet is
+  // constructed until AFTER this check passes). This is the SAME gate
+  // `--preflight` reports informationally; here it is un-bypassable — a
+  // consequential run reaching this line with ANY required recipient not
+  // VERIFIED returns `undefined` exactly like the RPC-unreachable case
+  // above, so `main()` never calls AgentKeyService, never persists, and
+  // never submits. See services/vela/velaRecipientProvisioningPreflight.ts's
+  // own header for why "possession of a local P-521 key" is never treated as
+  // proof of registration.
+  if (recipientAddresses.length > 0) {
+    if (!opts.applicationId) {
+      console.error(
+        'seedUseCaseZeroDemo: recipientAddresses were supplied for the recipient-provisioning preflight but no ' +
+          'applicationId was — this is a caller defect, not a live-registry finding. Refusing to proceed. ' +
+          'Nothing was persisted.',
+      );
+      return undefined;
+    }
+    const { checkVelaRecipientProvisioning, createVelaClientRecipientRegistryReader } = await import(
+      '@/services/vela/velaRecipientProvisioningPreflight'
+    );
+    const reader = createVelaClientRecipientRegistryReader(deployment);
+    const provisioning = await checkVelaRecipientProvisioning(reader, opts.applicationId, recipientAddresses);
+    if (!provisioning.ready) {
+      const lines = provisioning.recipients
+        .filter((r) => r.associationStatus !== 'VERIFIED')
+        .map((r) => `    - ${redactAddressForDisplay(r.recipientAddress)}: ${r.associationStatus} — ${r.associationDetail}`);
+      console.error(
+        'seedUseCaseZeroDemo: the envelope resolved FROZEN, but at least one required UserEvent recipient does ' +
+          'not have a VERIFIED ASSOCIATEKEY registration on this Vela deployment — refusing to resolve a signer, ' +
+          `persist anything, or submit to Vela:\n${lines.join('\n')}\n` +
+          '  ASSOCIATEKEY is a provisioning/bootstrap step, never a transaction-time repair — see ' +
+          'RES-2026-08-22-VELA-ASSOCIATEKEY-PROVISIONING-001 and scripts/vela/public-devnet-smoke.ts\'s own ' +
+          'associateKey() for how to register each recipient BEFORE re-running this script. Nothing was persisted.',
+      );
+      return undefined;
+    }
+    if (provisioning.privacyLimitation) {
+      console.log(`  recipient provisioning: ready (privacy note: ${provisioning.privacyLimitation})`);
+    }
   }
 
   const evmKeyOverride = cliArg('evm-key');
@@ -1001,6 +1097,42 @@ export async function main(): Promise<void> {
           ? `  deployment receipt: VERIFIED (ephemeral=${verifiedReceipt.ephemeral}, attestationMode=${verifiedReceipt.attestationMode})`
           : '  deployment receipt: NONE supplied — a consequential (non-preflight) FROZEN run would refuse to proceed without one.',
       );
+
+      // RECIPIENT PROVISIONING PREFLIGHT (2026-09-16, Vela masterclass) —
+      // informational only here (this branch never blocks — see the
+      // guaranteed-zero-effect line below); the SAME check is the
+      // un-bypassable gate `resolveDemoVelaTransport` runs for a real,
+      // consequential FROZEN run. Only attempted against a real, numeric
+      // applicationId — a query against the demo placeholder would be
+      // meaningless (BigInt(applicationId) would throw on-chain anyway).
+      if (isSubmittableApplicationId(composed.applicationId)) {
+        const velaEnv = (cliArg('vela-env') as VelaEnv | undefined) ?? 'local';
+        const recipientAddresses = composed.velaParties.map((p) => p.recipientAddress);
+        const provisioning = await checkUseCaseZeroDemoRecipientProvisioning(
+          velaEnv,
+          composed.applicationId,
+          recipientAddresses,
+        );
+        if (!provisioning.reachable) {
+          console.log(
+            `  recipient provisioning: UNVERIFIABLE — Vela RPC (--vela-env=${velaEnv}) not reachable ` +
+              `(${provisioning.detail}); a consequential run would refuse to proceed until this is checked.`,
+          );
+        } else {
+          for (const r of provisioning.result.recipients) {
+            console.log(
+              `  recipient ${redactAddressForDisplay(r.recipientAddress)}: association=${r.associationStatus}, ` +
+                `eventSeed=${r.eventSeedStatus}`,
+            );
+          }
+          console.log(
+            `  recipient provisioning: ${provisioning.result.ready ? 'READY — every required recipient is VERIFIED' : 'NOT READY — a consequential run would refuse to proceed'}`,
+          );
+          if (provisioning.result.privacyLimitation) {
+            console.log(`  privacy note: ${provisioning.result.privacyLimitation}`);
+          }
+        }
+      }
     }
     console.log(
       '  --preflight/--dry-run set: zero Supabase writes, zero receipts, zero Vela submission, and zero ' +
@@ -1041,7 +1173,10 @@ export async function main(): Promise<void> {
       process.exitCode = 1;
       return;
     }
-    transport = await resolveDemoVelaTransport();
+    transport = await resolveDemoVelaTransport({
+      recipientAddresses: composed.velaParties.map((p) => p.recipientAddress),
+      applicationId: composed.applicationId,
+    });
     if (!transport) {
       process.exitCode = 1;
       return;

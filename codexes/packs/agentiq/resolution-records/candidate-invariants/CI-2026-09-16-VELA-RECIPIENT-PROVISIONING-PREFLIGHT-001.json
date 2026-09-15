@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-16-VELA-RECIPIENT-PROVISIONING-PREFLIGHT-001",
+  "statement": "Before any consequential Vela multi-party submission resolves a signer, persists anything, or submits to the chain, every recipient that submission's own frozen party binding will emit a UserEvent to MUST be verified — read-only, against the executor/contract registry state itself, NEVER inferred from local P-521 key possession — to hold an active ASSOCIATEKEY association. A recipient whose association is MISSING or UNVERIFIABLE (registry unreachable/undecodable) MUST refuse the run identically to a missing signer or an unreachable RPC — never silently proceed and let the failure surface later as a late, execution-layer error. The required-recipient set is derived SOLELY from the request's own frozen party binding (never from surrounding persona/party-binding state that includes parties who receive no UserEvent at all). Event-seed registration is a SEPARATE, OPTIONAL signal: its absence is disclosed as a privacy limitation and MUST NEVER block readiness. Readiness evidence is redacted — a recipient's on-chain address (itself public wire data) plus coarse association/event-seed status only; never a P-521 key, private key, token, ciphertext, or ASSOCIATEKEY payload byte.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": "CI-2026-08-22-VELA-ASSOCIATEKEY-PROVISIONING-001",
+  "projections": {
+    "targets": ["research-registry"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "Converts CI-2026-08-22-VELA-ASSOCIATEKEY-PROVISIONING-001's documentation-level 'ASSOCIATEKEY is provisioning, not transaction-time repair' rule into an ENFORCED, executable preflight gate for a specific consequential caller (UC0) — the same discipline, extended from 'a standalone script exists to do this' to 'a consequential caller cannot bypass checking this.'",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/vela-recipient-provisioning-preflight.test.ts",
+      "assertion": "checkVelaRecipientProvisioning: ready:true only when every recipient is VERIFIED; MISSING or UNVERIFIABLE for any recipient forces ready:false; a recipient never supplied is never checked and never affects readiness; an ABSENT event seed never blocks readiness but populates a non-null privacyLimitation. createVelaClientRecipientRegistryReader (real implementation, mocked ethers): malformed address, registry-unreachable, no-logs, ASSOCIATEKEY-attempt-failed, and requestType!=ASSOCIATEKEY all resolve MISSING/UNVERIFIABLE, never VERIFIED; a successfully completed ASSOCIATEKEY resolves VERIFIED with eventSeedStatus derived from payload byte length alone; the returned evidence never contains the raw payload bytes.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/seed-use-case-zero-demo.test.ts",
+      "assertion": "describe('main() — recipient provisioning preflight ...'): one MISSING or UNVERIFIABLE required recipient fails closed with zero signer resolution (AgentKeyService never called), zero writes (createActivityReceipt never called), zero submission (runVelaUnderwritingProjection never called); exactly the two real UserEvent recipients (party-a, party-b) are checked, never a third persona (party-c/Kn0w1); the non-preflight run cannot bypass the gate; console output never contains a full recipient address, a persona id, or the supplied --evm-key; --preflight surfaces readiness informationally without resolving a signer.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "vela-001-confidential-constitutional-execution / Use Case Zero seed script — scripts/seedUseCaseZeroDemo.ts",
+      "defect": "resolveDemoVelaTransport resolved a real EVM/P-521 signer and proceeded toward a live Vela submission with no verification that either UserEvent recipient (party-a/ArkAgent, party-b/Nakamoto) held an active ASSOCIATEKEY registration — a missing association would have surfaced only as a late, execution-layer errorCode after signer resolution, writes, and submission were already underway.",
+      "resolutionId": "RES-2026-09-16-VELA-RECIPIENT-PROVISIONING-PREFLIGHT-001",
+      "evidence": ["scripts/seedUseCaseZeroDemo.ts", "tests/seed-use-case-zero-demo.test.ts"]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-09-16-VELA-RECIPIENT-PROVISIONING-PREFLIGHT-001",
+    "RES-2026-08-22-VELA-ASSOCIATEKEY-PROVISIONING-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "Status stays `candidate`; only an operator act may raise this to `ratified`/`canonical`.",
+    "Does NOT claim to solve the general problem of live association status for every possible Vela caller — it is scoped to UC0's own consequential seed script. Any future consequential multi-party caller should reuse services/vela/velaRecipientProvisioningPreflight.ts's exported checkVelaRecipientProvisioning/createVelaClientRecipientRegistryReader directly rather than re-deriving a second recipient-registry-reading implementation."
+  ]
+}

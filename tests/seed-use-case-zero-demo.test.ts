@@ -115,6 +115,33 @@ vi.mock('@/services/vela/velaConfig', () => ({
   resolveVelaDeployment: vi.fn((env: string) => ({ env, rpcUrl: TEST_RPC_URL })),
 }));
 
+// ── Mock for the recipient-provisioning preflight (2026-09-16, Vela
+// masterclass) ─────────────────────────────────────────────────────────────
+//
+// Defaults to "every recipient VERIFIED" so every EXISTING test below
+// (written before this check existed) continues to exercise exactly what it
+// did before — none of them are ABOUT recipient provisioning. Individual
+// tests override `checkVelaRecipientProvisioningMock`'s return value to
+// prove the fail-closed gate itself.
+const checkVelaRecipientProvisioningMock = vi.fn(async (_reader: unknown, _applicationId: string, recipientAddresses: string[]) => ({
+  ready: true,
+  recipients: recipientAddresses.map((recipientAddress) => ({
+    recipientAddress,
+    associationStatus: 'VERIFIED' as const,
+    associationDetail: 'test double: verified',
+    eventSeedStatus: 'VERIFIED' as const,
+    eventSeedDetail: 'test double: verified',
+  })),
+  privacyLimitation: null as string | null,
+}));
+const createVelaClientRecipientRegistryReaderMock = vi.fn((_deployment: unknown) => ({
+  checkRecipientAssociation: vi.fn(),
+}));
+vi.mock('@/services/vela/velaRecipientProvisioningPreflight', () => ({
+  checkVelaRecipientProvisioning: (...args: any[]) => checkVelaRecipientProvisioningMock(...(args as [unknown, string, string[]])),
+  createVelaClientRecipientRegistryReader: (...args: any[]) => createVelaClientRecipientRegistryReaderMock(...(args as [unknown])),
+}));
+
 // ── fetch mock for probeVelaRpcReachable's bounded reachability preflight ──
 //
 // Defaults to a reachable RPC (a well-formed JSON-RPC eth_chainId result) so
@@ -202,6 +229,19 @@ beforeEach(() => {
     json: async () => ({ jsonrpc: '2.0', id: 1, result: '0x7a69' }),
   }));
   vi.stubGlobal('fetch', fetchMock);
+  checkVelaRecipientProvisioningMock.mockClear();
+  checkVelaRecipientProvisioningMock.mockImplementation(async (_reader, _applicationId, recipientAddresses: string[]) => ({
+    ready: true,
+    recipients: recipientAddresses.map((recipientAddress) => ({
+      recipientAddress,
+      associationStatus: 'VERIFIED' as const,
+      associationDetail: 'test double: verified',
+      eventSeedStatus: 'VERIFIED' as const,
+      eventSeedDetail: 'test double: verified',
+    })),
+    privacyLimitation: null,
+  }));
+  createVelaClientRecipientRegistryReaderMock.mockClear();
 });
 
 afterEach(() => {
@@ -915,6 +955,181 @@ describe('main() — deployment-receipt applicationId handling before any Vela s
       (c: any[]) => c[0].actionType === 'vela_underwriting_envelope_frozen',
     );
     expect(frozenReceipt?.[0].actionInput.applicationId).toBe('42'); // the RECEIPT's id, not --app's
+  });
+});
+
+// ── main() — recipient provisioning preflight (2026-09-16, Vela masterclass) ─
+//
+// Every FROZEN run must verify that every recipient the MoneyPenny WASM will
+// emit a UserEvent to (composed.velaParties — party-a + party-b ONLY, never
+// party-c/Kn0w1, who receives no UserEvent — see composeUseCaseZeroDemoChain's
+// own header) already holds an ASSOCIATEKEY registration, BEFORE any signer
+// is resolved, anything is written, or anything is submitted. The check
+// itself (checkVelaRecipientProvisioning / createVelaClientRecipientRegistryReader)
+// is unit-tested in full in tests/vela-recipient-provisioning-preflight.test.ts;
+// these tests prove the WIRING — that resolveDemoVelaTransport (called for
+// every consequential FROZEN run, preflight or not) actually consults it and
+// actually refuses on a bad result.
+
+describe('main() — recipient provisioning preflight (2026-09-16, Vela masterclass)', () => {
+  const originalArgv = process.argv;
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+  let logSpy: ReturnType<typeof vi.spyOn>;
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    process.argv = [
+      ...originalArgv,
+      `--arkagent=${TEST_PERSONAS.arkAgentPersonaId}`,
+      `--nakamoto=${TEST_PERSONAS.nakamotoPersonaId}`,
+      `--kn0w1=${TEST_PERSONAS.kn0w1PersonaId}`,
+      '--evm-key=0x' + '33'.repeat(32),
+    ];
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    seedAdmittedAegisAssessmentForNakamoto();
+    const { mkdtempSync } = await import('fs');
+    const { tmpdir } = await import('os');
+    const { join } = await import('path');
+    tmpDir = mkdtempSync(join(tmpdir(), 'seed-uc0-recipient-'));
+  });
+
+  afterEach(async () => {
+    process.argv = originalArgv;
+    errorSpy.mockRestore();
+    logSpy.mockRestore();
+    const { rmSync } = await import('fs');
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('one required recipient MISSING -> fail closed: zero signer resolution, zero writes, zero submission', async () => {
+    checkVelaRecipientProvisioningMock.mockImplementationOnce(async (_reader: unknown, _applicationId: string, recipientAddresses: string[]) => ({
+      ready: false,
+      recipients: [
+        { recipientAddress: recipientAddresses[0], associationStatus: 'VERIFIED', associationDetail: 'ok', eventSeedStatus: 'VERIFIED', eventSeedDetail: 'ok' },
+        { recipientAddress: recipientAddresses[1], associationStatus: 'MISSING', associationDetail: 'no RequestSubmitted log found from this address', eventSeedStatus: 'UNVERIFIABLE', eventSeedDetail: 'no association to check' },
+      ],
+      privacyLimitation: null,
+    }));
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    // Zero signer resolution.
+    expect(getAgentKeysMock).not.toHaveBeenCalled();
+    expect(velaClientAdapterConstructorMock).not.toHaveBeenCalled();
+    // Zero writes / submission.
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    expect(runVelaUnderwritingProjectionMock).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(String(errorSpy.mock.calls[0][0])).toMatch(/MISSING/);
+    expect(String(errorSpy.mock.calls[0][0])).toMatch(/ASSOCIATEKEY/);
+  });
+
+  it('registry unreachable/unverifiable -> fail closed the same way as MISSING', async () => {
+    checkVelaRecipientProvisioningMock.mockImplementationOnce(async (_reader: unknown, _applicationId: string, recipientAddresses: string[]) => ({
+      ready: false,
+      recipients: recipientAddresses.map((recipientAddress) => ({
+        recipientAddress,
+        associationStatus: 'UNVERIFIABLE' as const,
+        associationDetail: 'registry query (RequestSubmitted) failed: connect ECONNREFUSED 127.0.0.1:8545',
+        eventSeedStatus: 'UNVERIFIABLE' as const,
+        eventSeedDetail: 'association could not be verified',
+      })),
+      privacyLimitation: null,
+    }));
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(getAgentKeysMock).not.toHaveBeenCalled();
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    expect(runVelaUnderwritingProjectionMock).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(String(errorSpy.mock.calls[0][0])).toMatch(/UNVERIFIABLE/);
+  });
+
+  it('checks EXACTLY the two UserEvent recipients (party-a, party-b) — never party-c/Kn0w1, who exists in persona state but receives no UserEvent', async () => {
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(checkVelaRecipientProvisioningMock).toHaveBeenCalledTimes(1);
+    const [, , recipientAddresses] = checkVelaRecipientProvisioningMock.mock.calls[0];
+    expect(recipientAddresses).toHaveLength(2);
+    // Neither of the two checked addresses is derived from, or equal to, any
+    // value that would only exist for a third (Kn0w1) recipient — there is
+    // no third entry at all, proving the set is sourced from
+    // composed.velaParties (party-a + party-b), never from the full
+    // three-persona/party-binding surrounding state.
+  });
+
+  it('the consequential (non-preflight) run cannot bypass this check — it is NOT an artifact of --preflight reporting', async () => {
+    // Same fixture as the first test above, but explicitly asserting this is
+    // the DEFAULT (non-preflight) invocation — main() never accepts a way to
+    // skip resolveDemoVelaTransport's own gate for a FROZEN envelope.
+    expect(process.argv).not.toContain('--preflight');
+    expect(process.argv).not.toContain('--dry-run');
+    checkVelaRecipientProvisioningMock.mockImplementationOnce(async (_reader: unknown, _applicationId: string, recipientAddresses: string[]) => ({
+      ready: false,
+      recipients: [{ recipientAddress: recipientAddresses[0], associationStatus: 'MISSING', associationDetail: 'x', eventSeedStatus: 'UNVERIFIABLE', eventSeedDetail: 'x' }],
+      privacyLimitation: null,
+    }));
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    expect(runVelaUnderwritingProjectionMock).not.toHaveBeenCalled();
+  });
+
+  it('never exposes a P-521 key, token, ciphertext, or private participant data in console output for a failed recipient check', async () => {
+    checkVelaRecipientProvisioningMock.mockImplementationOnce(async (_reader: unknown, _applicationId: string, recipientAddresses: string[]) => ({
+      ready: false,
+      recipients: [
+        { recipientAddress: recipientAddresses[0], associationStatus: 'MISSING', associationDetail: 'no RequestSubmitted log found', eventSeedStatus: 'UNVERIFIABLE', eventSeedDetail: 'x' },
+      ],
+      privacyLimitation: null,
+    }));
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    const allOutput = [...errorSpy.mock.calls, ...logSpy.mock.calls].map((c) => String(c[0])).join('\n');
+    // Never the raw persona ids (private participant data).
+    expect(allOutput).not.toContain(TEST_PERSONAS.arkAgentPersonaId);
+    expect(allOutput).not.toContain(TEST_PERSONAS.nakamotoPersonaId);
+    expect(allOutput).not.toContain(TEST_PERSONAS.kn0w1PersonaId);
+    // Never the --evm-key value supplied above.
+    expect(allOutput).not.toContain('33'.repeat(32));
+    // The FULL recipient address (a 40 hex-char body) never appears — only
+    // the redacted (first 8 + last 4 chars) form.
+    expect(allOutput).not.toMatch(/0x0{32}1\b/);
+  });
+
+  it('a FROZEN preflight report ALSO surfaces recipient readiness informationally, without resolving a signer or blocking', async () => {
+    checkVelaRecipientProvisioningMock.mockImplementationOnce(async (_reader: unknown, _applicationId: string, recipientAddresses: string[]) => ({
+      ready: false,
+      recipients: [
+        { recipientAddress: recipientAddresses[0], associationStatus: 'MISSING', associationDetail: 'x', eventSeedStatus: 'UNVERIFIABLE', eventSeedDetail: 'x' },
+        { recipientAddress: recipientAddresses[1], associationStatus: 'VERIFIED', associationDetail: 'x', eventSeedStatus: 'ABSENT', eventSeedDetail: 'x' },
+      ],
+      privacyLimitation: 'privacy note fixture',
+    }));
+    process.argv.push('--preflight', '--app=42');
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(getAgentKeysMock).not.toHaveBeenCalled();
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    const allLogs = logSpy.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(allLogs).toMatch(/recipient provisioning: NOT READY/);
   });
 });
 

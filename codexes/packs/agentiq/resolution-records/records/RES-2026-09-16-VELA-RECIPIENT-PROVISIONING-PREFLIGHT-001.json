@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-16",
+  "resolutionId": "RES-2026-09-16-VELA-RECIPIENT-PROVISIONING-PREFLIGHT-001",
+  "capability": "vela-001-confidential-constitutional-execution",
+  "milestone": "UC0 final closeout, Vela masterclass correction — before Threshold 007 evidence generation.",
+  "problem": "RES-2026-08-22-VELA-ASSOCIATEKEY-PROVISIONING-001 established, as PROSE, that every Vela requester's P-521 key must be ASSOCIATEKEY'd before any PROCESS request that addresses it will decrypt. UC0's own preflight (scripts/seedUseCaseZeroDemo.ts) never checked this for the multi-party request's actual UserEvent recipients (composed.velaParties) before resolving a signer — the Vela masterclass confirmed a missing association would surface only as a late, execution-layer errorCode (per the executor), after a signer had already been resolved.",
+  "observedFailure": [
+    "No code path in scripts/seedUseCaseZeroDemo.ts verified recipient key-association status before calling resolveDemoVelaTransport's signer-resolution block — a missing ASSOCIATEKEY registration for either UC0 UserEvent recipient (party-a/ArkAgent, party-b/Nakamoto) would only be discovered at live submission time."
+  ],
+  "rootCauses": [
+    "RES-2026-08-22's own resolution was a documentation + standalone-script discipline (scripts/vela-slice2g-associate-key.ts), never wired into an actual PREFLIGHT CHECK any consequential caller runs before resolving a signer — UC0's own seed script never consulted it."
+  ],
+  "resolution": [
+    "Added services/vela/velaRecipientProvisioningPreflight.ts: checkVelaRecipientProvisioning (pure orchestrator over an injectable VelaRecipientRegistryReader, mirroring the existing VelaTransport/VelaTestTransport injection pattern) + createVelaClientRecipientRegistryReader (the REAL, read-only implementation — no signer, no private key, ever). For each recipient address, re-derives the SAME chain-of-evidence pattern services/vela/velaApplicationDeploymentReceipt.ts already established for deployment verification: scans RequestSubmitted logs from that address, decodes each submitting transaction's OWN calldata (never assumed) to confirm requestType===ASSOCIATEKEY, and cross-references a matching successful RequestCompleted — using ONLY the existing, pinned v0.2.0 ProcessorEndpoint ABI surface (RequestSubmitted/RequestCompleted/submitRequest) VelaClientAdapter already declares.",
+    "Distinguishes VERIFIED/MISSING/UNVERIFIABLE for association, and VERIFIED/ABSENT/UNVERIFIABLE for the OPTIONAL encrypted event-seed (read from the ASSOCIATEKEY payload's own BYTE LENGTH alone — 133 bytes key-only vs 226 bytes key+seed — never its content). An ABSENT event seed never blocks readiness; it populates a non-null, disclosed privacyLimitation instead (the recipient's UserEvent.eventSubType falls back to the zero/no-privacy-seed scheme, never a correlatable value).",
+    "Wired into scripts/seedUseCaseZeroDemo.ts: resolveDemoVelaTransport now runs this check, using composed.velaParties (the EXACT UserEvent recipients the frozen envelope will submit — party-a + party-b only, never party-c/Kn0w1, who receives no UserEvent), immediately after the existing RPC-reachability probe and BEFORE any AgentKeyService/signer resolution. Any non-VERIFIED required recipient returns undefined from resolveDemoVelaTransport, exactly like the pre-existing RPC-unreachable case — main() then never calls persistUseCaseZeroDemoChain, so zero writes and zero Vela submission follow structurally, not by convention. The SAME check also runs informationally inside --preflight's report (never blocking there, consistent with --preflight's existing contract) via a shared checkUseCaseZeroDemoRecipientProvisioning/resolveDemoVelaDeployment helper pair (extracted, not duplicated, from resolveDemoVelaTransport's own pre-existing deployment-resolution logic).",
+    "Console output redacts every recipient address to its first-8/last-4 hex form (redactAddressForDisplay) before printing; the full address is never logged, only retained in the in-memory structured result. No P-521 key, token, ciphertext, or ASSOCIATEKEY payload byte ever leaves velaRecipientProvisioningPreflight.ts's own scope.",
+    "Added tests/vela-recipient-provisioning-preflight.test.ts (16 cases: orchestrator behaviour with a fake reader, and the REAL reader's branching against a mocked ethers surface — malformed address, registry-unreachable, missing, ASSOCIATEKEY-failed, key-only-payload, key+seed-payload, never-leaks-payload-bytes) and 6 new cases in tests/seed-use-case-zero-demo.test.ts (missing recipient fails closed with zero signer/writes/submission; unreachable registry fails closed the same way; exactly the two real UserEvent recipients are checked, never a third persona; the consequential/non-preflight run cannot bypass the gate; no key/token/ciphertext/persona-id ever appears in console output; --preflight surfaces readiness informationally without resolving a signer)."
+  ],
+  "rejectedApproaches": [
+    "Inferring registration from local possession/derivation of a P-521 key (services/vela/agentP521Derivation.ts) — rejected per the task's own explicit instruction and RES-2026-08-22's own finding: holding a key proves nothing about whether its public half was ever actually submitted on-chain via ASSOCIATEKEY.",
+    "Checking recipients derived from the full three-persona/party-binding surrounding state (personas, partyBindingInputs) rather than composed.velaParties — rejected: party-c/Kn0w1 exists in persona state and party-binding records but receives no UserEvent at all (app.go's buildMultiPartyEvents emits exactly one event per key in the request's Inputs map, and Kn0w1 is never an input party in this demo) — checking it would be both meaningless and a second, drifting recipient model.",
+    "Blocking readiness on an absent event-seed registration — rejected: event-seed registration is explicitly OPTIONAL per VELA-PRIVACY-BOUNDARY-001 (an opt-in privacy enhancement, not a functional prerequisite); its absence is disclosed as a privacy limitation, never treated as a readiness failure."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-16-VELA-RECIPIENT-PROVISIONING-PREFLIGHT-001"
+  ],
+  "canaries": [
+    "tests/vela-recipient-provisioning-preflight.test.ts",
+    "tests/seed-use-case-zero-demo.test.ts — describe('main() — recipient provisioning preflight (2026-09-16, Vela masterclass)')"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/vela-recipient-provisioning-preflight.test.ts",
+      "tests/seed-use-case-zero-demo.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/resolution-records/records/RES-2026-08-22-VELA-ASSOCIATEKEY-PROVISIONING-001.json"
+    ]
+  },
+  "sourceDocs": [
+    "services/vela/velaRecipientProvisioningPreflight.ts",
+    "scripts/seedUseCaseZeroDemo.ts",
+    "docs/vela/VELA_EARLY_ACCESS_HANDOFF.md",
+    "docs/vela/VELA-PRIVACY-BOUNDARY-001.md",
+    "docs/vela/VELA-SIGNER-TOPOLOGY-001.md"
+  ],
+  "projections": {
+    "targets": ["research-registry"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}
