@@ -1,0 +1,91 @@
+name: Build MoneyPenny Projector WASM (TinyGo 0.42.0)
+
+# Unblocks WASM builds for operators whose local TinyGo 0.42.0 binary cannot
+# run (e.g. macOS 12: Homebrew TinyGo 0.42.0 needs a newer libc++ symbol than
+# the OS ships) and who have no Docker available. Builds ONLY
+# services/vela/wasm/projector's existing `production_build` Makefile target
+# — the exact flags this repo already uses (-opt=s -no-debug -target=wasi) —
+# on a Linux runner, and uploads the resulting WASM as a downloadable
+# artifact. Never commits the binary (production_build/ is gitignored), never
+# runs UC0, never contacts Synsema or Supabase, and needs no repository
+# secrets.
+
+on:
+  push:
+    branches:
+      - claude/amplify-build-handoff-doc-prubcy
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  build-wasm:
+    runs-on: ubuntu-latest
+    env:
+      TINYGO_VERSION: '0.42.0'
+      WASM_DIR: services/vela/wasm/projector
+      WASM_NAME: moneypenny_projector.wasm
+      # Repository's own tracked-file size discipline (CLAUDE.md "Dense
+      # Materials" — no tracked file over 1 MB); applied here as this
+      # artifact's own size budget even though it is never tracked in git.
+      SIZE_BUDGET_BYTES: 1048576
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go (matches services/vela/wasm/projector/go.mod)
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ env.WASM_DIR }}/go.mod
+
+      - name: Install TinyGo ${{ env.TINYGO_VERSION }} (pinned, Linux amd64 .deb)
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/tinygo.deb \
+            "https://github.com/tinygo-org/tinygo/releases/download/v${TINYGO_VERSION}/tinygo_${TINYGO_VERSION}_amd64.deb"
+          sudo dpkg -i /tmp/tinygo.deb
+          /usr/local/tinygo/bin/tinygo version
+
+      - name: Build production WASM (make production_build — repo's own -opt=s -no-debug -target=wasi flags)
+        working-directory: ${{ env.WASM_DIR }}
+        run: make production_build
+
+      - name: Compute and record SHA-256
+        working-directory: ${{ env.WASM_DIR }}/production_build
+        run: |
+          set -euo pipefail
+          sha256sum "${WASM_NAME}" | tee "${WASM_NAME}.sha256"
+          echo "WASM_SHA256=$(cut -d ' ' -f1 "${WASM_NAME}.sha256")" >> "$GITHUB_ENV"
+
+      - name: Enforce artifact size budget
+        working-directory: ${{ env.WASM_DIR }}/production_build
+        run: |
+          set -euo pipefail
+          SIZE=$(stat -c%s "${WASM_NAME}")
+          echo "${WASM_NAME} is ${SIZE} bytes (budget: ${SIZE_BUDGET_BYTES} bytes)"
+          if [ "${SIZE}" -gt "${SIZE_BUDGET_BYTES}" ]; then
+            echo "::error::${WASM_NAME} is ${SIZE} bytes, exceeding the ${SIZE_BUDGET_BYTES}-byte budget."
+            exit 1
+          fi
+
+      - name: Summary
+        run: |
+          {
+            echo "### MoneyPenny Projector WASM build"
+            echo ""
+            echo "- TinyGo: ${TINYGO_VERSION}"
+            echo "- Flags: \`-opt=s -no-debug -target=wasi\`"
+            echo "- SHA-256: \`${WASM_SHA256}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "SHA-256: ${WASM_SHA256}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: moneypenny-projector-wasm
+          path: |
+            ${{ env.WASM_DIR }}/production_build/${{ env.WASM_NAME }}
+            ${{ env.WASM_DIR }}/production_build/${{ env.WASM_NAME }}.sha256
+          retention-days: 14
+          if-no-files-found: error
