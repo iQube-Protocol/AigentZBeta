@@ -629,7 +629,23 @@ function hasFlag(name: string): boolean {
 }
 
 /**
- * `tsx scripts/seedUseCaseZeroDemo.ts [--preflight|--dry-run] --arkagent=<id> --nakamoto=<id> --kn0w1=<id> [--app=<applicationId>] [--evm-key=<hex>] [--vela-env=local|early_access|public_devnet]`
+ * `tsx scripts/seedUseCaseZeroDemo.ts [--preflight|--dry-run] --arkagent=<id> --nakamoto=<id> --kn0w1=<id> [--deployment-receipt=<path>] [--app=<applicationId>] [--evm-key=<hex>] [--vela-env=local|early_access|public_devnet]`
+ *
+ * `--deployment-receipt=<path>` (2026-09-16, Vela/Horizen v0.2.0 feedback) —
+ * REQUIRED for any consequential (non-`--preflight`) run whose envelope
+ * resolves FROZEN. Points at a JSON file holding a
+ * `VelaApplicationDeploymentReceipt` (`services/vela/velaApplicationDeploymentReceipt.ts`)
+ * — the reconstructed, verified chain of evidence binding an `applicationId`
+ * to the ACTUAL deployed WASM (deploy-transaction input -> DeployRequestSubmitted
+ * -> successful DeployRequestCompleted; `applicationId` ALONE never proves
+ * this). `scripts/vela/public-devnet-smoke.ts`'s deploy step produces one.
+ * Verified LOCALLY (no network call) before it is trusted; its
+ * `applicationId` then supersedes `--app` and is what flows through Factor
+ * selection, disclosure authorization, envelope composition, and the Vela
+ * submission itself. A naked `--app=<number>` with NO receipt is refused for
+ * a consequential FROZEN run — see the `main()` guard below. `--preflight`
+ * MAY still supply and inspect a receipt (or omit one) without writing
+ * anything, since verification itself does no I/O.
  *
  * THE BARE, NO-ARGUMENT INVOCATION IS **NOT** GUARANTEED READ-ONLY (correcting
  * a false claim made about this script in an earlier session report,
@@ -929,7 +945,36 @@ export async function main(): Promise<void> {
   }
   const personas = resolved as UseCaseZeroDemoPersonas;
 
-  const applicationId = cliArg('app') ?? USE_CASE_ZERO_DEMO_APPLICATION_ID;
+  // DEPLOYMENT-RECEIPT VERIFICATION (2026-09-16, Vela/Horizen v0.2.0
+  // feedback) — resolved BEFORE composing, so a verified receipt's
+  // applicationId is what actually flows into Factor selection,
+  // authorization, envelope composition AND Vela submission, not bolted on
+  // afterward. Pure/local (no network call — see
+  // verifyVelaApplicationDeploymentReceipt's own doc comment), so running
+  // it under --preflight is automatically safe: "inspect and validate
+  // without writing" is exactly this function's own contract.
+  const receiptPath = cliArg('deployment-receipt');
+  let verifiedReceipt: import('@/services/vela/velaApplicationDeploymentReceipt').VelaApplicationDeploymentReceipt | undefined;
+  let applicationId = cliArg('app') ?? USE_CASE_ZERO_DEMO_APPLICATION_ID;
+  if (receiptPath) {
+    try {
+      const { readFileSync } = await import('fs');
+      const { verifyVelaApplicationDeploymentReceipt } = await import(
+        '@/services/vela/velaApplicationDeploymentReceipt'
+      );
+      const raw = JSON.parse(readFileSync(receiptPath, 'utf8'));
+      verifiedReceipt = verifyVelaApplicationDeploymentReceipt(raw);
+      applicationId = verifiedReceipt.applicationId;
+    } catch (err) {
+      console.error(
+        `seedUseCaseZeroDemo: --deployment-receipt at "${receiptPath}" failed verification: ` +
+          `${err instanceof Error ? err.message : String(err)}. Nothing was persisted.`,
+      );
+      process.exitCode = 1;
+      return;
+    }
+  }
+
   const factorSelection = buildUseCaseZeroDemoFactorSelection(personas, applicationId);
   const admissionEvidence = await composeUnderwritingAdmissionEvidence(admin, { factorSelection });
 
@@ -951,6 +996,11 @@ export async function main(): Promise<void> {
         `  applicationId="${composed.applicationId}" is ` +
           `${isSubmittableApplicationId(composed.applicationId) ? 'a valid, submittable Vela applicationId' : 'NOT a real, numeric Vela applicationId — a real --app=<id> would be required to submit'}`,
       );
+      console.log(
+        verifiedReceipt
+          ? `  deployment receipt: VERIFIED (ephemeral=${verifiedReceipt.ephemeral}, attestationMode=${verifiedReceipt.attestationMode})`
+          : '  deployment receipt: NONE supplied — a consequential (non-preflight) FROZEN run would refuse to proceed without one.',
+      );
     }
     console.log(
       '  --preflight/--dry-run set: zero Supabase writes, zero receipts, zero Vela submission, and zero ' +
@@ -961,9 +1011,26 @@ export async function main(): Promise<void> {
 
   let transport: VelaTransport | undefined;
   if (composed.envelopeResult.outcome === 'FROZEN') {
-    // Validate BEFORE resolving a transport or persisting anything — never
-    // guess, fabricate, or silently reuse the non-numeric demo placeholder
-    // against a real on-chain call (see "REAL VELA APPLICATIONID" above).
+    // A consequential FROZEN run REQUIRES a verified deployment receipt — a
+    // naked --app=<number> alone no longer establishes trust that the
+    // applicationId is the WASM this chain actually intends (see
+    // services/vela/velaApplicationDeploymentReceipt.ts's own header).
+    // Checked BEFORE resolving a transport or persisting anything.
+    if (!verifiedReceipt) {
+      console.error(
+        'seedUseCaseZeroDemo: the envelope resolved FROZEN and is ready to submit to Vela, but no verified ' +
+          'deployment receipt was supplied — pass --deployment-receipt=<path to a JSON file produced by ' +
+          'scripts/vela/public-devnet-smoke.ts (or an equivalent deployment step)>. A naked --app=<number> is ' +
+          'no longer sufficient for a consequential run. Nothing was persisted.',
+      );
+      process.exitCode = 1;
+      return;
+    }
+    // Defense-in-depth: verifyVelaApplicationDeploymentReceipt already
+    // guarantees applicationId came from a real DeployRequestSubmitted
+    // event (always a decimal uint64 string), but this check stays as the
+    // same final gate every FROZEN path passes through, never silently
+    // bypassed for the receipt-verified case either.
     if (!isSubmittableApplicationId(composed.applicationId)) {
       console.error(
         'seedUseCaseZeroDemo: the envelope resolved FROZEN and is ready to submit to Vela, but applicationId ' +

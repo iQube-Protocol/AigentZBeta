@@ -139,8 +139,33 @@ export function validateVelaAssetRef(asset: VelaAssetRef): void {
 export interface VelaRequestResult {
   requestId: string;
   applicationId: string;
+  /**
+   * `ProcessorEndpoint.RequestCompleted`'s own `status` field — THE
+   * AUTHORITATIVE completion signal on the deployed v0.2.0 ABI (Vela/Horizen
+   * feedback, 2026-09-16): `0` = completed, `1` = failed. `errorCode`/
+   * `errorMsg` below carry the SPECIFIC failure reason when `status !== 0`;
+   * `status` itself is what a caller checks BEFORE treating any decoded
+   * output (UserEvent/AppEvent/state change) as real — see
+   * `services/vela/velaMultiPartyProjection.ts`'s own
+   * `getVelaMultiPartyProjectionOutcome`, the enforcement point.
+   */
+  status: number;
+  /**
+   * `ProcessorEndpoint.RequestCompleted`'s own `applicationFees` (wei) — the
+   * ACTUAL fee charged for this request, distinct from any client-side fee
+   * reservation/estimate (see `services/vela/velaFuelAccounting.ts`).
+   */
+  applicationFees: string;
   /** hex-encoded state root the TEE signed, per AbstractTeeAuthenticator's signed-message fields. */
   stateRootHex: string;
+  /**
+   * hex-encoded PRIOR state root — `StateRootUpdate`'s own `oldStateRoot`,
+   * paired with `stateRootHex` (that same log's `newStateRoot`) so a caller
+   * can bind the exact state transition this request produced. Empty when no
+   * `StateRootUpdate` log was found — mirrors `stateRootHex`'s own
+   * "empty means not found" contract.
+   */
+  prevStateRootHex: string;
   teeSignatureHex: string;
   teeSignerAddress: string;
   /**

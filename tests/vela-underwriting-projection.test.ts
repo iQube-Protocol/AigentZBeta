@@ -383,6 +383,32 @@ describe('gate 6 — the causal receipt binds request, parties, scope, risk calc
     expect(ai.providerMode).toBe('SIMULATED');
   });
 
+  it('9. binds the AUTHORITATIVE on-chain completion evidence — applicationFees and the matching StateRootUpdate roots (2026-09-16 Vela/Horizen v0.2.0 feedback)', async () => {
+    const build = buildParams('req-1', []);
+    const transport = new VelaTestTransport({
+      deployment: VELA_LOCAL_DEPLOYMENT,
+      registeredTeeSigner: SIGNER,
+      verdictFor: multiPartyVerdictForRecipient(REF_A),
+      applicationFees: '25',
+    });
+    await runVelaUnderwritingProjection(baseCallParams({ build, transport }));
+
+    const ai = createActivityReceiptMock.mock.calls[0][0].actionInput;
+    // The ACTUAL fee charged, from RequestCompleted — never inferred/guessed.
+    expect(ai.applicationFees).toBe('25');
+    // The matching StateRootUpdate: newStateRoot (stateRootHex) and the
+    // PRIOR root it replaced (prevStateRootHex) — both present, both
+    // well-formed hex, and (by construction of the deterministic test
+    // double) genuinely distinct values, never a placeholder/blank pair.
+    expect(typeof ai.stateRootHex).toBe('string');
+    expect(ai.stateRootHex.length).toBeGreaterThan(0);
+    expect(typeof ai.prevStateRootHex).toBe('string');
+    expect(ai.prevStateRootHex.length).toBeGreaterThan(0);
+    expect(ai.prevStateRootHex).not.toBe(ai.stateRootHex);
+    expect(typeof ai.stateUpdateTxHash).toBe('string');
+    expect(ai.stateUpdateTxHash.length).toBeGreaterThan(0);
+  });
+
   it('never leaks a party\'s raw financial inputs, recipientAddress, or any T0 identifier into the receipt', async () => {
     const build = buildParams('req-1', []);
     await runVelaUnderwritingProjection(baseCallParams({ build, transport: makeTransport(REF_A) }));

@@ -693,6 +693,35 @@ function seedAdmittedAegisAssessmentForNakamoto(): void {
   fakeAdmin!.tables.aegis_findings = [];
 }
 
+/** Writes a valid, internally-consistent VelaApplicationDeploymentReceipt to
+ *  a temp file for --deployment-receipt tests (2026-09-16). Returns the
+ *  file path; caller is responsible for its own tmpDir cleanup. */
+async function writeValidDeploymentReceiptFile(tmpDir: string, applicationId: string): Promise<string> {
+  const { writeFileSync } = await import('fs');
+  const { join } = await import('path');
+  const { assembleVelaApplicationDeploymentReceipt } = await import('@/services/vela/velaApplicationDeploymentReceipt');
+  const wasmSha256 = 'a'.repeat(64);
+  const receipt = assembleVelaApplicationDeploymentReceipt({
+    network: { chainId: 31337, processorEndpointAddress: '0xProcessor', protocolVersion: 0 },
+    localWasmSha256: wasmSha256,
+    deployTransaction: {
+      hash: '0xdeploytx',
+      blockNumber: 100,
+      inputWasmSha256: wasmSha256,
+      inputArtifactId: `sha256:${wasmSha256}`,
+      inputMode: 'artifact_ref',
+    },
+    deployRequestSubmitted: { requestId: '0xreq1', applicationId },
+    deployRequestCompleted: { requestId: '0xreq1', applicationId, status: 0, errorCode: 0, errorMessage: '' },
+    attestationMode: 'no_attestation',
+    ephemeral: true,
+    observedAt: new Date().toISOString(),
+  });
+  const path = join(tmpDir, 'deployment-receipt.json');
+  writeFileSync(path, JSON.stringify(receipt), 'utf8');
+  return path;
+}
+
 describe('main() — CLI persona resolution', () => {
   const originalArgv = process.argv;
   let logSpy: ReturnType<typeof vi.spyOn>;
@@ -772,11 +801,12 @@ describe('main() — CLI persona resolution', () => {
   });
 });
 
-describe('main() — --app applicationId handling before any Vela submission', () => {
+describe('main() — deployment-receipt applicationId handling before any Vela submission (2026-09-16)', () => {
   const originalArgv = process.argv;
   let errorSpy: ReturnType<typeof vi.spyOn>;
+  let tmpDir: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     process.argv = [
       ...originalArgv,
       `--arkagent=${TEST_PERSONAS.arkAgentPersonaId}`,
@@ -785,47 +815,106 @@ describe('main() — --app applicationId handling before any Vela submission', (
     ];
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     seedAdmittedAegisAssessmentForNakamoto();
+    const { mkdtempSync } = await import('fs');
+    const { tmpdir } = await import('os');
+    const { join } = await import('path');
+    tmpDir = mkdtempSync(join(tmpdir(), 'seed-uc0-receipt-'));
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     process.argv = originalArgv;
     errorSpy.mockRestore();
+    const { rmSync } = await import('fs');
+    rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('refuses to submit (and persists NOTHING) when the envelope is FROZEN but --app was never supplied', async () => {
+  it('refuses to submit (and persists NOTHING) when the envelope is FROZEN but no --deployment-receipt was supplied — a naked --app=<number> alone is no longer sufficient', async () => {
+    process.argv.push('--app=42');
+
     await runUseCaseZeroDemoSeedCli();
 
-    // Zero persistence — the applicationId check runs before
+    // Zero persistence — the receipt check runs before
     // persistUseCaseZeroDemoChain is ever called, not just before submission.
     expect(createActivityReceiptMock).not.toHaveBeenCalled();
     expect(velaClientAdapterConstructorMock).not.toHaveBeenCalled();
     expect(errorSpy).toHaveBeenCalledTimes(1);
-    expect(String(errorSpy.mock.calls[0][0])).toMatch(/applicationId/);
-    expect(String(errorSpy.mock.calls[0][0])).toMatch(/--app=/);
+    expect(String(errorSpy.mock.calls[0][0])).toMatch(/no verified deployment receipt/);
+    expect(String(errorSpy.mock.calls[0][0])).toMatch(/--deployment-receipt=/);
   });
 
-  it('refuses a non-numeric --app value the same way as the missing case', async () => {
-    process.argv.push('--app=not-a-real-application-id');
+  it('refuses a --deployment-receipt whose applicationId is not numeric, the same way as the missing-receipt case', async () => {
+    const { writeFileSync } = await import('fs');
+    const { join } = await import('path');
+    const { assembleVelaApplicationDeploymentReceipt } = await import('@/services/vela/velaApplicationDeploymentReceipt');
+    const wasmSha256 = 'b'.repeat(64);
+    // A receipt is internally consistent (all three applicationId fields
+    // agree) but its applicationId happens to be non-numeric — models a
+    // hand-edited/malformed receipt file, not a real assembled one.
+    const receipt = assembleVelaApplicationDeploymentReceipt({
+      network: { chainId: 31337, processorEndpointAddress: '0xProcessor', protocolVersion: 0 },
+      localWasmSha256: wasmSha256,
+      deployTransaction: { hash: '0xtx', blockNumber: 1, inputWasmSha256: wasmSha256, inputArtifactId: `sha256:${wasmSha256}`, inputMode: 'artifact_ref' },
+      deployRequestSubmitted: { requestId: '0xreq', applicationId: 'not-numeric' },
+      deployRequestCompleted: { requestId: '0xreq', applicationId: 'not-numeric', status: 0, errorCode: 0, errorMessage: '' },
+      attestationMode: 'no_attestation',
+      ephemeral: true,
+    });
+    const path = join(tmpDir, 'malformed-receipt.json');
+    writeFileSync(path, JSON.stringify(receipt), 'utf8');
+    process.argv.push(`--deployment-receipt=${path}`);
 
     await runUseCaseZeroDemoSeedCli();
 
     expect(createActivityReceiptMock).not.toHaveBeenCalled();
     expect(errorSpy).toHaveBeenCalledTimes(1);
-    expect(String(errorSpy.mock.calls[0][0])).toMatch(/applicationId/);
+    expect(String(errorSpy.mock.calls[0][0])).toMatch(/not a real, numeric Vela deployment applicationId/);
   });
 
-  it('proceeds through to a real Vela submission once a real numeric --app and a signer are both supplied', async () => {
-    process.argv.push('--app=42', '--evm-key=0x' + '33'.repeat(32));
+  it('refuses (before any persistence) when --deployment-receipt points at a file that fails verification', async () => {
+    const { writeFileSync } = await import('fs');
+    const { join } = await import('path');
+    const path = join(tmpDir, 'broken.json');
+    writeFileSync(path, 'not valid json', 'utf8');
+    process.argv.push(`--deployment-receipt=${path}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(String(errorSpy.mock.calls[0][0])).toMatch(/failed verification/);
+  });
+
+  it('a verified --deployment-receipt supplies the applicationId END TO END — Factor selection, envelope, and the Vela submission all use it', async () => {
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`, '--evm-key=0x' + '33'.repeat(32));
 
     await runUseCaseZeroDemoSeedCli();
 
     expect(errorSpy).not.toHaveBeenCalled();
     expect(velaClientAdapterConstructorMock).toHaveBeenCalledTimes(1);
     expect(runVelaUnderwritingProjectionMock).toHaveBeenCalledTimes(1);
+    // The frozen envelope's applicationId is the true ground truth for the
+    // whole chain (see velaUnderwritingCompositionGate.ts's own
+    // "applicationId caveat" — FactorSelectionArtifact carries no
+    // applicationId of its own to separately assert on) — this IS the
+    // end-to-end proof the receipt's id reached the Vela submission.
     const frozenReceipt = createActivityReceiptMock.mock.calls.find(
       (c: any[]) => c[0].actionType === 'vela_underwriting_envelope_frozen',
     );
     expect(frozenReceipt?.[0].actionInput.applicationId).toBe('42');
+  });
+
+  it('an --app value that disagrees with a supplied --deployment-receipt is superseded by the verified receipt, never silently trusted instead', async () => {
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`, '--app=999', '--evm-key=0x' + '33'.repeat(32));
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    const frozenReceipt = createActivityReceiptMock.mock.calls.find(
+      (c: any[]) => c[0].actionType === 'vela_underwriting_envelope_frozen',
+    );
+    expect(frozenReceipt?.[0].actionInput.applicationId).toBe('42'); // the RECEIPT's id, not --app's
   });
 });
 
@@ -843,8 +932,9 @@ describe('main() — --preflight/--dry-run zero-effect guarantee', () => {
   const originalArgv = process.argv;
   let logSpy: ReturnType<typeof vi.spyOn>;
   let errorSpy: ReturnType<typeof vi.spyOn>;
+  let tmpDir: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     process.argv = [
       ...originalArgv,
       `--arkagent=${TEST_PERSONAS.arkAgentPersonaId}`,
@@ -853,12 +943,18 @@ describe('main() — --preflight/--dry-run zero-effect guarantee', () => {
     ];
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { mkdtempSync } = await import('fs');
+    const { tmpdir } = await import('os');
+    const { join } = await import('path');
+    tmpDir = mkdtempSync(join(tmpdir(), 'seed-uc0-preflight-'));
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     process.argv = originalArgv;
     logSpy.mockRestore();
     errorSpy.mockRestore();
+    const { rmSync } = await import('fs');
+    rmSync(tmpDir, { recursive: true, force: true });
   });
 
   it('BLOCKED outcome + --preflight: zero writes, zero receipts, zero signer resolution', async () => {
@@ -876,8 +972,9 @@ describe('main() — --preflight/--dry-run zero-effect guarantee', () => {
     expect(output).toMatch(/BLOCKED/);
   });
 
-  it('FROZEN outcome + --preflight: zero writes, zero receipts, zero Vela submission, zero signer resolution — even with a real --app and --evm-key supplied', async () => {
-    process.argv.push('--preflight', '--app=42', '--evm-key=0x' + '55'.repeat(32));
+  it('FROZEN outcome + --preflight: zero writes, zero receipts, zero Vela submission, zero signer resolution — even with a verified deployment receipt and --evm-key supplied', async () => {
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push('--preflight', `--deployment-receipt=${path}`, '--evm-key=0x' + '55'.repeat(32));
     seedAdmittedAegisAssessmentForNakamoto();
 
     await runUseCaseZeroDemoSeedCli();
@@ -890,6 +987,7 @@ describe('main() — --preflight/--dry-run zero-effect guarantee', () => {
     const output = logSpy.mock.calls.flat().join('\n');
     expect(output).toMatch(/FROZEN/);
     expect(output).toMatch(/zero Supabase writes/);
+    expect(output).toMatch(/deployment receipt: VERIFIED/);
   });
 
   it('FROZEN outcome + --preflight with a non-numeric applicationId: still zero effect, reports it would need --app', async () => {
@@ -915,7 +1013,8 @@ describe('main() — --preflight/--dry-run zero-effect guarantee', () => {
   });
 
   it('without --preflight, the SAME FROZEN inputs DO write and submit — proving preflight is the actual gate, not an environment artifact', async () => {
-    process.argv.push('--app=42', '--evm-key=0x' + '55'.repeat(32));
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${path}`, '--evm-key=0x' + '55'.repeat(32));
     seedAdmittedAegisAssessmentForNakamoto();
 
     await runUseCaseZeroDemoSeedCli();

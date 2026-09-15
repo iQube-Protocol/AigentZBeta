@@ -57,6 +57,15 @@ import {
   loadDevnetTokenResponse,
   deploymentFromDevnetTokenResponse,
 } from '../../services/vela/velaPublicDevnetTokenFile';
+import {
+  assembleVelaApplicationDeploymentReceipt,
+  type VelaApplicationDeploymentReceipt,
+} from '../../services/vela/velaApplicationDeploymentReceipt';
+import {
+  computeVelaFeeReservation,
+  devnetObservedFuelPriceProvenance,
+  DEVNET_OBSERVED_FUEL_PRICE_WEI_PER_UNIT,
+} from '../../services/vela/velaFuelAccounting';
 
 // ── Config loading (never hardcode a Synsema URL/token/key) ────────────────
 //
@@ -73,6 +82,16 @@ const WASM_PATH =
 const OUT_PATH =
   process.env.VELA_DEVNET_SMOKE_OUT ??
   `${process.cwd()}/scripts/vela/.public-devnet-smoke-last-result.json`;
+
+/** A dedicated, standalone file holding JUST the deployment receipt — the
+ *  exact shape scripts/seedUseCaseZeroDemo.ts's own `--deployment-receipt=<path>`
+ *  expects at the file's top level (2026-09-16 Vela/Horizen v0.2.0 feedback).
+ *  Written alongside OUT_PATH (which also nests the same object under
+ *  `.deploymentReceipt` for the full run's own record) so the seed script
+ *  never has to extract a nested field itself. */
+const DEPLOYMENT_RECEIPT_OUT_PATH =
+  process.env.VELA_DEVNET_SMOKE_DEPLOYMENT_RECEIPT_OUT ??
+  `${process.cwd()}/scripts/vela/.public-devnet-smoke-deployment-receipt.json`;
 
 // ── Small helpers ───────────────────────────────────────────────────────────
 
@@ -161,7 +180,8 @@ async function deployWasmToPublicDevnet(
   deployerKeyHex: string,
   wasmBytes: Buffer,
   localSha256: string,
-): Promise<{ applicationId: string; deployTxHash: string; wasmSha256: string; artifactId: string }> {
+  authorityServiceUrl: string,
+): Promise<{ applicationId: string; deployTxHash: string; wasmSha256: string; artifactId: string; deploymentReceipt: VelaApplicationDeploymentReceipt }> {
   const uploadResp = await uploadWasmToAuthorityService(deployment.authorityServiceUrl, wasmBytes);
   if (uploadResp.wasmSha256 !== localSha256) {
     throw new Error(
@@ -194,17 +214,36 @@ async function deployWasmToPublicDevnet(
   const receipt = await tx.wait();
   if (!receipt || receipt.status !== 1) throw new Error('submitDeployRequest transaction reverted');
 
+  // RECONSTRUCT the WASM-hash binding from the deploy TRANSACTION'S OWN
+  // input — never merely trusted from the Authority Service upload response
+  // alone (Vela/Horizen v0.2.0 feedback, 2026-09-16, finding 2: "the WASM
+  // hash is inside the unencrypted deploy-request transaction input").
   const iface = new Interface(DEPLOY_ABI);
+  const decodedTx = iface.parseTransaction({ data: tx.data });
+  if (!decodedTx || decodedTx.name !== 'submitDeployRequest') {
+    throw new Error('deployWasmToPublicDevnet: could not decode the deploy transaction\'s own input.');
+  }
+  const decodedInputPayload = JSON.parse(Buffer.from((decodedTx.args.payload as string).replace(/^0x/, ''), 'hex').toString('utf8')) as {
+    mode?: string;
+    artifactId?: string;
+    wasmSha256?: string;
+  };
+
   let applicationId: bigint | null = null;
+  let submittedRequestId: string | null = null;
   for (const log of receipt.logs) {
     try {
       const parsed = iface.parseLog(log);
-      if (parsed?.name === 'DeployRequestSubmitted') applicationId = parsed.args.applicationId as bigint;
+      if (parsed?.name === 'DeployRequestSubmitted') {
+        applicationId = parsed.args.applicationId as bigint;
+        submittedRequestId = parsed.args.requestId as string;
+      }
     } catch {
       /* not ours */
     }
   }
   if (applicationId === null) throw new Error('DeployRequestSubmitted event not found in receipt logs');
+  if (!submittedRequestId) throw new Error('DeployRequestSubmitted event carried no requestId');
 
   const filter = processor.filters.DeployRequestCompleted(applicationId);
   const completed = await pollUntil(
@@ -213,9 +252,14 @@ async function deployWasmToPublicDevnet(
       const events = await processor.queryFilter(filter, receipt.blockNumber, 'latest');
       if (events.length === 0) return null;
       const ev = events[events.length - 1] as unknown as {
-        args: { errorCode: bigint; errorMessage: string; status: bigint };
+        args: { requestId: string; errorCode: bigint; errorMessage: string; status: bigint };
       };
-      return { errorCode: Number(ev.args.errorCode), errorMessage: ev.args.errorMessage, status: Number(ev.args.status) };
+      return {
+        requestId: ev.args.requestId,
+        errorCode: Number(ev.args.errorCode),
+        errorMessage: ev.args.errorMessage,
+        status: Number(ev.args.status),
+      };
     },
     { maxAttempts: 60, intervalMs: 3000 },
   );
@@ -223,11 +267,40 @@ async function deployWasmToPublicDevnet(
     throw new Error(`deploy failed on-chain: errorCode ${completed.errorCode} — ${completed.errorMessage}`);
   }
 
+  // The canonical receipt — fails closed (throws) on any of the mismatch
+  // conditions this deploy's own evidence would have to satisfy anyway;
+  // never trusted as a bare pass-through of what the Authority Service said.
+  const deploymentReceipt = assembleVelaApplicationDeploymentReceipt({
+    network: { chainId: deployment.chainId, processorEndpointAddress: deployment.processorEndpointAddress, protocolVersion: 0 },
+    localWasmSha256: localSha256,
+    deployTransaction: {
+      hash: tx.hash,
+      blockNumber: receipt.blockNumber,
+      inputWasmSha256: decodedInputPayload.wasmSha256 ?? '',
+      inputArtifactId: decodedInputPayload.artifactId ?? '',
+      inputMode: decodedInputPayload.mode ?? '',
+    },
+    deployRequestSubmitted: { requestId: submittedRequestId, applicationId: applicationId.toString() },
+    deployRequestCompleted: {
+      requestId: completed.requestId,
+      applicationId: applicationId.toString(),
+      status: completed.status,
+      errorCode: completed.errorCode,
+      errorMessage: completed.errorMessage,
+    },
+    attestationMode: 'no_attestation', // Synsema public devnet — never Nitro-attested, see this file's own header.
+    ephemeral: true, // public devnet — resets periodically; never durable.
+    authorityServiceUrl,
+    artifactId: uploadResp.artifactId,
+    observedAt: new Date().toISOString(),
+  });
+
   return {
     applicationId: applicationId.toString(),
     deployTxHash: tx.hash,
     wasmSha256: uploadResp.wasmSha256,
     artifactId: uploadResp.artifactId,
+    deploymentReceipt,
   };
 }
 
@@ -334,22 +407,33 @@ async function buildPartyRig(
     authorityPrincipal: wallet.address,
     confidentialPrivacyIdentity: `vela-devnet-smoke:${label}`,
   });
+  // DETERMINISTIC FEE RESERVATION (2026-09-16, Vela/Horizen v0.2.0 feedback)
+  // — mirrors the guest's own self-reported fuel (services/vela/
+  // velaFuelAccounting.ts: 25 units for ProcessRequest, cited from
+  // app.go directly) rather than a bare hardcoded wei figure. minFeePerRequest
+  // is a REAL on-chain read (this devnet's own current value); the
+  // per-fuel-unit PRICE has no on-chain getter anywhere in this codebase, so
+  // it stays the explicitly-labelled devnet-observed fallback — never
+  // asserted as a universal/production constant (see
+  // devnetObservedFuelPriceProvenance's own doc comment). 2x headroom keeps
+  // the same safety margin the prior hardcoded 1_000_000n gave (still
+  // negligible against the devnet's 10,000 test ETH grant) without baking a
+  // second, undocumented magic number into this file.
+  const processorForFeeRead = new Contract(deployment.processorEndpointAddress, PROCESS_ABI, wallet);
+  const liveMinFeePerRequestWei: bigint = await processorForFeeRead.minFeePerRequest();
+  const reservation = computeVelaFeeReservation({
+    operation: 'process',
+    priceWeiPerFuelUnit: DEVNET_OBSERVED_FUEL_PRICE_WEI_PER_UNIT,
+    priceProvenance: devnetObservedFuelPriceProvenance(),
+    minFeePerRequestWei: liveMinFeePerRequestWei,
+    headroomMultiplier: 2,
+  });
+
   const opts: VelaClientAdapterOptions = {
     deployment,
     requesterPrivateKeyHex: wallet.privateKey,
     requesterP521PrivateKeyHex: privateKeyHex,
-    // A first run against this devnet with the bare minFeePerRequest() (10
-    // wei) failed EVERY multi-party submission with errorCode 12
-    // "insufficient fuel: required 25 wei, provided 10 wei" — an execution
-    // fee failure, not a guest disposition, and it decoded as UNRESOLVED
-    // indistinguishably from a genuine authorization refusal until the raw
-    // errorCode was inspected directly. Multi-party requests process more
-    // than one party's ProjectionInputs, so they cost more fuel than the
-    // single-party minimum this devnet's minFeePerRequest() reflects.
-    // Generous headroom (still negligible against the devnet's 10,000 test
-    // ETH grant) so a genuine guest disposition is never confused with a
-    // fee shortfall again.
-    maxFeeValueWei: 1_000_000n,
+    maxFeeValueWei: reservation.reservedFeeWei,
   };
   const adapter = new VelaClientAdapter(opts);
   return { label, wallet, p521PrivateKeyHex: privateKeyHex, namespaceRef, adapter };
@@ -371,9 +455,14 @@ async function main() {
   console.log('wasm bytes:', wasmBytes.length);
 
   console.log('\n=== Phase 3: deploy to public devnet ===');
-  const deployResult = await deployWasmToPublicDevnet(deployment, deployerKeyHex, wasmBytes, localSha256);
+  const deployResult = await deployWasmToPublicDevnet(deployment, deployerKeyHex, wasmBytes, localSha256, deployment.authorityServiceUrl);
   console.log('applicationId:', deployResult.applicationId);
   console.log('deploy tx:', deployResult.deployTxHash);
+  writeFileSync(DEPLOYMENT_RECEIPT_OUT_PATH, JSON.stringify(deployResult.deploymentReceipt, null, 2));
+  console.log('deployment receipt: VERIFIED, written to', DEPLOYMENT_RECEIPT_OUT_PATH);
+  console.log(
+    `  -> pass this to the seed script: --deployment-receipt=${DEPLOYMENT_RECEIPT_OUT_PATH}`,
+  );
 
   console.log('\n=== Phase 4: register test parties (ASSOCIATEKEY) ===');
   const deployerWallet = new Wallet(deployerKeyHex);
@@ -400,6 +489,12 @@ async function main() {
     wasmSha256: deployResult.wasmSha256,
     deployTxHash: deployResult.deployTxHash,
     attestationMode: 'EMULATED (no_attestation) — never Nitro-attested',
+    // The canonical, independently-reconstructed deployment receipt (2026-09-16
+    // Vela/Horizen v0.2.0 feedback) — pass this file's path as
+    // scripts/seedUseCaseZeroDemo.ts's own --deployment-receipt=<path>
+    // (extract just this field into its own file, or point at this whole
+    // results file and read .deploymentReceipt from it).
+    deploymentReceipt: deployResult.deploymentReceipt,
     parties: {
       A: { address: partyA.wallet.address, namespaceRef: partyA.namespaceRef },
       B: { address: partyB.wallet.address, namespaceRef: partyB.namespaceRef },

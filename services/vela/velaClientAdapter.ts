@@ -293,10 +293,15 @@ export class VelaClientAdapter implements VelaTransport {
 
     const done = this.processor.interface.parseLog(completed[0])!;
     const applicationId = String(done.args.applicationId);
+    // AUTHORITATIVE completion signal (Vela/Horizen v0.2.0 feedback,
+    // 2026-09-16) — 0 = completed, 1 = failed. errorCode/errorMsg are the
+    // SPECIFIC reason when status !== 0, never the primary check.
+    const status = Number(done.args.status);
     const errorCode = Number(done.args.errorCode);
     const errorMsg = String(done.args.errorMessage ?? '');
+    const applicationFees = String(done.args.applicationFees ?? '0');
 
-    // The state root the TEE signed.
+    // The state root the TEE signed, and the prior root it replaced.
     const rootLogs = await this.processor.queryFilter(
       this.processor.filters.StateRootUpdate(null, requestId),
       fromBlock,
@@ -304,6 +309,10 @@ export class VelaClientAdapter implements VelaTransport {
     const stateRootHex =
       rootLogs.length > 0
         ? (this.processor.interface.parseLog(rootLogs[0])!.args.newStateRoot as string)
+        : '';
+    const prevStateRootHex =
+      rootLogs.length > 0
+        ? (this.processor.interface.parseLog(rootLogs[0])!.args.oldStateRoot as string)
         : '';
 
     // The TEE's ECDSA signature is the last calldata argument of the
@@ -350,7 +359,10 @@ export class VelaClientAdapter implements VelaTransport {
     return {
       requestId,
       applicationId,
+      status,
+      applicationFees,
       stateRootHex,
+      prevStateRootHex,
       teeSignatureHex,
       stateUpdateTxHash,
       teeSignerAddress: await this.readRegisteredTeeSigner(),

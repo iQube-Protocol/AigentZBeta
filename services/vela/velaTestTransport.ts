@@ -37,6 +37,16 @@ export interface VelaTestTransportOptions {
   verdictFor: (plaintextJson: string) => string | null;
   /** Non-zero models an Executor-side failure (request marked failed on-chain). */
   errorCode?: number;
+  /**
+   * `RequestCompleted.status` override — defaults to `errorCode ? 1 : 0`
+   * (mirroring the real chain's own convention) so most tests never need to
+   * set this explicitly. Set it directly to model the rare/invalid case
+   * where status and errorCode would disagree, proving a caller's gate
+   * checks BOTH rather than trusting either alone.
+   */
+  status?: number;
+  /** `RequestCompleted.applicationFees` override (wei, as a decimal string). Defaults to `'0'`. */
+  applicationFees?: string;
   /** Number of polls that return null before the result appears. Models async observation. */
   pendingPolls?: number;
 }
@@ -126,7 +136,10 @@ export class VelaTestTransport implements VelaTransport {
     return {
       requestId,
       applicationId: 'test-app',
+      status: this.opts.status ?? (this.opts.errorCode ? 1 : 0),
+      applicationFees: this.opts.applicationFees ?? '0',
       stateRootHex: `0x${createHash('sha256').update(submission.payload).digest('hex')}`,
+      prevStateRootHex: `0x${createHash('sha256').update(`prev:${submission.payload}`).digest('hex')}`,
       teeSignatureHex: `0x${'11'.repeat(65)}`,
       // Deterministic per requestId, matching the shape (not the crypto) of
       // a real `stateUpdate` transaction hash — proves the provider threads

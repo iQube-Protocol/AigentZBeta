@@ -229,11 +229,28 @@ function commitMultiPartyPayload(payload: Uint8Array): string {
  * Non-Equivalence (`CI-2026-09-14-EXECUTION-FAILURE-NON-EQUIVALENCE-001`) —
  * discovered live against the public Vela v0.2.0 devnet, 2026-09-14.
  */
+/**
+ * Completion evidence surfaced alongside the resolved disposition — the
+ * fields requirement 3's own persistence list names that
+ * `getVelaMultiPartyProjectionOutcome` does not itself carry
+ * (`stateRootHex`/`prevStateRootHex`/`stateUpdateTxHash` are on the raw
+ * `VelaRequestResult`, not the coarser outcome type). Fetched with ONE extra
+ * `transport.fetchResult` call once the request is already known terminal
+ * (cheap — the same completed data, no new poll).
+ */
+interface VelaUnderwritingCompletionEvidence {
+  disposition: ConfidentialProjectionDisposition;
+  applicationFees: string;
+  stateRootHex: string;
+  prevStateRootHex: string;
+  stateUpdateTxHash: string;
+}
+
 async function pollMultiPartyDispositionToTerminal(
   transport: Pick<VelaTransport, 'fetchResult'>,
   onChainRequestId: string,
   maxAttempts: number,
-): Promise<ConfidentialProjectionDisposition> {
+): Promise<VelaUnderwritingCompletionEvidence> {
   let attempts = 0;
   let outcome = await getVelaMultiPartyProjectionOutcome(transport, onChainRequestId);
   while (outcome.status === 'PENDING') {
@@ -249,12 +266,22 @@ async function pollMultiPartyDispositionToTerminal(
   if (outcome.status === 'EXECUTION_FAILED') {
     throw new Error(
       `runVelaUnderwritingProjection: request ${onChainRequestId} failed at the Vela execution layer ` +
-        `(errorCode ${outcome.errorCode}: "${outcome.errorMsg}") — this is an execution/infrastructure ` +
-        'failure, never a constitutional UNRESOLVED determination. Refusing to quote or receipt a result ' +
-        'the guest never actually computed.',
+        `(errorCode ${outcome.errorCode}: "${outcome.errorMsg}", applicationFees ${outcome.applicationFees}) — ` +
+        'this is an execution/infrastructure failure, never a constitutional UNRESOLVED determination. ' +
+        'Refusing to quote or receipt a result the guest never actually computed.',
     );
   }
-  return outcome.disposition;
+  // Terminal + RESOLVED: safe to fetch the same completed result once more
+  // for the state-root/tx evidence getVelaMultiPartyProjectionOutcome does
+  // not itself carry. Never decoded/trusted before this point in the flow.
+  const raw = await transport.fetchResult(onChainRequestId);
+  return {
+    disposition: outcome.disposition,
+    applicationFees: outcome.applicationFees,
+    stateRootHex: raw?.stateRootHex ?? '',
+    prevStateRootHex: raw?.prevStateRootHex ?? '',
+    stateUpdateTxHash: raw?.stateUpdateTxHash ?? '',
+  };
 }
 
 /**
@@ -293,6 +320,16 @@ function buildUnderwritingActionInput(input: {
   attestationMode: AttestationMode;
   requestingPartyNamespaceRef?: string;
   quote: UnderwritingQuote;
+  /** Completion evidence (2026-09-16, Vela/Horizen v0.2.0 feedback) — only
+   *  ever reached AFTER pollMultiPartyDispositionToTerminal has already
+   *  confirmed RequestCompleted.status === 0, so its presence here is itself
+   *  proof the request completed successfully. */
+  completion: {
+    applicationFees: string;
+    stateRootHex: string;
+    prevStateRootHex: string;
+    stateUpdateTxHash: string;
+  };
 }): Record<string, unknown> {
   return {
     // 1. Request.
@@ -319,6 +356,14 @@ function buildUnderwritingActionInput(input: {
     // 8. Simulated/live status, bound explicitly (operator's own
     //    instruction), not merely nested inside `quote`.
     providerMode: input.quote.providerMode,
+    // 9. Authoritative on-chain completion evidence — the ACTUAL fee charged
+    //    (distinct from any client-side reservation) and the state
+    //    transition this request produced. Never inferred from submission
+    //    alone; always read from the matching RequestCompleted/StateRootUpdate.
+    applicationFees: input.completion.applicationFees,
+    stateRootHex: input.completion.stateRootHex,
+    prevStateRootHex: input.completion.prevStateRootHex,
+    stateUpdateTxHash: input.completion.stateUpdateTxHash,
   };
 }
 
@@ -356,12 +401,15 @@ export async function runVelaUnderwritingProjection(
 
   // 3. Observe until terminal — the confidential risk calculation and its
   //    minimum-disclosure verdict already happened inside the guest by the
-  //    time this resolves.
-  const disposition = await pollMultiPartyDispositionToTerminal(
+  //    time this resolves. Throws before this line returns if the request
+  //    failed at the execution layer (status !== 0) — see
+  //    pollMultiPartyDispositionToTerminal's own doc comment.
+  const completionEvidence = await pollMultiPartyDispositionToTerminal(
     params.transport,
     submission.onChainRequestId,
     params.maxPollAttempts ?? DEFAULT_MAX_POLL_ATTEMPTS,
   );
+  const disposition = completionEvidence.disposition;
 
   // 4. Underwriting quote — fed ONLY the coarse verdict (gate 1).
   const provider = params.underwritingProvider ?? createUnderwritingProvider();
@@ -392,6 +440,12 @@ export async function runVelaUnderwritingProjection(
       attestationMode,
       requestingPartyNamespaceRef: params.requestingPartyNamespaceRef,
       quote,
+      completion: {
+        applicationFees: completionEvidence.applicationFees,
+        stateRootHex: completionEvidence.stateRootHex,
+        prevStateRootHex: completionEvidence.prevStateRootHex,
+        stateUpdateTxHash: completionEvidence.stateUpdateTxHash,
+      },
     }),
   });
 

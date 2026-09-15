@@ -522,8 +522,8 @@ export async function submitVelaMultiPartyProjection(
  */
 export type VelaMultiPartyProjectionOutcome =
   | { status: 'PENDING' }
-  | { status: 'EXECUTION_FAILED'; errorCode: number; errorMsg: string }
-  | { status: 'RESOLVED'; disposition: ConfidentialProjectionDisposition };
+  | { status: 'EXECUTION_FAILED'; errorCode: number; errorMsg: string; applicationFees: string }
+  | { status: 'RESOLVED'; disposition: ConfidentialProjectionDisposition; applicationFees: string };
 
 /**
  * Resolves the full, undegraded outcome of a multi-party request — the
@@ -544,10 +544,30 @@ export async function getVelaMultiPartyProjectionOutcome(
 ): Promise<VelaMultiPartyProjectionOutcome> {
   const result = await transport.fetchResult(onChainRequestId);
   if (!result) return { status: 'PENDING' };
-  if (result.errorCode !== 0) {
-    return { status: 'EXECUTION_FAILED', errorCode: result.errorCode, errorMsg: result.errorMsg };
+  // AUTHORITATIVE gate (Vela/Horizen v0.2.0 feedback, 2026-09-16):
+  // `RequestCompleted.status` (0 = completed, 1 = failed) is what decides
+  // whether any output exists at all — checked FIRST, before
+  // `decryptedUserEventJson` (already decoded by `transport.fetchResult`
+  // regardless of status — see that function's own contract) is ever passed
+  // to `parseConfidentialVerdict`. `errorCode !== 0` is checked TOO (never
+  // relaxed to "status alone"), so a transport that ever reported a
+  // non-zero errorCode with status still 0 fails closed exactly the same —
+  // this only ever widens what counts as failure, never narrows it.
+  // `INSUFFICIENT_FUEL` is errorCode 12 on the DEPLOYED v0.2.0 ABI (never
+  // the unreleased v0.3.0 numbering) — see services/vela/velaFuelAccounting.ts.
+  if (result.status !== 0 || result.errorCode !== 0) {
+    return {
+      status: 'EXECUTION_FAILED',
+      errorCode: result.errorCode,
+      errorMsg: result.errorMsg,
+      applicationFees: result.applicationFees,
+    };
   }
-  return { status: 'RESOLVED', disposition: parseConfidentialVerdict(result.decryptedUserEventJson) };
+  return {
+    status: 'RESOLVED',
+    disposition: parseConfidentialVerdict(result.decryptedUserEventJson),
+    applicationFees: result.applicationFees,
+  };
 }
 
 /**
