@@ -110,14 +110,27 @@ vi.mock('@/services/vela/velaClientAdapter', () => ({
   VelaClientAdapter: FakeVelaClientAdapter,
 }));
 
+const TEST_RPC_URL = 'http://localhost:8545';
 vi.mock('@/services/vela/velaConfig', () => ({
-  resolveVelaDeployment: vi.fn((env: string) => ({ env })),
+  resolveVelaDeployment: vi.fn((env: string) => ({ env, rpcUrl: TEST_RPC_URL })),
+}));
+
+// ── fetch mock for probeVelaRpcReachable's bounded reachability preflight ──
+//
+// Defaults to a reachable RPC (a well-formed JSON-RPC eth_chainId result) so
+// every EXISTING resolveDemoVelaTransport test below continues to exercise
+// exactly what it did before this preflight was added. Individual tests
+// override this to prove the unreachable-RPC fail-fast contract.
+const fetchMock = vi.fn(async () => ({
+  ok: true,
+  json: async () => ({ jsonrpc: '2.0', id: 1, result: '0x7a69' }),
 }));
 
 // ── Import the module under test AFTER the mocks above ─────────────────────
 
 import {
   USE_CASE_ZERO_DEMO_REQUEST_REF,
+  USE_CASE_ZERO_DEMO_APPLICATION_ID,
   USE_CASE_ZERO_PARTY_A,
   USE_CASE_ZERO_PARTY_B,
   USE_CASE_ZERO_PARTY_C,
@@ -128,6 +141,7 @@ import {
   composeUseCaseZeroDemoChain,
   persistUseCaseZeroDemoChain,
   resolveDemoVelaTransport,
+  main as runUseCaseZeroDemoSeedCli,
   type UseCaseZeroDemoPersonas,
 } from '@/scripts/seedUseCaseZeroDemo';
 import type { AegisAdmissionEvidence } from '@/services/vela/velaUnderwritingAdmissionEvidence';
@@ -182,6 +196,16 @@ beforeEach(() => {
   getAgentKeysMock.mockReset();
   getAgentKeysMock.mockResolvedValue(null);
   velaClientAdapterConstructorMock.mockClear();
+  fetchMock.mockClear();
+  fetchMock.mockImplementation(async () => ({
+    ok: true,
+    json: async () => ({ jsonrpc: '2.0', id: 1, result: '0x7a69' }),
+  }));
+  vi.stubGlobal('fetch', fetchMock);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 // ── Fail-closed persona injection ──────────────────────────────────────────
@@ -511,5 +535,296 @@ describe('resolveDemoVelaTransport — internal P-521 derivation, no raw --p521-
     logSpy.mockRestore();
     errorSpy.mockRestore();
     warnSpy.mockRestore();
+  });
+});
+
+// ── RPC reachability preflight — the fail-fast repair (2026-09-16) ─────────
+//
+// Before this repair, resolveDemoVelaTransport constructed a real
+// VelaClientAdapter (a real ethers JsonRpcProvider) unconditionally. Against
+// an unreachable RPC (e.g. no local Docker Compose stack running), ethers'
+// own JsonRpcProvider.getNetwork() enters an UNBOUNDED "failed to detect
+// network; retry in 1s" retry loop — observed live. These tests prove the
+// new probeVelaRpcReachable() preflight (services/horizen/agentPreflight.ts's
+// own AbortController+timeout idiom, reused) fails once, fast, and BEFORE
+// any credential resolution or Supabase persistence — never entering that
+// loop.
+
+describe('resolveDemoVelaTransport — RPC reachability preflight (fail-fast, zero writes)', () => {
+  const originalArgv = process.argv;
+
+  beforeEach(() => {
+    process.argv = originalArgv.slice();
+  });
+
+  afterEach(() => {
+    process.argv = originalArgv;
+  });
+
+  it('fails fast (bounded time) when the Vela RPC is unreachable, and never constructs a transport', async () => {
+    fetchMock.mockRejectedValue(new Error('connect ECONNREFUSED 127.0.0.1:8545'));
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const startedAt = Date.now();
+    const transport = await resolveDemoVelaTransport();
+    const elapsedMs = Date.now() - startedAt;
+
+    expect(transport).toBeUndefined();
+    // A rejected fetch resolves near-instantly here (no real network stack
+    // involved) — the meaningful assertion is that this function returns at
+    // all rather than hanging in an unbounded retry loop; a generous ceiling
+    // rules out any accidental real-timer wait.
+    expect(elapsedMs).toBeLessThan(2000);
+    expect(velaClientAdapterConstructorMock).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(String(errorSpy.mock.calls[0][0])).toMatch(/not reachable/);
+    // The RPC check runs BEFORE credential resolution — no signer was ever consulted.
+    expect(getAgentKeysMock).not.toHaveBeenCalled();
+
+    errorSpy.mockRestore();
+  });
+
+  it('never attempts to derive or fetch a signer when the RPC is unreachable, even with --evm-key supplied', async () => {
+    process.argv = [...originalArgv, '--evm-key=0x' + '11'.repeat(32)];
+    fetchMock.mockRejectedValue(new Error('connect ECONNREFUSED'));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const transport = await resolveDemoVelaTransport();
+
+    expect(transport).toBeUndefined();
+    expect(velaClientAdapterConstructorMock).not.toHaveBeenCalled();
+  });
+
+  it('performs zero Supabase writes when the RPC is unreachable — main() returns before persistUseCaseZeroDemoChain is ever called', async () => {
+    // resolveDemoVelaTransport itself never calls createActivityReceipt (it
+    // has no persistence path at all) — this directly proves the preflight
+    // failure causes zero write side effects on its own. Combined with the
+    // source-level fact that main() (below) only calls
+    // persistUseCaseZeroDemoChain AFTER a successful resolveDemoVelaTransport
+    // for a FROZEN envelope — see main()'s own early `return` when transport
+    // is undefined — this establishes the end-to-end zero-writes contract
+    // without needing a live ADMITTED Aegis assessment fixture.
+    fetchMock.mockRejectedValue(new Error('connect ECONNREFUSED'));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await resolveDemoVelaTransport();
+
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+  });
+
+  it('accepts --vela-env=public_devnet as a first-class value (no longer typed as local|early_access only)', async () => {
+    process.argv = [...originalArgv, '--vela-env=public_devnet', '--evm-key=0x' + '22'.repeat(32)];
+
+    const transport = await resolveDemoVelaTransport();
+
+    expect(transport).toBeDefined();
+    expect(fetchMock).toHaveBeenCalledWith(TEST_RPC_URL, expect.objectContaining({ method: 'POST' }));
+  });
+
+  it('the abort signal is genuinely wired to the fetch call (the mechanism that bounds a real hang)', async () => {
+    let sawSignal: AbortSignal | undefined;
+    let fetchWasCalled: () => void;
+    const fetchCalled = new Promise<void>((resolve) => {
+      fetchWasCalled = resolve;
+    });
+    fetchMock.mockImplementationOnce((_url: string, init: { signal?: AbortSignal }) => {
+      sawSignal = init.signal;
+      fetchWasCalled();
+      // Resolve once the abort fires — proves the AbortController from
+      // probeVelaRpcReachable is actually threaded into the fetch call (the
+      // mechanism agentPreflight.ts's own probeReachable also relies on),
+      // without waiting out the real 5s timeout: dispatching the event
+      // below is what settles this promise, not the real setTimeout.
+      return new Promise((_resolve, reject) => {
+        init.signal?.addEventListener('abort', () => reject(new Error('AbortError')));
+      });
+    });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const resultPromise = resolveDemoVelaTransport();
+    // Wait for the mocked fetch to actually be invoked (async import()s +
+    // AbortController construction happen first) before dispatching — a
+    // synchronous dispatch immediately after calling resolveDemoVelaTransport
+    // would race ahead of that and hit the real timeout instead.
+    await fetchCalled;
+    sawSignal?.dispatchEvent(new Event('abort'));
+    await resultPromise;
+
+    expect(sawSignal).toBeInstanceOf(AbortSignal);
+    expect(velaClientAdapterConstructorMock).not.toHaveBeenCalled();
+  });
+});
+
+// ── main() — CLI persona auto-resolution + --app applicationId handling ────
+//
+// Real REGISTRABLE_AGENTS.nakamoto.runtimeAgentId ('aigent-nakamoto') and
+// the real resolveUseCaseZeroDemoPersonaIds() query shape (personas.
+// fio_handle for Nakamoto/Kn0w1, personas.display_name for ArkAgent) — never
+// mocked, proven against the fakeSupabase in-memory tables exactly like
+// every other read in this file.
+
+function seedAutoResolvablePersonas(): void {
+  fakeAdmin!.tables.personas = [
+    { id: 'auto-arkagent-1', display_name: 'ArkAgent' },
+    { id: 'auto-nakamoto-1', fio_handle: 'nakamoto@aigent', status: 'active' },
+    { id: 'auto-kn0w1-1', fio_handle: 'kn0w1@aigent', status: 'active' },
+  ];
+}
+
+/** A real ratified, admissible Aegis assessment for 'aigent-nakamoto' — the
+ *  exact shape composeUnderwritingAdmissionEvidence (never mocked in this
+ *  file) needs to resolve admissionStatus: 'ADMITTED', which is what makes
+ *  the envelope resolve FROZEN. */
+function seedAdmittedAegisAssessmentForNakamoto(): void {
+  fakeAdmin!.tables.aegis_assessments = [
+    {
+      assessment_id: 'aegis-assessment-frozen-fixture',
+      subject_type: 'agent',
+      subject_ref: 'aigent-nakamoto',
+      superseded_by: null,
+      state: 'ratified',
+      policy_version: 'v1',
+      decision: 'admissible',
+      conditions: [],
+      rationale: 'test fixture',
+      ratified_at: new Date().toISOString(),
+    },
+  ];
+  fakeAdmin!.tables.aegis_findings = [];
+}
+
+describe('main() — CLI persona resolution', () => {
+  const originalArgv = process.argv;
+  let logSpy: ReturnType<typeof vi.spyOn>;
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    process.argv = originalArgv.slice();
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    process.argv = originalArgv;
+    logSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
+
+  it('all three personas supplied explicitly via CLI — never queries the personas table', async () => {
+    process.argv = [
+      ...originalArgv,
+      `--arkagent=${TEST_PERSONAS.arkAgentPersonaId}`,
+      `--nakamoto=${TEST_PERSONAS.nakamotoPersonaId}`,
+      `--kn0w1=${TEST_PERSONAS.kn0w1PersonaId}`,
+    ];
+    // Deliberately NOT seeded — proves explicit values short-circuit resolution.
+    fakeAdmin!.tables.personas = [];
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(createActivityReceiptMock).toHaveBeenCalled();
+    const factorReceipt = createActivityReceiptMock.mock.calls.find(
+      (c: any[]) => c[0].actionType === 'factor_selection_proposed',
+    );
+    expect(factorReceipt?.[0].personaId).toBe(TEST_PERSONAS.arkAgentPersonaId);
+  });
+
+  it('all three personas resolved automatically via Supabase when no CLI args are given', async () => {
+    seedAutoResolvablePersonas();
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    const factorReceipt = createActivityReceiptMock.mock.calls.find(
+      (c: any[]) => c[0].actionType === 'factor_selection_proposed',
+    );
+    expect(factorReceipt?.[0].personaId).toBe('auto-arkagent-1');
+  });
+
+  it('mixed: one explicit override + two auto-resolved', async () => {
+    process.argv = [...originalArgv, '--arkagent=explicit-arkagent-override'];
+    seedAutoResolvablePersonas();
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    const factorReceipt = createActivityReceiptMock.mock.calls.find(
+      (c: any[]) => c[0].actionType === 'factor_selection_proposed',
+    );
+    // The explicit override wins for ArkAgent; Nakamoto/Kn0w1 came from resolution.
+    expect(factorReceipt?.[0].personaId).toBe('explicit-arkagent-override');
+  });
+
+  it('an unresolved persona fails closed BEFORE any persistence, and names exactly which is missing', async () => {
+    // Only Nakamoto/Kn0w1 seeded — ArkAgent cannot resolve.
+    fakeAdmin!.tables.personas = [
+      { id: 'auto-nakamoto-1', fio_handle: 'nakamoto@aigent', status: 'active' },
+      { id: 'auto-kn0w1-1', fio_handle: 'kn0w1@aigent', status: 'active' },
+    ];
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(String(errorSpy.mock.calls[0][0])).toMatch(/ArkAgent/);
+    expect(String(errorSpy.mock.calls[0][0])).not.toMatch(/Nakamoto|Kn0w1/);
+  });
+});
+
+describe('main() — --app applicationId handling before any Vela submission', () => {
+  const originalArgv = process.argv;
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    process.argv = [
+      ...originalArgv,
+      `--arkagent=${TEST_PERSONAS.arkAgentPersonaId}`,
+      `--nakamoto=${TEST_PERSONAS.nakamotoPersonaId}`,
+      `--kn0w1=${TEST_PERSONAS.kn0w1PersonaId}`,
+    ];
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    seedAdmittedAegisAssessmentForNakamoto();
+  });
+
+  afterEach(() => {
+    process.argv = originalArgv;
+    errorSpy.mockRestore();
+  });
+
+  it('refuses to submit (and persists NOTHING) when the envelope is FROZEN but --app was never supplied', async () => {
+    await runUseCaseZeroDemoSeedCli();
+
+    // Zero persistence — the applicationId check runs before
+    // persistUseCaseZeroDemoChain is ever called, not just before submission.
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    expect(velaClientAdapterConstructorMock).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(String(errorSpy.mock.calls[0][0])).toMatch(/applicationId/);
+    expect(String(errorSpy.mock.calls[0][0])).toMatch(/--app=/);
+  });
+
+  it('refuses a non-numeric --app value the same way as the missing case', async () => {
+    process.argv.push('--app=not-a-real-application-id');
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(String(errorSpy.mock.calls[0][0])).toMatch(/applicationId/);
+  });
+
+  it('proceeds through to a real Vela submission once a real numeric --app and a signer are both supplied', async () => {
+    process.argv.push('--app=42', '--evm-key=0x' + '33'.repeat(32));
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(velaClientAdapterConstructorMock).toHaveBeenCalledTimes(1);
+    expect(runVelaUnderwritingProjectionMock).toHaveBeenCalledTimes(1);
+    const frozenReceipt = createActivityReceiptMock.mock.calls.find(
+      (c: any[]) => c[0].actionType === 'vela_underwriting_envelope_frozen',
+    );
+    expect(frozenReceipt?.[0].actionInput.applicationId).toBe('42');
   });
 });

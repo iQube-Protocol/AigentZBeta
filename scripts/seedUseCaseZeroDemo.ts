@@ -130,6 +130,7 @@ import {
 } from '@/services/vela/velaMultiPartyProjection';
 import { getConstitutionalRiskFlowState } from '@/services/vela/velaUnderwritingChainProjection';
 import type { VelaTransport } from '@/services/vela/velaTypes';
+import type { VelaEnv } from '@/services/vela/velaConfig';
 
 // ── Fixed demo identifiers ──────────────────────────────────────────────────
 
@@ -209,11 +210,14 @@ export function assertUseCaseZeroDemoPersonas(personas: Partial<UseCaseZeroDemoP
  * input) can construct the identical artifact independently of
  * `composeUseCaseZeroDemoChain` — see this file's header.
  */
-export function buildUseCaseZeroDemoFactorSelection(personas: UseCaseZeroDemoPersonas): FactorSelectionArtifact {
+export function buildUseCaseZeroDemoFactorSelection(
+  personas: UseCaseZeroDemoPersonas,
+  applicationId: string = USE_CASE_ZERO_DEMO_APPLICATION_ID,
+): FactorSelectionArtifact {
   assertUseCaseZeroDemoPersonas(personas);
   return proposeFactorSelection({
     requestRef: USE_CASE_ZERO_DEMO_REQUEST_REF,
-    applicationId: USE_CASE_ZERO_DEMO_APPLICATION_ID,
+    applicationId,
     candidateAgentSlug: DEMO_CANDIDATE_AGENT_SLUG,
     serviceId: USE_CASE_ZERO_DEMO_SERVICE_ID,
     selectionReason:
@@ -228,10 +232,12 @@ export function buildUseCaseZeroDemoFactorSelection(personas: UseCaseZeroDemoPer
 /** The exact asymmetric disclosure scope the brief specifies. Exported so the
  *  local fixture (Part 2) can reuse it verbatim rather than hand-typing a
  *  second copy that could drift. */
-export function buildUseCaseZeroDemoDisclosureScope(): VelaMultiPartyDisclosureScope {
+export function buildUseCaseZeroDemoDisclosureScope(
+  applicationId: string = USE_CASE_ZERO_DEMO_APPLICATION_ID,
+): VelaMultiPartyDisclosureScope {
   return {
     binding: {
-      applicationId: USE_CASE_ZERO_DEMO_APPLICATION_ID,
+      applicationId,
       requestRef: USE_CASE_ZERO_DEMO_REQUEST_REF,
       operationType: VELA_MULTI_PARTY_OPERATION_JOINT_CONSEQUENCE_PROJECTION,
       outputClass: VELA_MULTI_PARTY_OUTPUT_CLASS_JOINT_VERDICT,
@@ -254,6 +260,19 @@ export interface ComposeUseCaseZeroDemoChainParams extends UseCaseZeroDemoPerson
    * as ADMITTED by this function.
    */
   admissionEvidence: AegisAdmissionEvidence;
+  /**
+   * Real, per-deployment-transaction Vela `applicationId` (see
+   * velaConfig.ts's own header: never a durable identity, always a fresh
+   * value from one deployment). Optional ONLY because a BLOCKED-outcome
+   * demo run (no Vela submission ever happens) has nothing to validate this
+   * against; `main()` below REQUIRES a real, explicit `--app` value before
+   * ever resolving a transport for a FROZEN envelope — see "the applicationId
+   * caveat" in velaUnderwritingCompositionGate.ts for why this single value
+   * is the one thing the on-chain submission actually reads. Defaults to the
+   * fixed demo placeholder, which is BigInt-unparseable ON PURPOSE so a
+   * caller can never accidentally submit it to Vela.
+   */
+  applicationId?: string;
 }
 
 export interface UseCaseZeroDemoComposedChain {
@@ -292,13 +311,14 @@ export function composeUseCaseZeroDemoChain(
     );
   }
 
-  const factorSelection = buildUseCaseZeroDemoFactorSelection(params);
+  const applicationId = params.applicationId ?? USE_CASE_ZERO_DEMO_APPLICATION_ID;
+  const factorSelection = buildUseCaseZeroDemoFactorSelection(params, applicationId);
 
   const disclosureAuthorization = authorizeUnderwritingDisclosure({
     selectionRef: factorSelection.selectionRef,
     requestRef: USE_CASE_ZERO_DEMO_REQUEST_REF,
-    applicationId: USE_CASE_ZERO_DEMO_APPLICATION_ID,
-    scope: buildUseCaseZeroDemoDisclosureScope(),
+    applicationId,
+    scope: buildUseCaseZeroDemoDisclosureScope(applicationId),
     authorizedByAgentRef: DEMO_AUTHORIZING_AGENT_REF,
     evidenceRefs: [],
   });
@@ -312,9 +332,9 @@ export function composeUseCaseZeroDemoChain(
   const partyBindingInputs: RecordUnderwritingPartyBindingInput[] = Object.entries(partyPersonaByLabel).map(
     ([partyLabel, personaId]) => ({
       requestRef: USE_CASE_ZERO_DEMO_REQUEST_REF,
-      applicationId: USE_CASE_ZERO_DEMO_APPLICATION_ID,
+      applicationId,
       partyLabel,
-      partyNamespaceRef: deriveVelaPartyNamespaceRef(USE_CASE_ZERO_DEMO_APPLICATION_ID, {
+      partyNamespaceRef: deriveVelaPartyNamespaceRef(applicationId, {
         authorityPrincipal: personaId,
         confidentialPrivacyIdentity: personaId,
       }),
@@ -348,7 +368,7 @@ export function composeUseCaseZeroDemoChain(
 
   return {
     requestRef: USE_CASE_ZERO_DEMO_REQUEST_REF,
-    applicationId: USE_CASE_ZERO_DEMO_APPLICATION_ID,
+    applicationId,
     factorSelection,
     admissionEvidence: params.admissionEvidence,
     disclosureAuthorization,
@@ -578,17 +598,56 @@ function cliArg(name: string): string | undefined {
 }
 
 /**
- * `tsx scripts/seedUseCaseZeroDemo.ts --arkagent=<id> --nakamoto=<id> --kn0w1=<id> [--app=<applicationId>] [--evm-key=<hex>] [--vela-env=local|early_access]`
+ * `tsx scripts/seedUseCaseZeroDemo.ts --arkagent=<id> --nakamoto=<id> --kn0w1=<id> [--app=<applicationId>] [--evm-key=<hex>] [--vela-env=local|early_access|public_devnet]`
  *
- * The brief's own illustrative CLI signature named only the three persona
- * flags. `--vela-env` (and the optional `--evm-key` override, see
- * `resolveDemoVelaTransport` below) were added because
+ * Persona flags are OPTIONAL overrides, not requirements — any omitted one is
+ * resolved via `resolveUseCaseZeroDemoPersonaIds()` (real Supabase lookup;
+ * see that function's own header). `main()` reports exactly which persona(s)
+ * remain unresolved and exits before any persistence if any do.
+ *
+ * `--app=<applicationId>` is REQUIRED whenever the envelope resolves FROZEN
+ * (i.e. an actual Vela submission is about to happen) — see "REAL VELA
+ * APPLICATIONID, NEVER THE DEMO PLACEHOLDER" below. It is unused, and may be
+ * omitted, for a BLOCKED-outcome run.
+ *
+ * `--vela-env` (and the optional `--evm-key` override, see
+ * `resolveDemoVelaTransport` below) exist because
  * `submitFrozenUnderwritingEnvelope`'s real signature requires a
  * `VelaTransport`, and this codebase has no default production Vela
  * deployment to construct one from silently (`services/vela/velaConfig.ts`'s
  * own header: no production/testnet deployment is configured anywhere). When
  * the envelope resolves BLOCKED (Aegis has not yet ratified the candidate
  * admissible), no transport is resolved at all and these flags are unused.
+ * Accepts the SAME three environments `services/vela/velaConfig.ts`'s own
+ * `VelaEnv` type does — `'local'` (the Docker Compose stack), `'early_access'`
+ * (a Horizen-provisioned instance; none exists yet), and `'public_devnet'`
+ * (the public Synsema devnet — see `scripts/vela/public-devnet-smoke.ts` for
+ * how to obtain a deployment + real applicationId against it). An
+ * unrecognised value fails closed inside `resolveVelaDeployment` itself
+ * (reused, not reimplemented here).
+ *
+ * REAL VELA APPLICATIONID, NEVER THE DEMO PLACEHOLDER — traced end-to-end
+ * (2026-09-16) through `velaUnderwritingCompositionGate.ts`'s own
+ * "applicationId caveat": the frozen envelope's `applicationId` is sourced
+ * SOLELY from `disclosureAuthorization.applicationId` (there is no other
+ * ground truth anywhere in this chain — `FactorSelectionArtifact` and
+ * `AegisAdmissionEvidence` carry none), and that same value flows unchanged
+ * into `runVelaUnderwritingProjection`'s `build.applicationId` ->
+ * `VelaClientAdapter.submitProcessRequest(applicationId, ...)`, which calls
+ * `BigInt(applicationId)` against the real on-chain contract call
+ * (`services/vela/velaClientAdapter.ts:submitRequest`'s `uint64 applicationId`
+ * parameter). `USE_CASE_ZERO_DEMO_APPLICATION_ID` ('demo-use-case-zero-
+ * application') is deliberately NOT a valid `BigInt` string — so it can never
+ * be silently submitted on-chain. `main()` below therefore REQUIRES `--app`
+ * to resolve to a real, positive-integer string before EVER calling
+ * `resolveDemoVelaTransport()` for a FROZEN envelope, and fails closed with a
+ * clear message (pointing at `scripts/vela/public-devnet-smoke.ts`'s
+ * deployment step) rather than guessing or reusing the placeholder — nothing
+ * is persisted when this check fails. Obtain the real value from a SEPARATE
+ * provisioning step (that script's own recorded `applicationId`, or the
+ * equivalent for `local`/`early_access`), never derived or invented here —
+ * every public-devnet `applicationId` is explicitly ephemeral (resets with
+ * the devnet instance), so this script never caches or hardcodes one.
  *
  * NO `--p521-key` ARGUMENT — REMOVED (2026-09-15, operator ruling: "keys are
  * substrate primitives, not UX concepts"): a P-521 key is never accepted
@@ -629,6 +688,46 @@ function cliArg(name: string): string | undefined {
  * on any object this script prints (operator instruction, 2026-09-15: "Do
  * not log, print, persist, or expose the derived private key").
  */
+
+/**
+ * Bounded, fail-fast Vela RPC reachability probe — the SAME
+ * `AbortController` + `setTimeout` idiom `services/horizen/agentPreflight.ts`'s
+ * own `probeReachable` already uses (reused, not reinvented), returning the
+ * same `{ ok: true } | { ok: false; detail }` shape. A raw JSON-RPC POST,
+ * deliberately never ethers' own `JsonRpcProvider`/`getNetwork()` — THAT
+ * call's failure mode against an unreachable RPC is an UNBOUNDED "failed to
+ * detect network; retry in 1s" loop (observed live against an absent local
+ * Docker Compose stack, 2026-09-15), not a single bounded failure. Runs
+ * BEFORE any `VelaClientAdapter`/ethers provider is constructed, and BEFORE
+ * any credential resolution — the cheapest, fastest-failing check goes
+ * first. Never throws.
+ */
+async function probeVelaRpcReachable(
+  rpcUrl: string,
+  timeoutMs = 5000,
+): Promise<{ ok: true } | { ok: false; detail: string }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_chainId', params: [] }),
+      signal: controller.signal,
+    });
+    if (!res.ok) return { ok: false, detail: `HTTP ${res.status}` };
+    const body = (await res.json().catch(() => null)) as { result?: unknown; error?: unknown } | null;
+    if (!body || (body.result === undefined && body.error === undefined)) {
+      return { ok: false, detail: 'response was not a JSON-RPC result' };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, detail: err instanceof Error ? err.message : String(err) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function resolveDemoVelaTransport(): Promise<VelaTransport | undefined> {
   const [{ VelaClientAdapter }, { resolveVelaDeployment }, { deriveAgentP521KeyPair }, { Wallet }] = await Promise.all([
     import('@/services/vela/velaClientAdapter'),
@@ -636,6 +735,25 @@ export async function resolveDemoVelaTransport(): Promise<VelaTransport | undefi
     import('@/services/vela/agentP521Derivation'),
     import('ethers'),
   ]);
+
+  const velaEnv = (cliArg('vela-env') as VelaEnv | undefined) ?? 'local';
+  const deployment = resolveVelaDeployment(velaEnv);
+
+  // FAIL FAST on an unreachable RPC — before touching AgentKeyService/
+  // Supabase for a signer, and long before any persistence (see this
+  // function's caller, main(), which never calls persistUseCaseZeroDemoChain
+  // when this returns undefined).
+  const reachability = await probeVelaRpcReachable(deployment.rpcUrl);
+  if (!reachability.ok) {
+    console.error(
+      `seedUseCaseZeroDemo: the envelope resolved FROZEN, but the Vela RPC at ${deployment.rpcUrl} ` +
+        `(--vela-env=${velaEnv}) is not reachable (${reachability.detail}) — refusing to construct a transport ` +
+        'or persist anything. If this is the local Docker Compose stack, start it first (vela-starterkit); for ' +
+        '--vela-env=public_devnet, obtain fresh coordinates via scripts/vela/public-devnet-smoke.ts (POST ' +
+        'https://devnet.synsema.app/token) and export the resulting VELA_PUBLIC_DEVNET_* env vars.',
+    );
+    return undefined;
+  }
 
   const evmKeyOverride = cliArg('evm-key');
   let evmPrivateKeyHex: string | undefined = evmKeyOverride;
@@ -656,27 +774,26 @@ export async function resolveDemoVelaTransport(): Promise<VelaTransport | undefi
   const wallet = new Wallet(evmPrivateKeyHex);
   const { privateKeyHex: p521PrivateKeyHex } = await deriveAgentP521KeyPair(wallet);
 
-  const velaEnv = (cliArg('vela-env') as 'local' | 'early_access' | undefined) ?? 'local';
   return new VelaClientAdapter({
-    deployment: resolveVelaDeployment(velaEnv),
+    deployment,
     requesterPrivateKeyHex: wallet.privateKey,
     requesterP521PrivateKeyHex: p521PrivateKeyHex,
   });
 }
 
-async function main(): Promise<void> {
-  const personas: Partial<UseCaseZeroDemoPersonas> = {
+/** A valid, real Vela on-chain `applicationId` — the exact string shape
+ *  `BigInt()` (and Solidity's `uint64`) accept. `USE_CASE_ZERO_DEMO_APPLICATION_ID`
+ *  deliberately fails this check — see "REAL VELA APPLICATIONID" above. */
+function isSubmittableApplicationId(applicationId: string): boolean {
+  return /^\d+$/.test(applicationId);
+}
+
+export async function main(): Promise<void> {
+  const explicit: Partial<UseCaseZeroDemoPersonas> = {
     arkAgentPersonaId: cliArg('arkagent'),
     nakamotoPersonaId: cliArg('nakamoto'),
     kn0w1PersonaId: cliArg('kn0w1'),
   };
-  try {
-    assertUseCaseZeroDemoPersonas(personas);
-  } catch (err) {
-    console.error(err instanceof Error ? err.message : String(err));
-    process.exitCode = 1;
-    return;
-  }
 
   const admin = getSupabaseServer();
   if (!admin) {
@@ -688,13 +805,56 @@ async function main(): Promise<void> {
     return;
   }
 
-  const factorSelection = buildUseCaseZeroDemoFactorSelection(personas as UseCaseZeroDemoPersonas);
+  // Explicit --arkagent/--nakamoto/--kn0w1 values are OVERRIDES; any omitted
+  // one is resolved through the real, existing resolveUseCaseZeroDemoPersonaIds()
+  // (never hardcoded, never guessed). Only queries Supabase when at least one
+  // persona is actually missing.
+  const needsResolution = !explicit.arkAgentPersonaId || !explicit.nakamotoPersonaId || !explicit.kn0w1PersonaId;
+  const auto = needsResolution
+    ? await resolveUseCaseZeroDemoPersonaIds()
+    : { arkAgentPersonaId: null, nakamotoPersonaId: null, kn0w1PersonaId: null };
+
+  const resolved: Partial<UseCaseZeroDemoPersonas> = {
+    arkAgentPersonaId: explicit.arkAgentPersonaId ?? auto.arkAgentPersonaId ?? undefined,
+    nakamotoPersonaId: explicit.nakamotoPersonaId ?? auto.nakamotoPersonaId ?? undefined,
+    kn0w1PersonaId: explicit.kn0w1PersonaId ?? auto.kn0w1PersonaId ?? undefined,
+  };
+
+  const unresolvedLabels: string[] = [];
+  if (!resolved.arkAgentPersonaId) unresolvedLabels.push('ArkAgent (--arkagent=<id>, or personas.display_name="ArkAgent")');
+  if (!resolved.nakamotoPersonaId) unresolvedLabels.push('Aigent Nakamoto (--nakamoto=<id>, or personas.fio_handle="nakamoto@aigent")');
+  if (!resolved.kn0w1PersonaId) unresolvedLabels.push('Aigent Kn0w1 (--kn0w1=<id>, or personas.fio_handle="kn0w1@aigent")');
+  if (unresolvedLabels.length > 0) {
+    console.error(
+      'seedUseCaseZeroDemo: could not resolve the following persona(s) — refusing to proceed, nothing was ' +
+        `persisted:\n${unresolvedLabels.map((l) => `  - ${l}`).join('\n')}`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+  const personas = resolved as UseCaseZeroDemoPersonas;
+
+  const applicationId = cliArg('app') ?? USE_CASE_ZERO_DEMO_APPLICATION_ID;
+  const factorSelection = buildUseCaseZeroDemoFactorSelection(personas, applicationId);
   const admissionEvidence = await composeUnderwritingAdmissionEvidence(admin, { factorSelection });
 
-  const composed = composeUseCaseZeroDemoChain({ ...(personas as UseCaseZeroDemoPersonas), admissionEvidence });
+  const composed = composeUseCaseZeroDemoChain({ ...personas, admissionEvidence, applicationId });
 
   let transport: VelaTransport | undefined;
   if (composed.envelopeResult.outcome === 'FROZEN') {
+    // Validate BEFORE resolving a transport or persisting anything — never
+    // guess, fabricate, or silently reuse the non-numeric demo placeholder
+    // against a real on-chain call (see "REAL VELA APPLICATIONID" above).
+    if (!isSubmittableApplicationId(composed.applicationId)) {
+      console.error(
+        'seedUseCaseZeroDemo: the envelope resolved FROZEN and is ready to submit to Vela, but applicationId ' +
+          `("${composed.applicationId}") is not a real, numeric Vela deployment applicationId. Deploy (or reuse) ` +
+          'a real WASM application first — e.g. scripts/vela/public-devnet-smoke.ts for --vela-env=public_devnet ' +
+          '— and pass its applicationId explicitly via --app=<applicationId>. Nothing was persisted.',
+      );
+      process.exitCode = 1;
+      return;
+    }
     transport = await resolveDemoVelaTransport();
     if (!transport) {
       process.exitCode = 1;
@@ -703,7 +863,7 @@ async function main(): Promise<void> {
   }
 
   const result = await persistUseCaseZeroDemoChain(composed, {
-    actorPersonaId: personas.arkAgentPersonaId!,
+    actorPersonaId: personas.arkAgentPersonaId,
     transport,
   });
 
