@@ -47,6 +47,13 @@ export interface VelaTestTransportOptions {
   status?: number;
   /** `RequestCompleted.applicationFees` override (wei, as a decimal string). Defaults to `'0'`. */
   applicationFees?: string;
+  /**
+   * Total `UserEvent` count for the request, to ANY recipient — defaults to
+   * `1` (an event exists somewhere; the common "not addressed to me" case
+   * when `verdictFor` returns null). Set explicitly to `0` to model the
+   * genuinely-missing-event protocol-error case (2026-09-16, 2nd pass).
+   */
+  userEventCount?: number;
   /** Number of polls that return null before the result appears. Models async observation. */
   pendingPolls?: number;
 }
@@ -148,6 +155,7 @@ export class VelaTestTransport implements VelaTransport {
       teeSignerAddress: signer,
       submittedPayload: submission.payload,
       decryptedUserEventJson: this.opts.verdictFor(submission.plaintext),
+      userEventCount: this.opts.userEventCount ?? 1,
       errorCode: this.opts.errorCode ?? 0,
       errorMsg: this.opts.errorCode ? 'executor marked request failed' : '',
     };

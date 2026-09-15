@@ -339,6 +339,13 @@ export class VelaClientAdapter implements VelaTransport {
       this.processor.filters.UserEvent(null, requestId),
       fromBlock,
     );
+    // Total UserEvent logs for this request, TO ANY RECIPIENT — lets the
+    // decode layer (velaMultiPartyProjection.ts) distinguish "zero events
+    // exist at all" (a protocol/evidence error on a successful completion —
+    // app.go always emits >=1 UserEvent on every non-malfunction path) from
+    // "events exist, but none decrypt for me" (the legitimate not-a-
+    // recipient case, per VELA-PRIVACY-BOUNDARY-001 below).
+    const userEventCount = userEvents.length;
     for (const log of userEvents) {
       const encrypted = this.processor.interface.parseLog(log)!.args.encryptedData as string;
       try {
@@ -371,6 +378,7 @@ export class VelaClientAdapter implements VelaTransport {
         'hex',
       ),
       decryptedUserEventJson,
+      userEventCount,
       errorCode,
       errorMsg,
     };

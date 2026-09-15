@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-09-16-VELA-MISSING-EVENT-PROTOCOL-ERROR-NON-EQUIVALENCE-001",
+  "capability": "vela-001-confidential-constitutional-execution",
+  "milestone": "UC0 semantic-closure hardening pass — RES-2026-09-14-VELA-EXECUTION-FAILURE-NON-EQUIVALENCE-001 closed the status!==0/errorCode!==0 gap; this pass closes the remaining status===0 gap where evidence itself is missing or malformed.",
+  "problem": "getVelaMultiPartyProjectionOutcome (services/vela/velaMultiPartyProjection.ts) treated EVERY successful completion (status === 0, errorCode === 0) as RESOLVED and passed decryptedUserEventJson straight to parseConfidentialVerdict, which collapses both a legitimate 'not addressed to me' (decryptedUserEventJson === null because no event decrypted for this caller, while other parties' events exist) AND a genuinely broken/missing-evidence case to the SAME 'UNRESOLVED' disposition. Two sub-cases were indistinguishable from a real disposition: (a) a successful completion with ZERO UserEvent logs for the request AT ALL — a fail-closed evidence/protocol defect, since app.go's ProcessRequest path always emits at least one UserEvent on every non-malfunction path, so zero is never legitimate; and (b) an event that DID decrypt for this caller but whose JSON content does not parse as a well-formed {\"verdict\": ...} payload — malformed evidence, not a genuine decision.",
+  "observedFailure": [
+    "No test exercised userEventCount === 0 or a decrypted-but-malformed event payload before this pass — every prior test either supplied a well-formed verdictFor return or null (modeling ordinary exclusion with other events still existing), so the RESOLVED/UNRESOLVED collapse for these two genuinely-broken cases was never exercised or distinguished."
+  ],
+  "rootCauses": [
+    "VelaRequestResult (services/vela/velaTypes.ts) carried no signal for 'how many UserEvent logs exist for this request, to any recipient' — only decryptedUserEventJson (this caller's own decrypted payload, or null). Without that count, the decode layer had no way to distinguish 'zero events exist at all' from 'events exist but none decrypt for me'.",
+    "parseConfidentialVerdict's own contract (services/vela/velaProjectionProvider.ts) is, by design, a lossy fail-closed collapse for its own legitimate callers (any non-well-formed input, including null, becomes UNRESOLVED) — appropriate for a single-party caller that wants a conservative disposition, but insufficient on its own for a decode layer that must also distinguish a genuine disposition from missing/broken evidence before persisting anything."
+  ],
+  "resolution": [
+    "Added userEventCount: number to VelaRequestResult (services/vela/velaTypes.ts) — total UserEvent logs found for the request, to ANY recipient, computed in VelaClientAdapter.fetchResult (services/vela/velaClientAdapter.ts) from the existing UserEvent queryFilter result (userEvents.length) before the per-recipient decrypt loop runs.",
+      "Added the matching userEventCount option (default 1, an event exists somewhere) to VelaTestTransportOptions (services/vela/velaTestTransport.ts), so existing tests that model ordinary not-a-recipient exclusion (verdictFor returning null with other events implicitly existing) are unaffected by default, and a new test can set it to 0 to model the genuinely-missing-event case explicitly.",
+    "Added VelaMultiPartyProjectionOutcome's 4th branch, {status: 'PROTOCOL_ERROR', reason, applicationFees} (services/vela/velaMultiPartyProjection.ts), and rewrote getVelaMultiPartyProjectionOutcome to check, AFTER the existing status/errorCode gate and BEFORE calling parseConfidentialVerdict: (1) result.userEventCount === 0 -> PROTOCOL_ERROR (missing expected event); (2) decryptedUserEventJson !== null && !isWellFormedVerdictJson(decryptedUserEventJson) -> PROTOCOL_ERROR (malformed event content); otherwise -> RESOLVED via the existing parseConfidentialVerdict call, unchanged.",
+    "Added the new isWellFormedVerdictJson helper (same file) that asks only whether a non-null JSON string parses as the exact {\"verdict\": ACCEPTABLE|UNACCEPTABLE|UNRESOLVED} shape parseConfidentialVerdict itself recognises — parseConfidentialVerdict remains the single source of truth for the VALUE; this only distinguishes 'malformed' from 'genuinely resolved' for an event that DID decrypt.",
+    "Updated getVelaMultiPartyProjectionDisposition (same file, legacy coarse entry point) to collapse PROTOCOL_ERROR into the string 'UNRESOLVED', the same fail-closed treatment it already gives EXECUTION_FAILED, so existing coarse callers are unaffected.",
+    "Updated pollMultiPartyDispositionToTerminal (services/vela/velaUnderwritingProjection.ts) to add an explicit PROTOCOL_ERROR throw branch, mirroring its existing EXECUTION_FAILED throw, BEFORE the terminal RESOLVED-only return — so runVelaUnderwritingProjection never quotes, receipts, or telemetry-records a PROTOCOL_ERROR outcome as if it were a genuine disposition.",
+    "Added focused regression tests: 3 new cases in tests/vela-multi-party-projection.test.ts (zero-UserEvent PROTOCOL_ERROR, malformed-event-content PROTOCOL_ERROR, disposition-collapse-to-UNRESOLVED-unchanged), 1 new case in tests/vela-underwriting-projection.test.ts (PROTOCOL_ERROR throws distinctly, never quotes/receipts/telemetry-records)."
+  ],
+  "rejectedApproaches": [
+    "Treating result.decryptedUserEventJson === null as PROTOCOL_ERROR directly, without the new userEventCount signal — rejected: this is exactly the legitimate 'authorized event exists for other parties, none decrypt for me' case (VELA-PRIVACY-BOUNDARY-001), which must remain RESOLVED/UNRESOLVED via parseConfidentialVerdict(null), not be reclassified as a protocol defect.",
+    "Distinguishing 'authorized event that fails to decrypt for a reason other than not-being-the-recipient' as its own PROTOCOL_ERROR sub-case — rejected as out of scope for this pass: fetchResult carries no scope/authorization information at the point it attempts each decrypt, so a decrypt failure is cryptographically indistinguishable from ordinary exclusion at this layer without a deeper architectural change. Documented as a known, disclosed limitation (carried over from the 2026-09-16 decision doc) rather than attempted here, consistent with 'do not redesign the Vela architecture' and 'make the smallest source-verified repair'.",
+    "Broadening ConfidentialProjectionDisposition itself with a 4th 'PROTOCOL_ERROR' value — rejected for the same reason RES-2026-09-14-VELA-EXECUTION-FAILURE-NON-EQUIVALENCE-001 rejected a 4th EXECUTION_FAILED disposition value: the distinction is fully addressable at the poll-to-terminal/outcome layer, which is the one place that actually decides whether to persist anything."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-16-MISSING-EVIDENCE-NON-EQUIVALENCE-001"
+  ],
+  "canaries": [
+    "tests/vela-multi-party-projection.test.ts — 'PROTOCOL_ERROR (2026-09-16, 2nd pass): a successful completion (status 0) with ZERO UserEvent logs at all is a fail-closed evidence defect, never UNRESOLVED'",
+    "tests/vela-multi-party-projection.test.ts — 'PROTOCOL_ERROR: a successful completion whose decrypted event does not parse as a well-formed verdict payload is a protocol defect, never a fabricated disposition'",
+    "tests/vela-multi-party-projection.test.ts — 'getVelaMultiPartyProjectionDisposition collapses PROTOCOL_ERROR into the fail-closed string \"UNRESOLVED\", exactly like EXECUTION_FAILED'",
+    "tests/vela-underwriting-projection.test.ts — 'PROTOCOL_ERROR (2026-09-16, 2nd pass): a successful completion with zero UserEvent logs at all throws distinctly, never quotes/receipts/telemetry-records an UNRESOLVED that was never actually computed'"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "invariant-incomplete-or-wrongly-scoped",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/vela-multi-party-projection.test.ts",
+      "tests/vela-underwriting-projection.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/resolution-records/records/RES-2026-09-14-VELA-EXECUTION-FAILURE-NON-EQUIVALENCE-001.json",
+      "codexes/packs/agentiq/updates/2026-09-16_vela-v0.2.0-execution-fuel-deployment-facts.md"
+    ]
+  },
+  "sourceDocs": [
+    "services/vela/velaMultiPartyProjection.ts",
+    "services/vela/velaUnderwritingProjection.ts",
+    "services/vela/velaTypes.ts",
+    "services/vela/velaClientAdapter.ts",
+    "services/vela/velaTestTransport.ts"
+  ],
+  "date": "2026-09-16",
+  "projections": {
+    "targets": ["research-registry"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

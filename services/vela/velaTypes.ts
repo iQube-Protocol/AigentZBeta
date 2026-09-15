@@ -187,6 +187,17 @@ export interface VelaRequestResult {
   submittedPayload: Uint8Array;
   /** Decrypted per-user event payload (the app's own result JSON), if one was emitted to us. */
   decryptedUserEventJson: string | null;
+  /**
+   * Total `UserEvent` logs found for this request, TO ANY RECIPIENT (not
+   * just ours) — 2026-09-16 (2nd pass). Lets a decode layer distinguish
+   * "zero events exist at all" (a genuine evidence/protocol defect on a
+   * successful completion — the guest always emits at least one UserEvent
+   * on every non-malfunction path) from "events exist, but none decrypt for
+   * me" (the ordinary not-a-recipient case). See
+   * `services/vela/velaMultiPartyProjection.ts`'s own
+   * `getVelaMultiPartyProjectionOutcome` for where this is used.
+   */
+  userEventCount: number;
   /** Non-zero when the Executor marked the request failed (errorCode/errorMsg on the update payload). */
   errorCode: number;
   errorMsg: string;

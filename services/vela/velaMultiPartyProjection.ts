@@ -518,12 +518,50 @@ export async function submitVelaMultiPartyProjection(
  *    UNRESOLVED via a SUCCESSFUL execution). Carries the raw `errorCode`/
  *    `errorMsg` so a caller can distinguish this from a genuine `UNRESOLVED`
  *    without re-deriving it.
- *  - `'RESOLVED'`: a genuine, guest-computed disposition.
+ *  - `'RESOLVED'`: a genuine, guest-computed disposition — INCLUDING an
+ *    explicit, successful `UNRESOLVED` (the guest's own event decrypted and
+ *    named `verdict: "UNRESOLVED"`), and the ordinary not-a-recipient case
+ *    (other parties' events exist, but decrypting none of them succeeds for
+ *    THIS caller — the legitimate `VELA-PRIVACY-BOUNDARY-001` exclusion).
+ *  - `'PROTOCOL_ERROR'` (2026-09-16, 2nd pass): a SUCCESSFUL completion
+ *    (`status === 0`) that nonetheless cannot honestly resolve to any of the
+ *    above — either NO `UserEvent` exists for this request AT ALL (the guest
+ *    always emits at least one on every non-malfunction `ProcessRequest`
+ *    path; zero is never legitimate on a successful completion), or an event
+ *    decrypted successfully but its content does not parse as a valid
+ *    verdict payload. Distinct from `'RESOLVED'`'s own `'UNRESOLVED'`
+ *    disposition on purpose: `UNRESOLVED` is the guest's own deliberate,
+ *    evidenced epistemic answer; `PROTOCOL_ERROR` means the evidence itself
+ *    is missing or broken — a caller MUST NOT persist either as if it were
+ *    the other. NOT reachable for "an authorized event that failed to
+ *    decrypt for a reason other than not-being-the-recipient" — that remains
+ *    indistinguishable from ordinary exclusion at this layer (no scope
+ *    information reaches `fetchResult`); documented as a known limitation in
+ *    `codexes/packs/agentiq/updates/2026-09-16_vela-v0.2.0-execution-fuel-deployment-facts.md`.
  */
 export type VelaMultiPartyProjectionOutcome =
   | { status: 'PENDING' }
   | { status: 'EXECUTION_FAILED'; errorCode: number; errorMsg: string; applicationFees: string }
-  | { status: 'RESOLVED'; disposition: ConfidentialProjectionDisposition; applicationFees: string };
+  | { status: 'RESOLVED'; disposition: ConfidentialProjectionDisposition; applicationFees: string }
+  | { status: 'PROTOCOL_ERROR'; reason: string; applicationFees: string };
+
+/** True only when `json` parses as the exact `{"verdict": ACCEPTABLE|UNACCEPTABLE|UNRESOLVED}`
+ *  shape `parseConfidentialVerdict` itself recognises — used here ONLY to
+ *  distinguish "malformed content" (a PROTOCOL_ERROR) from "genuinely
+ *  resolved" for an event that DID decrypt; `parseConfidentialVerdict`
+ *  remains the single source of truth for the VALUE, this only asks whether
+ *  its own collapse-to-UNRESOLVED path was taken for a non-null input. */
+function isWellFormedVerdictJson(json: string): boolean {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return false;
+  }
+  if (typeof parsed !== 'object' || parsed === null) return false;
+  const verdict = (parsed as { verdict?: unknown }).verdict;
+  return verdict === 'ACCEPTABLE' || verdict === 'UNACCEPTABLE' || verdict === 'UNRESOLVED';
+}
 
 /**
  * Resolves the full, undegraded outcome of a multi-party request — the
@@ -563,6 +601,41 @@ export async function getVelaMultiPartyProjectionOutcome(
       applicationFees: result.applicationFees,
     };
   }
+  // A SUCCESSFUL completion (status === 0, errorCode === 0) with NO UserEvent
+  // at all is a fail-closed evidence/protocol defect, never `UNRESOLVED` — the
+  // guest always emits at least one UserEvent on every non-malfunction
+  // ProcessRequest path (app.go), so zero is never a legitimate outcome of a
+  // successful request. This is distinct from "events exist for other
+  // parties but none decrypt for me" (userEventCount > 0, decryptedUserEventJson
+  // === null), which remains the ordinary, legitimate not-a-recipient case
+  // handled by parseConfidentialVerdict below.
+  if (result.userEventCount === 0) {
+    return {
+      status: 'PROTOCOL_ERROR',
+      reason:
+        `no UserEvent found for a successfully completed request (requestId=${result.requestId}) — ` +
+        'the guest always emits at least one UserEvent on every non-malfunction ProcessRequest path; ' +
+        'this is a missing-evidence protocol defect, never a genuine UNRESOLVED disposition.',
+      applicationFees: result.applicationFees,
+    };
+  }
+  // An event decrypted successfully for us, but its content does not parse as
+  // a valid verdict payload — malformed evidence, never a genuine disposition
+  // (including never a genuine UNRESOLVED, which requires a well-formed
+  // `{"verdict": "UNRESOLVED"}` payload, not absence of a parseable one).
+  if (
+    result.decryptedUserEventJson !== null &&
+    !isWellFormedVerdictJson(result.decryptedUserEventJson)
+  ) {
+    return {
+      status: 'PROTOCOL_ERROR',
+      reason:
+        `decrypted UserEvent for requestId=${result.requestId} does not parse as a valid verdict ` +
+        'payload ({"verdict": "ACCEPTABLE"|"UNACCEPTABLE"|"UNRESOLVED"}) — malformed evidence on a ' +
+        'successful completion, never a genuine disposition.',
+      applicationFees: result.applicationFees,
+    };
+  }
   return {
     status: 'RESOLVED',
     disposition: parseConfidentialVerdict(result.decryptedUserEventJson),
@@ -590,10 +663,15 @@ export async function getVelaMultiPartyProjectionOutcome(
  *
  * UNCHANGED BEHAVIOUR, KEPT FOR EXISTING CALLERS: still collapses
  * `'EXECUTION_FAILED'` into the string `'UNRESOLVED'`, exactly as it always
- * has (fail-closed, never a false ACCEPTABLE/UNACCEPTABLE). A NEW caller that
- * will persist the result as evidence, a quote, or a receipt MUST use
- * `getVelaMultiPartyProjectionOutcome` instead — see that function's own
- * doc comment and Execution Failure Non-Equivalence.
+ * has (fail-closed, never a false ACCEPTABLE/UNACCEPTABLE). `'PROTOCOL_ERROR'`
+ * (2026-09-16, 2nd pass — missing or malformed evidence on an otherwise
+ * successful completion) collapses the SAME way, for the SAME reason: a
+ * coarse caller that only ever wanted a fail-closed three-valued-or-null
+ * signal must never see a false ACCEPTABLE/UNACCEPTABLE, and this function
+ * makes no distinction finer than "not a real disposition" for either
+ * failure class. A NEW caller that will persist the result as evidence, a
+ * quote, or a receipt MUST use `getVelaMultiPartyProjectionOutcome` instead —
+ * see that function's own doc comment and Execution Failure Non-Equivalence.
  */
 export async function getVelaMultiPartyProjectionDisposition(
   transport: Pick<VelaTransport, 'fetchResult'>,
@@ -601,6 +679,6 @@ export async function getVelaMultiPartyProjectionDisposition(
 ): Promise<ConfidentialProjectionDisposition | null> {
   const outcome = await getVelaMultiPartyProjectionOutcome(transport, onChainRequestId);
   if (outcome.status === 'PENDING') return null;
-  if (outcome.status === 'EXECUTION_FAILED') return 'UNRESOLVED';
+  if (outcome.status === 'EXECUTION_FAILED' || outcome.status === 'PROTOCOL_ERROR') return 'UNRESOLVED';
   return outcome.disposition;
 }

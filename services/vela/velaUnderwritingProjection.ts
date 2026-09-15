@@ -271,6 +271,14 @@ async function pollMultiPartyDispositionToTerminal(
         'Refusing to quote or receipt a result the guest never actually computed.',
     );
   }
+  if (outcome.status === 'PROTOCOL_ERROR') {
+    throw new Error(
+      `runVelaUnderwritingProjection: request ${onChainRequestId} completed successfully but its ` +
+        `evidence is missing or malformed (${outcome.reason}) — this is a fail-closed evidence/` +
+        'protocol defect, never a constitutional UNRESOLVED determination. Refusing to quote or ' +
+        'receipt a result the guest never actually produced.',
+    );
+  }
   // Terminal + RESOLVED: safe to fetch the same completed result once more
   // for the state-root/tx evidence getVelaMultiPartyProjectionOutcome does
   // not itself carry. Never decoded/trusted before this point in the flow.

@@ -749,4 +749,63 @@ describe('Execution Failure Non-Equivalence — getVelaMultiPartyProjectionOutco
     expect(failedOutcome.status).toBe('EXECUTION_FAILED');
     if (failedOutcome.status === 'EXECUTION_FAILED') expect(failedOutcome.applicationFees).toBe('10');
   });
+
+  it('PROTOCOL_ERROR (2026-09-16, 2nd pass): a successful completion (status 0) with ZERO UserEvent logs at all is a fail-closed evidence defect, never UNRESOLVED', async () => {
+    // The guest always emits at least one UserEvent on every non-malfunction
+    // ProcessRequest path (app.go) — userEventCount: 0 on a status-0 result
+    // models the genuinely-missing-evidence case, distinct from the ordinary
+    // "events exist for others, none decrypt for me" case above (which keeps
+    // the default userEventCount: 1 and stays RESOLVED/UNRESOLVED).
+    const transport = new VelaTestTransport({
+      deployment: VELA_LOCAL_DEPLOYMENT,
+      registeredTeeSigner: SIGNER,
+      verdictFor: () => null,
+      status: 0,
+      errorCode: 0,
+      userEventCount: 0,
+    });
+    const prepared = await prepareVelaMultiPartyProjection(transport, baseParams('req-1', validScope('req-1')));
+    const submission = await submitVelaMultiPartyProjection(transport, prepared);
+
+    const outcome = await getVelaMultiPartyProjectionOutcome(transport, submission.onChainRequestId);
+    expect(outcome.status).toBe('PROTOCOL_ERROR');
+    if (outcome.status === 'PROTOCOL_ERROR') {
+      expect(outcome.reason).toMatch(/no UserEvent found/i);
+      expect(outcome.applicationFees).toBe('0');
+    }
+  });
+
+  it('PROTOCOL_ERROR: a successful completion whose decrypted event does not parse as a well-formed verdict payload is a protocol defect, never a fabricated disposition', async () => {
+    const transport = new VelaTestTransport({
+      deployment: VELA_LOCAL_DEPLOYMENT,
+      registeredTeeSigner: SIGNER,
+      verdictFor: () => 'not valid verdict json at all',
+      status: 0,
+      errorCode: 0,
+    });
+    const prepared = await prepareVelaMultiPartyProjection(transport, baseParams('req-1', validScope('req-1')));
+    const submission = await submitVelaMultiPartyProjection(transport, prepared);
+
+    const outcome = await getVelaMultiPartyProjectionOutcome(transport, submission.onChainRequestId);
+    expect(outcome.status).toBe('PROTOCOL_ERROR');
+    if (outcome.status === 'PROTOCOL_ERROR') {
+      expect(outcome.reason).toMatch(/does not parse as a valid verdict payload/i);
+    }
+  });
+
+  it('getVelaMultiPartyProjectionDisposition collapses PROTOCOL_ERROR into the fail-closed string "UNRESOLVED", exactly like EXECUTION_FAILED', async () => {
+    const transport = new VelaTestTransport({
+      deployment: VELA_LOCAL_DEPLOYMENT,
+      registeredTeeSigner: SIGNER,
+      verdictFor: () => null,
+      status: 0,
+      errorCode: 0,
+      userEventCount: 0,
+    });
+    const prepared = await prepareVelaMultiPartyProjection(transport, baseParams('req-1', validScope('req-1')));
+    const submission = await submitVelaMultiPartyProjection(transport, prepared);
+
+    const disposition = await getVelaMultiPartyProjectionDisposition(transport, submission.onChainRequestId);
+    expect(disposition).toBe('UNRESOLVED');
+  });
 });

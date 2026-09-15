@@ -572,4 +572,30 @@ describe('Execution Failure Non-Equivalence — a Vela execution failure is neve
     expect(createActivityReceiptMock).toHaveBeenCalledTimes(1);
     expect(recordVelaUnderwritingRiskTelemetryMock).toHaveBeenCalledTimes(1);
   });
+
+  it('PROTOCOL_ERROR (2026-09-16, 2nd pass): a successful completion with zero UserEvent logs at all throws distinctly, never quotes/receipts/telemetry-records an UNRESOLVED that was never actually computed', async () => {
+    const protocolErrorTransport = new VelaTestTransport({
+      deployment: VELA_LOCAL_DEPLOYMENT,
+      registeredTeeSigner: SIGNER,
+      verdictFor: () => null,
+      status: 0,
+      errorCode: 0,
+      userEventCount: 0,
+    });
+    const spyProvider: UnderwritingProvider = {
+      mode: 'SIMULATED',
+      policyVersion: 'test-provider-v1',
+      quoteForVerdict: vi.fn(async (v: any) => new SimulatedUnderwritingProvider().quoteForVerdict(v)),
+    };
+
+    await expect(
+      runVelaUnderwritingProjection(
+        baseCallParams({ transport: protocolErrorTransport, underwritingProvider: spyProvider }),
+      ),
+    ).rejects.toThrow(/evidence is missing or malformed/);
+
+    expect(spyProvider.quoteForVerdict).not.toHaveBeenCalled();
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    expect(recordVelaUnderwritingRiskTelemetryMock).not.toHaveBeenCalled();
+  });
 });

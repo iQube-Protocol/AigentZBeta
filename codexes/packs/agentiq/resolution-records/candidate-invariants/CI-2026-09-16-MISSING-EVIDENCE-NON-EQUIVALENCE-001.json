@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-16-MISSING-EVIDENCE-NON-EQUIVALENCE-001",
+  "statement": "Missing Evidence Non-Equivalence: a SUCCESSFUL completion (Vela RequestCompleted.status === 0, errorCode === 0) that nonetheless produces no honest evidence for the caller — either zero on-chain output events exist for the request at all, or an event decrypted successfully but its content is not a well-formed disposition payload — must never be interpreted or persisted as if it were a genuine, evidenced disposition (including a genuine UNRESOLVED). A caller that will persist a confidential-projection result as evidence, a quote, a receipt, or telemetry MUST distinguish 'the guest evaluated and evidenced an explicit UNRESOLVED' from 'the expected evidence itself is missing or broken', and must refuse to proceed on the latter rather than silently substitute the conservative disposition value for it. This is distinct from, and additional to, CI-2026-09-14-EXECUTION-FAILURE-NON-EQUIVALENCE-001, which governs the orthogonal status!==0/errorCode!==0 failure class — that invariant proved incomplete on its own because a SUCCESSFUL completion can still carry broken or absent evidence, a case its own gate does not reach.",
+  "family": "constitutional",
+  "governingPrinciple": false,
+  "parentCandidateId": "CI-2026-09-14-EXECUTION-FAILURE-NON-EQUIVALENCE-001",
+  "projections": {
+    "targets": ["research-registry", "constitutional-computing"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "classification": "A refinement of CI-2026-09-14-EXECUTION-FAILURE-NON-EQUIVALENCE-001's own 'a caller that will persist a result must first verify it is real before trusting it' principle, extended from EXECUTION STATUS (status/errorCode) to EVIDENCE PRESENCE AND WELL-FORMEDNESS (userEventCount, payload shape). Also an instance of CLAUDE.md's No-Guessing rule applied to evidence completeness: 'this request resolved to UNRESOLVED' must be verified against the actual presence and shape of the evidence before being trusted, not inferred from the absence of a decodable event.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/vela-multi-party-projection.test.ts",
+      "assertion": "'PROTOCOL_ERROR (2026-09-16, 2nd pass): a successful completion (status 0) with ZERO UserEvent logs at all is a fail-closed evidence defect, never UNRESOLVED' proves getVelaMultiPartyProjectionOutcome returns a distinct PROTOCOL_ERROR branch (naming the reason, with no `disposition` field reachable without narrowing) when userEventCount is 0 on an otherwise-successful completion.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/vela-multi-party-projection.test.ts",
+      "assertion": "'PROTOCOL_ERROR: a successful completion whose decrypted event does not parse as a well-formed verdict payload is a protocol defect, never a fabricated disposition' proves the same distinct branch is reached when an event DID decrypt but its content is not well-formed JSON matching {\"verdict\": ACCEPTABLE|UNACCEPTABLE|UNRESOLVED}.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/vela-multi-party-projection.test.ts",
+      "assertion": "'getVelaMultiPartyProjectionDisposition collapses PROTOCOL_ERROR into the fail-closed string \"UNRESOLVED\", exactly like EXECUTION_FAILED' proves the legacy coarse entry point remains fail-closed for existing callers.",
+      "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/vela-underwriting-projection.test.ts",
+      "assertion": "'PROTOCOL_ERROR (2026-09-16, 2nd pass): a successful completion with zero UserEvent logs at all throws distinctly, never quotes/receipts/telemetry-records an UNRESOLVED that was never actually computed' proves runVelaUnderwritingProjection refuses to persist anything for this case.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "vela-001-confidential-constitutional-execution / multi-party projection decode — services/vela/velaMultiPartyProjection.ts",
+      "defect": "getVelaMultiPartyProjectionOutcome treated every status===0/errorCode===0 completion as RESOLVED and passed decryptedUserEventJson straight to parseConfidentialVerdict — which collapses BOTH a legitimate not-a-recipient exclusion (events exist elsewhere, none decrypt for me) AND a genuinely missing/malformed-evidence case to the identical 'UNRESOLVED' disposition, with no way for a caller to tell them apart.",
+      "resolutionId": "RES-2026-09-16-VELA-MISSING-EVENT-PROTOCOL-ERROR-NON-EQUIVALENCE-001",
+      "evidence": ["services/vela/velaMultiPartyProjection.ts", "tests/vela-multi-party-projection.test.ts"]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-09-16-VELA-MISSING-EVENT-PROTOCOL-ERROR-NON-EQUIVALENCE-001",
+    "RES-2026-09-14-VELA-EXECUTION-FAILURE-NON-EQUIVALENCE-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This is the FIRST recorded occurrence — status stays `candidate`; only an operator act may raise this to `ratified`/`canonical`.",
+    "Explicitly does NOT cover 'an authorized event that fails to decrypt for a reason other than not-being-the-recipient' — that remains indistinguishable from ordinary VELA-PRIVACY-BOUNDARY-001 exclusion at the fetchResult layer, since no scope/authorization information reaches that call. Disclosed as a known limitation, not silently left unaddressed.",
+    "Composes with, and does not replace, CI-2026-09-14-EXECUTION-FAILURE-NON-EQUIVALENCE-001: a caller must check BOTH the status/errorCode gate AND the evidence-presence/well-formedness gate before trusting a disposition — getVelaMultiPartyProjectionOutcome enforces both, in that order, in one function."
+  ]
+}
