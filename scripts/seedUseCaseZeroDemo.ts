@@ -308,10 +308,11 @@ export async function resolveUseCaseZeroDemoRecipientAddresses(
 export function buildUseCaseZeroDemoFactorSelection(
   personas: UseCaseZeroDemoPersonas,
   applicationId: string = USE_CASE_ZERO_DEMO_APPLICATION_ID,
+  requestRef: string = USE_CASE_ZERO_DEMO_REQUEST_REF,
 ): FactorSelectionArtifact {
   assertUseCaseZeroDemoPersonas(personas);
   return proposeFactorSelection({
-    requestRef: USE_CASE_ZERO_DEMO_REQUEST_REF,
+    requestRef,
     applicationId,
     candidateAgentSlug: DEMO_CANDIDATE_AGENT_SLUG,
     serviceId: USE_CASE_ZERO_DEMO_SERVICE_ID,
@@ -329,11 +330,12 @@ export function buildUseCaseZeroDemoFactorSelection(
  *  second copy that could drift. */
 export function buildUseCaseZeroDemoDisclosureScope(
   applicationId: string = USE_CASE_ZERO_DEMO_APPLICATION_ID,
+  requestRef: string = USE_CASE_ZERO_DEMO_REQUEST_REF,
 ): VelaMultiPartyDisclosureScope {
   return {
     binding: {
       applicationId,
-      requestRef: USE_CASE_ZERO_DEMO_REQUEST_REF,
+      requestRef,
       operationType: VELA_MULTI_PARTY_OPERATION_JOINT_CONSEQUENCE_PROJECTION,
       outputClass: VELA_MULTI_PARTY_OUTPUT_CLASS_JOINT_VERDICT,
     },
@@ -376,6 +378,20 @@ export interface ComposeUseCaseZeroDemoChainParams extends UseCaseZeroDemoPerson
    * address is constructed inside this function.
    */
   resolvedRecipients: UseCaseZeroDemoResolvedRecipients;
+  /**
+   * Explicit requestRef for a NEW deployment/evidence lineage (2026-09-16,
+   * UC0 final blocker — `--request-ref=<...>`), threaded through composition,
+   * the disclosure authorization, every party binding, and the returned
+   * `requestRef` field — which `persistUseCaseZeroDemoChain` already keys
+   * ALL of its idempotency/evidence-lookup logic on generically (it reads
+   * `composed.requestRef`, never the `USE_CASE_ZERO_DEMO_REQUEST_REF`
+   * constant directly), so no change was needed there. Defaults to the
+   * fixed `USE_CASE_ZERO_DEMO_REQUEST_REF` — the historical demo lineage's
+   * own records are NEVER read, migrated, relabeled, or attached to under a
+   * different requestRef; a new requestRef simply starts (or idempotently
+   * continues) its own, entirely separate lineage. Must be non-empty.
+   */
+  requestRef?: string;
 }
 
 export interface UseCaseZeroDemoComposedChain {
@@ -442,13 +458,20 @@ export function composeUseCaseZeroDemoChain(
   }
 
   const applicationId = params.applicationId ?? USE_CASE_ZERO_DEMO_APPLICATION_ID;
-  const factorSelection = buildUseCaseZeroDemoFactorSelection(params, applicationId);
+  const requestRef = params.requestRef ?? USE_CASE_ZERO_DEMO_REQUEST_REF;
+  if (typeof requestRef !== 'string' || requestRef.trim().length === 0) {
+    throw new Error(
+      'composeUseCaseZeroDemoChain: requestRef, when supplied, must be a non-empty reference — refusing to ' +
+        'compose a chain keyed on an empty/malformed requestRef.',
+    );
+  }
+  const factorSelection = buildUseCaseZeroDemoFactorSelection(params, applicationId, requestRef);
 
   const disclosureAuthorization = authorizeUnderwritingDisclosure({
     selectionRef: factorSelection.selectionRef,
-    requestRef: USE_CASE_ZERO_DEMO_REQUEST_REF,
+    requestRef,
     applicationId,
-    scope: buildUseCaseZeroDemoDisclosureScope(applicationId),
+    scope: buildUseCaseZeroDemoDisclosureScope(applicationId, requestRef),
     authorizedByAgentRef: DEMO_AUTHORIZING_AGENT_REF,
     evidenceRefs: [],
   });
@@ -461,7 +484,7 @@ export function composeUseCaseZeroDemoChain(
 
   const partyBindingInputs: RecordUnderwritingPartyBindingInput[] = Object.entries(partyPersonaByLabel).map(
     ([partyLabel, personaId]) => ({
-      requestRef: USE_CASE_ZERO_DEMO_REQUEST_REF,
+      requestRef,
       applicationId,
       partyLabel,
       partyNamespaceRef: deriveVelaPartyNamespaceRef(applicationId, {
@@ -497,7 +520,7 @@ export function composeUseCaseZeroDemoChain(
   ];
 
   return {
-    requestRef: USE_CASE_ZERO_DEMO_REQUEST_REF,
+    requestRef,
     applicationId,
     factorSelection,
     admissionEvidence: params.admissionEvidence,
@@ -1526,6 +1549,24 @@ export async function main(): Promise<void> {
   // (never `error`) after its own getSupabaseServer() check already passed.
   const admin = getSupabaseServer()!;
 
+  // EXPLICIT --request-ref (2026-09-16, UC0 final blocker) — a NEW
+  // requestRef for a real Vela deployment's own evidence lineage, entirely
+  // separate from USE_CASE_ZERO_DEMO_REQUEST_REF's historical demo records
+  // (never read, migrated, relabeled, or attached to here). Optional; the
+  // fixed demo requestRef remains the default for legacy/test behavior.
+  // Validated here (not left to composeUseCaseZeroDemoChain's own defense-
+  // in-depth check alone) because it is needed BEFORE composition, to key
+  // the Factor selection this run's admissionEvidence lookup depends on.
+  const requestRefArg = cliArg('request-ref');
+  const requestRef = requestRefArg !== undefined ? requestRefArg : USE_CASE_ZERO_DEMO_REQUEST_REF;
+  if (requestRef.trim().length === 0) {
+    console.error(
+      'seedUseCaseZeroDemo: --request-ref, when supplied, must be a non-empty reference. Nothing was persisted.',
+    );
+    process.exitCode = 1;
+    return;
+  }
+
   // DEPLOYMENT-RECEIPT VERIFICATION (2026-09-16, Vela/Horizen v0.2.0
   // feedback) — resolved BEFORE composing, so a verified receipt's
   // applicationId is what actually flows into Factor selection,
@@ -1556,7 +1597,7 @@ export async function main(): Promise<void> {
     }
   }
 
-  const factorSelection = buildUseCaseZeroDemoFactorSelection(personas, applicationId);
+  const factorSelection = buildUseCaseZeroDemoFactorSelection(personas, applicationId, requestRef);
   const admissionEvidence = await composeUnderwritingAdmissionEvidence(admin, { factorSelection });
 
   // REAL RECIPIENT RESOLUTION (2026-09-16, Vela masterclass) — read-only
@@ -1576,7 +1617,7 @@ export async function main(): Promise<void> {
     return;
   }
 
-  const composed = composeUseCaseZeroDemoChain({ ...personas, admissionEvidence, applicationId, resolvedRecipients });
+  const composed = composeUseCaseZeroDemoChain({ ...personas, admissionEvidence, applicationId, resolvedRecipients, requestRef });
 
   // GENUINE --preflight/--dry-run — returns here, BEFORE the FROZEN branch
   // below (which is the only code path that can resolve a signer) and
@@ -1632,6 +1673,50 @@ export async function main(): Promise<void> {
           );
           if (provisioning.result.privacyLimitation) {
             console.log(`  privacy note: ${provisioning.result.privacyLimitation}`);
+          }
+        }
+
+        // SUBMITTER BALANCE (2026-09-16, UC0 final blocker) — informational
+        // only, public_devnet only, and READ-ONLY: resolves MoneyPenny's
+        // (the requester/composition-gate role, DEMO_AUTHORIZING_AGENT_REF)
+        // ADDRESS ONLY via AgentKeyService.getAgentAddresses (never
+        // getAgentKeys — no private key is touched, preserving --preflight's
+        // own "zero signer/private-key resolution" guarantee below), then a
+        // plain balance read plus the SAME balance-independent funding
+        // estimate `--provision-recipients` already uses. Reports a
+        // shortfall; never transfers funds itself — --preflight performs no
+        // writes or transactions of any kind.
+        if (velaEnv === 'public_devnet' && provisioning.reachable) {
+          const evmKeyOverride = cliArg('evm-key');
+          let submitterAddress: string | null = null;
+          if (evmKeyOverride) {
+            const { Wallet } = await import('ethers');
+            submitterAddress = new Wallet(evmKeyOverride).address;
+          } else {
+            const { AgentKeyService } = await import('@/services/identity/agentKeyService');
+            const addrs = await new AgentKeyService().getAgentAddresses(DEMO_AUTHORIZING_AGENT_REF);
+            submitterAddress = addrs?.evmAddress ?? null;
+          }
+          if (!submitterAddress) {
+            console.log(
+              '  submitter balance: could not resolve an address to check (no --evm-key override and no ' +
+                `custodied address on record for "${DEMO_AUTHORIZING_AGENT_REF}").`,
+            );
+          } else {
+            const deployment = await resolveDemoVelaDeployment(velaEnv);
+            const { JsonRpcProvider } = await import('ethers');
+            const { estimateVelaAssociateKeyFundingRequirement } = await import(
+              '@/services/vela/velaRecipientProvisioningPreflight'
+            );
+            const provider = new JsonRpcProvider(deployment.rpcUrl);
+            const balanceWei: bigint = await provider.getBalance(submitterAddress);
+            const requirement = await estimateVelaAssociateKeyFundingRequirement(deployment);
+            const sufficient = balanceWei >= requirement.requiredWei;
+            console.log(
+              `  submitter ${redactAddressForDisplay(submitterAddress)} balance: ${balanceWei} wei ` +
+                `(requires ~${requirement.requiredWei} wei) — ` +
+                `${sufficient ? 'SUFFICIENT' : 'INSUFFICIENT — a consequential run would fail at submission unless funded first'}`,
+            );
           }
         }
       }

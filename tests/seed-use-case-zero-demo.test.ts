@@ -1089,6 +1089,201 @@ describe('main() — deployment-receipt applicationId handling before any Vela s
   });
 });
 
+// ── main() — explicit --request-ref (2026-09-16, UC0 final blocker) ────────
+//
+// A NEW requestRef for the real Vela deployment's own evidence lineage,
+// entirely separate from USE_CASE_ZERO_DEMO_REQUEST_REF's historical demo
+// records. These tests prove: it reaches every composed/persisted artifact;
+// the historical fixed reference is never touched; the two coexist; a
+// rerun under the new reference is idempotent; an applicationId mismatch
+// under the NEW reference still refuses; and an empty/malformed
+// --request-ref is rejected before anything is composed or persisted.
+
+describe('main() — explicit --request-ref (2026-09-16, UC0 final blocker)', () => {
+  const originalArgv = process.argv;
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+  let tmpDir: string;
+  const NEW_REQUEST_REF = 'demo-use-case-zero-arkagent-nakamoto-kn0w1-public-devnet-7772128744286866180-001';
+
+  beforeEach(async () => {
+    process.argv = [
+      ...originalArgv,
+      `--arkagent=${TEST_PERSONAS.arkAgentPersonaId}`,
+      `--nakamoto=${TEST_PERSONAS.nakamotoPersonaId}`,
+      `--kn0w1=${TEST_PERSONAS.kn0w1PersonaId}`,
+      '--evm-key=0x' + '33'.repeat(32),
+    ];
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    seedAdmittedAegisAssessmentForNakamoto();
+    const { mkdtempSync } = await import('fs');
+    const { tmpdir } = await import('os');
+    const { join } = await import('path');
+    tmpDir = mkdtempSync(join(tmpdir(), 'seed-uc0-requestref-'));
+  });
+
+  afterEach(async () => {
+    process.argv = originalArgv;
+    errorSpy.mockRestore();
+    const { rmSync } = await import('fs');
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('an explicit --request-ref reaches every composed and persisted artifact: Factor selection, disclosure authorization, and every party binding', async () => {
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '7772128744286866180');
+    process.argv.push(`--deployment-receipt=${path}`, `--request-ref=${NEW_REQUEST_REF}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    const factorReceipt = createActivityReceiptMock.mock.calls.find((c: any[]) => c[0].actionType === 'factor_selection_proposed');
+    expect(factorReceipt?.[0].actionInput.requestRef).toBe(NEW_REQUEST_REF);
+    const authReceipt = createActivityReceiptMock.mock.calls.find((c: any[]) => c[0].actionType === 'vela_underwriting_disclosure_authorized');
+    expect(authReceipt?.[0].actionInput.requestRef).toBe(NEW_REQUEST_REF);
+    const bindings = fakeAdmin!.tables.vela_underwriting_party_bindings ?? [];
+    expect(bindings.length).toBe(3);
+    expect(bindings.every((b) => b.request_ref === NEW_REQUEST_REF)).toBe(true);
+    const frozenReceipt = createActivityReceiptMock.mock.calls.find((c: any[]) => c[0].actionType === 'vela_underwriting_envelope_frozen');
+    expect(frozenReceipt?.[0].actionInput.applicationId).toBe('7772128744286866180');
+  });
+
+  it('never touches the historical fixed requestRef\'s own records — a run under the new reference writes NOTHING under USE_CASE_ZERO_DEMO_REQUEST_REF', async () => {
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '7772128744286866180');
+    process.argv.push(`--deployment-receipt=${path}`, `--request-ref=${NEW_REQUEST_REF}`);
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    const bindings = fakeAdmin!.tables.vela_underwriting_party_bindings ?? [];
+    expect(bindings.some((b) => b.request_ref === USE_CASE_ZERO_DEMO_REQUEST_REF)).toBe(false);
+    expect(
+      createActivityReceiptMock.mock.calls.every((c: any[]) => c[0].actionInput?.requestRef !== USE_CASE_ZERO_DEMO_REQUEST_REF),
+    ).toBe(true);
+  });
+
+  it('the new requestRef coexists with the historical one — running BOTH leaves independent, non-overlapping records for each', async () => {
+    // First: the historical, default requestRef (no --request-ref flag).
+    const historicalPath = await writeValidDeploymentReceiptFile(tmpDir, '42');
+    process.argv.push(`--deployment-receipt=${historicalPath}`);
+    await runUseCaseZeroDemoSeedCli();
+    expect(errorSpy).not.toHaveBeenCalled();
+
+    // Second: the NEW requestRef, a DIFFERENT applicationId (its own real deployment).
+    process.argv = [
+      ...originalArgv,
+      `--arkagent=${TEST_PERSONAS.arkAgentPersonaId}`,
+      `--nakamoto=${TEST_PERSONAS.nakamotoPersonaId}`,
+      `--kn0w1=${TEST_PERSONAS.kn0w1PersonaId}`,
+      '--evm-key=0x' + '33'.repeat(32),
+    ];
+    const newPath = await writeValidDeploymentReceiptFile(tmpDir, '7772128744286866180');
+    process.argv.push(`--deployment-receipt=${newPath}`, `--request-ref=${NEW_REQUEST_REF}`);
+    await runUseCaseZeroDemoSeedCli();
+    expect(errorSpy).not.toHaveBeenCalled();
+
+    const bindings = fakeAdmin!.tables.vela_underwriting_party_bindings ?? [];
+    const historicalBindings = bindings.filter((b) => b.request_ref === USE_CASE_ZERO_DEMO_REQUEST_REF);
+    const newBindings = bindings.filter((b) => b.request_ref === NEW_REQUEST_REF);
+    expect(historicalBindings.length).toBe(3);
+    expect(newBindings.length).toBe(3);
+    expect(historicalBindings.every((b) => b.application_id === '42')).toBe(true);
+    expect(newBindings.every((b) => b.application_id === '7772128744286866180')).toBe(true);
+  });
+
+  it('a rerun with the SAME new requestRef and applicationId is idempotent — zero additional receipts, zero re-submission', async () => {
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '7772128744286866180');
+    process.argv.push(`--deployment-receipt=${path}`, `--request-ref=${NEW_REQUEST_REF}`);
+
+    await runUseCaseZeroDemoSeedCli();
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(runVelaUnderwritingProjectionMock).toHaveBeenCalledTimes(1);
+    createActivityReceiptMock.mockClear();
+    runVelaUnderwritingProjectionMock.mockClear();
+
+    // Identical rerun.
+    process.argv = [
+      ...originalArgv,
+      `--arkagent=${TEST_PERSONAS.arkAgentPersonaId}`,
+      `--nakamoto=${TEST_PERSONAS.nakamotoPersonaId}`,
+      `--kn0w1=${TEST_PERSONAS.kn0w1PersonaId}`,
+      '--evm-key=0x' + '33'.repeat(32),
+      `--deployment-receipt=${path}`,
+      `--request-ref=${NEW_REQUEST_REF}`,
+    ];
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    expect(runVelaUnderwritingProjectionMock).not.toHaveBeenCalled();
+    const bindings = (fakeAdmin!.tables.vela_underwriting_party_bindings ?? []).filter((b) => b.request_ref === NEW_REQUEST_REF);
+    expect(bindings.length).toBe(3); // still exactly 3 — no duplicates written
+  });
+
+  it('a DIFFERENT applicationId under the SAME new requestRef still fails closed before any write or submission', async () => {
+    const pathA = await writeValidDeploymentReceiptFile(tmpDir, '7772128744286866180');
+    process.argv.push(`--deployment-receipt=${pathA}`, `--request-ref=${NEW_REQUEST_REF}`);
+    await runUseCaseZeroDemoSeedCli();
+    expect(errorSpy).not.toHaveBeenCalled();
+    const callsAfterFirstRun = createActivityReceiptMock.mock.calls.length;
+
+    const pathB = await writeValidDeploymentReceiptFile(tmpDir, '999');
+    process.argv = [
+      ...originalArgv,
+      `--arkagent=${TEST_PERSONAS.arkAgentPersonaId}`,
+      `--nakamoto=${TEST_PERSONAS.nakamotoPersonaId}`,
+      `--kn0w1=${TEST_PERSONAS.kn0w1PersonaId}`,
+      '--evm-key=0x' + '33'.repeat(32),
+      `--deployment-receipt=${pathB}`,
+      `--request-ref=${NEW_REQUEST_REF}`,
+    ];
+
+    // persistUseCaseZeroDemoChain's own applicationId-consistency check
+    // throws (never caught internally by main() — the same behavior the
+    // existing "persistUseCaseZeroDemoChain — fail-closed applicationId
+    // consistency" suite already exercises directly), so the SAME
+    // requestRef under a genuinely different applicationId rejects here.
+    await expect(runUseCaseZeroDemoSeedCli()).rejects.toThrow(/DIFFERENT applicationId/);
+
+    expect(createActivityReceiptMock.mock.calls.length).toBe(callsAfterFirstRun);
+  });
+
+  it('an empty --request-ref is rejected before anything is composed or persisted', async () => {
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '7772128744286866180');
+    process.argv.push(`--deployment-receipt=${path}`, '--request-ref=');
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    expect(velaClientAdapterConstructorMock).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(String(errorSpy.mock.calls[0][0])).toMatch(/--request-ref, when supplied, must be a non-empty reference/);
+  });
+
+  it('a whitespace-only --request-ref is rejected the same way', async () => {
+    const path = await writeValidDeploymentReceiptFile(tmpDir, '7772128744286866180');
+    process.argv.push(`--deployment-receipt=${path}`, '--request-ref=   ');
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(String(errorSpy.mock.calls[0][0])).toMatch(/--request-ref, when supplied, must be a non-empty reference/);
+  });
+
+  it('--preflight prints the selected --request-ref and remains zero-effect', async () => {
+    process.argv.push('--preflight', `--request-ref=${NEW_REQUEST_REF}`, '--app=7772128744286866180');
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    await runUseCaseZeroDemoSeedCli();
+
+    expect(createActivityReceiptMock).not.toHaveBeenCalled();
+    expect(velaClientAdapterConstructorMock).not.toHaveBeenCalled();
+    expect(getAgentKeysMock).not.toHaveBeenCalled();
+    const output = logSpy.mock.calls.flat().join('\n');
+    expect(output).toContain(`requestRef=${NEW_REQUEST_REF}`);
+    logSpy.mockRestore();
+  });
+});
+
 // ── main() — recipient provisioning preflight (2026-09-16, Vela masterclass) ─
 //
 // Every FROZEN run must verify that every recipient the MoneyPenny WASM will
